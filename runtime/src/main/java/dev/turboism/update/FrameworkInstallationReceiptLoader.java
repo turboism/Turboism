@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.FrameworkBuildInfo;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
@@ -115,7 +116,14 @@ public final class FrameworkInstallationReceiptLoader {
             throws IOException, InterruptedException, UpdateManifestVerifier.UpdateManifestVerificationException {
         final String rootIdentity = files.rootIdentity();
         final Path indexPath = root.resolve(STATE).resolve("installed-receipt.json");
-        final byte[] indexBytes = files.document(indexPath, 4096);
+        final byte[] indexBytes;
+        try {
+            indexBytes = files.document(indexPath, 4096);
+        } catch (NoSuchFileException missing) {
+            throw (IOException) new IOException("Installation receipt is missing (" + indexPath.getFileName()
+                            + "); install the full package to enable self-update")
+                    .initCause(missing);
+        }
         final JsonNode parsed = UpdateFileSupport.JSON.readTree(UpdateManifest.strictUtf8(indexBytes));
         if (!(parsed instanceof ObjectNode index)
                 || !text(index, "format", FORMAT)
@@ -128,10 +136,17 @@ public final class FrameworkInstallationReceiptLoader {
         }
         final String digest = indexDigest(index);
         final Path directory = root.resolve(STATE).resolve("receipts").resolve(digest);
-        final byte[] manifestBytes =
-                files.document(directory.resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
-        final byte[] envelopeBytes =
-                files.document(directory.resolve("manifest.json.sig"), UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
+        final byte[] manifestBytes;
+        final byte[] envelopeBytes;
+        try {
+            manifestBytes = files.document(directory.resolve("manifest.json"), UpdateManifest.MAX_MANIFEST_BYTES);
+            envelopeBytes =
+                    files.document(directory.resolve("manifest.json.sig"), UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
+        } catch (NoSuchFileException missing) {
+            throw (IOException) new IOException("Signed installation receipt document is missing (" + missing.getFile()
+                            + "); install the full package to repair")
+                    .initCause(missing);
+        }
         if (!digest.equals(CURRENT_RECEIPT.getFileName().toString())
                 && !FrameworkUpdateTaskStore.hash(manifestBytes).equals(digest))
             throw new IOException("Receipt document digest mismatch");
@@ -158,7 +173,13 @@ public final class FrameworkInstallationReceiptLoader {
         for (final UpdateManifestEntry entry : manifest.entries()) {
             total += entry.bytes();
             if (total > 1024L * 1024 * 1024) throw new IOException("Receipt expanded size exceeds budget");
-            files.verify(entry);
+            try {
+                files.verify(entry);
+            } catch (NoSuchFileException missing) {
+                throw (IOException) new IOException("Installed framework file is missing (" + entry.relativePath()
+                                + "); install the full package to repair")
+                        .initCause(missing);
+            }
             hashes.put(entry.relativePath(), entry.sha256());
         }
         if (info != null

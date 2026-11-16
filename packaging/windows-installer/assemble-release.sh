@@ -28,6 +28,7 @@ set -euo pipefail
 VER=""
 SKIP_NSIS=0
 SKIP_GRADLE=0
+WITH_INVENTORY=0
 BOOTSTRAP_RECEIPT_DIR="${TURBOISM_BOOTSTRAP_RECEIPT_DIR:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -39,6 +40,10 @@ while [[ $# -gt 0 ]]; do
     --skip-gradle)
       # 仅在受保护签名 job 内使用：复用已上传的 staging/dist，不跑 Gradle。
       SKIP_GRADLE=1
+      shift
+      ;;
+    --with-inventory)
+      WITH_INVENTORY=1
       shift
       ;;
     --bootstrap-receipt-dir)
@@ -62,7 +67,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$VER" ]]; then
-  echo "usage: assemble-release.sh <version> [--skip-nsis] [--skip-gradle] [--bootstrap-receipt-dir <path>]" >&2
+  echo "usage: assemble-release.sh <version> [--skip-nsis] [--skip-gradle] [--with-inventory] [--bootstrap-receipt-dir <path>]" >&2
   exit 2
 fi
 
@@ -79,12 +84,16 @@ generated="$repo_root/build/windows-installer/generated"
 if [[ "$SKIP_GRADLE" == "1" ]]; then
   echo "[assemble] --skip-gradle: 复用现有 staging/dist，不调用 Gradle"
 else
-  echo "[assemble] gradle: stageInstallerPayload :event-processor:jar"
+  gradle_tasks=(stageInstallerPayload :event-processor:jar)
+  if [[ "$WITH_INVENTORY" == "1" ]]; then
+    gradle_tasks+=(writeFrameworkPayloadInventory)
+  fi
+  echo "[assemble] gradle: ${gradle_tasks[*]}"
   gradle_ver_args=(-PinstallerVersion="$VER" -PturboismRelease=true)
   if [[ -z "${TURBOISM_BUILD_VERSION:-}" ]]; then
     gradle_ver_args+=(-PturboismVersion="$VER")
   fi
-  ./gradlew stageInstallerPayload :event-processor:jar \
+  ./gradlew "${gradle_tasks[@]}" \
     "${gradle_ver_args[@]}" \
     --console=plain
 fi

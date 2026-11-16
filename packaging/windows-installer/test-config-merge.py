@@ -971,7 +971,12 @@ def check_configurator_flow_contract():
           and "-Verb RunAs" in configure
           and "$process.WaitForExit(180000)" in configure
           and "-PassThru" in configure
-          and "[switch]$Elevated" in configure)
+          and "[switch]$Elevated" in configure
+          and "ShellExecuteExW" in configure
+          and "Test-ElevationCancelledException" in configure
+          and "-OwnerHwnd $HWNDPARENT" in text
+          and "AllowSetForegroundWindow" in text
+          and "-RefreshReceipt" in text)
     disable_guard_start = configure.index("if ($DisableBat -and -not $Elevated)")
     integrate_guard_start = configure.index(
         "if ($IntegrateBat -and -not $Elevated)", disable_guard_start)

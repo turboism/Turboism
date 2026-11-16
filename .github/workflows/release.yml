@@ -162,12 +162,10 @@ jobs:
           key: turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-Unified build channel checks-${{ needs.preflight.outputs.channel }}-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-Unified build channel checks-beta-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-Unified build channel checks-stable-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-Unified build channel checks-
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-release-gates-${{ github.sha }}-
             turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-release-gates-
             turboism-gradle-build-cache-v1-CI-
             turboism-gradle-build-cache-v1-
 
@@ -214,20 +212,22 @@ jobs:
           ELIGIBLE="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
           echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
 
-      - name: Validate and build eligible plugin metadata
-        if: needs.preflight.outputs.channel != 'nightly' && steps.policy.outputs.eligible != '0'
-        env:
-          TURBOISM_WORKTREE_ID: market-publish
-        run: ./gradlew --no-daemon validatePluginMeta verifyFirstPartyPluginMetadata
+      - name: Run release verification
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease \
+            -PinstallerVersion="${{ steps.version.outputs.version }}" \
+            -PturboismRelease=true \
+            --console=plain
 
       - name: Stage all eligible plugin candidates
         if: needs.preflight.outputs.channel != 'nightly' && steps.policy.outputs.eligible != '0'
         id: market
         run: |
+          WORKTREE_ID="$(bash scripts/dev/worktree-id.sh)"
           OUTPUT="$(python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --manifest packaging/market-plugins.json \
-            --build-root build/worktree/market-publish \
+            --build-root "build/worktree/$WORKTREE_ID" \
             --output build/market-release \
             --source-revision "${{ github.sha }}" \
             --catalog https://plugin.turboism.dev/api/v2/catalog.json \
@@ -236,45 +236,46 @@ jobs:
           STAGED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
           echo "staged=${STAGED:-0}" >> "$GITHUB_OUTPUT"
 
-      - name: Run release verification
-        run: |
-          xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease \
-            -PinstallerVersion="${{ steps.version.outputs.version }}" \
-            -PturboismRelease=true \
-            --console=plain
-
       - name: Assemble release archives and Windows installer
-        run: bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}"
-
-      - name: Write the framework payload inventory for offline signing
-        # Runs after the first complete package (NSIS included) with the same version and clean CI build identity as
-        # checkRelease, so the protected signing job binds the exact installed bytes. Unconfigured and Nightly builds
-        # never write this file and keep the ordinary full-package path.
-        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED == 'true' && needs.preflight.outputs.channel != 'nightly'
+        # Pre-signing candidates skip NSIS here because sign-framework-update rebuilds the installer
+        # after embedding the signed bootstrap receipts, and fold inventory generation into one Gradle call.
+        env:
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
-          set -euo pipefail
-          ./gradlew --no-daemon writeFrameworkPayloadInventory \
-            -PinstallerVersion="${{ steps.version.outputs.version }}" \
-            -PturboismRelease=true \
-            --console=plain
-          test -f build/windows-installer/generated/framework-payload-inventory.json
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ] && [ "$RELEASE_CHANNEL" != nightly ]; then
+            bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}" --skip-nsis --with-inventory
+            test -f build/windows-installer/generated/framework-payload-inventory.json
+          else
+            bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}"
+          fi
 
       - name: Verify checksums and release metadata
+        env:
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           (
             cd build/windows-installer/dist
             sha256sum -c *.sha256
           )
+          skip_args=()
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ] && [ "$RELEASE_CHANNEL" != nightly ]; then
+            skip_args=(--skip-installer)
+          fi
           python3 scripts/release/verify-release.py \
             --version "${{ steps.version.outputs.version }}" \
             --channel "$TURBOISM_BUILD_CHANNEL" \
             --dist build/windows-installer/dist \
             --release-plugins packaging/release-plugins.txt \
             --windows-stage build/windows-installer/staging \
-            --manifest-output build/release-orchestrator/framework-artifacts.json
+            --manifest-output build/release-orchestrator/framework-artifacts.json \
+            "${skip_args[@]}"
 
       - name: Generate deterministic release candidate
         if: needs.preflight.outputs.channel == 'stable'
+        env:
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
         run: |
           # Local-only tag after all build/payload checks; never push from this job.
           python3 scripts/release/promote-github-release.py candidate-tag \
@@ -283,10 +284,15 @@ jobs:
           if [ "${{ steps.market.outputs.staged || '0' }}" != 0 ]; then
             market_args=(--market-dir build/market-release)
           fi
+          skip_args=()
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ]; then
+            skip_args=(--skip-installer)
+          fi
           python3 scripts/release/turboism-release.py build \
             --require-tag \
             --dist build/windows-installer/dist \
             "${market_args[@]}" \
+            "${skip_args[@]}" \
             --candidate build/release-orchestrator/candidate.json
           python3 - <<'PY'
           import json
@@ -322,9 +328,15 @@ jobs:
         if: needs.preflight.outputs.channel != 'stable'
         env:
           GH_TOKEN: ${{ github.token }}
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           cp -a build/windows-installer/dist build/release-orchestrator/dist
-          python3 scripts/release/product-build.py prepare --source "$GITHUB_SHA" --channel "$TURBOISM_BUILD_CHANNEL" --version "$TURBOISM_BUILD_VERSION"
+          skip_args=()
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ] && [ "$RELEASE_CHANNEL" != nightly ]; then
+            skip_args=(--skip-installer)
+          fi
+          python3 scripts/release/product-build.py prepare --source "$GITHUB_SHA" --channel "$TURBOISM_BUILD_CHANNEL" --version "$TURBOISM_BUILD_VERSION" "${skip_args[@]}"
           rm -r build/release-orchestrator/dist
 
       - name: Upload verified candidate payload

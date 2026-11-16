@@ -8,7 +8,7 @@ from pathlib import Path
 from .build_identity import identity, verify_receipt
 from .candidate import _load_script
 from .channels import channel_for, resolve_version, NIGHTLY
-from .promotion import ensure_tag, find_release, release_by_id, tag_binding
+from .promotion import ensure_tag, find_release, release_by_id, tag_binding, upload_assets
 from .versions import framework_version
 
 SCRIPTS = Path(__file__).resolve().parents[1]
@@ -92,7 +92,7 @@ def notes_for(source_root, receipt):
             + '\n<!-- turboism-build-v1 '+json.dumps(receipt,sort_keys=True,separators=(',',':'))+' -->\n')
 
 
-def verify_files(github, source_root, bundle_root, source_sha, run_id, attempt, version):
+def verify_files(github, source_root, bundle_root, source_sha, run_id, attempt, version, *, include_installer=True):
     channel = channel_for(version)
     require(channel in ('beta','nightly'), 'Not a prerelease candidate')
     root, bundle = Path(source_root), Path(bundle_root)
@@ -104,15 +104,15 @@ def verify_files(github, source_root, bundle_root, source_sha, run_id, attempt, 
     if channel == 'beta':
         resolve_version(framework_version(root),channel,version)
     verifier = _load_script('prerelease_payload_verifier',SCRIPTS/'verify-release.py')
-    manifest = verifier.artifact_manifest(bundle/'dist',version,root/'packaging/release-plugins.txt',channel=channel)
+    manifest = verifier.artifact_manifest(bundle/'dist',version,root/'packaging/release-plugins.txt',channel=channel,include_installer=include_installer)
     receipt = verify_receipt(github,root,bundle,version,source_sha,str(run_id),int(attempt))
     require(receipt['channel'] == channel, 'Artifact channel mismatch')
     receipt_from_body('<!-- turboism-build-v1 '+json.dumps(receipt)+' -->',channel)
     return manifest, receipt
 
 
-def prepare(github, source_root, bundle_root, source_sha, run_id, attempt, version):
-    manifest, receipt = verify_files(github,source_root,bundle_root,source_sha,run_id,attempt,version)
+def prepare(github, source_root, bundle_root, source_sha, run_id, attempt, version, *, include_installer=True):
+    manifest, receipt = verify_files(github,source_root,bundle_root,source_sha,run_id,attempt,version,include_installer=include_installer)
     from . import release_notes
     context = release_notes.select_context(github, source_root, receipt) if receipt['channel'] == 'nightly' else None
     notes = release_notes.candidate_notes(source_root, receipt, context)
@@ -164,8 +164,7 @@ def publish(github, dist, receipt, manifest, notes):
     if raw is None:
         raw = github.api('releases',method='POST',data={'tag_name':tag,'target_commitish':source,
                          'name':f'Turboism {version}','body':notes,'draft':True,'prerelease':True,"make_latest":"false"})
-    for name in missing_assets(raw,expected,tag):
-        github.upload(tag,Path(dist)/name)
+    upload_assets(github, tag, [Path(dist)/name for name in missing_assets(raw,expected,tag)])
     raw = release_by_id(github,raw)
     require(not missing_assets(raw,expected,tag) and tag_binding(github,tag,source,binding), 'Prerelease upload verification failed')
     if raw['draft']:

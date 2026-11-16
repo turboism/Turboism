@@ -30,24 +30,30 @@ try {
     $tokens = $null; $parseErrors = $null
     $ast = [Management.Automation.Language.Parser]::ParseFile($helper, [ref]$tokens, [ref]$parseErrors)
     if ($parseErrors.Count -ne 0) { throw 'Configurator parse failed' }
-    foreach ($name in @('Write-InstallerLog', 'Invoke-ElevatedConfiguratorMode')) {
+    foreach ($name in @('Write-InstallerLog', 'Test-ElevationCancelledException', 'Invoke-ElevatedConfiguratorMode')) {
         $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }.GetNewClosure(), $true)
         . ([scriptblock]::Create($definition.Extent.Text))
     }
     $installerLogPath = $log
     $scriptPath = $helper
     $turboismHome = $fixture
+    $OwnerHwnd = 0
     $InstallerDiscoverySnapshot = ''; $InstallerDiscoverySnapshotSha256 = ''
     function Start-Process {
         param($FilePath, $ArgumentList, $Verb, $WindowStyle, [switch]$Wait, [switch]$PassThru)
         if ($Verb -ne 'RunAs' -or -not $Wait -or -not $PassThru) { throw 'Incorrect elevation launch' }
         if ($WindowStyle -ne 'Hidden') { throw 'Headless elevation must not open an interactive console window' }
-        if ($script:FakeLaunchFailure) { throw [ComponentModel.Win32Exception]::new(1223) }
+        if ($script:FakeFailureMode -eq 'win32_cancel') { throw [ComponentModel.Win32Exception]::new(1223) }
+        if ($script:FakeFailureMode -eq 'ps51_cancel') {
+            $msg = 'Cannot run command: ' + [ComponentModel.Win32Exception]::new(1223).Message
+            throw [InvalidOperationException]::new($msg)
+        }
+        if ($script:FakeFailureMode -eq 'access_denied') { throw [ComponentModel.Win32Exception]::new(5) }
         $process = [pscustomobject]@{ ExitCode = $script:FakeExitCode; Id = 1234 }
         $process | Add-Member -MemberType ScriptMethod -Name Dispose -Value { $script:ProcessDisposed = $true }
         return $process
     }
-    $script:FakeLaunchFailure = $false
+    $script:FakeFailureMode = ''
     foreach ($code in @(0, 37)) {
         $script:FakeExitCode = $code; $script:ProcessDisposed = $false
         $result = Invoke-ElevatedConfiguratorMode -Mode IntegrateBat 2>$null
@@ -55,14 +61,20 @@ try {
         if ([IO.File]::ReadAllText($log) -notmatch ("ELEVATION_EXIT mode=IntegrateBat childPid=1234 exitCode=$code")) { throw 'Missing child exit diagnostic' }
         Write-Output "PASS elevation preserves and logs exit code $code"
     }
-    foreach ($launchFailure in @($false, $true)) {
-        $script:FakeExitCode = $null; $script:FakeLaunchFailure = $launchFailure
+    foreach ($cancelMode in @('win32_cancel', 'ps51_cancel')) {
+        $script:FakeExitCode = $null; $script:FakeFailureMode = $cancelMode
+        $result = Invoke-ElevatedConfiguratorMode -Mode IntegrateBat 2>$null
+        if ($result -ne $script:ElevationCanceledExitCode) { throw "Cancel mode $cancelMode returned $result instead of 3" }
+        Write-Output "PASS $cancelMode returns elevation canceled exit code"
+    }
+    foreach ($failureMode in @('', 'access_denied')) {
+        $script:FakeExitCode = $null; $script:FakeFailureMode = $failureMode
         $caught = $false
         try { Invoke-ElevatedConfiguratorMode -Mode IntegrateBat | Out-Null } catch { $caught = $true }
         if (-not $caught) { throw 'Elevation failure was treated as success' }
     }
     $text = [IO.File]::ReadAllText($log)
-    if ($text -notmatch 'ELEVATION_FAILED' -or $text -notmatch 'returned no exit code' -or $text -notmatch 'Win32Exception') { throw 'Elevation failure details were lost' }
+    if ($text -notmatch 'ELEVATION_CANCELED' -or $text -notmatch 'ELEVATION_FAILED' -or $text -notmatch 'returned no exit code' -or $text -notmatch 'Win32Exception') { throw 'Elevation failure details were lost' }
     Write-Output 'PASS launch cancellation and missing exit code retain diagnostic details'
 
 }

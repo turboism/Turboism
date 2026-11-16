@@ -35,6 +35,7 @@ def main(argv=None):
     parser.add_argument('--version',default='')
     parser.add_argument('--attempt',type=int)
     parser.add_argument('--bundle',type=Path,default=Path('build/release-orchestrator'))
+    parser.add_argument('--skip-installer',action='store_true')
     args = parser.parse_args(argv)
     check_source(args.source)
     github = GitHub()
@@ -62,7 +63,7 @@ def main(argv=None):
     run_id = os.environ['GITHUB_RUN_ID']
     attempt = args.attempt or int(os.environ['GITHUB_RUN_ATTEMPT'])
     if args.command == 'prepare':
-        value = prerelease.prepare(github,Path.cwd(),args.bundle,args.source,run_id,attempt,args.version)
+        value = prerelease.prepare(github,Path.cwd(),args.bundle,args.source,run_id,attempt,args.version,include_installer=not args.skip_installer)
         if value['receipt']['channel'] != args.channel:
             raise ValueError('Prepared candidate channel differs from the selected target')
         print(json.dumps({'candidate':value['type'],'receipt':value['receipt']},sort_keys=True))

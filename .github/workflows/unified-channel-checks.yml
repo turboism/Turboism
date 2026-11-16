@@ -130,10 +130,10 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             ~/.gradle/caches/turboism-sdk-reference-v1
-          key: turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: turboism-gradle-build-cache-v1-${{ github.workflow }}-release-gates-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-release-gates-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-release-gates-
             turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
             turboism-gradle-build-cache-v1-CI-
             turboism-gradle-build-cache-v1-
@@ -210,12 +210,12 @@ jobs:
           path: |
             ~/.gradle/caches/build-cache-1
             ~/.gradle/caches/turboism-sdk-reference-v1
-          key: turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: turboism-gradle-pkg-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
-            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-pkg-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-${{ github.sha }}-
+            turboism-gradle-pkg-cache-v1-${{ github.workflow }}-${{ matrix.channel }}-
+            turboism-gradle-pkg-cache-v1-${{ github.workflow }}-${{ github.sha }}-
+            turboism-gradle-pkg-cache-v1-${{ github.workflow }}-
             turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
             turboism-gradle-build-cache-v1-CI-
             turboism-gradle-build-cache-v1-

@@ -57,6 +57,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Kept ACP prompt interactive across all connection states, added direct persisted-agent connection, `user_message_chunk` & native Codex/Claude Code/Pi session replay, agent button display cleanup, full theme styling (including Todo popovers), incremental streaming updates, pre-cached Swing UIs, and image context menu.
 - Fixed 3D/preset import post-atlas pre-interpolation snapshots (preventing donut rollback), localized generated Part/Deformer/ArtMesh names, field-first readback errors, batch-rename base-name labels, and clipmask GL scissor / ArtMesh mirror drag lag / selection button visibility issues.
 - Moved the bundled ACP Pi MCP extension resource from `native/` to `extensions/` (eliminating `PLUGIN_CONTENT_CONTAMINATION` rejections during plugin auto-updates and coordinated framework updates) and enforced package contamination checks in first-party metadata verification and market staging.
+- Fixed Windows installer UAC elevation parenting (`ShellExecuteExW` bound to the active installer/configurator window), PowerShell 5.1 `ERROR_CANCELLED` (`1223`) detection, full-installer receipt refresh on upgrades (`--refresh-receipt`), and framework self-update diagnostics distinguishing receipt/framework download failures from plugin errors.
 
 ## [0.68.1] - 2026-10-30
 
