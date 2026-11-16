@@ -290,9 +290,28 @@ class VersionMonotonicityTest(unittest.TestCase):
             path.write_text(json.dumps(document))
             findings = live(root)
             self.assertTrue(
-                any(f.kind == "target-classes" and f.missing == ("5.3.03",) for f in findings),
+                any(f.kind == "class-pins" and f.missing == ("5.3.03",) for f in findings),
                 [f.message() for f in findings],
             )
+
+    def test_legacy_class_pins_exception_suppresses_target_classes_finding(self):
+        """A persisted exception keeps kind 'class-pins' while its path follows the rename."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tree(root)
+            path = root / gate.r2_TARGET_CLASSES_DIR / "demo.json"
+            document = json.loads(path.read_text())
+            del document["5.3.03"]
+            path.write_text(json.dumps(document))
+            write_exceptions(root, [exception(
+                kind="class-pins",
+                path=f"{gate.r2_TARGET_CLASSES_DIR.as_posix()}/demo.json",
+                site="demo.json",
+                missing=["5.3.03"],
+            )])
+            suppressed, findings = gate.r2_check(root)
+            self.assertEqual([], findings)
+            self.assertEqual(1, len(suppressed))
 
     def test_class_pin_dropped_lower_patch_passes(self):
         with tempfile.TemporaryDirectory() as directory:

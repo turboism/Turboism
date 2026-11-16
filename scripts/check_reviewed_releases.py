@@ -336,6 +336,11 @@ r2_MCP_SDK_COVERAGE = Path(
 )
 r2_EXCEPTIONS_FILE = Path("scripts/version-monotonicity-exceptions.json")
 
+# Frozen exception discriminator. r2_apply_exceptions matches an exception entry on
+# (kind, path, site), so this literal is a persisted contract with the tracked
+# exceptions file and must not follow the resource directory rename.
+r2_TARGET_CLASSES_KIND = "class-pins"
+
 r2_JAVA_ROOTS = (
     "sdk/src/main",
     "runtime/src/main",
@@ -759,7 +764,7 @@ def r2_collect_target_classes(
         if missing:
             findings.append(
                 r2_Finding(
-                    "target-classes",
+                    r2_TARGET_CLASSES_KIND,
                     f"{r2_TARGET_CLASSES_DIR.as_posix()}/{pin.name}",
                     pin.name,
                     tuple(sorted(missing, key=parse_dotted)),
