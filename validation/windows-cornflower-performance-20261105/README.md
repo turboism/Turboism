@@ -2,7 +2,7 @@
 
 ## Purpose and Conclusion
 
-On native Windows x64 Cubism 5.3.04, the desktop `矢车菊机械未来1.cmo3` (763,166,356 bytes, SHA-256 `83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da`) measured the optimization switches of the current Performance page. The goal was to find the **curated combination that changes no model viewport pixel**, not to turn everything on.
+On native Windows x64 Cubism 5.3.04, the 763,166,356-byte desktop fixture, named here only by its SHA-256 `83326ac519dd5e4cad9b39e4c7234410cc62bf0d1f5241364561d6906292b6da`, measured the optimization switches of the current Performance page. The goal was to find the **curated combination that changes no model viewport pixel**, not to turn everything on.
 
 Conclusion:
 

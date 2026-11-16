@@ -1506,7 +1506,7 @@ second `updateModelInstances()` call and the palette's own work.
 
 **Question.** After the render-backend branch landed, which per-frame paths still
 limit deformer/vertex-move smoothness? The workload is the 763 MB
-`矢车菊机械未来1.cmo3` fixture on native Windows (Cubism 5.3.04 bundled JRE
+the 763MB desktop fixture, named here only by its SHA-256, on native Windows (Cubism 5.3.04 bundled JRE
 17.0.3.1, Intel UHD Graphics 770), with every current optimization enabled.
 
 **Method.** Two 5-second deformation JFR windows (QUICK workload) were recorded

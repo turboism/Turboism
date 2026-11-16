@@ -114,7 +114,7 @@ class DynamicCubismModelAccessTest {
         final var admissions = new java.util.concurrent.atomic.AtomicInteger();
         final var target = new dev.turboism.sdk.cubism.id.RawImageId("exact-raw");
         final var stage = java.nio.file.Path.of("revision-123.psd");
-        final String sourceName = "外部 编辑.psd";
+        final String sourceName = "external edit.psd";
         final var recording = new RecordingModel();
         recording.textures = (dev.turboism.sdk.cubism.model.ModelTextures) java.lang.reflect.Proxy.newProxyInstance(
                 getClass().getClassLoader(),

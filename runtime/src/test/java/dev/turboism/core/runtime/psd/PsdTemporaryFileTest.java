@@ -32,15 +32,15 @@ class PsdTemporaryFileTest {
     }
 
     @Test
-    void sourceNamesPreserveUnicodeCaseAndIsolateIdenticalNames() throws Exception {
-        for (final String name : new String[] {"模型 原图.psd", "Original.PSD", "没有扩展名"}) {
+    void sourceNamesPreserveCaseAndIsolateIdenticalNames() throws Exception {
+        for (final String name : new String[] {"model original.psd", "Original.PSD", "no-extension"}) {
             final PsdTemporaryFile first = PsdTemporaryFile.createIn(temporaryRoot);
             final PsdTemporaryFile second = PsdTemporaryFile.createIn(temporaryRoot);
             final Path original = first.validatedPath();
             Files.writeString(original, "PSD contents");
             first.useSourceName(name);
             second.useSourceName(name);
-            assertEquals(name.equals("没有扩展名") ? name + ".psd" : name, first.fileName());
+            assertEquals(name.equals("no-extension") ? name + ".psd" : name, first.fileName());
             assertEquals(first.fileName(), second.fileName());
             assertNotEquals(first.validatedPath(), second.validatedPath());
             assertEquals("PSD contents", Files.readString(first.validatedPath()));

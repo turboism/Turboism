@@ -139,9 +139,9 @@ FREE_LIMIT_EXCEEDED_FIXTURES = {
 # native "Version of the file" dialog shown when an older editor opens the
 # fixture. Unknown digests resolve to no routing decision (conservative).
 FIXTURE_DOC_VERSION: dict[str, str] = {
-    # 测试 混合模式.cmo3 — dialog reports "Cubism 5.2.3"
+    # The mixed-mode fixture; the version dialog reports "Cubism 5.2.3".
     "57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4": "5.2.03",
-    # clipmask-viewer task fixture (2980dc8c revision of 测试 混合模式.cmo3):
+    # clipmask-viewer task fixture, the 2980dc8c revision of the mixed-mode fixture:
     # loads on exact 5.2.03 and 5.3.04 hosts with no newer-file dialog, so its
     # document version is at most 5.2.03; recorded as the safe ceiling.
     "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10": "5.2.03",

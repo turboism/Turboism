@@ -2,7 +2,7 @@
 
 ## Authorization and scope
 
-After all six Geometry100/500/1000 jobs passed and the final 1000 result was recorded, the user explicitly requested: “记录下来，继续推进2500的测试”. This final matrix tests the original current-page project, native once and new once. No warmup, automatic retry, Undo loop or second invocation. The open overflow/Undo and full legacy hot-benchmark work is not claimed as covered.
+After all six Geometry100/500/1000 jobs passed and the final 1000 result was recorded, the user explicitly requested that the result be recorded and the 2500 test continue. This final matrix tests the original current-page project, native once and new once. No warmup, automatic retry, Undo loop or second invocation. The open overflow/Undo and full legacy hot-benchmark work is not claimed as covered.
 
 ## Immutable inputs
 
@@ -44,7 +44,7 @@ New input hash: `80e3ad8b7552daad519b55b964a9ef3bc52b5105301839c3cff4179da212e52
 
 New run ID: `queue-7868a4d8a00f45b4911f0fc0bfc000ec`. Raw transcript: `build/atlas-main-integration/geometry-2500-new-final-wait.json`; authoritative job evidence remains in the manager store.
 
-Native was stopped at the user's explicit request: “关闭吧，记录为超出2小时”. The manager's `cancel` command produced terminal state `cancelled`, `cleanup=safe`, `normalExit=false`, `validationStatus=FAIL`. The bound original cgroup was cleaned using `cgroup.kill+cgroup-destroyed` with no cleanup errors; no unrelated process was targeted. `timing-001.json` and terminal probe result are absent, so no native completed duration, final scale, placement validation or input-hash comparison is available. The >2-hour label records the incomplete observed run, not a completed timing sample or the configured six-hour timeout.
+Native was stopped at the user's explicit request to close it and record the run as exceeding 2 hours. The manager's `cancel` command produced terminal state `cancelled`, `cleanup=safe`, `normalExit=false`, `validationStatus=FAIL`. The bound original cgroup was cleaned using `cgroup.kill+cgroup-destroyed` with no cleanup errors; no unrelated process was targeted. `timing-001.json` and terminal probe result are absent, so no native completed duration, final scale, placement validation or input-hash comparison is available. The >2-hour label records the incomplete observed run, not a completed timing sample or the configured six-hour timeout.
 
 Evidence: `build/atlas-main-integration/geometry-2500-native-cancelled.json` and authoritative manager job evidence. Source/copy fixture hashes in post-containment checks remain `4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b`; the aggregate lifecycle acceptance flags remain false because validation/normal exit did not complete. The failed/cancelled task evidence and retained prefix were not manually removed. No rerun is authorized or performed. Heartbeat `b3b2a04d` was deleted at user cancellation.
 

@@ -3,7 +3,7 @@ param(
     [ValidateSet("reorder", "wheel", "pan", "artmesh", "record")]
     [string]$Workload = "reorder",
     [string]$CubismRoot = "C:\Program Files\Live2D Cubism 5.3.04",
-    [string]$ProjectPath = "F:\Live2D\Projects\矢车菊机械未来1.cmo3",
+    [string]$ProjectPath = "",   # required; pass the absolute path of the 763MB benchmark project
     [string]$BundleRoot = "",
     [string]$WorktreeId = "",
     [ValidateSet("native", "installed")]
