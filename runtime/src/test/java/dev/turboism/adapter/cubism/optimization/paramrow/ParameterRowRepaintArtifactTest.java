@@ -72,6 +72,7 @@ class ParameterRowRepaintArtifactTest {
     private static final String REF_DIR_PROPERTY = "turboism.test.cubismRefDir";
     private static final String REF_DIR_ENV = "TURBOISM_CUBISM_REF";
     private static final String STAT_ELIDED_ROWS = "elidedRows";
+    private static final String STAT_REPAINTED_ROWS = "repaintedRows";
     private static final String STAT_BASELINE_PASSES = "baselinePasses";
     private static final String STAT_INCREMENTAL_PASSES = "incrementalPasses";
     private static final String STAT_KEYFORM_HASHED_PASSES = "keyformHashedPasses";
@@ -180,6 +181,8 @@ class ParameterRowRepaintArtifactTest {
             assertEquals(1L, bridge.snapshot().get(STAT_KEYFORM_HASHED_PASSES));
             assertEquals(1L, bridge.snapshot().get(STAT_KEYFORM_ELIDED_PASSES));
             assertEquals(SIBLING_ROW_COUNT + 2L, bridge.snapshot().get(STAT_ELIDED_ROWS));
+            // The baseline pass repainted every row, so this elided pass must add no repaint.
+            assertEquals(SIBLING_ROW_COUNT + 2L, bridge.snapshot().get(STAT_REPAINTED_ROWS));
             assertEquals(0, fixture.backgroundColorCallCount());
             assertEquals(0, fixture.keyformScanCount());
             assertEquals(0, fixture.totalRepaints());
