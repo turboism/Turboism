@@ -175,7 +175,9 @@ class RuntimePerformanceProbeServiceTest {
                 RuntimePerformanceProbeService.CHART_FPS,
                 RuntimePerformanceProbeService.CHART_HEAP,
                 RuntimePerformanceProbeService.CHART_NONHEAP,
-                RuntimePerformanceProbeService.CHART_FRAMES)) {
+                RuntimePerformanceProbeService.CHART_MEMORY,
+                RuntimePerformanceProbeService.CHART_FRAMES,
+                RuntimePerformanceProbeService.CHART_GC)) {
             ChartDataRegistry.unpublish(id);
         }
     }
@@ -342,6 +344,16 @@ class RuntimePerformanceProbeServiceTest {
                     .isPresent());
             assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_HEAP)
                     .isPresent());
+            final ChartDataRegistry.ChartData memory = ChartDataRegistry.find(
+                            RuntimePerformanceProbeService.CHART_MEMORY)
+                    .orElseThrow();
+            assertEquals(2, memory.series().size());
+            assertEquals(
+                    RuntimePerformanceProbeService.SERIES_HEAP,
+                    memory.series().get(0).name());
+            assertEquals(
+                    RuntimePerformanceProbeService.SERIES_NONHEAP,
+                    memory.series().get(1).name());
         } finally {
             registration.close();
         }
@@ -351,6 +363,8 @@ class RuntimePerformanceProbeServiceTest {
         assertTrue(hookClosed.get(), "FPS hook must be unmounted when sampling stops");
         assertFalse(
                 ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU).isPresent());
+        assertFalse(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_MEMORY)
+                .isPresent());
         assertFalse(
                 ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC).isPresent());
     }

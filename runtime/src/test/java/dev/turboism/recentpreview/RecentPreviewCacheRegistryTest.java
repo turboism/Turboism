@@ -72,5 +72,24 @@ final class RecentPreviewCacheRegistryTest {
                 IllegalStateException.class,
                 () -> registry.provide("provider", id -> CompletableFuture.completedStage(true)));
         assertFalse(registry.delete(ID).toCompletableFuture().join());
+        registry.requestReplay().toCompletableFuture().join();
+    }
+
+    @Test
+    void routesReplayRequestsToTheRegisteredProviderAndStopsAfterClose() {
+        final RecentPreviewCacheRegistry registry = new RecentPreviewCacheRegistry();
+        final AtomicInteger replays = new AtomicInteger();
+        final dev.turboism.sdk.plugin.Registration registration =
+                registry.provide("provider", id -> CompletableFuture.completedStage(true), () -> {
+                    replays.incrementAndGet();
+                    return CompletableFuture.completedStage(null);
+                });
+
+        registry.requestReplay().toCompletableFuture().join();
+        assertEquals(1, replays.get());
+
+        registration.close();
+        registry.requestReplay().toCompletableFuture().join();
+        assertEquals(1, replays.get());
     }
 }

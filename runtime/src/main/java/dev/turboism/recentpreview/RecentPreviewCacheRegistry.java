@@ -32,8 +32,24 @@ public final class RecentPreviewCacheRegistry {
      * @throws IllegalStateException when another plugin already registered a handler
      */
     public Registration provide(final String ownerPluginId, final RecentPreviewCacheService.DeletionHandler handler) {
+        return provide(ownerPluginId, handler, null);
+    }
+
+    /**
+     * Registers deletion and cache-replay handlers for one plugin generation.
+     *
+     * @param ownerPluginId the registering plugin
+     * @param deletionHandler performs one deletion
+     * @param replayHandler replays cached preview events on demand, or {@code null} when unused
+     * @return a registration that removes the handlers when closed
+     * @throws IllegalStateException when another plugin already registered handlers
+     */
+    public Registration provide(
+            final String ownerPluginId,
+            final RecentPreviewCacheService.DeletionHandler deletionHandler,
+            final RecentPreviewCacheService.ReplayHandler replayHandler) {
         Objects.requireNonNull(ownerPluginId, "ownerPluginId");
-        Objects.requireNonNull(handler, "handler");
+        Objects.requireNonNull(deletionHandler, "deletionHandler");
         final long registrationGeneration;
         synchronized (monitor) {
             if (closed) {
@@ -43,7 +59,7 @@ public final class RecentPreviewCacheRegistry {
                 throw new IllegalStateException("A recent preview cache provider is already registered");
             }
             registrationGeneration = ++generation;
-            provider = new Provider(ownerPluginId, handler, registrationGeneration);
+            provider = new Provider(ownerPluginId, deletionHandler, replayHandler, registrationGeneration);
         }
         return () -> {
             synchronized (monitor) {
@@ -71,7 +87,29 @@ public final class RecentPreviewCacheRegistry {
             return CompletableFuture.completedStage(false);
         }
         try {
-            return current.handler().delete(id);
+            return current.deletionHandler().delete(id);
+        } catch (RuntimeException failure) {
+            return CompletableFuture.failedStage(failure);
+        }
+    }
+
+    /**
+     * Requests the registered provider to replay its cached previews.
+     *
+     * @return a stage completing when replay finishes, or immediately when no replay handler is
+     *     registered
+     */
+    public CompletionStage<Void> requestReplay() {
+        final Provider current;
+        synchronized (monitor) {
+            current = provider;
+        }
+        if (current == null || current.replayHandler() == null) {
+            return CompletableFuture.completedStage(null);
+        }
+        try {
+            final CompletionStage<Void> stage = current.replayHandler().replay();
+            return stage != null ? stage : CompletableFuture.completedStage(null);
         } catch (RuntimeException failure) {
             return CompletableFuture.failedStage(failure);
         }
@@ -85,5 +123,9 @@ public final class RecentPreviewCacheRegistry {
         }
     }
 
-    private record Provider(String ownerPluginId, RecentPreviewCacheService.DeletionHandler handler, long generation) {}
+    private record Provider(
+            String ownerPluginId,
+            RecentPreviewCacheService.DeletionHandler deletionHandler,
+            RecentPreviewCacheService.ReplayHandler replayHandler,
+            long generation) {}
 }

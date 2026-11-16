@@ -6,6 +6,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -44,20 +45,35 @@ import javax.swing.WindowConstants;
 final class PerfStatsWindow {
 
     private static final int WINDOW_SIZE = 120;
+    private static final int WINDOW_WIDTH = 480;
+    private static final int WINDOW_HEIGHT = 260;
+    private static final int REFRESH_INTERVAL_MILLIS = 1000;
+    private static final int ROW_PREFERRED_WIDTH = 460;
+    private static final int ROW_PREFERRED_HEIGHT = 74;
+    private static final int PLOT_RIGHT_INSET = 8;
+    private static final int PLOT_BOTTOM_INSET = 8;
+    private static final int VALUE_TEXT_LEFT_OFFSET = 4;
+    private static final int SERIES_LABEL_GAP = 12;
+    private static final double MIN_AXIS_MAX = 1.0;
+    private static final float CURVE_STROKE_WIDTH = 1.8f;
+    private static final int MIN_POLYLINE_SAMPLES = 2;
+    private static final String VALUE_FORMAT = "0.0";
+    private static final String UNIT_PERCENT = "%";
+    private static final String UNIT_MEBIBYTES = "MiB";
+    private static final String NO_DATA_PLACEHOLDER = "-";
+    private static final String DEFAULT_HEAP_LABEL = "Heap";
+    private static final String DEFAULT_NONHEAP_LABEL = "Non-Heap";
 
     /**
      * Same fixed palette as the runtime embedded charts
      * (runtime {@code ChartSeriesColors} chart-id palette); the two forms
      * must stay visually aligned, so keep both in sync.
      */
-    private static final Color[] SERIES_COLORS = {
-        new Color(31, 119, 180),
-        new Color(255, 127, 14),
-        new Color(44, 160, 44),
-        new Color(214, 39, 40),
-        new Color(148, 103, 189),
-        new Color(140, 86, 75)
-    };
+    private static final Color CPU_COLOR = new Color(31, 119, 180);
+
+    private static final Color HEAP_COLOR = new Color(44, 160, 44);
+    private static final Color NONHEAP_COLOR = new Color(214, 39, 40);
+    private static final Color BASELINE_COLOR = new Color(220, 220, 220);
 
     /**
      * Plot inset of the standalone row charts. The compact row style draws no
@@ -74,6 +90,7 @@ final class PerfStatsWindow {
 
     private final ChartStore store;
     private final Map<String, String> titles;
+    private final Map<String, String> seriesLabels;
     private final JFrame frame;
     private final Timer refresh;
     /** Set by {@link #start()} or {@link #showAndFront()}; gates the visibility-driven timer. */
@@ -85,20 +102,54 @@ final class PerfStatsWindow {
             final String expandLabel,
             final String collapseLabel,
             final ChartStore store) {
-        this.store = store;
+        this(
+                title,
+                titles,
+                Map.of(ChartStore.KEY_HEAP, DEFAULT_HEAP_LABEL, ChartStore.KEY_NONHEAP, DEFAULT_NONHEAP_LABEL),
+                expandLabel,
+                collapseLabel,
+                store);
+    }
+
+    PerfStatsWindow(
+            final String title,
+            final Map<String, String> titles,
+            final Map<String, String> seriesLabels,
+            final String expandLabel,
+            final String collapseLabel,
+            final ChartStore store) {
+        this.store = Objects.requireNonNull(store, "store");
         this.titles = Objects.requireNonNull(titles, "titles");
+        this.seriesLabels = Objects.requireNonNull(seriesLabels, "seriesLabels");
         frame = TurboismWindowFactory.frame(title);
         frame.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         final JPanel rows = new JPanel();
         rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
-        addRow(rows, ChartStore.KEY_CPU, "%", expandLabel, collapseLabel);
-        addRow(rows, ChartStore.KEY_FPS, "fps", expandLabel, collapseLabel);
-        addRow(rows, ChartStore.KEY_HEAP, "MiB", expandLabel, collapseLabel);
-        addRow(rows, ChartStore.KEY_NONHEAP, "MiB", expandLabel, collapseLabel);
-        addRow(rows, ChartStore.KEY_GC, "ms", expandLabel, collapseLabel);
+        addRow(
+                rows,
+                ChartStore.KEY_CPU,
+                List.of(new RowSeries(ChartStore.KEY_CPU, "", UNIT_PERCENT, CPU_COLOR)),
+                expandLabel,
+                collapseLabel);
+        addRow(
+                rows,
+                ChartStore.KEY_MEMORY,
+                List.of(
+                        new RowSeries(
+                                ChartStore.KEY_HEAP,
+                                seriesLabel(ChartStore.KEY_HEAP, DEFAULT_HEAP_LABEL),
+                                UNIT_MEBIBYTES,
+                                HEAP_COLOR),
+                        new RowSeries(
+                                ChartStore.KEY_NONHEAP,
+                                seriesLabel(ChartStore.KEY_NONHEAP, DEFAULT_NONHEAP_LABEL),
+                                UNIT_MEBIBYTES,
+                                NONHEAP_COLOR)),
+                expandLabel,
+                collapseLabel);
         frame.setContentPane(rows);
-        frame.setSize(480, 500);
-        refresh = new Timer(1000, ignored -> frame.repaint());
+        frame.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+        refresh = new Timer(REFRESH_INTERVAL_MILLIS, ignored -> frame.repaint());
         frame.addComponentListener(new ComponentAdapter() {
             @Override
             public void componentShown(final ComponentEvent event) {
@@ -132,15 +183,28 @@ final class PerfStatsWindow {
 
     private void addRow(
             final JPanel rows,
-            final String key,
-            final String unit,
+            final String titleKey,
+            final List<RowSeries> series,
             final String expandLabel,
             final String collapseLabel) {
-        rows.add(new MetricRow(title(key), expandLabel, collapseLabel, new RowChart(key, unit)));
+        rows.add(new MetricRow(title(titleKey), expandLabel, collapseLabel, new RowChart(store, series)));
     }
 
     private String title(final String key) {
         return Objects.requireNonNull(titles.get(key), "missing row title for " + key);
+    }
+
+    private String seriesLabel(final String key, final String fallback) {
+        return seriesLabels.getOrDefault(key, fallback);
+    }
+
+    /** Creates a standalone memory row chart for headless rendering checks. */
+    static JComponent memoryRowChart(final ChartStore store, final String heapLabel, final String nonHeapLabel) {
+        return new RowChart(
+                Objects.requireNonNull(store, "store"),
+                List.of(
+                        new RowSeries(ChartStore.KEY_HEAP, heapLabel, UNIT_MEBIBYTES, HEAP_COLOR),
+                        new RowSeries(ChartStore.KEY_NONHEAP, nonHeapLabel, UNIT_MEBIBYTES, NONHEAP_COLOR)));
     }
 
     void showAndFront() {
@@ -247,16 +311,18 @@ final class PerfStatsWindow {
         }
     }
 
-    /** One polyline row: last {@value WINDOW_SIZE} points of one series. */
-    private final class RowChart extends JComponent {
+    private record RowSeries(String key, String label, String unit, Color color) {}
 
-        private final String key;
-        private final String unit;
+    /** One polyline row: last {@value WINDOW_SIZE} points of one or more series on a shared axis. */
+    private static final class RowChart extends JComponent {
 
-        private RowChart(final String key, final String unit) {
-            this.key = key;
-            this.unit = unit;
-            setPreferredSize(new Dimension(460, 74));
+        private final ChartStore store;
+        private final List<RowSeries> series;
+
+        private RowChart(final ChartStore store, final List<RowSeries> series) {
+            this.store = store;
+            this.series = List.copyOf(series);
+            setPreferredSize(new Dimension(ROW_PREFERRED_WIDTH, ROW_PREFERRED_HEIGHT));
         }
 
         @Override
@@ -267,65 +333,88 @@ final class PerfStatsWindow {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 final int width = getWidth();
                 final int height = getHeight();
-                final List<Double> values = store.values(key);
+                final int plotLeft = PLOT_LEFT_INSET;
+                final int plotRight = Math.max(plotLeft + 1, width - PLOT_RIGHT_INSET);
+                final FontMetrics metrics = g.getFontMetrics();
+                final int valueBaseline = TOP_INSET + metrics.getAscent();
+                final int plotTop = TOP_INSET + metrics.getHeight() + TEXT_BAND_GAP;
+                final int plotBottom = Math.max(plotTop + 1, height - PLOT_BOTTOM_INSET);
+                g.setColor(BASELINE_COLOR);
+                g.drawLine(plotLeft, plotBottom, plotRight, plotBottom);
+
+                final double sharedMax = computeSharedMax();
+                boolean hasValues = false;
+                for (RowSeries spec : series) {
+                    final List<Double> values = store.values(spec.key());
+                    if (!values.isEmpty()) {
+                        hasValues = true;
+                        drawCurve(g, plotLeft, plotTop, plotRight, plotBottom, spec.color(), values, sharedMax);
+                    }
+                }
+                if (!hasValues) {
+                    g.drawString(NO_DATA_PLACEHOLDER, plotLeft + VALUE_TEXT_LEFT_OFFSET, valueBaseline);
+                    return;
+                }
+                drawValues(g, metrics, plotLeft + VALUE_TEXT_LEFT_OFFSET, valueBaseline);
+            } finally {
+                g.dispose();
+            }
+        }
+
+        private double computeSharedMax() {
+            double max = MIN_AXIS_MAX;
+            for (RowSeries spec : series) {
+                final List<Double> values = store.values(spec.key());
                 final int window = Math.min(WINDOW_SIZE, values.size());
-                double max = 1.0;
                 for (int i = values.size() - window; i < values.size(); i++) {
                     max = Math.max(max, values.get(i));
                 }
-                final int plotLeft = PLOT_LEFT_INSET;
-                final int plotRight = Math.max(plotLeft + 1, width - 8);
-                final java.awt.FontMetrics metrics = g.getFontMetrics();
-                final int valueBaseline = TOP_INSET + metrics.getAscent();
-                final int plotTop = TOP_INSET + metrics.getHeight() + TEXT_BAND_GAP;
-                final int plotBottom = Math.max(plotTop + 1, height - 8);
-                g.setColor(new Color(220, 220, 220));
-                g.drawLine(plotLeft, plotBottom, plotRight, plotBottom);
-                if (values.isEmpty()) {
-                    g.drawString("-", plotLeft + 4, valueBaseline);
-                    return;
+            }
+            return max;
+        }
+
+        private void drawCurve(
+                final Graphics2D g,
+                final int plotLeft,
+                final int plotTop,
+                final int plotRight,
+                final int plotBottom,
+                final Color color,
+                final List<Double> values,
+                final double max) {
+            final int window = Math.min(WINDOW_SIZE, values.size());
+            if (window < MIN_POLYLINE_SAMPLES) {
+                return;
+            }
+            g.setColor(color);
+            g.setStroke(new BasicStroke(CURVE_STROKE_WIDTH));
+            int previousX = -1;
+            int previousY = -1;
+            for (int index = 0; index < window; index++) {
+                final double value = values.get(values.size() - window + index);
+                final int x = plotLeft + (int) Math.round((index / (double) (window - 1)) * (plotRight - plotLeft));
+                final int y = plotBottom - (int) Math.round((value / max) * (plotBottom - plotTop));
+                if (previousX >= 0) {
+                    g.drawLine(previousX, previousY, x, y);
                 }
-                final Color seriesColor = SERIES_COLORS[
-                        Map.of(
-                                        ChartStore.KEY_CPU,
-                                        0,
-                                        ChartStore.KEY_FPS,
-                                        1,
-                                        ChartStore.KEY_HEAP,
-                                        2,
-                                        ChartStore.KEY_NONHEAP,
-                                        3,
-                                        ChartStore.KEY_GC,
-                                        5)
-                                .getOrDefault(key, 4)];
-                if (window < 2) {
-                    // Single sample: show the real current value once in the
-                    // band, no polyline and no placeholder (it would overlap).
-                    g.setColor(seriesColor);
-                    g.drawString(
-                            new DecimalFormat("0.0").format(values.get(values.size() - 1)) + " " + unit,
-                            plotLeft + 4,
-                            valueBaseline);
-                    return;
-                }
-                g.setColor(seriesColor);
-                g.setStroke(new BasicStroke(1.8f));
-                int previousX = -1;
-                int previousY = -1;
-                for (int index = 0; index < window; index++) {
-                    final double value = values.get(values.size() - window + index);
-                    final int x = plotLeft + (int) Math.round((index / (double) (window - 1)) * (plotRight - plotLeft));
-                    final int y = plotBottom - (int) Math.round((value / max) * (plotBottom - plotTop));
-                    if (previousX >= 0) {
-                        g.drawLine(previousX, previousY, x, y);
-                    }
-                    previousX = x;
-                    previousY = y;
-                }
-                final double last = values.get(values.size() - 1);
-                g.drawString(new DecimalFormat("0.0").format(last) + " " + unit, plotLeft + 4, valueBaseline);
-            } finally {
-                g.dispose();
+                previousX = x;
+                previousY = y;
+            }
+        }
+
+        private void drawValues(final Graphics2D g, final FontMetrics metrics, final int startX, final int baseline) {
+            final boolean multiSeries = series.size() > 1;
+            final DecimalFormat formatter = new DecimalFormat(VALUE_FORMAT);
+            int textX = startX;
+            for (RowSeries spec : series) {
+                final List<Double> values = store.values(spec.key());
+                if (values.isEmpty()) continue;
+                final String formatted = formatter.format(values.get(values.size() - 1)) + " " + spec.unit();
+                final String text = multiSeries ? spec.label() + ": " + formatted : formatted;
+                g.setColor(spec.color());
+                g.drawString(text, textX, baseline);
+                if (!multiSeries) return;
+                textX += metrics.stringWidth(text) + SERIES_LABEL_GAP;
             }
         }
     }

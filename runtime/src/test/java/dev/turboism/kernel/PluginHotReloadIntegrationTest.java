@@ -467,6 +467,161 @@ class PluginHotReloadIntegrationTest {
         }
     }
 
+    @Test
+    void hotLoadedDependentReceivesReplayedPreviewEventsFromAlreadyRunningProvider() throws Exception {
+        final String replayProp = "dev.turboism.test.hotload.replayed.id";
+        System.clearProperty(replayProp);
+        try {
+            final Path home = temporary.resolve("hot-replay-home");
+            final Path plugins = home.resolve("plugins");
+            Files.createDirectories(plugins);
+
+            final String providerId = "dev.example.previewprovider";
+            final Path providerJar = plugins.resolve(providerId + ".jar");
+            final String providerDescriptor = """
+                {
+                  "format": "turboism.plugin.meta",
+                  "schemaVersion": 4,
+                  "id": "%s",
+                  "name": "Preview Provider",
+                  "version": "0.1.0",
+                  "description": "Test",
+                  "entrypoints": ["dev.example.previewprovider.TestEntrypoint"],
+                  "turboismApi": "[0.70.0,)",
+                  "authors": [{"name": "Test"}],
+                  "license": "Test",
+                  "website": "https://turboism.dev",
+                  "resources": [],
+                  "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": []},
+                  "eventExports": [{
+                    "id": "thumbnail.captured",
+                    "contractVersion": "1.0.0",
+                    "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent"
+                  }],
+                  "dependencies": [],
+                  "permissions": [
+                    {"id": "turboism.ui.recent-preview.contribute", "scope": "application", "reason": "Test"},
+                    {"id": "turboism.event.publish", "scope": "application", "reason": "Test"}
+                  ],
+                  "capabilities": [],
+                  "environment": {"requiresCubism": false, "ui": "none"},
+                  "lifecycle": {"hotReload": true},
+                  "category": "workflow",
+                  "tags": ["test"]
+                }
+                """.formatted(providerId);
+            writeJarWithDescriptor(providerJar, providerId, providerDescriptor, """
+                    package dev.example.previewprovider;
+                    import dev.turboism.sdk.cubism.recentfile.RecentFileId;
+                    import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
+                    import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
+                    import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
+                    import dev.turboism.sdk.plugin.*;
+                    import java.util.Base64;
+                    import java.util.concurrent.CompletableFuture;
+                    public final class TestEntrypoint implements TurboismPlugin {
+                        private static final byte[] PNG = Base64.getDecoder()
+                                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+                        private PluginContext context;
+                        @Override public void init(PluginContext context) {
+                            this.context = context;
+                        }
+                        @Override public void enable() {
+                            RecentPreviewCacheService cache = context.services().require(RecentPreviewCacheService.class);
+                            context.disposableScope().register(cache.provide(
+                                    id -> CompletableFuture.completedStage(false),
+                                    () -> {
+                                        context.eventBus().publish(new RecentPreviewCapturedEvent(
+                                                new RecentFileId("model-1"),
+                                                "Model.cmo3",
+                                                new ScreenshotImage(1, 1, PNG)));
+                                        return CompletableFuture.completedStage(null);
+                                    }));
+                        }
+                    }
+                    """);
+
+            final String consumerId = "dev.example.previewconsumer";
+            final Path consumerJar = temporary.resolve(consumerId + ".jar");
+            final String consumerDescriptor = """
+                {
+                  "format": "turboism.plugin.meta",
+                  "schemaVersion": 4,
+                  "id": "%s",
+                  "name": "Preview Consumer",
+                  "version": "0.1.0",
+                  "description": "Test",
+                  "entrypoints": ["dev.example.previewconsumer.TestEntrypoint"],
+                  "turboismApi": "[0.70.0,)",
+                  "authors": [{"name": "Test"}],
+                  "license": "Test",
+                  "website": "https://turboism.dev",
+                  "resources": [],
+                  "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": []},
+                  "eventImports": [{
+                    "provider": "dev.example.previewprovider",
+                    "eventId": "thumbnail.captured",
+                    "contractVersion": "[1.0.0,2.0.0)",
+                    "eventType": "dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent",
+                    "required": true
+                  }],
+                  "dependencies": [{
+                    "id": "dev.example.previewprovider",
+                    "version": "[0.1.0,1.0.0)",
+                    "type": "required",
+                    "ordering": "after"
+                  }],
+                  "permissions": [
+                    {"id": "turboism.event.subscribe", "scope": "application", "reason": "Test"},
+                    {"id": "turboism.ui.recent-preview.manage", "scope": "application", "reason": "Test"}
+                  ],
+                  "capabilities": [],
+                  "environment": {"requiresCubism": false, "ui": "none"},
+                  "lifecycle": {"hotReload": true},
+                  "category": "workflow",
+                  "tags": ["test"]
+                }
+                """.formatted(consumerId);
+            writeJarWithDescriptor(consumerJar, consumerId, consumerDescriptor, """
+                    package dev.example.previewconsumer;
+                    import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
+                    import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
+                    import dev.turboism.sdk.event.SubscribeEvent;
+                    import dev.turboism.sdk.plugin.*;
+                    public final class TestEntrypoint implements TurboismPlugin {
+                        private PluginContext context;
+                        @Override public void init(PluginContext context) {
+                            this.context = context;
+                        }
+                        @Override public void enable() {
+                            context.services().require(RecentPreviewCacheService.class).requestReplay();
+                        }
+                        @SubscribeEvent
+                        public void onPreview(RecentPreviewCapturedEvent event) {
+                            System.setProperty("dev.turboism.test.hotload.replayed.id", event.id().value());
+                        }
+                    }
+                    """);
+
+            try (LocalPluginRuntime runtime = createRuntime(home)) {
+                runtime.loadAll();
+                assertTrue(runtime.hotReloadCoordinator().isLoaded(providerId));
+                final Path installedConsumer = plugins.resolve(consumerId + ".jar");
+                Files.copy(consumerJar, installedConsumer);
+                final var result = runtime.hotReloadCoordinator().hotLoad(installedConsumer);
+                assertTrue(result.succeeded(), "hot load must succeed: " + result.message());
+
+                final long deadline = System.nanoTime() + 5_000_000_000L;
+                while (!"model-1".equals(System.getProperty(replayProp)) && System.nanoTime() < deadline) {
+                    Thread.yield();
+                }
+                assertEquals("model-1", System.getProperty(replayProp));
+            }
+        } finally {
+            System.clearProperty(replayProp);
+        }
+    }
+
     private LocalPluginRuntime createRuntime(final Path home) throws IOException {
         return createRuntime(home, (pluginId, phase) -> {});
     }
@@ -562,6 +717,42 @@ class PluginHotReloadIntegrationTest {
                         "META-INF/turboism/hooks",
                         "dev.turboism.bootstrap.TestHookContributor\n".getBytes(StandardCharsets.UTF_8));
             }
+        }
+    }
+
+    private void writeJarWithDescriptor(
+            final Path destination, final String pluginId, final String descriptor, final String source)
+            throws Exception {
+        final Path sourceDir = temporary.resolve("src-" + destination.getFileName());
+        final Path classesDir = temporary.resolve("classes-" + destination.getFileName());
+        final Path javaFile = sourceDir.resolve(
+                "dev/example/" + pluginId.substring(pluginId.lastIndexOf('.') + 1) + "/TestEntrypoint.java");
+        Files.createDirectories(javaFile.getParent());
+        Files.writeString(javaFile, source, StandardCharsets.UTF_8);
+        Files.createDirectories(classesDir);
+
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        final ByteArrayOutputStream err = new ByteArrayOutputStream();
+        final int res = compiler.run(
+                null,
+                null,
+                err,
+                "-classpath",
+                System.getProperty("java.class.path"),
+                "-d",
+                classesDir.toString(),
+                javaFile.toString());
+        assertEquals(0, res, "compilation failed: " + err.toString(StandardCharsets.UTF_8));
+
+        Files.createDirectories(destination.getParent());
+        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(destination))) {
+            try (var stream = Files.walk(classesDir)) {
+                for (Path p : stream.filter(Files::isRegularFile).sorted().toList()) {
+                    addEntry(out, classesDir.relativize(p).toString().replace('\\', '/'), Files.readAllBytes(p));
+                }
+            }
+            addEntry(out, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            addEntry(out, "META-INF/turboism/i18n/messages.properties", new byte[0]);
         }
     }
 

@@ -163,7 +163,29 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                 localization.text("board.delete.action", "Delete preview"),
                 actionContext -> actionContext.uiEvent().ifPresent(event -> deletePreview(event.sourceId())));
         dispatchRefresh();
+        requestCachedPreviews();
         scheduleStartupRefreshes();
+    }
+
+    private void requestCachedPreviews() {
+        final RecentPreviewCacheService cache = previewCache;
+        if (cache == null || !cache.isAvailable()) {
+            return;
+        }
+        try {
+            cache.requestReplay().whenComplete((ignored, failure) -> {
+                if (failure != null && enabled) {
+                    final PluginLogger currentLogger = logger;
+                    if (currentLogger != null) {
+                        currentLogger.warn("Recent project board preview replay failed: "
+                                + failure.getClass().getSimpleName());
+                    }
+                }
+            });
+        } catch (RuntimeException failure) {
+            logger.warn("Recent project board preview replay request failed: "
+                    + failure.getClass().getSimpleName());
+        }
     }
 
     /**
@@ -199,6 +221,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         logger = null;
         localization = null;
         recentFiles = null;
+        previewCache = null;
         editorCommands = null;
         uiHost = null;
         uiScheduler = null;

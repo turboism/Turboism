@@ -20,6 +20,8 @@ final class ChartSeriesColors {
     private static final Color GC = new Color(140, 86, 75);
     private static final Color SAFE_DEFAULT = new Color(148, 103, 189);
 
+    private static final String MEMORY_CHART_ID = "memory";
+    private static final Color[] MEMORY_SERIES = {HEAP, NONHEAP};
     private static final Color[] ORDINAL = {CPU, FPS, HEAP, NONHEAP, SAFE_DEFAULT, GC};
 
     private static final Map<String, Color> BY_CHART_ID = Map.of(
@@ -32,11 +34,14 @@ final class ChartSeriesColors {
     private ChartSeriesColors() {}
 
     /**
-     * Color for one series of one chart: the first series uses the fixed
-     * chart-id color (unknown ids stay on the safe default), extra series
-     * use the ordinal fallback palette so multi-series charts still draw.
+     * Color for one series of one chart: the combined memory chart assigns Heap and Non-Heap
+     * colors, single-series charts use the fixed chart-id color, and extra series fall back to
+     * the ordinal palette.
      */
     static Color colorFor(final String chartId, final int seriesIndex) {
+        if (MEMORY_CHART_ID.equals(chartId) && seriesIndex >= 0 && seriesIndex < MEMORY_SERIES.length) {
+            return MEMORY_SERIES[seriesIndex];
+        }
         if (seriesIndex <= 0) {
             return BY_CHART_ID.getOrDefault(chartId, SAFE_DEFAULT);
         }

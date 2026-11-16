@@ -17,6 +17,12 @@ class ChartSeriesColorsTest {
     }
 
     @Test
+    void combinedMemoryChartUsesHeapAndNonHeapColors() {
+        assertEquals(new Color(44, 160, 44), ChartSeriesColors.colorFor("memory", 0));
+        assertEquals(new Color(214, 39, 40), ChartSeriesColors.colorFor("memory", 1));
+    }
+
+    @Test
     void unknownChartIdFallsBackToTheSafeDefault() {
         assertEquals(new Color(148, 103, 189), ChartSeriesColors.colorFor("unknown-id", 0));
         assertEquals(new Color(148, 103, 189), ChartSeriesColors.colorFor("", 0));

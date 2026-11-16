@@ -11,6 +11,7 @@ import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCacheService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewCapturedEvent;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
@@ -98,6 +99,46 @@ final class RecentPreviewPluginLifecycleTest {
         assertEquals(1, captured.image().width());
         assertEquals(1, captured.image().height());
         assertEquals(150, ((dev.turboism.sdk.ui.PanelView.ScaledImage) captured.thumbnail()).maxWidth());
+        plugin.shutdown();
+    }
+
+    @Test
+    void requestReplayPublishesPreviouslyCapturedPreviewsForLateSubscribers() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<RecentPreviewRenderer> renderers = new ArrayList<>();
+        final int[] captures = {0};
+        final AtomicInteger refreshes = new AtomicInteger();
+        final List<String> warnings = new ArrayList<>();
+        final RecordingEventBus events = new RecordingEventBus();
+        final RecordingCacheBroker cacheBroker = new RecordingCacheBroker();
+        final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
+
+        final ScreenshotCaptureService screenshots = request -> {
+            captures[0]++;
+            return CompletableFuture.completedStage(
+                    new ScreenshotCaptureResult(request.id(), new ScreenshotImage(1, 1, png())));
+        };
+        plugin.init(context(
+                List.of(file),
+                renderers,
+                screenshots,
+                refreshes,
+                warnings,
+                new RecordingTaskScheduler(),
+                events,
+                cacheBroker));
+        plugin.enable();
+        plugin.onModelOpened(
+                new ProjectContentSnapshot("content-1", "One", ProjectContentKind.MODEL, Optional.empty(), List.of()));
+        awaitCaptures(captures, 1);
+        awaitCondition(() -> !events.published.isEmpty());
+        events.published.clear();
+
+        cacheBroker.requestReplay().toCompletableFuture().join();
+        assertEquals(1, events.published.size());
+        final RecentPreviewCapturedEvent replayed = (RecentPreviewCapturedEvent) events.published.get(0);
+        assertEquals(file.id(), replayed.id());
+        assertEquals("One.cmo3", replayed.displayName());
         plugin.shutdown();
     }
 
@@ -417,6 +458,26 @@ final class RecentPreviewPluginLifecycleTest {
             final List<String> warnings,
             final RecordingTaskScheduler tasks,
             final EventBus eventBus) {
+        return context(
+                files,
+                renderers,
+                screenshots,
+                refreshes,
+                warnings,
+                tasks,
+                eventBus,
+                RecentPreviewCacheService.unavailable());
+    }
+
+    private static PluginContext context(
+            final List<RecentFileSummary> files,
+            final List<RecentPreviewRenderer> renderers,
+            final ScreenshotCaptureService screenshots,
+            final AtomicInteger refreshes,
+            final List<String> warnings,
+            final RecordingTaskScheduler tasks,
+            final EventBus eventBus,
+            final RecentPreviewCacheService cacheService) {
         final DisposableScope scope = new DisposableScope();
         final PluginLogger logger = (PluginLogger) Proxy.newProxyInstance(
                 PluginLogger.class.getClassLoader(), new Class<?>[] {PluginLogger.class}, (proxy, method, args) -> {
@@ -470,6 +531,7 @@ final class RecentPreviewPluginLifecycleTest {
                                 .install(RecentFileService.class, recentFiles)
                                 .install(ScreenshotCaptureService.class, screenshots)
                                 .install(RecentPreviewContributionService.class, popups)
+                                .install(RecentPreviewCacheService.class, cacheService)
                                 .fallback(PluginServices.of((PluginContext) proxy))
                                 .build();
                     case "logger" -> logger;
@@ -529,6 +591,31 @@ final class RecentPreviewPluginLifecycleTest {
                         }
                     },
                     Optional.empty());
+        }
+    }
+
+    private static final class RecordingCacheBroker implements RecentPreviewCacheService {
+        private ReplayHandler replayHandler;
+
+        @Override
+        public CompletionStage<Boolean> delete(final RecentFileId id) {
+            return CompletableFuture.completedStage(false);
+        }
+
+        @Override
+        public Registration provide(final DeletionHandler handler) {
+            return () -> {};
+        }
+
+        @Override
+        public Registration provide(final DeletionHandler deletionHandler, final ReplayHandler replayHandler) {
+            this.replayHandler = replayHandler;
+            return () -> this.replayHandler = null;
+        }
+
+        @Override
+        public CompletionStage<Void> requestReplay() {
+            return replayHandler == null ? CompletableFuture.completedStage(null) : replayHandler.replay();
         }
     }
 

@@ -31,7 +31,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 ## What it does
 
 - Shows up to eight recent projects in a compact, configurable layout over the native OpenGL viewport while no document is open. An icon-only Lucide layout control in the header cycles 6-column and 3-column grids and a single-row list, and remembers the choice. Hovering it shows the current layout. Text scales up as the layout gets roomier.
-- Uses the official `recent-preview` plugin's public `thumbnail.captured` event for thumbnails, including its bounded startup cache replay.
+- Uses the official `recent-preview` plugin's public `thumbnail.captured` event for thumbnails, requesting an immediate cached-preview replay on enable so real-time market installation and re-enable pick up existing thumbnails without an editor restart.
 - Hides the board immediately when any document opens and restores it after the last document closes.
 - Keeps the header title/subtitle left-aligned and the layout button on the right. The header sits outside the scroll region, so the button never shifts when the vertical scrollbar appears, and the button is vertically centered in the header.
 - Deduplicates repeated recent-menu entries by display name while preserving the Recent Files order.
@@ -86,7 +86,7 @@ Projects without a cached thumbnail still appear as placeholders, so the board r
 | `turboism.action.register` | `application` | Register the double-click open action and the per-card delete action used by board cards. |
 | `turboism.file.read` | `application` | Read the plugin-confined layout preference. |
 | `turboism.file.write` | `application` | Persist the selected layout preference. |
-| `turboism.ui.recent-preview.manage` | `application` | Delete one cached preview when the user presses a card's trash button. |
+| `turboism.ui.recent-preview.manage` | `application` | Request cached preview replays on enable and delete one cached preview when the user presses a card's trash button. |
 
 ## Privacy and data
 

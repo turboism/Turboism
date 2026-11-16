@@ -334,7 +334,7 @@ LangString PLUGIN_DESC_dev_turboism_plugin_parameter_sync ${LANG_JAPANESE} "正�
 LangString PLUGIN_NAME_dev_turboism_plugin_parameter_sync ${LANG_KOREAN} "매개변수 동기화 플러그인 0.68.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_parameter_sync ${LANG_KOREAN} "정규화 범위 매핑을 지원하는 매개변수 값 실시간 동기화 플러그인."
 LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Performance Statistics 0.68.1"
-LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window."
+LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Real-time Cubism process performance charts: CPU and JVM memory as an embedded panel and a standalone window."
 LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_SIMPCHINESE} "性能统计 0.68.1"
 LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_SIMPCHINESE} "Turboism 的性能统计。"
 LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_JAPANESE} "パフォーマンス統計 0.68.1"

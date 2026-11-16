@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.perf-stats",
   "name": "Performance Statistics",
   "version": "0.68.1",
-  "description": "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window.",
+  "description": "Real-time Cubism process performance charts: CPU and JVM memory as an embedded panel and a standalone window.",
   "entrypoints": [
     "dev.turboism.plugin.perfstats.PerfStatsPlugin"
   ],
@@ -26,7 +26,7 @@
     {
       "id": "turboism.performance.stats.read",
       "scope": "application",
-      "reason": "Reads Cubism process CPU, FPS, and JVM memory statistics for live charts."
+      "reason": "Reads Cubism process CPU and JVM memory statistics for live charts."
     },
     {
       "id": "turboism.ui.status.notify",
@@ -63,8 +63,7 @@
   },
   "tags": [
     "metrics",
-    "diagnostics",
-    "fps"
+    "diagnostics"
   ],
   "category": "performance"
 }

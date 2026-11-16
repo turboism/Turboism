@@ -6,7 +6,7 @@ kind: feature
 status: preview
 delivery: store-candidate
 category: performance
-tags: metrics, diagnostics, fps
+tags: metrics, diagnostics
 turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
@@ -15,14 +15,14 @@ interface: swing
 
 > **Turboism 公式プラグイン** · **ステータス: プレビュー**
 
-Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計をリアルタイムで表示します。
+Cubism의 CPU 및 JVM 메모리(힙과 비힙) 통계를 실시간으로 표시합니다.
 
 | 詳細 | 値 |
 |---|---|
 | 버전 | `0.68.1` |
 | 플러그인 ID | `dev.turboism.plugin.perf-stats` |
 | カテゴリー | `performance` |
-| 태그 | metrics, diagnostics, fps |
+| 태그 | metrics, diagnostics |
 | Cubism 필요 여부 | 예 |
 | 인터페이스 | `swing` |
 | 라이선스 | 프로젝트 라이선스 |
@@ -52,9 +52,9 @@ Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計�
 
 ## 사용 방법
 
-1. 常時利用できるコンパクトなチャートのために、埋め込み Performance パネルを開きます。
-2. **Turboism → Performance Monitor** を使用して、スタンドアロンウィンドウを開きます。
-3. ビューポート FPS、CPU、ヒープ/非ヒープメモリー、ガベージコレクション停止の傾向を観察します。
+1. 항상 사용할 수 있는 컴팩트 차트를 위해 임베디드 Performance 패널을 엽니다.
+2. **Turboism → Performance Monitor**를 사용하여 독립 실행형 창을 엽니다.
+3. CPU와 통합 메모리(힙 및 비힙 곡선) 추이를 관찰합니다.
 
 ## 기능
 
@@ -67,7 +67,7 @@ Cubism の CPU、FPS、JVM メモリー、ガベージコレクション統計�
 
 | 権限 | スコープ | 要求する理由 |
 |---|---|---|
-| `turboism.performance.stats.read` | `application` | ライブチャート用に Cubism プロセスの CPU、FPS、JVM メモリー統計を読み取ります。 |
+| `turboism.performance.stats.read` | `application` | 실시간 차트용으로 Cubism 프로세스의 CPU 및 JVM 메모리 통계를 읽습니다. |
 | `turboism.ui.status.notify` | `application` | Cubism ステータスバーに常駐するコンパクトな CPU パーセンテージラベルを表示します。 |
 | `turboism.ui.panel.contribute` | `application` | Cubism パレットエリアに、埋め込みパフォーマンスチャートパネルを追加します。 |
 | `turboism.action.register` | `application` | Performance Monitor ウィンドウアクションを登録します。 |

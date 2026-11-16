@@ -8,6 +8,18 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
+### 新增
+
+- 新增 `RecentPreviewCacheService.requestReplay()` 与提供方 `ReplayHandler` 契约：依赖插件可按需请求最近预览提供方重新发布已缓存缩略图，因此在插件市场实时安装或重新启用的看板无需重启 Cubism 即可显示现有预览图。
+
+### 变更
+
+- `perf-stats` 将 JVM 堆与 JVM 非堆合并为一张“内存”图表，在同一坐标轴上绘制两条曲线，并从嵌入式面板与独立性能监视器窗口中移除 FPS 与 GC 暂停图表。
+
+### 修复
+
+- 在 `recent-preview` 已运行时安装或重新启用 `recent-project-board`，看板会在启用时请求重放缓存缩略图，卡片立即显示已有预览图，而不是等到下次重启编辑器才正常。
+
 ## [0.70.0] - 2026-11-15
 
 ### 新增

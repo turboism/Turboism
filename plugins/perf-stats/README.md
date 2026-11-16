@@ -6,7 +6,7 @@ kind: feature
 status: preview
 delivery: store-candidate
 category: performance
-tags: metrics, diagnostics, fps
+tags: metrics, diagnostics
 turboismApi: "[0.68.1,)"
 requiresCubism: true
 interface: swing
@@ -16,14 +16,14 @@ interface: swing
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Displays live Cubism CPU, FPS, JVM memory, and garbage-collection statistics.
+Displays live Cubism CPU and JVM memory (Heap and Non-Heap) statistics.
 
 | Detail | Value |
 |---|---|
 | Version | `0.68.1` |
 | Plugin ID | `dev.turboism.plugin.perf-stats` |
 | Category | `performance` |
-| Tags | metrics, diagnostics, fps |
+| Tags | metrics, diagnostics |
 | Requires Cubism | Yes |
 | Interface | `swing` |
 | License | Project License |
@@ -55,7 +55,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 1. Open the embedded Performance panel for always-available compact charts.
 2. Use **Turboism → Performance Monitor** to open the standalone window.
-3. Observe viewport FPS, CPU, heap/non-heap memory, and garbage-collection pause trends.
+3. Observe CPU and combined JVM memory (Heap and Non-Heap) trends.
 
 ## Capabilities
 
@@ -68,7 +68,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 
 | Permission | Scope | Why it is requested |
 |---|---|---|
-| `turboism.performance.stats.read` | `application` | Reads Cubism process CPU, FPS, and JVM memory statistics for live charts. |
+| `turboism.performance.stats.read` | `application` | Reads Cubism process CPU and JVM memory statistics for live charts. |
 | `turboism.ui.status.notify` | `application` | Shows the resident compact CPU percentage label in the Cubism status bar. |
 | `turboism.ui.panel.contribute` | `application` | Adds the embedded performance chart panel to the Cubism palette area. |
 | `turboism.action.register` | `application` | Registers the Performance Monitor window action. |
