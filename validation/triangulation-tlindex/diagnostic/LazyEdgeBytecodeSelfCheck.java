@@ -29,7 +29,6 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
     private static boolean leased;
     private static boolean productionComposition;
     private static TriangulationDefinitionLifecycle leaseOwner;
-    private static byte[] leaseStampBytes;
     private static FrozenEdgeTransforms composition;
 
     private LazyEdgeBytecodeSelfCheck() {}
@@ -55,9 +54,29 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
 
     private static void renewLease() {
         LeaseBridge.gate = leaseOwner.capture(new Class<?>[] {LeaseStamp.class},
-                java.util.Map.of(LeaseStamp.class.getName(), DefinitionFingerprint.runtimeOf(leaseStampBytes)),
-                DefinitionFingerprint::runtimeOf);
-        require(LeaseBridge.gate.reason().equals("OWNED_FINAL_DEFINITION_MATCH"), "woven method left its operation lease locked");
+                LazyEdgeBytecodeSelfCheck::leaseStampContract);
+        require(LeaseBridge.gate.reason().equals("OWNED_DEFINITION_CONTRACT_MATCH"), "woven method left its operation lease locked");
+    }
+
+    /**
+     * Structural contract for the woven lease stamp.
+     *
+     * <p>The woven body links against the stamp identity and its static {@code value()}
+     * accessor, so admission reads that live shape instead of serialized bytes.</p>
+     *
+     * @param dependencies the captured classes in caller order
+     * @return {@code null} when the stamp shape matches, otherwise a stable reason
+     */
+    private static String leaseStampContract(Class<?>[] dependencies) {
+        for (Class<?> type : dependencies) {
+            if (type != LeaseStamp.class) return "LEASE_STAMP_IDENTITY_REJECTED";
+            try {
+                var accessor = type.getDeclaredMethod("value");
+                if (accessor.getReturnType() != int.class || !java.lang.reflect.Modifier.isStatic(accessor.getModifiers()))
+                    return "LEASE_STAMP_SHAPE_REJECTED";
+            } catch (NoSuchMethodException absent) { return "LEASE_STAMP_SHAPE_REJECTED"; }
+        }
+        return null;
     }
     public static class Vec {
         public final float x, y;
@@ -413,9 +432,6 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
             leaseOwner = TriangulationDefinitionLifecycle.forPremain(DefinitionAdmissionSelfCheckAgent.instrumentation(),
                     DefinitionAdmissionSelfCheckAgent.class.getName());
             require(leaseOwner.startupReason().equals("SUPPORTED_OWNED_PREMAIN"), "owned leased startup unavailable");
-            try (var stream = LeaseStamp.class.getResourceAsStream("LazyEdgeBytecodeSelfCheck$LeaseStamp.class")) {
-                leaseStampBytes = Objects.requireNonNull(stream).readAllBytes();
-            }
             renewLease();
             if (inputs.length > 0 && inputs[0].equals("--production-compose")) {
                 productionComposition = true;
