@@ -2,7 +2,10 @@ package dev.turboism.adapter.cubism.optimization.geometry;
 
 import dev.turboism.adapter.cubism.interpolation.MeshInterpolationTransformer;
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -62,11 +65,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
             byte[] bytes) {
         if (actualLoader != loader || !TARGET.equals(name) || bytes == null) return null;
         try {
-            if (artifact != null
-                    && !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) return null;
+            if (artifact != null && !HostCodeSource.matchesArtifact(domain, artifact)) return null;
             List<String> observed = ReviewedMethodShape.read(bytes, TARGET, METHOD, DESCRIPTOR);
             if (!shape.equals(observed) && (composedShape == null || !composedShape.equals(observed))) {
                 failure = "native position consumer differs from reviewed method";
@@ -99,12 +98,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
                 failure = "expected two native point-ref call sites";
                 return null;
             }
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             Projection[] visitor = {null};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -177,15 +171,7 @@ public final class WarpPositionProjectionTransformer implements ClassFileTransfo
                         nativePath = new Label();
                 super.visitTryCatchBlock(start, end, error, "java/lang/Throwable");
                 super.visitLabel(start);
-                this.visitMethodInsn(
-                        Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-                this.visitLdcInsn(WarpPositionProjectionBridge.CALLBACK_PROPERTY);
-                this.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL,
-                        "java/util/Properties",
-                        "get",
-                        "(Ljava/lang/Object;)Ljava/lang/Object;",
-                        false);
+                SlotBridgeEmitter.emitGetSlot(this, WarpPositionProjectionBridge.CALLBACK_PROPERTY);
                 this.visitInsn(Opcodes.DUP);
                 this.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Function");
                 super.visitJumpInsn(Opcodes.IFEQ, discard);

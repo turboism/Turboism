@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.deferred;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -161,12 +164,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
         final MethodSpec spec = spec(name);
         if (spec == null) return null;
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 throw new IllegalArgumentException("deferred-check artifact mismatch");
             }
             final List<String> observed =
@@ -227,12 +225,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
             }
             final int deferredLocal = scan[1];
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final int[] applied = {0};
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
@@ -351,15 +344,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
                     done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            this.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            this.visitLdcInsn(UniformLocationHookBridge.DEFER_QUERY_PROPERTY);
-            this.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            SlotBridgeEmitter.emitGetSlot(this, UniformLocationHookBridge.DEFER_QUERY_PROPERTY);
             this.visitInsn(Opcodes.DUP);
             this.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, miss);
@@ -426,15 +411,7 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
                     empty = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            this.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            this.visitLdcInsn(UniformLocationHookBridge.DEFER_REPORT_PROPERTY);
-            this.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            SlotBridgeEmitter.emitGetSlot(this, UniformLocationHookBridge.DEFER_REPORT_PROPERTY);
             this.visitInsn(Opcodes.DUP);
             this.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, miss);

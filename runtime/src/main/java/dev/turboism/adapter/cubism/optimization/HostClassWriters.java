@@ -1,16 +1,45 @@
 package dev.turboism.adapter.cubism.optimization;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
 
 /**
  * Resolves common bytecode supertypes across host class loaders while degrading missing optional
  * hierarchy classes to {@code java/lang/Object}.
+ *
+ * <p>The frame-computing {@link ClassWriter} factories live here as well, so a weave hook never
+ * re-declares the loader-aware subclass that ASM's default writer lacks.</p>
  */
 public final class HostClassWriters {
 
     private static final String JAVA_OBJECT_INTERNAL_NAME = "java/lang/Object";
 
+    /** Frame and stack recomputation, required after any instruction insertion. */
+    private static final int FRAME_COMPUTING_FLAGS = ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS;
+
     private HostClassWriters() {}
+
+    /**
+     * Returns a writer that recomputes frames and maximums, resolving supertypes on {@code loader}.
+     *
+     * @param reader reader whose constant pool the writer reuses
+     * @param loader loader that supplies hierarchy metadata, or {@code null} for the runtime loader
+     * @return a frame-computing writer bound to {@code loader}
+     */
+    public static ClassWriter newFrameWriter(final ClassReader reader, final ClassLoader loader) {
+        return newFrameWriter(loader, reader);
+    }
+
+    /**
+     * Returns a writer that recomputes frames and maximums without a reader to copy from.
+     *
+     * @param loader loader that supplies hierarchy metadata, or {@code null} for the runtime loader
+     * @return a frame-computing writer bound to {@code loader}
+     */
+    public static ClassWriter newFrameWriter(final ClassLoader loader) {
+        return newFrameWriter(loader, null);
+    }
 
     /**
      * Resolves the internal binary name of the lowest common supertype of {@code left} and
@@ -46,5 +75,27 @@ public final class HostClassWriters {
             FatalErrors.rethrowIfFatal(failure);
             return JAVA_OBJECT_INTERNAL_NAME;
         }
+    }
+
+    /**
+     * Builds the frame-computing writer that defers supertype resolution to
+     * {@link #commonSuperClass(ClassLoader, String, String)}.
+     *
+     * @param loader loader that supplies hierarchy metadata, or {@code null} for the runtime loader
+     * @param reader reader whose constant pool the writer reuses, or {@code null}
+     * @return a frame-computing writer bound to {@code loader}
+     */
+    private static ClassWriter newFrameWriter(final ClassLoader loader, final ClassReader reader) {
+        return new ClassWriter(reader, FRAME_COMPUTING_FLAGS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                return loader != null ? loader : super.getClassLoader();
+            }
+
+            @Override
+            protected String getCommonSuperClass(final String left, final String right) {
+                return commonSuperClass(loader, left, right);
+            }
+        };
     }
 }

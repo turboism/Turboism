@@ -1,7 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
@@ -392,12 +395,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             byte[] bytes) {
         if (actualLoader != loader || !owner.equals(name) || bytes == null) return null;
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 throw new IllegalArgumentException("lifecycle artifact mismatch");
             }
             boolean composed = false;
@@ -415,12 +413,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                         "lifecycle composed body without a derivable error receiver: " + owner);
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-            };
+            ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final boolean elidedError = composed && role == Role.ERROR;
             final Observer[] observer = {null};
             reader.accept(
@@ -675,15 +668,7 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
                     done = new Label();
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
-            this.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
-            this.visitLdcInsn(property);
-            this.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Properties",
-                    "get",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    false);
+            SlotBridgeEmitter.emitGetSlot(this, property);
             this.visitInsn(Opcodes.DUP);
             this.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/invoke/MethodHandle");
             super.visitJumpInsn(Opcodes.IFEQ, discard);

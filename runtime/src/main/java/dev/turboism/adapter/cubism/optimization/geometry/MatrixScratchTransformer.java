@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.optimization.geometry;
 
 import dev.turboism.adapter.cubism.optimization.ClassPinTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
@@ -131,12 +132,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
             byte[] bytes) {
         if (actualLoader != loader || !OWNER.equals(name) || bytes == null) return null;
         try {
-            if (domain == null
-                    || domain.getCodeSource() == null
-                    || !artifact.equals(
-                            Path.of(domain.getCodeSource().getLocation().toURI())
-                                    .toAbsolutePath()
-                                    .normalize())) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = REJECT_SOURCE_MESSAGE;
                 return null;
             }
@@ -145,17 +141,7 @@ public final class MatrixScratchTransformer implements ClassFileTransformer {
                 return null;
             }
             ClassReader reader = new ClassReader(bytes);
-            ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-
-                @Override
-                protected String getCommonSuperClass(final String left, final String right) {
-                    return HostClassWriters.commonSuperClass(loader, left, right);
-                }
-            };
+            ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override

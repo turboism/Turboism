@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.warpgrid;
 
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
+import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -25,12 +27,6 @@ import org.objectweb.asm.Opcodes;
  */
 public final class WarpGridInterpolationTransformer implements ClassFileTransformer {
 
-    private static final String SYSTEM_INTERNAL = "java/lang/System";
-    private static final String GET_PROPERTIES_METHOD = "getProperties";
-    private static final String GET_PROPERTIES_DESC = "()Ljava/util/Properties;";
-    private static final String PROPERTIES_INTERNAL = "java/util/Properties";
-    private static final String PROPERTIES_GET_METHOD = "get";
-    private static final String PROPERTIES_GET_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
     private static final String METHOD_HANDLE_INTERNAL = "java/lang/invoke/MethodHandle";
     private static final String INVOKE_EXACT_METHOD = "invokeExact";
 
@@ -133,7 +129,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             return null;
         }
         try {
-            if (!matchesArtifactSource(domain)) {
+            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = FAILURE_SOURCE_MISMATCH;
                 return null;
             }
@@ -146,17 +142,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override
-                protected ClassLoader getClassLoader() {
-                    return loader == null ? super.getClassLoader() : loader;
-                }
-
-                @Override
-                protected String getCommonSuperClass(final String left, final String right) {
-                    return HostClassWriters.commonSuperClass(loader, left, right);
-                }
-            };
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final boolean[] applied = {false};
             reader.accept(new WarpGridClassVisitor(writer, applied), ClassReader.EXPAND_FRAMES);
             if (!applied[0]) {
@@ -171,17 +157,6 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                     rejected + FAILURE_LOCATOR_SEPARATOR + (trace.length == 0 ? NO_FRAMES_MARKER : trace[0].toString());
             return null;
         }
-    }
-
-    private boolean matchesArtifactSource(final ProtectionDomain domain) throws Exception {
-        if (domain == null
-                || domain.getCodeSource() == null
-                || domain.getCodeSource().getLocation() == null) {
-            return false;
-        }
-        return artifact.equals(Path.of(domain.getCodeSource().getLocation().toURI())
-                .toAbsolutePath()
-                .normalize());
     }
 
     private static final class WarpGridClassVisitor extends ClassVisitor {
@@ -295,18 +270,11 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitVarInsn(Opcodes.ALOAD, LOCAL_PT);
             visitJumpInsn(Opcodes.IFNULL, fallback);
 
-            emitPropertyLookup(WarpGridInterpolationBridge.OOB_PROPERTY);
+            SlotBridgeEmitter.emitGetSlot(this, WarpGridInterpolationBridge.OOB_PROPERTY);
             visitVarInsn(Opcodes.ASTORE, LOCAL_BRIDGE_SLOT);
             visitVarInsn(Opcodes.ALOAD, LOCAL_BRIDGE_SLOT);
             visitTypeInsn(Opcodes.INSTANCEOF, METHOD_HANDLE_INTERNAL);
             visitJumpInsn(Opcodes.IFEQ, fallback);
-        }
-
-        private void emitPropertyLookup(final String key) {
-            visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM_INTERNAL, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESC, false);
-            visitLdcInsn(key);
-            visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL, PROPERTIES_INTERNAL, PROPERTIES_GET_METHOD, PROPERTIES_GET_DESC, false);
         }
 
         private void emitQuadLoop(final Label oobExit) {
