@@ -1,31 +1,20 @@
 # incremental-update-host-probe
 
-增量更新路径宿主行为探针。
+Host-behaviour probe for the incremental update path.
 
-运行：`./build.sh` 编译。需要真实 Cubism Editor 宿主。
+Run `./build.sh` to compile. A real Cubism Editor host is required.
 
-## 胶水 affecter 纳入增量更新（2026-11-02）
+## Glue Affecters in Incremental Update (2026-11-02)
 
-`unsafe(model)` 仍拒绝 ArtPath 和非 `CGlue` affecter；仅在显式设置
-`-Dturboism.optimization.incrementalUpdateAffecters=true` 时允许只含胶水的模型复用。
-宿主每次更新都会清空 `affectedForm` 并从当前 `deformedForm` 重算胶水结果，因此被复用的
-状态仍然有效。探针 digest 同时覆盖 `getDeformedForm()` 与 `getAffectedForm()`。
-5.0.00/5.1.03/5.2.03/5.3.03/5.3.04 实机矩阵与限制见
-[acceptance-20261102-affecters.md](acceptance-20261102-affecters.md)。
+`unsafe(model)` still rejects ArtPath and any affecter that is not a `CGlue`; only an explicit `-Dturboism.optimization.incrementalUpdateAffecters=true` allows reuse for a model that holds glue alone. Every host update clears `affectedForm` and recomputes the glue result from the current `deformedForm`, so a reused state stays valid. The probe digest covers both `getDeformedForm()` and `getAffectedForm()`. The 5.0.00/5.1.03/5.2.03/5.3.03/5.3.04 host matrix and its limits are in [acceptance-20261102-affecters.md](acceptance-20261102-affecters.md).
 
-## 撤销重建与版本兼容（2026-10-28）
+## Undo Rebuild and Version Compatibility (2026-10-28)
 
-Warp 绿色手柄拖动后撤销可在不改变文档时间戳、不调用插值入口的情况下，通过
-`reinitInstance` 原地恢复表单。仅监听插值无法证明子 ArtMesh 的计算坐标仍可复用。
-增量更新现在监听公共 `ACParameterControllableSource.reinitInstance` 入口，清除已完成和
-待提交的基线、父子缓存及差分探针状态，同时恢复原生插值。下一次更新完整计算，随后
-稳定帧恢复增量复用。帧内重建不会提交旧基线；关闭优化时移除新增回调并恢复重写类。
+After dragging a green Warp handle, an undo restores the form in place through `reinitInstance` without changing the document timestamp and without calling the interpolation entry point. Watching interpolation alone therefore cannot prove that the computed coordinates of a child ArtMesh stay reusable. Incremental update now watches the public `ACParameterControllableSource.reinitInstance` entry point, clears the completed and pending baselines, the parent and child caches, and the differential probe state, and restores native interpolation. The next update computes fully, and the following stable frame resumes incremental reuse. An in-frame rebuild never commits the old baseline; disabling the optimization removes the added callback and restores the rewritten class.
 
-覆盖的 20 个版本：5.0.00–5.0.06、5.1.00–5.1.03、5.2.00–5.2.03、5.3.00–5.3.04。
-逐版本固定公共源类、Warp/Rotation/ArtMesh 源类及继承链的 SHA-256；未知方法或字节码
-不匹配时拒绝安装。安装器要求五个类、七个方法全部注入成功，卸载覆盖新增源类。
+Covered versions: all 20, 5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, and 5.3.00–5.3.04. Each version pins the SHA-256 of the public source classes, of the Warp, Rotation, and ArtMesh source classes, and of their inheritance chain; an unknown method or a bytecode mismatch refuses installation. The installer requires all five classes and seven methods to inject successfully, and uninstall covers the added source classes.
 
-自动回归：
+Automated regression:
 
 ```sh
 ./gradlew :runtime:test --tests '*IncrementalUpdate*' \
@@ -34,39 +23,23 @@ TURBOISM_CUBISM_REF=/path/to/refs ./gradlew :runtime:legacyCubismEvidenceTest \
   --tests '*IncrementalUpdateArtifactTest*'
 ```
 
-参考目录为 `<refs>/<version>/Live2D_Cubism.jar`，同目录及其子目录提供该版本的依赖 JAR。
-允许版本目录使用符号链接。无授权宿主材料的版本单独跳过，不计为已验证。
+The reference directory is `<refs>/<version>/Live2D_Cubism.jar`, and the same directory and its subdirectories supply the dependency JARs of that version. A version directory may be a symlink. A version without licensed host material is skipped separately and never counted as verified.
 
-本次 20 个真实 JAR 检查全部通过，覆盖类指纹、源重建继承调用链、依赖与方法签名、
-五个类的真实字节码转换。离线测试覆盖无时间戳/插值回调的重建失效、帧内及异线程通知、
-随后恢复复用，以及通知缺失、类型错误和异常时原生重建继续执行。这些结果不代表
-20 个版本均已通过编辑器交互回归。
+All 20 real JAR checks passed this round, covering class fingerprints, the source-rebuild inheritance call chain, dependencies and method signatures, and the real bytecode transformation of the five classes. The offline tests cover rebuild invalidation without a timestamp or interpolation callback, in-frame and cross-thread notification with resumed reuse afterwards, and continued native rebuild when the notification is missing, mistyped, or throws. These results do not mean that all 20 versions passed editor interaction regression.
 
-宿主交互验收：关闭两个镜像，开启增量更新，拖动 Warp 绿色手柄后分别撤销、重做，
-检查 Warp、源坐标、子 ArtMesh 和多层子变形器一致恢复；稳定帧应再次出现复用。
-再关闭增量更新做相同操作，比较结果。编辑器内验收结果见 [2026-10-28 实机报告](acceptance-20261028.md)，仅对报告列出的版本和场景作结论。
+Host interaction acceptance: disable both mirrors, enable incremental update, drag a green Warp handle, then undo and redo, and check that Warp, source coordinates, child ArtMeshes, and multi-level child deformers all restore consistently; a stable frame must show reuse again. Repeat the same operations with incremental update disabled and compare. The in-editor result is in the [2026-10-28 host report](acceptance-20261028.md) and concludes only for the versions and scenarios that report lists.
 
-离线门禁结果：无图形模式 `devCheck` 通过；runtime 准入共 3981 项、零失败、8 项跳过。
-真实版本回归 20 项全部通过、无跳过。runtime/bootstrap 的 `spotlessJavaCheck` 通过。
-默认图形模式的首轮 `devCheck` 因既有截图测试阻塞于系统屏幕捕获而中止，未计为通过。
+Offline gate results: headless `devCheck` passed; runtime admission ran 3981 cases with zero failures and 8 skipped. All 20 real-version regressions passed with no skip. `spotlessJavaCheck` passed for runtime and bootstrap. The first graphical-mode `devCheck` stopped because an existing screenshot test blocked on system screen capture and is not counted as a pass.
 
-## 异线程原生回退（2026-10-28）
+## Cross-Thread Native Fallback (2026-10-28)
 
-替换标脏和 ArtMesh 变形的回调只能通过抛异常触发注入器的原生回退；正常返回或返回
-`null` 都会被视为已处理。异线程调用现在先清除几何基线及探针状态、恢复原生插值，
-再通过现有异常分支执行原生序列。被打断的更新不得提交旧基线，完整更新后恢复复用。
+A callback that replaces dirty marking and ArtMesh deformation can trigger the native fallback of the injector only by throwing; a normal return or a `null` return counts as handled. A cross-thread call now clears the geometry baseline and the probe state, restores native interpolation, and then runs the native sequence through the existing exception branch. An interrupted update must not commit the old baseline, and a complete update resumes reuse.
 
-回归测试将真实 Bridge 回调与 20 个版本描述符的转换后调用点组合，断言原生标脏、
-变换创建及 ArtMesh 变形各执行一次，并验证帧内失效和后续恢复。该测试在修复前失败。
-这属于调用点行为验证，不代表新增了编辑器 GUI 交互验收。
+The regression test combines the real Bridge callbacks with the transformed call sites of the 20 version descriptors, asserts that native dirty marking, transform creation, and ArtMesh deformation each run once, and verifies in-frame invalidation with later recovery. That test failed before the fix. This verifies call-site behaviour and does not add editor GUI interaction acceptance.
 
-## 编辑器内 Warp 拖动验收
+## In-Editor Warp Drag Acceptance
 
-任务专用 Java agent 通过当前建模视图的官方鼠标事件包装器拖动可见 Warp 控制点，
-调用编辑器的 Undo/Redo 命令，并逐位比较所有 Warp/ArtMesh 源表单及计算坐标。
-阶段间只请求 `repaintCanvas`，不调用模型重建或 `updateParamInstance`。
-两个镜像钩子禁用且不加载镜像插件。先跑关闭增量更新的原生对照，再开启增量更新，
-比较四个阶段的坐标与画布，并要求实际出现网格复用、Bridge 失败计数不增加。
+A task-specific Java agent drags a visible Warp control point through the official mouse-event wrapper of the current modelling view, calls the editor undo and redo commands, and compares every Warp and ArtMesh source form plus the computed coordinates bit for bit. Between stages it requests only `repaintCanvas` and calls neither a model rebuild nor `updateParamInstance`. Both mirror hooks are disabled and the mirror plugin is not loaded. The run first performs the native comparison with incremental update off, then enables it, compares the coordinates and canvas of four stages, and requires real mesh reuse with a non-increasing Bridge failure count.
 
 ```sh
 ./gradlew previewBundle
@@ -75,23 +48,14 @@ bash validation/incremental-update-host-probe/run-undo-host-validation.sh 5304 \
   --golden-prefix /path/to/proton-prefix
 ```
 
-构建载体需要显式提供合法安装的宿主依赖；它只用于验收，不进入产品分发包。
+The build carrier needs a licensed host installation supplied explicitly; it serves acceptance only and never enters the product distribution.
 
-本机安装与项目路径由现有 `.env` / `TURBOISM_ENV_FILE` 提供。运行器经全局队列启动
-官方 BAT、复制测试项目和 Proton 前缀；探针只接受匹配队列 run ID 的任务目录，结果
-落盘后退出该任务的编辑器。仅使用编辑器原生 FREE 启动或已存在的许可状态。
-启动器、原始项目及黄金前缀由运行器校验，测试不会保存修改到原项目。
+The local installation and project paths come from the existing `.env` or `TURBOISM_ENV_FILE`. The runner starts the official BAT through the global queue and copies the test project and the Proton prefix; the probe accepts only a task directory that matches the queue run ID and exits that task's editor after it writes its result. It uses only the native FREE startup of the editor or an existing licence state. The runner verifies the launcher, the original project, and the golden prefix, and the test never saves a modification into the original project.
 
-画布从建模视图的组件树精确定位 `com.jogamp.opengl.awt.GLJPanel`，避免把旧版内部
-组件或纹理预览当作建模画布。坐标键使用稳定 UUID，避免 Undo 重建后的调试编号
-变化造成误报。画面证据使用原生绘制入口；空白或单色捕获不能计为通过。
+The canvas is located exactly as `com.jogamp.opengl.awt.GLJPanel` in the component tree of the modelling view, so an older internal component or a texture preview is never mistaken for the modelling canvas. Coordinate keys use stable UUIDs, so a debug number that changes after an undo rebuild cannot cause a false report. Visual evidence comes from the native paint entry; a blank or single-colour capture never counts as a pass.
 
-2026-10-28 最终实机结果：5.0.00、5.1.03、5.2.03、5.3.03、5.3.04 的目标场景通过。
-详细任务证据及 5.0.00 单次像素差异的复测边界见 [实机报告](acceptance-20261028.md)。
+Final host result on 2026-10-28: the target scenario passed on 5.0.00, 5.1.03, 5.2.03, 5.3.03, and 5.3.04. See the [host report](acceptance-20261028.md) for the detailed task evidence and the re-measurement boundary of the single 5.0.00 pixel difference.
 
-组合验收的 Undo 工具等待框架 runtime 完成启动，再要求建模画布布局连续稳定三秒。
-每组开始和每次画布捕获都必须保持同一边界；布局变化直接拒绝对照，不放宽坐标位级
-或像素相等断言。这防止框架工具栏尚在安装时，过早启动的 OFF/ON 使用不同画布。
+The undo tool of the combined acceptance waits for the framework runtime to finish startup and then requires the modelling canvas layout to stay stable for three consecutive seconds. Every group start and every canvas capture must share that boundary; a layout change rejects the comparison outright, and the bit-level coordinate and pixel equality assertions are never relaxed. This prevents an early OFF/ON pair from using different canvases while the framework toolbar is still being installed.
 
-Undo、Redo 和最终 Undo 后各自记录稳定帧的 `meshSkipped` 与失败增量，并分别要求
-ON 复用为正、OFF 复用为零、Bridge 新增失败为零。整组复用总量不能替代这些阶段断言。
+After undo, after redo, and after the final undo, the run records `meshSkipped` and the failure delta of the stable frame, and separately requires ON reuse to be positive, OFF reuse to be zero, and new Bridge failures to be zero. The total reuse of the whole group cannot replace these per-stage assertions.

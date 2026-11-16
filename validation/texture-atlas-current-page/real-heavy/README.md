@@ -1,40 +1,40 @@
-# heavy FREE 排版验证（2026-10-21）
+# heavy FREE Layout Validation (2026-10-21)
 
-真实 heavy.cmo3 当前页，Cubism 5.3.03，4096×4096、间距 3、FREE、Abey、自动倍率、BALANCED、串行。
-文件 SHA-256：`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`。
-二进制模型不入库。
+Real `heavy.cmo3` current page, Cubism 5.3.03, 4096×4096, spacing 3, FREE, Abey, automatic scale, BALANCED, serial.
+File SHA-256: `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`.
+The binary model does not enter the repository.
 
-默认每个轮廓最多取 24 个候选接触顶点；FAST 为 8，DENSE 为完整搜索。只限制候选生成，碰撞和评分仍使用完整的预处理轮廓。
-限量可能降低紧凑度。若连续接触候选没有可行位置，限量模式尝试 Dalsoo 内部离散角度和角落候选，始终不调用原生算法。
+By default each outline offers at most 24 candidate contact vertices; FAST uses 8 and DENSE uses the full search. The limit applies to candidate generation only, because collision and scoring still use the complete preprocessed outline.
+The limit may reduce compactness. When no consecutive contact candidate yields a feasible position, the limited mode tries the Dalsoo internal discrete angles and corner candidates and never calls the native algorithm.
 
-## 实机结果
+## Host Results
 
-- 官方队列任务 `eddda3fa-7612-456d-a0e7-255cdcb1cb1c`，正常退出并清理，状态 succeeded。
-- run：`queue-96361ffbae724f4eb5b583eefbf695fa`。
-- 新插件 SHA-256：`e476f712a3f0bf0d32962068cc94c9278c084dc726481c7db73ee0b70c27cbda`。
-- 点击 OK 到进度窗口关闭 **29,347.8585 ms**；排版方法 **28,843.9122 ms**（包含验证探针开销）。
-- **101/101，倍率 1.0，overflow=0，branch=handled，returned=true**。
-- 生产日志：`placements=101 overflow=0 scale=1.0 {candidateVertexLimit=24, autoScaleMaxTry=12, autoScaleTolerance=0.005, autoScaleAttempts=bisect, rotationMode=FREE, kernel=dalsoo}`。
-  `autoScaleAttempts=bisect` 是已有诊断标签，实际为递减倍率梯度搜索；本次首轮即完成。
-- 对写回矩阵独立应用真实预处理轮廓，用 Java Area 校验全页边界和 3 像素间距；0 重叠。LayerRef 与打包结果矩阵一致。
-- `heavy-result.png` 是 niri 直接截取本任务“编辑纹理集”窗口，使用真实纹理。未保存或修改源模型。
-- `timing-001.json` 的矩形包围盒 overlaps/inside 不能代表旋转凹多边形正确性，请以 `heavy-geometry.json` 为准。
-- 验证脚本 count=0 是“读取 heavy 当前页全部项”的哨兵；实际项数 101。
+- Official queue task `eddda3fa-7612-456d-a0e7-255cdcb1cb1c` exited normally, cleaned up, and reported succeeded.
+- run: `queue-96361ffbae724f4eb5b583eefbf695fa`.
+- New plugin SHA-256: `e476f712a3f0bf0d32962068cc94c9278c084dc726481c7db73ee0b70c27cbda`.
+- Click OK to progress window close: **29,347.8585 ms**; layout method: **28,843.9122 ms**, including validation probe overhead.
+- **101/101, scale 1.0, overflow=0, branch=handled, returned=true**.
+- Production log: `placements=101 overflow=0 scale=1.0 {candidateVertexLimit=24, autoScaleMaxTry=12, autoScaleTolerance=0.005, autoScaleAttempts=bisect, rotationMode=FREE, kernel=dalsoo}`.
+  `autoScaleAttempts=bisect` is an existing diagnostic label; the search is really a descending scale gradient, and this run finished on the first round.
+- Applying the real preprocessed outlines independently to the written-back matrix and checking the full page bounds and 3-pixel spacing with Java `Area` found 0 overlaps. The LayerRef set matched the packed result matrix.
+- `heavy-result.png` is a direct niri capture of this task's "edit texture set" window with the real textures. The source model was neither saved nor modified.
+- The rectangle-bounding-box overlaps and inside counts in `timing-001.json` cannot represent the correctness of rotated concave polygons; use `heavy-geometry.json`.
+- The validation script count=0 is the sentinel for "read every item of the heavy current page"; the real item count is 101.
 
-## 基线与内存
+## Baseline and Memory
 
-原完整搜索实机在 120 秒观测内未返回，任务 `b3352f17-112f-4ffc-98a5-49d1262dbfdc`。
-同一真实输入离线回放：原内核 30 秒仅放入 6 项；加碰撞索引但保持完整候选的自动倍率首轮 240 秒仍未结束。
-正式限量候选内核离线回放约 23.2 秒，101 项、100% 倍率，独立轮廓/缓冲轮廓/间距检查均无重叠。
-一次初始实机复测意外读取旧的独立插件 JAR，亦在 120 秒超时；不将它计为新内核的性能结果。
-随后显式运行插件 jar 任务，记录上述哈希并通过实机验证。
+The original full-search host run did not return within a 120-second observation, task `b3352f17-112f-4ffc-98a5-49d1262dbfdc`.
+Offline replay of the same real input: the original kernel placed only 6 items in 30 seconds, and an automatic-scale round that kept the full candidate set but added a collision index had still not finished after 240 seconds.
+The shipped limited-candidate kernel replayed offline in about 23.2 seconds with 101 items at 100% scale, and the independent outline, buffered outline, and spacing checks found no overlap.
+One initial host re-run accidentally read the old standalone plugin JAR and also timed out at 120 seconds; it does not count as a performance result of the new kernel.
+The plugin jar task then ran explicitly, recorded the hash above, and passed host validation.
 
-同一 JVM、`-Xmx512m` 连续三次真实 heavy 内核排版全部完成，GC 后堆占用分别 6,689,752 / 6,750,760 / 6,750,760 字节，未观察到内核持续保留增长（`kernel-retention.txt`）。
-实机 heavy 模型本身占用较高：本轮堆从约 1.89 GiB 升至峰值 2.45 GiB，期间无 GC。这是分配观测，不能由单次运行认定泄漏已全部排除；不将累计分配量当作泄漏量。
+Three consecutive real heavy kernel layouts in one JVM with `-Xmx512m` all completed, with post-GC heap usage of 6,689,752 / 6,750,760 / 6,750,760 bytes and no observed sustained kernel retention growth (`kernel-retention.txt`).
+The heavy model itself uses a lot on the host: this round the heap rose from about 1.89 GiB to a peak of 2.45 GiB with no GC in between. This is an allocation observation, and one run cannot establish that every leak is excluded; cumulative allocation is not leak volume.
 
-## 回归
+## Regression
 
-插件全部 44 项测试通过，包含随机凹轮廓索引等价、真实近共线数值回归、未采样凹边几何碰撞、逐项内核进度、六组完整搜索结果签名、取消和设置持久化。
-运行时自动排版变换器/对话框测试通过；明确选择 Dalsoo 时，入口缺失、返回失败或抛异常均不进入原生方法，且不会伪报成功。
+All 44 plugin tests passed, including random concave outline index equivalence, the real near-collinear numeric regression, unsampled concave edge geometry collision, per-item kernel progress, six full search result signatures, cancellation, and settings persistence.
+The runtime auto-layout transformer and dialog tests passed; with Dalsoo explicitly selected, a missing entry point, a failed return, or a thrown exception never falls through to the native method and never reports a false success.
 
-整合 main 后：运行时纹理集 192 项测试、插件 44 项测试、格式检查全部通过；探针 76 项离线断言单独编译运行通过。整个离线包装矩阵检查因本工作树未配置 geometry-100 等测试模型而未完成；本次 heavy 实机任务及其二进制模型已单独准备并验证通过。
+After merging main: the 192 runtime texture atlas tests, the 44 plugin tests, and the format checks all passed; the 76 offline probe assertions compiled and ran separately. The full offline packaging matrix did not finish because this worktree has no geometry-100 and other test models configured; this heavy host task and its binary model were prepared and verified separately.

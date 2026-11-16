@@ -1,33 +1,33 @@
-# 2026-10-02 十轮原生三角化验证收尾
+# 2026-10-02 Ten-Round Native Triangulation Validation Closeout
 
-本批诊断完成。用户于 2026-10-02 明确“批准。提交。”，已批准限定三轮候选的资源界限与实机审阅，并接受本报告的限制；见 [批准记录](candidate-approval-20261002.json)。长时间内存稳定性与理论性能瓶颈仍未证明；不把本次批准扩展为这些技术结论，或将 T044/T046/T050 全量勾选。
+This diagnostic batch is complete. On 2026-10-02 the user said "approved, commit", which approved the resource bounds and host review of the limited three-round candidate and accepted the limitations of this report; see the [approval record](candidate-approval-20261002.json). Long-run memory stability and the theoretical performance bottleneck remain unproven; this approval does not extend to those technical conclusions and does not tick T044/T046/T050 in full.
 
-## 已确认的三版本收益
+## Confirmed Gains on Three Versions
 
-以下数据沿用固定最终工件的原三轮匹配 A/B，不用本次不同排队策略的长轮次重新宣称性能收益。
+The numbers below reuse the original three-round matched A/B of the frozen final artifact and do not re-claim a performance gain from this batch's longer rounds with a different queueing strategy.
 
-| Cubism | 三轮耗时关闭→开启（秒） | 耗时降低 | Java CPU 降低 |
+| Cubism | Three-round time off to on (s) | Time reduction | Java CPU reduction |
 |---|---:|---:|---:|
-| 5.2.03 | 229.00→154.27 | 32.63% | 30.54% |
-| 5.3.02 | 103.98→72.91 | 29.89% | 27.15% |
-| 5.3.03 | 102.29→74.33 | 27.33% | 16.40% |
+| 5.2.03 | 229.00 to 154.27 | 32.63% | 30.54% |
+| 5.3.02 | 103.98 to 72.91 | 29.89% | 27.15% |
+| 5.3.03 | 102.29 to 74.33 | 27.33% | 16.40% |
 
-原三轮 RSS 成本、设置页默认值与六次独立重启结果继续见 [最终候选审阅](final-candidate-review-20261002.md)，所列三轮预算已获批准，未扩展至长轮次。
+The original three-round RSS cost, the settings page defaults, and the six independent restart results remain in the [final candidate review](final-candidate-review-20261002.md). The approved three-round budget is not extended to the longer rounds.
 
-## 本次新增实机证据
+## New Host Evidence in This Batch
 
-- 开启 seq2492：10 次真实命令、7110 条结果；关闭修复重跑 seq2497：同样 10 次、7110 条。两腿 11 个语义字段逐条零差异，包括全部位置/索引摘要；正常退出、精确身份、fixture 前后哈希、内核任务清理均 PASS。
-- 关闭初次 seq2494：完成前 9 次，第 10 次 MESH_CONNECT 排队 5 秒超时，state=TIMED_OUT，命令未执行；正式 FAIL 保留。安全 scope 清理已确认，31 项日志/状态/备份模型已保存并核验，仅其失败 prefix 经官方 cleanup 引擎回收。
-- 驱动生成器新增编译时 cycles=3..12，默认 3 的全部生成源码与旧协议逐字节一致。仅长轮次对取消前未开始的 MESH_CONNECT 回调进行有界排队重试；STARTED/COMPLETED、其他操作、过期或中断均拒绝。名义 60 秒排队截止加最后一个最多 5 秒屏障，不能复制已经开始的命令。
-- 最终扩展驱动 38 项自检、两份 Runner dry-run、devCheck 通过；实际重跑驱动的生成源码与最终自检驱动一致。生产 base 与 companion 均未更改。
+- Enabled seq2492: 10 real commands, 7110 results; disabled fix re-run seq2497: the same 10 commands and 7110 results. All 11 semantic fields of both legs matched with zero differences, including every position and index digest; normal exit, exact identity, fixture before and after hashes, and kernel task cleanup all passed.
+- First disabled seq2494: 9 commands completed and the 10th MESH_CONNECT timed out after 5 seconds of queueing with state=TIMED_OUT, so the command did not execute; the formal FAIL is kept. The safe scope cleanup is confirmed, the 31 log, state, and backup models were saved and verified, and only its failure prefix was reclaimed by the official cleanup engine.
+- The driver generator gained compile-time cycles=3..12, and every generated source at the default 3 is byte-identical to the old protocol. Only a long round applies bounded queue retry to a MESH_CONNECT that has not started before the cancellation; STARTED/COMPLETED, other operations, an expired entry, and an interrupt are all rejected. The nominal 60-second queue deadline plus a final barrier of at most 5 seconds cannot duplicate a command that already started.
+- The final extended driver passed 38 self-checks, two Runner dry runs, and devCheck; the generated source of the actual re-run driver matches the final self-check driver. Neither the production base nor the companion changed.
 
-## 内存结论与范围
+## Memory Conclusions and Scope
 
-原三轮 5303 的第 3 轮堆提交从 2000→2040 MiB，与 RSS 增加约 42.86 MiB 接近；原有有界时钟审计支持该对应，但不能证明所有增加都来自扩容。
+Round 3 of the original three-round 5303 run raised heap commit from 2000 to 2040 MiB, close to the RSS increase of about 42.86 MiB; the existing bounded clock audit supports that correspondence but cannot prove that every increase came from growth.
 
-本次开启腿发生 1 次原生自动备份，日志记录约 +3439 MB；关闭重跑发生 2 次，首次约 +3939 MB。失败关闭腿亦记录 +3446 MB 与 +2818 MB。宿主备份明确会产生数 GiB 内存事件。自然 GC 后堆占用显著回落；这说明大量临时对象可回收，不证明索引长期无泄漏，也不把每字节都归因于备份。
+The enabled leg produced 1 native automatic backup, logged at about +3439 MB; the disabled re-run produced 2, the first at about +3939 MB. The failed disabled leg also logged +3446 MB and +2818 MB. A host backup clearly produces multi-gigabyte memory events. Heap usage fell substantially after a natural GC, which shows that many temporary objects are collectable; it does not prove that the index never leaks and does not attribute every byte to a backup.
 
-| 轮次 | 关闭驻留 RSS 中位数 MiB | 开启驻留 RSS 中位数 MiB |
+| Round | Disabled resident RSS median MiB | Enabled resident RSS median MiB |
 |---|---:|---:|
 | 1 | 2716.68 | 2713.38 |
 | 2 | 2717.74 | 2045.02 |
@@ -40,15 +40,14 @@
 | 9 | 4440.46 | 5849.90 |
 | 10 | 5701.25 | 4982.16 |
 
-两个腿的基线、备份次数/时机及排队策略不同，后半段均未形成稳定 RSS 平台。不能把末轮差值解释成节省内存，不能用已批准的三轮 64 MiB 上限验收长轮次。没有关闭备份、强制 GC、删除失败或放宽原三轮门禁。
+The two legs differ in baseline, backup count and timing, and queueing strategy, and neither formed a stable RSS plateau in the second half. The last-round difference cannot be read as memory saved, and the approved three-round 64 MiB ceiling cannot accept the longer rounds. No backup was disabled, no GC was forced, no failure was deleted, and no original three-round gate was relaxed.
 
-长开启腿 11 个驻留锚点支持单一有界 affine 时钟；关闭腿不能同时满足全部锚点，初次时钟审计失败保留。关闭腿的 JFR 堆值仅作为整个 recording 的观察，不强行分配到各原生命令阶段。原生 markers 的 CPU/RSS/PSS 算术和结果摘要不受该归因限制影响。
+The 11 resident anchors of the long enabled leg support a single bounded affine clock; the disabled leg cannot satisfy every anchor at once, and the first clock audit failure is kept. The disabled leg's JFR heap values are reported as an observation over the whole recording and are not forced onto individual native command phases. The CPU, RSS, and PSS arithmetic and the result digest of the native markers are unaffected by that attribution limit.
 
-## 固定证据与剩余验收
+## Frozen Evidence and Remaining Acceptance
 
-`build/t050-lazy-edge-bytecode/memory-stability-r2/closeout-review.json`，SHA `7fb10b7e09147e6c847fa6ead6b580013ff76a4b3149cf8c17dcb4b8d0b7b1d2`；75 项新证据 pin 复核零差异。原 aggregate r2 保持不变。本批开/关成功 prefix 已由 Runner 回收，失败 prefix 已有独立 receipt，诊断和 backup 模型保留。
+`build/t050-lazy-edge-bytecode/memory-stability-r2/closeout-review.json`, SHA `7fb10b7e09147e6c847fa6ead6b580013ff76a4b3149cf8c17dcb4b8d0b7b1d2`; re-checking the 75 new evidence pins found zero differences. The original aggregate r2 is unchanged. The Runner reclaimed the successful on/off prefixes of this batch, the failure prefix has its own receipt, and the diagnostic and backup models are kept.
 
-本限定候选的三轮资源预算与 Lane C 人工审阅已由用户批准。若另行验收长期稳定性，仍需明确对应的长运行资源预算与稳定性判据。若继续针对长期稳定性采样，应记录同步时钟事件并按原生备份阶段分层；重复同类三轮或十轮采样不能替代该验收定义。现有证据支持性能优化有效及十轮完整结果一致性，不支持无限期稳定或理论最优；限定候选的人工批准是独立决策，不改变这些测量事实。
+The user approved the three-round resource budget and the Lane C manual review of this limited candidate. A separate long-term stability acceptance still needs its own long-run resource budget and stability criterion. Continued sampling for long-term stability must record synchronous clock events and stratify by native backup phase; repeating the same three-round or ten-round sampling cannot replace that acceptance definition. The existing evidence supports an effective performance optimization and consistent results across ten rounds; it does not support indefinite stability or theoretical optimality, and the manual approval of the limited candidate is an independent decision that changes none of these measured facts.
 
-
-冻结 closeout JSON 的 HOLD 状态是用户批准前的历史结果；不改写该工件或其哈希，当前决策由独立批准记录覆盖。
+The HOLD state in the frozen closeout JSON is the historical result before the user approval; that artifact and its hash are not rewritten, and the independent approval record now carries the current decision.

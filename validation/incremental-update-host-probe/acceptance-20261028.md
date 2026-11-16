@@ -1,10 +1,8 @@
-# Warp 增量更新撤销实机验收（2026-10-28）
+# Warp Incremental Update Undo Host Acceptance (2026-10-28)
 
-使用同目录 README 中的构建与运行命令，在官方 Cubism Editor 中验收。
-两个镜像钩子禁用、不加载镜像插件、全帧跳过关闭；分别关闭和开启增量更新，
-通过建模视图的官方鼠标事件包装器拖动可见 Warp 控制点，再执行原生撤销、重做。
+Acceptance ran in the official Cubism Editor with the build and run commands from the README in this directory. Both mirror hooks were disabled, the mirror plugin was not loaded, and full-frame skipping was off. With incremental update disabled and then enabled, the run dragged a visible Warp control point through the official mouse-event wrapper of the modelling view, then performed a native undo and redo.
 
-| 版本 | 最终结果 | 实际变形的子 ArtMesh | 每阶段坐标记录 | 开启后的网格复用增量 | Bridge 新增失败 |
+| Version | Final result | Child ArtMeshes actually deformed | Coordinate records per stage | Mesh-reuse increment when enabled | New Bridge failures |
 | --- | --- | --- | --- | --- | --- |
 | 5.0.00 | PASS | 2 | 82 | 192 | 0 |
 | 5.1.03 | PASS | 2 | 82 | 192 | 0 |
@@ -12,24 +10,10 @@
 | 5.3.03 | PASS | 3 | 82 | 195 | 0 |
 | 5.3.04 | PASS | 3 | 82 | 207 | 0 |
 
-每阶段比较所有 Warp 和 ArtMesh 源表单、计算表单的位置原始 float 位模式。
-所有最终用例中，撤销后与初始状态逐位一致，重做后与拖动状态逐位一致；
-增量更新开关对应阶段的坐标及原生 GLJPanel 绘制输出像素摘要也一致。
-所有版本撤销前后的文档时间戳均未改变。阶段间仅请求 repaint，
-不调用模型重建或 updateParamInstance；关闭增量更新时网格复用增量为零。
+Each stage compared the raw float bit patterns of the positions of every Warp and ArtMesh source form and computed form. In every final case the undo state matched the initial state bit for bit and the redo state matched the dragged state bit for bit. The coordinates of the matching stage and the pixel digest of the native GLJPanel paint output also matched for both incremental update settings. The document timestamp stayed unchanged before and after undo on every version. Between stages the run requested only a repaint and called neither a model rebuild nor `updateParamInstance`; with incremental update off the mesh-reuse increment was zero.
 
-最终任务均正常退出，隔离清理安全，原始项目及黄金安装的官方 JAR/BAT 哈希未变。
-被测产品 agent SHA-256 为
-`e3fefeec7115338b7b2498429a6275df6fd06b24e1a6889c096a79254d78894d`，
-包含 reinitInstance 几何失效及异线程原生回退修复。
-验收探针的 65 处宿主方法直接调用另经 20 个真实 JAR 的继承链和描述符检查。
+Every final task exited normally, the isolation cleanup was safe, and the hashes of the original project and of the official JAR and BAT files of the golden installation were unchanged. The product agent under test had SHA-256 `e3fefeec7115338b7b2498429a6275df6fd06b24e1a6889c096a79254d78894d` and carried the reinitInstance geometry invalidation and the cross-thread native fallback fix. The 65 direct host method calls of the acceptance probe were separately checked against the inheritance chain and descriptors of 20 real JARs.
 
-5.0.00 早期一次重做画面出现 467 个像素的细线差异，同时坐标断言通过。
-随后的严格 OFF / ON / OFF 对照中，三组坐标和四阶段像素摘要均一致，
-未复现该差异；单次现象的根因尚未确定。
+One early 5.0.00 redo frame showed a 467-pixel thin-line difference while the coordinate assertions passed. In the strict OFF / ON / OFF comparison that followed, all three coordinate sets and the four-stage pixel digests matched, and the difference did not reproduce. The root cause of that single occurrence is still unknown.
 
-原始队列输出、坐标、截图及差异记录保留在验收机器本地，不进入 Git。
-本结论限于列出的五个版本、一个测试项目的目标 Warp 与子网格场景；
-FREE 模式可能限制项目中其他对象的高级参数能力。
-20 个真实 JAR 的结构检查不等同于 20 个版本全部完成实机验收，
-也不代表所有编辑操作或未来版本均已兼容。
+The original queue output, coordinates, screenshots, and difference record stay on the acceptance machine and never enter Git. This conclusion covers only the five listed versions and the target Warp and child mesh scenario of one test project. FREE mode may limit the advanced parameter capabilities of other objects in the project. The structural check of 20 real JARs is not host acceptance of all 20 versions, and it does not mean every editing operation or a future version is compatible.

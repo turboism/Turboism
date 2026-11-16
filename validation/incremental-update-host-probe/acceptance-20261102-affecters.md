@@ -80,8 +80,7 @@ options: `config.json` carried `launcher.incrementalUpdate=true` and
 `NativeOptimizationConfig`, and the run again reports PASS with ON reuse 1008 and
 zero failures. That is the path the Performance-page toggle writes.
 
-The same bundle also opened the real editor settings dialog: the 性能 (Performance)
-tab shows "包含胶水影响器" immediately after "仅更新变化的模型部件"
+The same bundle also opened the real editor settings dialog: the Performance tab shows the glue-affecter row ("包含胶水影响器") immediately after the changed-parts row ("仅更新变化的模型部件")
 (`state/settings-shot/settings-performance.png` in the run directory). The
 contribution tests cover the binding, label key, tooltip and order; this capture
 confirms the row renders in the shipped page.

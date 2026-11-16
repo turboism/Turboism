@@ -1,74 +1,89 @@
-# ArtPath 与增量更新：可行性分析（2026-11-02）
+# ArtPath and Incremental Update: Feasibility Analysis (2026-11-02)
 
-## 结论
+## Conclusion
 
-ArtPath（图形路径）首先是**建模辅助工具**，其次才是可保存的 drawable：
+ArtPath (shape path) is first a **modelling aid** and only second a savable drawable:
 
-- `ToolGroup_ArtPath` 的 `command_createArtMeshForHitTest` 会创建 ArtMesh，
-  `addControlPoint` 直接接收 `CArtMesh`/`CArtMeshSource`，
-  `genControllerExtensionByArtPath` 会从路径生成 controller extension；
-  i18n 也有 “Auto Generation of ArtPath”“Align ArtPath's control point positions
-  with selected ArtMesh” 等条目。用它画出的路径通常被转换成 ArtMesh 顶点/控制器曲线。
-- 如果 ArtPath 对象本身被保留，它是 `CArtPath extends ACDrawable`，带
-  `GMeshRenderer`、画笔/颜色、关键形状，并进入 `getAllArtPaths()`；更新遍会插值并做
-  `postAffectedForm` 的 point-to-mesh 蒙皮。
+- `ToolGroup_ArtPath.command_createArtMeshForHitTest` creates an ArtMesh,
+  `addControlPoint` accepts `CArtMesh`/`CArtMeshSource` directly, and
+  `genControllerExtensionByArtPath` generates a controller extension from a path.
+  The i18n bundle also carries entries such as "Auto Generation of ArtPath" and
+  "Align ArtPath's control point positions with selected ArtMesh". A path drawn
+  with the tool is normally converted into ArtMesh vertices and controller curves.
+- When the ArtPath object itself is retained, it is `CArtPath extends ACDrawable`
+  with a `GMeshRenderer`, brush and colour, key shapes, and membership in
+  `getAllArtPaths()`. The update pass interpolates it and runs the point-to-mesh
+  skinning of `postAffectedForm`.
 
-因此：
+Therefore:
 
-1. 工具生成的 ArtMesh 顶点属于普通网格几何，现有增量复用已经覆盖，不需要额外开关。
-2. 只有**保存下来的 `CArtPath` drawable** 才受 `unsafe()` 的 ArtPath 门槛影响；
-   本地桌面样本 `containArtPath=false`、`getAllArtPaths()=0`，说明该样本只保留了
-   生成的网格，没有保留路径对象。
+1. ArtMesh vertices produced by the tool are ordinary mesh geometry that the
+   existing incremental reuse already covers, with no extra switch.
+2. Only a **retained `CArtPath` drawable** is affected by the ArtPath gate of
+   `unsafe()`. The local desktop sample reports `containArtPath=false` and
+   `getAllArtPaths()=0`, so it kept only the generated mesh and retained no path
+   object.
 
-对保存下来的路径对象，增量复用（只复用 `deformedForm` 与按对象的插值跳过）在原理上
-同样成立；但本地没有含 `CArtPath` 的工程可做实机对照，`unsafe()` 仍整体拒绝 ArtPath。
+For a retained path object, incremental reuse (reusing `deformedForm` and
+skipping per-object interpolation) holds in principle as well; but no local
+project contains a `CArtPath`, so no host comparison is possible, and `unsafe()`
+still rejects ArtPath as a whole.
 
-## 宿主管线证据（5.0.00 / 5.2.03 / 5.3.04）
+## Host Pipeline Evidence (5.0.00 / 5.2.03 / 5.3.04)
 
-几何更新里 ArtPath 有两遍：
+The geometry update runs two ArtPath passes:
 
-1. `c(CModel, CParameterSet, List<CArtPath>, ...)` — 只做插值：
-   `e && keyformGrid.c()` 为真时跳过，与 ArtMesh/Deformer 相同；没有 transform。
-2. `a(CModel, List<CArtPath>, az)` — 对每个路径：
+1. `c(CModel, CParameterSet, List<CArtPath>, ...)` only interpolates: it skips when
+   `e && keyformGrid.c()` is true, exactly as for ArtMesh and Deformer, and
+   performs no transform.
+2. `a(CModel, List<CArtPath>, az)` handles each path:
 
-   - `CArtPath.setPostAffectedForm(null)` 清空上一帧的输出；
-   - 若 `CArtPathSource.getExtensions()` 中有
-     `CArtPathPointToArtMeshExtension`，先 `preparePostAffectedForm$cubism()`，
-     再用 `PointInTriangle` 从 ArtMesh 的 `getCalculatedForm()` 取三角形内的点，
-     写入**路径点**的 `CSplineCurvePoint.getPoint()`（`setX/setY`）。
+   - `CArtPath.setPostAffectedForm(null)` clears the output of the previous frame;
+   - when `CArtPathSource.getExtensions()` holds a
+     `CArtPathPointToArtMeshExtension`, it first calls
+     `preparePostAffectedForm$cubism()` and then uses `PointInTriangle` to take
+     points inside a triangle from the ArtMesh `getCalculatedForm()` and write
+     them into the **path point** `CSplineCurvePoint.getPoint()` (`setX`/`setY`).
 
-`CArtPath.getCalculatedForm()` 依次回退 `postAffectedForm -> affectedForm ->
-deformedForm -> localAnimatedForm -> interpolatedForm`，渲染使用该结果。整个
-ArtPath 遍只读 ArtMesh，不写网格顶点；与 glue 一样，复用网格 `deformedForm`
-不会让路径结果变旧。
+`CArtPath.getCalculatedForm()` falls back through `postAffectedForm`,
+`affectedForm`, `deformedForm`, `localAnimatedForm`, and `interpolatedForm`, and
+rendering uses that result. The whole ArtPath pass only reads ArtMesh and writes
+no mesh vertex, so reusing the mesh `deformedForm` cannot make the path result
+stale, exactly as with glue.
 
-## 仍需解决的问题
+## Remaining Problems
 
-1. **探针覆盖**：`IncrementalUpdateBridge.digest()` 目前记录 `getDeformedForm()`
-   与 `getAffectedForm()`；ArtPath 的实际输出是 `getPostAffectedForm()`。
-   放开前必须把后者纳入 digest，否则交替 full/narrow 探针对路径是盲的。
-   该 getter 在 20 个已审核版本的 `CArtPath` 上都存在，可作为新的已验证依赖。
-2. **扩展白名单**：ArtPath 源码上可能挂其他 `ACExtension`
-   （controller、autoYure 等）。当前更新遍只处理
-   `CArtPathPointToArtMeshExtension`；未审核的扩展类型应继续让模型走原生。
-3. **实机样本**：本地 3 个模型（含 763 MB 工程）诊断结果均为 `artPaths=0`。
-   没有 ArtPath 工程就无法做 OFF/ON 坐标与像素对照，也就没有本仓库要求的
-   实机验收证据。
+1. **Probe coverage**: `IncrementalUpdateBridge.digest()` currently records
+   `getDeformedForm()` and `getAffectedForm()`, while the real ArtPath output is
+   `getPostAffectedForm()`. That getter must enter the digest before the gate
+   opens, or the alternating full/narrow probe stays blind to paths. The getter
+   exists on `CArtPath` in all 20 reviewed versions, so it can become a new
+   verified dependency.
+2. **Extension allowlist**: an ArtPath source may carry other `ACExtension`
+   instances (controller, autoYure, and similar). The current update pass handles
+   only `CArtPathPointToArtMeshExtension`; an unreviewed extension type must keep
+   the model on the native path.
+3. **Host sample**: diagnostics on the 3 local models (including a 763 MB project)
+   all report `artPaths=0`. Without an ArtPath project there is no OFF/ON
+   coordinate and pixel comparison, and therefore no host acceptance evidence of
+   the kind this repository requires.
 
-## 放开时的最小改动
+## Smallest Change When the Gate Opens
 
 ```text
 unsafe(model):
-  paths 全部满足：
-    - getAllArtPaths() 是 List；
-    - 每个路径 source 的 extensions 只含 CArtPathPointToArtMeshExtension（或为空）；
-    - 新开关 turboism.optimization.incrementalUpdateArtPaths（默认 false）。
+  every path satisfies:
+    - getAllArtPaths() is a List;
+    - each path source holds only CArtPathPointToArtMeshExtension in extensions, or none;
+    - the new switch turboism.optimization.incrementalUpdateArtPaths (default false).
 digest(drawable):
   CArtPath -> putForm(getPostAffectedForm())
-验收:
-  含 ArtPath 的工程上跑 Warp 拖动 + Undo/Redo，
-  OFF/ON 的 getCalculatedForm()（路径为 postAffectedForm）逐位一致、像素一致，
-  ON 复用 > 0，failures = 0；再跑 probe 交替 full/narrow 无 mismatch。
+acceptance:
+  On a project with ArtPath, drag Warp and run Undo/Redo;
+  getCalculatedForm() (postAffectedForm for paths) matches bit for bit and pixel for pixel
+  between OFF and ON, ON reuse > 0, failures = 0; then run the probe alternating
+  full/narrow with no mismatch.
 ```
 
-在这些条件满足前，ArtPath 模型继续完整原生回退，不影响现有 glue 开关。
+Until these conditions hold, an ArtPath model keeps the full native fallback and
+the existing glue switch is unaffected.

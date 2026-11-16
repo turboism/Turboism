@@ -1,42 +1,42 @@
-# 自更新 API 生产部署验收（2026-11-01）
+# Self-Update API Production Deployment Acceptance (2026-11-01)
 
-用户批准生产部署后，已将新版发布 API 部署到 `api.turboism.dev`。本记录对应首次保持发布关闭的部署；其后用户批准的正式密钥及公钥配置见 [签名配置验收](signing-provisioning-validation.md)。客户端自更新仍关闭，产品代码继续留在 `test/issue-50-windows-validation-fixes`。
+After the user approved production deployment, the new release API was deployed to `api.turboism.dev`. This record covers the first deployment, which kept release disabled; the later approved production key and public key configuration is in [signing configuration acceptance](signing-provisioning-validation.md). Client self-update stays disabled, and the product code stays on `test/issue-50-windows-validation-fixes`.
 
-## 部署身份
+## Deployment Identity
 
-| 项目 | 已执行值 |
+| Item | Value executed |
 | --- | --- |
-| 部署仓库提交 | [`0579cfd2cc5a78a23e1a4509adb461fa73becb48`](https://github.com/turboism/turboism-learn/commit/0579cfd2cc5a78a23e1a4509adb461fa73becb48) |
-| 部署的产品源码 | `743a6b3882c74f0e7273b09006b932e766153d6a` |
-| 实际部署工作流 | [41268862380](https://github.com/turboism/turboism-learn/actions/runs/41268862380)，`workflow_dispatch`，成功 |
-| Cloudflare Worker 版本 | `e8d9a081-2c89-46f9-acfb-d98eb384dd30` |
-| 部署完成时间 | 2026-11-01 03:22 UTC（北京时间 11:22） |
-| 完整部署验收完成时间 | 2026-11-01 03:25 UTC（北京时间 11:25） |
+| Deployment repository commit | [`0579cfd2cc5a78a23e1a4509adb461fa73becb48`](https://github.com/turboism/turboism-learn/commit/0579cfd2cc5a78a23e1a4509adb461fa73becb48) |
+| Deployed product source | `743a6b3882c74f0e7273b09006b932e766153d6a` |
+| Actual deployment workflow | [41268862380](https://github.com/turboism/turboism-learn/actions/runs/41268862380), `workflow_dispatch`, succeeded |
+| Cloudflare Worker version | `e8d9a081-2c89-46f9-acfb-d98eb384dd30` |
+| Deployment completed | 2026-11-01 03:22 UTC (11:22 Beijing time) |
+| Full deployment acceptance completed | 2026-11-01 03:25 UTC (11:25 Beijing time) |
 
-实际应用的是 [deploy-release-api-disabled.patch](deploy-release-api-disabled.patch)：一个工作流文件，+9/-3。部署仓库的另一工作流会在任何 main 推送时部署教程站，因此该提交使用 `[skip ci]` 关闭本次自动 push 触发，再显式运行既有 API 部署工作流。API 的源码测试、配置断言、域名检查及完整镜像验证均实际执行；该提交仅出现这一次 API 手动运行。
+What was actually applied is [deploy-release-api-disabled.patch](deploy-release-api-disabled.patch): one workflow file, +9/-3. Another workflow in the deployment repository deploys the tutorial site on any push to main, so this commit used `[skip ci]` to suppress that automatic push trigger and then ran the existing API deployment workflow explicitly. The API source tests, configuration assertions, domain checks, and full mirror verification really ran; the commit produced exactly one manual API run.
 
-## 已通过的检查
+## Passed Checks
 
-- 真实 GitHub runner 对固定源码执行服务端测试：78 项通过、0 失败。
-- `api.turboism.dev` 仍绑定到独立的 `turboism-release-api` Worker。
-- Stable、Beta、Nightly 的六个 EXE/ZIP 全量下载、SHA-256、校验文件、Range 206、每文件下载统计通过。验收下载使用现有统计排除标记。
-- 部署前后三个通道的版本、Build、源码和资产哈希一致；均未出现 `release.incremental`。
-- 新文档/载荷路径的未知哈希：GET 返回 `404 FRAMEWORK_RESOURCE_UNKNOWN`，HEAD 返回无响应体的 404，CORS 正常。
-- 无凭据的空请求访问 `/v1/framework/admit` 和 `/v1/framework/withdraw` 均返回 `503 FRAMEWORK_DISABLED`；发布权限保持关闭。
-- 现有 [真实 OIDC 同步工作流 41269118606](https://github.com/turboism/Turboism/actions/runs/41269118606) 成功，使用实际 GitHub 身份；未伪造 CI 编号或身份。
+- A real GitHub runner ran the server tests against the pinned source: 78 passed, 0 failed.
+- `api.turboism.dev` is still bound to the separate `turboism-release-api` Worker.
+- Full download of the six Stable, Beta, and Nightly EXE and ZIP assets, the SHA-256 values, the checksum files, Range 206, and the per-file download counters all passed. The acceptance downloads used the existing statistics exclusion marker.
+- The version, build, source, and asset hashes of the three channels matched before and after deployment; none reported `release.incremental`.
+- An unknown hash on the new document and payload path answered `404 FRAMEWORK_RESOURCE_UNKNOWN` for GET, a 404 with no body for HEAD, and normal CORS.
+- A credential-free empty request to `/v1/framework/admit` and `/v1/framework/withdraw` answered `503 FRAMEWORK_DISABLED`; release authority stayed off.
+- The existing [real OIDC sync workflow 41269118606](https://github.com/turboism/Turboism/actions/runs/41269118606) succeeded with a real GitHub identity; no CI number or identity was forged.
 
-## 发布数据新鲜度
+## Release Data Freshness
 
-部署前 `/health` 已为 `degraded`，快照时间为 `2026-11-01T02:30:33.874Z`；三个通道仍为 `ready`。部署和 OIDC 同步后曾观察到相同状态，说明同步认证通过并不等于上游刷新成功。
+Before deployment `/health` already reported `degraded` with a snapshot time of `2026-11-01T02:30:33.874Z`; the three channels still reported `ready`. The same state was observed after deployment and after the OIDC sync, which shows that a passed sync authentication does not mean the upstream refresh succeeded.
 
-服务随后按原有机制恢复刷新，快照更新为 `2026-11-01T03:37:40.254Z`。诊断窗口内两次健康读取及本机最终复验均为 `ready`，三通道版本和资产哈希仍与部署前一致。本轮没有修改刷新代码或增加上游凭据；没有捕获到异常消退前的具体错误，不将原因归结为已证实的限流或网络故障。
+The service then resumed refreshing through its existing mechanism and the snapshot moved to `2026-11-01T03:37:40.254Z`. Both health reads inside the diagnostic window and the final local re-check reported `ready`, and the three channel versions and asset hashes still matched the pre-deployment values. This round changed no refresh code and added no upstream credential; the specific error before the anomaly cleared was not captured, so the cause is not attributed to a proven rate limit or network failure.
 
-最终 [只读诊断 41270435338](https://github.com/turboism/turboism-learn/actions/runs/41270435338) 成功：100 秒窗口捕获 4 条完整记录，没有匹配的刷新错误，两次健康响应均为 `ready`。诊断仅存在于部署仓库的 `ops/issue-50-release-api-refresh-diagnostic` 分支（`93dee8146e1df14d6ec60856ea934228df75878f`），不含部署动作，诊断时部署仓库 main 为 `0579cfd`。首次诊断因工具未正确处理预期 timeout 124 提前结束，随后修正其 shell 退出码处理并重跑；该失败不是生产部署失败。
+The final [read-only diagnostic 41270435338](https://github.com/turboism/turboism-learn/actions/runs/41270435338) succeeded: a 100-second window captured 4 complete records with no matching refresh error, and both health responses reported `ready`. The diagnostic exists only on the deployment repository branch `ops/issue-50-release-api-refresh-diagnostic` (`93dee8146e1df14d6ec60856ea934228df75878f`) and performs no deployment action; deployment repository main was `0579cfd` at that time. The first diagnostic ended early because the tool mishandled the expected timeout 124; its shell exit-code handling was fixed and the run repeated. That failure is not a production deployment failure.
 
-## 后续发布准备
+## Follow-Up Release Preparation
 
-首次部署后的只读核对发现：当时产品仓库尚无框架更新变量，`framework-release-signing` 环境尚不存在。随后用户批准的签名环境、密钥及公钥配置已另行记录；`production-release` 发布环境配置仍待后续完成。
+A read-only check after the first deployment found that the product repository had no framework update variables yet and that the `framework-release-signing` environment did not exist. The later approved signing environment, key, and public key configuration is recorded separately; the `production-release` deployment environment configuration is still pending.
 
-正式签名密钥及公钥配置已获批准；发布权限及客户端激活仍保持关闭。候选构建和签名流程限定产品 `main`，产品“不合入 main”的要求继续生效；首次真实 CI 完整安装及 A→B→C 升级需先明确源码发布安排。
+The production signing key and public key configuration is approved; release authority and client activation stay off. The candidate build and signing flow require product `main`, and the product "do not merge into main" requirement still holds; the first real CI full installation and the A-to-B-to-C upgrade need the source release arrangement decided first.
 
-本机详细证据保存在忽略目录 `build/agent-tasks/`：`deployment-before.json`、`deployment-run-41268862380.log`、`deployment-run-41268862380/api-production.json`、`refresh-diagnostic-41270435338.log` 和 `refresh-diagnostic-41270435338/summary.json`。`deployment-after.json` 由复验脚本更新为最近一次结果；本次公钥部署的固定复验副本见 [签名配置验收](signing-provisioning-validation.md)。
+Local detailed evidence is kept in the ignored `build/agent-tasks/` directory: `deployment-before.json`, `deployment-run-41268862380.log`, `deployment-run-41268862380/api-production.json`, `refresh-diagnostic-41270435338.log`, and `refresh-diagnostic-41270435338/summary.json`. `deployment-after.json` is updated by the re-check script to the most recent result; the pinned re-check copy of this public key deployment is in [signing configuration acceptance](signing-provisioning-validation.md).

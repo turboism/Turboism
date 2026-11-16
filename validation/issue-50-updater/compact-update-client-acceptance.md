@@ -1,36 +1,36 @@
-# 紧凑统一更新窗口与插件 CDN 客户端验收（2026-11-02）
+# Compact Unified Update Window and Plugin CDN Client Acceptance (2026-11-02)
 
-本轮将更新窗口收敛为“检查更新、取消更新、安装更新”三个按钮，一次安装操作完成下载、验证及下次启动准备。框架有更新时位于列表第一条，默认勾选且不可取消；点击框架或插件行切换右侧日志，无需更新的条目隐藏。检查更新自动包括框架和插件。
+This round reduced the update window to three buttons: check for updates, cancel the update, and install the update. One install action performs the download, the verification, and the preparation for the next launch. A framework update sits first in the list, is checked by default, and cannot be unchecked; clicking a framework or plugin row switches the log on the right, and an entry with no update stays hidden. Check for updates covers the framework and the plugins automatically.
 
-当前版本在顶部左侧，箭头居中，框架目标版本在右侧；没有框架目标时显示破折号。就绪时不显示单独的“就绪”行。右侧日志标题与组件名两端对齐，去掉中点分隔并缩小内容边距。底部状态提示不再插入空行。进度条中间显示 MB，最右侧显示 `12m31s` 形式的下载与验证耗时，完成后保留数值。
+The current version sits at the top left, the arrow is centred, and the framework target version sits on the right; with no framework target the right side shows a dash. No separate "ready" line appears when the state is ready. The log title on the right aligns with the component name at both ends, the middle dot separator is gone, and the content inset is smaller. The bottom status hint no longer inserts a blank line. The progress bar shows MB in the middle and a download-and-verify duration such as `12m31s` at the far right, and it keeps the value after completion.
 
-## 自动检查
+## Automated Checks
 
-- `FrameworkUpdatesWindowTest` 与插件管理测试合计 174 项：173 通过、1 项平台条件跳过，0 失败/错误（已包含 #67 最终契约修正）。
-- 29 项官方语言完整性检查通过；MB 和时间只显示数值及统一单位。
-- Bootstrap 许可证、四语 changelog 与英文绑定哈希、Git 空白检查通过。
-- Linux 代码质量检查通过，Javadoc backlog 为 0。
-- 下载测试覆盖精确 API→CDN 跳转、API 404/5xx、CDN TLS 故障/超时、部分下载从零回退、原 GitHub CDN 跳转、大小/哈希校验、取消及拒绝错误的 CDN 哈希/文件名/主机/端口/查询参数。#67 契约补充后，增加签名文件名取值、CDN 坏哈希/截断/错误长度/空流清理后回退、GitHub 坏字节仍拒绝的检查。
+- `FrameworkUpdatesWindowTest` plus the plugin management tests total 174 cases: 173 passed, 1 skipped on a platform condition, 0 failed or errored, already including the final #67 contract correction.
+- The 29 official language completeness checks passed; MB and the duration show only a value and one unit.
+- The bootstrap licence, the four-language changelog with its English binding hash, and the Git whitespace check passed.
+- The Linux code quality check passed with a Javadoc backlog of 0.
+- The download tests cover the exact API-to-CDN redirect, API 404 and 5xx, CDN TLS failure and timeout, fallback from zero after a partial download, the original GitHub CDN redirect, the size and hash checks, cancellation, and rejection of a CDN hash, file name, host, port, or query parameter that does not conform. After the #67 contract addition they also cover reading the signed file name, fallback after a CDN bad hash, truncation, wrong length, or empty stream cleanup, and continued rejection of bad GitHub bytes.
 
-## 本地 Cubism 验收
+## Local Cubism Acceptance
 
-独立实验：`build/native/issue50-host/unified-updates-local-20261101/home`，真实 Cubism 5.3.02。框架为明确的 `0.68.1-beta.local-SNAPSHOT (beta, local, dirty)` 本地构建；不具有正式 CI 身份，不将其记为正式签名框架升级。
+Isolated experiment: `build/native/issue50-host/unified-updates-local-20261101/home`, real Cubism 5.3.02. The framework was the explicit local build `0.68.1-beta.local-SNAPSHOT (beta, local, dirty)`; it has no official CI identity and is not recorded as a signed framework upgrade.
 
-1. 早先 GitHub 直连超时的失败尝试保留在 T/V 证据中，没有生成安装任务或替换插件。
-2. 最终 W 实验真实显示两个待升级插件，三按钮、右侧日志标题及紧凑边距、进度条内计时均已截图核对。
-3. 只点击一次“安装更新”，两插件下载、验证并准备成功，显示 `0.15 / 0.15 MB`、`0m15s` 和“更新已准备好，重启后生效”。
-4. 准备完成的 pending 恰好包含两项 INSTALL；所有当前插件文件仍与点击前一致。
-5. 正常退出后，通过 Turboism 启动器再次启动，两插件均从 `0.68.0` 升为 `0.68.1`：剪裁蒙版查看器 SHA-256 为 `8f50e0df26dbdbcbd8c847bb9454771a7b04ae4d4a050d403672f06c6f72b133`，命令面板为 `77a287f9d29e0c3a776059046c6ef27548964d89e8505a5dfb101614622f26d6`，与已验证包一致。
-6. 其余 30 个插件 JAR、配置、更新偏好及官方 Cubism BAT 未变。待安装任务清空，启动日志为 `host=ACTIVE, plugins=30, failures=0`。实验随后正常关闭。
+1. An earlier failed attempt that timed out on a direct GitHub connection stays in the T/V evidence; it created no install task and replaced no plugin.
+2. The final W experiment really displayed two plugins awaiting upgrade, and the screenshots verified the three buttons, the right-hand log title, the compact inset, and the timing inside the progress bar.
+3. A single click on "install updates" downloaded, verified, and prepared both plugins, showing `0.15 / 0.15 MB`, `0m15s`, and "the update is ready and takes effect after restart".
+4. The prepared pending set held exactly two INSTALL entries, and every current plugin file still matched its state before the click.
+5. After a normal exit and a relaunch through the Turboism launcher, both plugins moved from `0.68.0` to `0.68.1`: the clip-mask viewer SHA-256 was `8f50e0df26dbdbcbd8c847bb9454771a7b04ae4d4a050d403672f06c6f72b133` and the command palette was `77a287f9d29e0c3a776059046c6ef27548964d89e8505a5dfb101614622f26d6`, both matching the verified packages.
+6. The other 30 plugin JARs, the configuration, the update preference, and the official Cubism BAT were unchanged. The pending install set was empty, and the startup log reported `host=ACTIVE, plugins=30, failures=0`. The experiment then shut down normally.
 
-证据目录：`build/native/issue50-validation/unified-updates-local-20261101/`。关键文件为 `W-before.json`、`W-plan-ready-12392218.png`、`W-install-result-12392218.png`、`W-ready.json`、`W-after.json`、`W-local-acceptance.json`、`W-apply-local-launcher-out.log`。
+Evidence directory: `build/native/issue50-validation/unified-updates-local-20261101/`. The key files are `W-before.json`, `W-plan-ready-12392218.png`, `W-install-result-12392218.png`, `W-ready.json`, `W-after.json`, `W-local-acceptance.json`, and `W-apply-local-launcher-out.log`.
 
-框架条目的固定勾选和框架/插件日志切换有行为测试覆盖，并用明确标注“布局预览”的独立窗口检查排版；本地构建没有可用的正式框架更新，因此没有伪造 CI 身份来制造实机框架条目。
+Behaviour tests cover the fixed check state of the framework entry and the framework/plugin log switching, and a separate window explicitly labelled "layout preview" verified the layout. The local build had no official framework update available, so no CI identity was forged to manufacture a host framework entry.
 
-## 加速路径边界
+## Acceleration Path Boundary
 
-本次仅修改客户端。服务端由另一边推进，详见 [插件下载契约](plugin-artifact-download-contract.md)。本机只读 GET 探测时，命令面板的 API artifact 路径返回 404；CDN HEAD 返回 403。因此本轮证明了客户端可在加速入口未就绪时继续完成真实插件更新，不宣称生产 CDN 下载已经验收通过。
+This change touches the client only. The server side progresses separately; see the [plugin download contract](plugin-artifact-download-contract.md). On this machine a read-only GET probe returned 404 for the command palette API artifact path and 403 for a CDN HEAD. This round therefore proves that the client completes a real plugin update while the acceleration entry point is not ready, and it does not claim that a production CDN download passed acceptance.
 
-#67 交接后的再次探测先用当前 Java 客户端验证生产目录 Ed25519 签名，再从已验证条目构建加速地址；API 仍返回 404，客户端已自动转向原 GitHub URL 并执行有限重试，但这次本机 GitHub 连接超时，未下载成功。此结果保留在 `build/agent-tasks/update-window/issue67-live-probe.log`，不能算作 CDN 或新一次真实下载成功的证据。自动化回退测试与上述 W 实机成功结果分别记录。
+The re-probe after the #67 handover first verified the production catalog Ed25519 signature with the current Java client and then built the acceleration address from the verified entry. The API still answered 404, the client switched automatically to the original GitHub URL with a bounded retry, but the local GitHub connection timed out and the download did not succeed. That result stays in `build/agent-tasks/update-window/issue67-live-probe.log` and does not count as evidence of a CDN success or of a new real download. The automated fallback tests and the W host success above are recorded separately.
 
-目录仍保留原始 GitHub Release URL，未修改签名、公钥或目录内容。安装窗口、插件市场及后台自动更新共用相同的下载客户端。准备好的更新不会强制关闭编辑器，也不会热替换加载中的 framework、SDK、Graal 或插件。
+The catalog still carries the original GitHub Release URLs, and no signature, public key, or catalog content changed. The install window, the plugin marketplace, and background auto-update share the same download client. A prepared update neither force-closes the editor nor hot-swaps a loaded framework, SDK, Graal, or plugin.

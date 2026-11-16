@@ -1,31 +1,31 @@
-# HOST-PERF-MATRIX：三宿主 × 双数据集 × 三实现实机性能矩阵
+# HOST-PERF-MATRIX: Three Hosts × Two Datasets × Three Implementations Host Performance Matrix
 
-## 范围声明
+## Scope Statement
 
-在本机隔离队列（GE-Proton10-34，任务专属 cgroup，单槽串行）中完成 **54 次真实自动排版调用**：Cubism 5.2.03 / 5.3.02 / 5.3.03 × circle / geometry × 100/500/1000 图 × native / MaxRects-BSSF / Dalsoo Polygon，**每格 N=1**。
+**54 real automatic layout calls** ran in the local isolated queue (GE-Proton10-34, task-specific cgroup, single slot serial): Cubism 5.2.03 / 5.3.02 / 5.3.03 × circle / geometry × 100/500/1000 images × native / MaxRects-BSSF / Dalsoo Polygon, **N=1 per cell**.
 
-这是此测试环境、此计时边界下的单次测量，不是统计中位数，也不是所有模型的性能保证。circle（同尺寸）与 geometry（异尺寸）是两个独立分布，结论不得互相外推。
+This is a single measurement in this test environment under this timing boundary, not a statistical median and not a performance guarantee for every model. Circle (uniform size) and geometry (varying size) are two independent distributions, and neither conclusion may be extrapolated to the other.
 
-## 计时与内存口径
+## Timing and Memory Definitions
 
-- `uiMs`：对话框 OK 的 ActionEvent 派发 → 进度窗 `jp.noids.framework.e.a.f` `SHOWING_CHANGED=false`。仪器化墙钟，含约 13ms 输入探针开销（`uiInputProbeMs` 单列）。
-- `methodMs`：排版方法本体入口→返回的精确耗时。
-- `heapMB`：探针内 `MemoryMXBean` 50ms 采样的 heap used 峰值。
-- `cgMB`：任务专属 cgroup 的 `memory.peak`，覆盖整个 Proton/JVM 进程树（含 Cubism 本体与 Wine 基础设施），**是进程级口径，不是算法占用**。
+- `uiMs`: from dispatching the ActionEvent of the dialog OK to the progress window `jp.noids.framework.e.a.f` reporting `SHOWING_CHANGED=false`. An instrumented wall clock that includes about 13 ms of input probe overhead (`uiInputProbeMs` is listed separately).
+- `methodMs`: the exact duration from entry to return of the layout method itself.
+- `heapMB`: peak heap used sampled every 50 ms by `MemoryMXBean` inside the probe.
+- `cgMB`: `memory.peak` of the task-specific cgroup, covering the whole Proton and JVM process tree including Cubism itself and the Wine infrastructure. **This is a process-level figure, not algorithm usage.**
 
-原始数据：`host-perf-matrix-samples.csv`（含 methodMs、heap、cgroup、窗口期 memory.current 峰值、GC 增量、inputHash、run id），`host-perf-matrix-summary.json`。
+Raw data: `host-perf-matrix-samples.csv` (methodMs, heap, cgroup, window-period memory.current peak, GC delta, inputHash, run id) and `host-perf-matrix-summary.json`.
 
-## 正确性核验
+## Correctness Verification
 
-- 每格 `placed=count`、`scale=1.0`、无 overflow、输出有限且在页内。
-- 分支归属：native 格 `branch=native`，插件格 `branch=handled`（dalsoo/maxrects 实际接管，无静默回落）。
-- 同一 `dataset:count` 的全部 9 个 run `inputHash` 完全一致，即三宿主三实现吃的是同一 fixture。
+- Every cell reported `placed=count`, `scale=1.0`, no overflow, and finite output inside the page.
+- Branch attribution: a native cell reports `branch=native`, and a plugin cell reports `branch=handled` (dalsoo or maxrects really took over, with no silent fallback).
+- All 9 runs of one `dataset:count` shared an identical `inputHash`, so the three hosts and three implementations consumed the same fixture.
 
-## Circle（同尺寸圆，8192² 页）
+## Circle (Uniform Circles, 8192² Page)
 
-UI 墙钟 ms（OK→进度窗关闭）：
+UI wall clock in ms (OK to progress window close):
 
-| 宿主 | 数量 | native | MaxRects | Polygon |
+| Host | Count | native | MaxRects | Polygon |
 |---|---:|---:|---:|---:|
 | 5203 | 100 | 252 | 216 | 1,306 |
 | 5203 | 500 | 1,004 | 306 | 167,612 |
@@ -37,9 +37,9 @@ UI 墙钟 ms（OK→进度窗关闭）：
 | 5303 | 500 | 941 | 324 | 166,334 |
 | 5303 | 1000 | 2,568 | 380 | 1,436,883 |
 
-## Geometry（异尺寸，8192² 页）
+## Geometry (Varying Sizes, 8192² Page)
 
-| 宿主 | 数量 | native | MaxRects | Polygon |
+| Host | Count | native | MaxRects | Polygon |
 |---|---:|---:|---:|---:|
 | 5203 | 100 | 2,155 | 273 | 1,337 |
 | 5203 | 500 | 193,046 | 446 | 49,671 |
@@ -51,9 +51,9 @@ UI 墙钟 ms（OK→进度窗关闭）：
 | 5303 | 500 | 189,211 | 568 | 83,171 |
 | 5303 | 1000 | 1,258,442 | 734 | 630,819 |
 
-## JVM heap used 峰值（MB）
+## Peak JVM Heap Used (MB)
 
-| 数据集 | 数量 | native 范围 | MaxRects 范围 | Polygon 范围 |
+| Dataset | Count | native range | MaxRects range | Polygon range |
 |---|---:|---:|---:|---:|
 | circle | 100 | 329–696 | 253–458 | 487–530 |
 | circle | 500 | 562–1,117 | 341–517 | 832–1,318 |
@@ -62,42 +62,42 @@ UI 墙钟 ms（OK→进度窗关闭）：
 | geometry | 500 | 1,472–1,512 | 659–962 | 1,240–1,541 |
 | geometry | 1000 | 1,324–1,697 | 747–1,047 | 1,343–1,475 |
 
-cgroup 进程树峰值全部落在 2.3–4.7GB，三实现间无稳定差异（Cubism 本体+Wine 基底占主导）。逐格数值见 csv。
+Every cgroup process-tree peak fell between 2.3 and 4.7 GB with no stable difference between the three implementations (Cubism itself plus the Wine base dominates). See the csv for per-cell values.
 
-## 基础设施抖动与重试
+## Infrastructure Jitter and Retries
 
-5 格首次尝试失败并重试一次成功，证据保留于 `~/TurboismValidation/atlas/`：
+5 cells failed on the first attempt and succeeded on one retry, with evidence kept in `~/TurboismValidation/atlas/`:
 
-- `5302 circle-100-polygon`、`5302 geometry-500-new`、`5303 circle-500-native`：JVM 启动期挂死（日志停在 core enable，CPU≈0），1800s 超时被杀。
-- `5303 geometry-1000-polygon`：首次 30 分钟超时（打包后段近零 CPU），重试以 2700s 完成（uiMs=630,819）。
-- `5303 geometry-1000-native`：进程 rc=1 自行退出，重试完成（uiMs=1,258,442）。
+- `5302 circle-100-polygon`, `5302 geometry-500-new`, `5303 circle-500-native`: the JVM hung during startup (the log stopped at core enable with CPU near 0) and was killed at the 1800 s timeout.
+- `5303 geometry-1000-polygon`: the first attempt timed out at 30 minutes (near-zero CPU in the late packing phase) and the retry finished in 2700 s (uiMs=630,819).
+- `5303 geometry-1000-native`: the process exited by itself with rc=1 and the retry finished (uiMs=1,258,442).
 
-超时/失败不计入比值；上表每格均为一次成功 run 的实测值。
+A timeout or failure never enters a ratio; every cell in the tables above is a measured value from one successful run.
 
-## 结论
+## Conclusions
 
-1. **MaxRects 全面最快**：全部 18 格 methodMs ≤ 0.5s（geometry-1000 也仅 0.28–0.49s），heap 峰值普遍最低。
-2. **native 在 geometry 上急剧恶化**：500 档 ~3.2 分钟，1000 档 ~20 分钟；circle-1000 仅 ~2.3s。同算法跨数据集差异 ~550×，确认分布相关。
-3. **Dalsoo Polygon 存在严重的规模瓶颈**：100 档 ~1.1s 可用；circle-500 ~2.8min / geometry-500 ~1.4min；**circle-1000 ~23min、geometry-1000 ~10.5min**。circle-1000 上 polygon 比 native 慢约 570×（1,347s vs 2.35s）。三宿主一致复现，是算法复杂度问题而非环境噪声。这与"宿主签发 FREE=18 档候选 × 每顶点×每已放顶点×每角度接触搜索"的组合复杂度一致，根因分析另案处理。
-4. **宿主版本间无显著差异**，量级一致；native 慢例的堆峰值 ~1.3–1.7GB，未接近上限。
+1. **MaxRects is fastest everywhere**: methodMs stayed at or below 0.5 s in all 18 cells (geometry-1000 only 0.28–0.49 s), and its heap peak was generally the lowest.
+2. **Native degrades sharply on geometry**: about 3.2 minutes at 500 and about 20 minutes at 1000, while circle-1000 takes only about 2.3 s. The same algorithm differs about 550× across datasets, which confirms the distribution dependence.
+3. **Dalsoo Polygon has a severe scale bottleneck**: about 1.1 s at 100 is usable; circle-500 takes about 2.8 min and geometry-500 about 1.4 min; **circle-1000 takes about 23 min and geometry-1000 about 10.5 min**. On circle-1000 Polygon is about 570× slower than native (1,347 s versus 2.35 s). All three hosts reproduce it, so it is an algorithmic complexity problem rather than environmental noise. It matches the combined complexity of "the host issues FREE = 18 rotation candidates × per-vertex × per-placed-vertex × per-angle contact search", and the root cause is analysed separately.
+4. **No significant difference between host versions**; the magnitudes agree, and the heap peak of a slow native case is about 1.3–1.7 GB, well below the ceiling.
 
-## 后续：内核空间索引优化（矩阵完成后实机复测）
+## Follow-Up: Kernel Space Index Optimization (Host Re-Measurement After the Matrix)
 
-矩阵暴露 dalsoo 规模瓶颈后，对 `Bin` 做了两项**严格保持输出**的优化：
+After the matrix exposed the dalsoo scale bottleneck, `Bin` received two optimizations that **strictly preserve the output**:
 
-- 已放多边形按 `outBb` 入均匀网格（页 ÷32 的 cell），`isFeasible` 只查与候选 bbox 相交 cell 内的多边形——跳过者必然被 `overlapStrict` 自带 bbox 测试拒绝，语义不变。
-- 顶点接触候选先做平移后 bbox 的出界检查，通过才分配平移环并做可行性测试（Dalalah / Abey / corner-lattice 三条路径同改）。
+- Placed polygons enter a uniform grid by `outBb` (cells of page ÷32), and `isFeasible` queries only the polygons in cells that intersect the candidate bounding box. A skipped polygon would necessarily be rejected by the built-in bounding-box test of `overlapStrict`, so the semantics are unchanged.
+- A vertex contact candidate first runs an out-of-page check on the translated bounding box and only then allocates the translated ring and runs the feasibility test (Dalalah, Abey, and corner-lattice paths all changed the same way).
 
-离线签名验证（rect/lshape/mixed × 300–500 × FREE/QUARTER，含未放满触发 lattice 回退的用例）：4 例 placement 签名逐字节不变，耗时 0.5–2.5× 缩短。
+Offline signature verification (rect/lshape/mixed × 300–500 × FREE/QUARTER, including cases that do not fill the page and trigger the lattice fallback): 4 cases kept their placement signature byte for byte and shortened the time by 0.5–2.5×.
 
-实机复测（5.3.03，同一 fixture，同队列口径，N=1）：
+Host re-measurement (5.3.03, same fixture, same queue boundary, N=1):
 
-| 格 | 优化前 uiMs | 优化后 uiMs | 加速 |
+| Cell | uiMs before | uiMs after | Speedup |
 |---|---:|---:|---:|
 | circle-500-polygon | 166,334 | 31,683 | 5.3× |
 | circle-1000-polygon | 1,436,883 | 162,946 | **8.8×** |
 | geometry-500-polygon | 83,171 | 13,599 | 6.1× |
 
-三格均 placed=count、scale=1.0、branch=handled。注意：优化后 circle-1000 的 JVM heap 峰值升至 ~5.4GB（优化前 1.5GB）——吞吐放大使单位时间分配量上升，GC 压力随之内升。
+All three cells reported placed=count, scale=1.0, and branch=handled. Note that after the optimization the circle-1000 JVM heap peak rose to about 5.4 GB (1.5 GB before), because the higher throughput raises allocation per unit time and with it GC pressure.
 
-**剩余差距是结构性的**：候选枚举仍是 O(已放数 × 候选顶点 × 已放顶点 × 旋转档)，circle-1000 优化后 163s 对 native 2.3s 仍慢 ~70×。进一步提速需要削减候选集（会改变落位决策，输出不再逐位一致）或换内核策略——属于设计取舍，不在本次"保输出优化"范围内。
+**The remaining gap is structural**: candidate enumeration is still O(placed × candidate vertices × placed vertices × rotation steps), and the optimized circle-1000 at 163 s is still about 70× slower than native at 2.3 s. Further speedup needs either a smaller candidate set, which changes placement decisions so the output is no longer bit-identical, or a different kernel strategy. That is a design trade-off and outside this output-preserving optimization.

@@ -1,40 +1,40 @@
-# 自更新发布接线验证（2026-11-01）
+# Self-Update Release Wiring Validation (2026-11-01)
 
-工作基线为 `743a6b3882c74f0e7273b09006b932e766153d6a`，本地分支 `local/w2-validation-fixes`，远端目标仍为 `test/issue-50-windows-validation-fixes`。本轮继续使用已有 Paseo DeepSeek V4.1 Flash 代理编写代码，主助手审查和验证。
+The working baseline was `743a6b3882c74f0e7273b09006b932e766153d6a` on local branch `local/w2-validation-fixes`, with the remote target still `test/issue-50-windows-validation-fixes`. This round again used the existing Paseo DeepSeek V4.1 Flash agent to write code, and the main assistant reviewed and verified it.
 
-## 已完成的验证
+## Completed Verification
 
-| 检查 | 结果 |
+| Check | Result |
 | --- | --- |
-| 服务端 `node --test distribution/test/*.test.mjs` | 78 项通过 |
-| 既有发布工具、orchestrator、promotion、prerelease 回归（本机 WSL Ubuntu） | 106 项通过 |
-| 客户端资源生成 `scripts.test.test_framework_client` | 17 项通过，相关 Python lint 通过 |
-| 发布接线及打包回归 `scripts.test.test_framework_release` | 19 项通过；最终与既有回归、客户端资源测试合计 142 项通过 |
-| 临时测试公钥的实际 `:bootstrap:jar` | 构建及许可证检查通过；JAR 包含两份生成资源 |
-| 资源目录使用仓库根相对路径 | `:bootstrap:processResources` 通过 |
-| 关闭生成配置后重新构建 `:bootstrap:jar` | 通过；生成目录和最终 JAR 均无激活资源 |
-| 真实 NSIS 3.09 编译（隔离签名夹具） | 最终脚本编译成功；生成含收据的 EXE/ZIP 和全部八个资产；ZIP 的签名、27 个框架文件及排除项校验通过 |
-| `checkFrameworkUpdateTooling --dry-run` | Gradle 配置解析通过；此项只验证任务配置，不计为测试执行 |
-| actionlint 1.7.7（不运行可选 shellcheck/pyflakes） | 三份变更工作流通过 |
-| CI coverage、相关 Python Ruff、`git diff --check` | 通过 |
-| 服务端部署提案补丁 | 应用及反向应用通过；断言对本工作区真实 Worker 配置通过 |
+| Server `node --test distribution/test/*.test.mjs` | 78 passed |
+| Existing release tooling, orchestrator, promotion, and prerelease regression (local WSL Ubuntu) | 106 passed |
+| Client resource generation `scripts.test.test_framework_client` | 17 passed, related Python lint passed |
+| Release wiring and packaging regression `scripts.test.test_framework_release` | 19 passed; 142 passed in total together with the existing regression and the client resource test |
+| Real `:bootstrap:jar` with a temporary test public key | Build and licence checks passed; the JAR holds both generated resources |
+| Resource directory using a repository-root-relative path | `:bootstrap:processResources` passed |
+| Rebuild of `:bootstrap:jar` with the generated configuration off | Passed; neither the generated directory nor the final JAR held an active resource |
+| Real NSIS 3.09 compile (isolated signing fixture) | Final script compiled; produced the receipted EXE/ZIP plus all eight assets; the ZIP signature, 27 framework files, and exclusion checks passed |
+| `checkFrameworkUpdateTooling --dry-run` | Gradle configuration resolved; this only proves task configuration and does not count as a test run |
+| actionlint 1.7.7 (optional shellcheck and pyflakes not run) | The three changed workflows passed |
+| CI coverage, related Python Ruff, `git diff --check` | Passed |
+| Server deployment proposal patch | Apply and reverse apply passed; the assertions passed against the real Worker configuration of this workspace |
 
-实际 JAR 验证使用 `local-build-probe` 临时公钥。包内 `buildKind=local`、`dirty=true`、`buildNumber` 为空，没有伪造真实 CI 身份。该 JAR 未安装到 Cubism；最后已恢复为不含激活资源的本地构建。
+The real JAR verification used a temporary `local-build-probe` public key. The package reported `buildKind=local`, `dirty=true`, and an empty `buildNumber`, so no real CI identity was forged. That JAR was never installed into Cubism, and the build was restored afterwards to a local build with no active resource.
 
-NSIS 实验使用独立临时目录、临时签名密钥和明确标记的合成测试身份，只验证编译和包内字节。没有安装测试 EXE，没有申请 CI 编号或调用线上准入。
+The NSIS experiment used an isolated temporary directory, a temporary signing key, and an explicitly marked synthetic test identity, and it verified only the compile and the packaged bytes. No test EXE was installed, and no CI number was requested or online admission called.
 
-最终审查修复了签名工作流对一个未生成的外部公钥文件的引用。新增回归从工作流步骤提取真实 `sign`/`verify` 命令，在没有该外部文件的隔离夹具中执行签名、打包和验签；公钥仍必须从实际随包 agent JAR 读取并通过校验。最终 142 项回归包含此项。
+The final review fixed a reference from the signing workflow to an external public key file that was never generated. A new regression extracts the real `sign` and `verify` commands from the workflow steps and runs signing, packaging, and signature verification in an isolated fixture without that external file; the public key must still be read from the actual bundled agent JAR and verified. The final 142 regressions include this case.
 
-本机 Windows 直接运行既有 106 项发布回归时，有 3 项符号链接权限错误，以及换行差异造成的 promotion 相关失败；同一组测试在 Ubuntu 下 106 项通过。不能将 Windows 那次运行记为通过。本轮未重跑旧的 runtime 全集或宣称既有格式问题已解决。
+Running the existing 106 release regressions directly on local Windows produced 3 symbolic-link permission errors and promotion failures caused by newline differences; the same suite passed all 106 on Ubuntu. That Windows run must not be recorded as a pass. This round did not re-run the old full runtime suite and does not claim that the existing formatting problem is solved.
 
-## 现网及部署提案
+## Live Service and Deployment Proposal
 
-发布接线阶段的现网只读检查：`/health` 为 ready；Stable 为 `0.67.4`、Build 56，无增量字段。彼时新资源路径返回旧实现的 `NOT_FOUND`。
+Read-only checks of the live service at the release wiring stage: `/health` reported ready; Stable was `0.67.4`, Build 56, with no incremental field. At that time the new resource path returned the old implementation's `NOT_FOUND`.
 
-所需变更整理为 [服务部署提案](service-deployment-proposal.md) 和最小补丁后，用户批准了生产部署，新 API 已部署且完整下载验收通过；后续实测状态见 [生产部署验收](production-service-validation.md)。随后正式签名密钥和公钥已获准配置，服务器公钥部署验收通过，签名及自更新开关仍关闭，详见 [签名配置验收](signing-provisioning-validation.md)。
+After the required changes were organised into the [service deployment proposal](service-deployment-proposal.md) and a minimal patch, the user approved production deployment, the new API was deployed, and full download acceptance passed. See [production deployment acceptance](production-service-validation.md) for the later measured state. The production signing key and public key were then approved and configured, the server public key deployment passed acceptance, and both signing and the self-update switch stay off; see [signing configuration acceptance](signing-provisioning-validation.md).
 
-## 证据位置与范围
+## Evidence Location and Scope
 
-详细日志在被 git 忽略的 `build/agent-tasks/`：`client-enabled-build.log`、`client-enabled-verified.json`、`client-enabled-identity.properties`、`client-relative-path-build.log`、`client-disabled-build.log`、`client-disabled-verified.json`、`framework-real-nsis.log`、`framework-real-nsis.json`、`final-release-tests.log`、`framework-gate-config.log`。
+Detailed logs live in the Git-ignored `build/agent-tasks/`: `client-enabled-build.log`, `client-enabled-verified.json`, `client-enabled-identity.properties`, `client-relative-path-build.log`, `client-disabled-build.log`, `client-disabled-verified.json`, `framework-real-nsis.log`, `framework-real-nsis.json`, `final-release-tests.log`, `framework-gate-config.log`.
 
-真实编号 CI 发布、安装正式完整包后连续两次框架升级及现场故障恢复仍需后续验收。现有候选构建、签名和发布准入均限定产品 `main`；本轮按要求只提交测试分支，未改变该限制。后续正式发布需要另行确认产品源码发布安排，服务端部署本身不要求把产品测试分支合入 `main`。
+A real-numbered CI release, two consecutive framework upgrades after installing the official complete package, and on-site failure recovery still need acceptance. The existing candidate build, signing, and release admission all require product `main`; this round committed only the test branch as required and changed no such rule. An official release needs a separate decision on the product source arrangement, because the server deployment itself does not require merging the product test branch into `main`.

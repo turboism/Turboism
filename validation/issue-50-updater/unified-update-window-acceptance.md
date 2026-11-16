@@ -1,61 +1,61 @@
-# 统一更新列表与右侧日志验收（2026-11-01）
+# Unified Update List and Right-Hand Log Acceptance (2026-11-01)
 
-本次按用户要求将框架和插件放入同一个待更新列表：已是最新或没有可用更新的组件不列出；点击条目只切换右侧更新日志，勾选框决定参与更新的组件。框架可取消勾选，框架已最新时也可独立更新插件。进度使用框架与已选插件的合计 MB，保留下载与验证计时。
+As the user requested, the framework and the plugins now share one pending-update list: a component that is already current or has no available update is not listed; clicking an entry only switches the changelog on the right, and the checkbox decides which components join the update. The framework can be unchecked, and plugins can still be updated on their own when the framework is current. The progress shows the combined MB of the framework and the selected plugins and keeps the download-and-verify timing.
 
-## 实现及检查
+## Implementation and Checks
 
-- PR [#64](https://github.com/turboism/Turboism/pull/64) 已合入 main `96ff898324f1f0f6cb6af1968e59ba903dd0fce2`。实现提交为 `da2473eca946e32282efc0cda34a61f4c8f67df4`、`b649bd7f9807467bfc27bca8d6f234c718ec4df1`。
-- 插件日志从已验签目录指定的固定源码提交读取本地化 README，提取当前版本之后、目标版本以内的变更。缺少对应版本日志时显示占位；请求失败可重试。异步加载不会阻塞窗口，旧请求不会覆盖新选择。
-- 实机 Cubism 自带 Java 连接 raw GitHub 超时，已补官方 GitHub Contents API 回退；仍限定同一源码提交、大小和总时限。该回归先复现失败，修复后通过。
-- Windows 插件/窗口专项 169 项、0 failures、1 skip；后续窗口、日志、完整语言检查 53 项全部通过。Linux 代码质量、Javadoc、格式、四语 changelog 检查通过。
-- PR 主 CI [41313330744](https://github.com/turboism/Turboism/actions/runs/41313330744)、三通道打包 [41313330785](https://github.com/turboism/Turboism/actions/runs/41313330785)、发布说明及两次历史检查全部通过。
-- 本次不需要修改或重新部署服务端。
+- PR [#64](https://github.com/turboism/Turboism/pull/64) merged into main `96ff898324f1f0f6cb6af1968e59ba903dd0fce2`. The implementation commits are `da2473eca946e32282efc0cda34a61f4c8f67df4` and `b649bd7f9807467bfc27bca8d6f234c718ec4df1`.
+- The plugin changelog is read from the localized README at the fixed source commit named by the verified catalog, and it extracts the changes between the current version and the target version. A missing version note shows a placeholder, and a failed request can be retried. Asynchronous loading never blocks the window, and a stale request never overwrites a newer selection.
+- The Java bundled with the host Cubism timed out on a raw GitHub connection, so an official GitHub Contents API fallback was added, still limited to the same source commit, size, and total deadline. That regression reproduced the failure first and passed after the fix.
+- Windows plugin and window cases: 169 passed, 0 failures, 1 skipped; the later window, log, and full language checks passed all 53 cases. The Linux code quality, Javadoc, format, and four-language changelog checks passed.
+- The PR main CI [41313330744](https://github.com/turboism/Turboism/actions/runs/41313330744), the three-channel packaging [41313330785](https://github.com/turboism/Turboism/actions/runs/41313330785), the release notes, and both history checks all passed.
+- This change needs no server modification or redeploy.
 
-## 本地构建的真实插件升级
+## Real Plugin Upgrade on a Local Build
 
-独立目录：`build/native/issue50-host/unified-updates-local-20261101/home`。框架身份明确为 `0.68.1-beta.local-SNAPSHOT (beta, local, dirty)`，不是正式 CI 身份。
+Separate directory: `build/native/issue50-host/unified-updates-local-20261101/home`. The framework identity is explicitly `0.68.1-beta.local-SNAPSHOT (beta, local, dirty)`, not an official CI identity.
 
-1. Cubism 5.3.02 启动正常，30 个启用插件、0 failures；MCP/ACP 仅在实验中显式禁用。
-2. 真实原生窗口只显示剪裁蒙版查看器和命令面板两个 `0.68.0 → 0.68.1` 更新，右侧日志随所选行变化。
-3. 真正点击下载后显示 `0.15 / 0.15 MB`、耗时 `00:22`；验证成功，再明确点击下次启动安装，pending 恰好两项 INSTALL。
-4. 正常退出、托管重启后两个插件版本和 SHA-256 均匹配已验证下载包，pending 清除，30 个启用插件、0 failures。再次检查时待更新列表为空。
-5. 离线恢复一个官方旧插件作为日志夹具，重新启动后真实读取并显示命令面板中文 `0.68.1` 日志。该次使用 Slate 主题，日志正文可读；宿主的全局深色配色存在文字/背景不协调，因此不将其计为完整深色主题验收通过。
-6. 日志检查结束后正常关闭实验，离线恢复升级后的命令面板及原主题配置。
+1. Cubism 5.3.02 started normally with 30 enabled plugins and 0 failures; MCP and ACP were explicitly disabled in the experiment only.
+2. The real native window listed only the two `0.68.0 → 0.68.1` updates of the clip-mask viewer and the command palette, and the right-hand log followed the selected row.
+3. A real download click showed `0.15 / 0.15 MB` and a duration of `00:22`; verification succeeded, and an explicit click on install-at-next-launch left exactly two INSTALL entries pending.
+4. After a normal exit and a managed restart, both plugin versions and SHA-256 values matched the verified download packages, pending was empty, and 30 plugins were enabled with 0 failures. A further check showed an empty pending list.
+5. An official old plugin was restored offline as a changelog fixture, and after a restart the real Chinese `0.68.1` changelog of the command palette was read and displayed. That run used the Slate theme and the body text was readable; the global dark palette of the host has a text and background mismatch, so it is not counted as a full dark-theme acceptance.
+6. After the changelog check the experiment shut down normally, and the upgraded command palette and the original theme configuration were restored offline.
 
-本地截图与日志在 `build/native/issue50-validation/unified-updates-local-20261101/`，关键文件：`native-download-completed-58002012.png`、`queued-plugins.json`、`apply-empty-list-106501386.png`、`local-apply-launcher-out.log`、`notes-dark-loaded-120523770.png`。
+Local screenshots and logs are in `build/native/issue50-validation/unified-updates-local-20261101/`; the key files are `native-download-completed-58002012.png`, `queued-plugins.json`, `apply-empty-list-106501386.png`, `local-apply-launcher-out.log`, and `notes-dark-loaded-120523770.png`.
 
-此部分证明原生窗口与真实插件升级，不冒充正式签名框架升级。
+This part proves the native window and a real plugin upgrade and does not pass as a signed framework upgrade.
 
-## 正式发布与联合升级
+## Production Release and Combined Upgrade
 
-正式 [Beta.10 / Build 84](https://github.com/turboism/Turboism/releases/tag/v0.68.1-beta.10) 已于 `2026-11-01T14:33:33Z` 发布并准入自更新服务。候选 [41314639033](https://github.com/turboism/Turboism/actions/runs/41314639033)、受保护发布 [41316246339](https://github.com/turboism/Turboism/actions/runs/41316246339)、同步 [41316801762](https://github.com/turboism/Turboism/actions/runs/41316801762) 全部成功；main 的主 CI、三通道打包、历史检查也全部通过。
+The production [Beta.10 / Build 84](https://github.com/turboism/Turboism/releases/tag/v0.68.1-beta.10) was published and admitted into the self-update service at `2026-11-01T14:33:33Z`. The candidate [41314639033](https://github.com/turboism/Turboism/actions/runs/41314639033), the protected release [41316246339](https://github.com/turboism/Turboism/actions/runs/41316246339), and the sync [41316801762](https://github.com/turboism/Turboism/actions/runs/41316801762) all succeeded; the main CI, the three-channel packaging, and the history check on main also all passed.
 
-最终 ZIP SHA-256：`a479afa6d5657383beb5138f11b187c160ae2e7d001fbaa84f2a2038bc20b516`；正式清单 SHA-256：`c496963c4e085896813caf9b603ba65e8b734b1b5d5db42dd8f47a2bbf324fcb`。本机验签并校验全部 36 个框架文件。线上发现接口返回正确源码身份，中英日韩日志非空，签名验证及 36 个对象的 HEAD 大小/ETag、单字节 Range 206 检查通过；Stable、Nightly 的身份与资产哈希未变。
+Final ZIP SHA-256: `a479afa6d5657383beb5138f11b187c160ae2e7d001fbaa84f2a2038bc20b516`; production manifest SHA-256: `c496963c4e085896813caf9b603ba65e8b734b1b5d5db42dd8f47a2bbf324fcb`. The run verified the signature and all 36 framework files locally. The live discovery endpoint returned the correct source identity, the Chinese, English, Japanese, and Korean notes were non-empty, the signature verification and the HEAD size and ETag of the 36 objects plus the single-byte Range 206 check passed, and the Stable and Nightly identity and asset hashes were unchanged.
 
-### 正式 Beta.10 的新版窗口与插件独立更新
+### New Window and Independent Plugin Update on Production Beta.10
 
-独立目录 `build/native/issue50-host/unified-updates-ui-official-20261101/home` 直接来自上述正式签名原包。首次启动前仅将两个插件替换成官方旧版本夹具，框架文件保持原样。
+Separate directory `build/native/issue50-host/unified-updates-ui-official-20261101/home`, taken directly from the signed production package above. Before the first launch only the two plugins were replaced with official older fixtures, and the framework files stayed as delivered.
 
-- 实际显示两个待升级插件，已最新的框架和其他插件不在列表中。选择剪裁蒙版查看器显示该版本未提供日志；点击命令面板后右侧标题和正文切换成其中文 `0.68.1` 日志。
-- 首次目录请求遇到 `Connection reset`，点击检查更新后成功。真实下载、验证显示合计 `0.15 / 0.15 MB`，耗时 `00:02`；点击下次启动安装，恰好排队两项 INSTALL。
-- 正常退出再托管启动后，两插件均为 `0.68.1` 且哈希匹配已验签目录与排队包；其余 30 个插件 JAR、配置、更新偏好、官方 BAT 未变。36 个签名框架文件和原安装收据保持不变，pending/journal 均清空，30 个启用插件、0 failures。
-- 再次检查时列表为空且显示“没有可用更新”；实验已正常关闭。
+- The window really listed the two pending plugins, and the already current framework and the other plugins were absent. Selecting the clip-mask viewer showed that this version provides no changelog; clicking the command palette switched the right-hand title and body to its Chinese `0.68.1` changelog.
+- The first catalog request hit `Connection reset` and succeeded after a click on check for updates. The real download and verification showed a combined `0.15 / 0.15 MB` and a duration of `00:02`; install-at-next-launch queued exactly two INSTALL entries.
+- After a normal exit and a managed restart both plugins were `0.68.1` with hashes matching the verified catalog and the queued packages; the other 30 plugin JARs, the configuration, the update preference, and the official BAT were unchanged. The 36 signed framework files and the original installation receipt stayed unchanged, pending and the journal were empty, and 30 plugins were enabled with 0 failures.
+- A further check showed an empty list with "no updates available"; the experiment shut down normally.
 
-证据目录 `build/native/issue50-validation/unified-updates-ui-official-20261101/`：`E-ui-command-notes-12521772.png`、`F-plugin-result-12521772.png`、`G-queued-plugins.json`、`I-plugin-acceptance.json`、`J-no-updates-28840142.png`。
+Evidence directory `build/native/issue50-validation/unified-updates-ui-official-20261101/`: `E-ui-command-notes-12521772.png`, `F-plugin-result-12521772.png`, `G-queued-plugins.json`, `I-plugin-acceptance.json`, `J-no-updates-28840142.png`.
 
-### 旧正式版的框架与插件联合升级
+### Combined Framework and Plugin Upgrade from an Older Production Version
 
-独立正式起点：`build/native/issue50-host/unified-updates-official-20261101/context.json`，来自已验签的 Beta.9 / Build 83 包。首次启动前只把两个待验插件换成官方已验签目录中的 `0.68.0` 旧包，正式框架文件保持原样。
+Separate production starting point: `build/native/issue50-host/unified-updates-official-20261101/context.json`, taken from the verified Beta.9 / Build 83 package. Before the first launch only the two plugins under test were replaced with the `0.68.0` packages from the verified official catalog, and the production framework files stayed as delivered.
 
-旧实例两次联合下载在 GitHub 响应阶段超时，未产生待安装任务。保存失败截图后，正常退出并重启该空白实验；随后联合下载与验证成功，窗口显示框架 `102.60 / 102.60 MB`、耗时 `00:11`。此处仍是 Beta.9 的旧窗口；Beta.10 的合计 MB 和新布局以独立正式新版窗口验收为准。
+Two combined downloads of the old instance timed out in the GitHub response phase and produced no pending install task. After saving the failure screenshots, the blank experiment was exited normally and restarted; the combined download and verification then succeeded, and the window showed framework `102.60 / 102.60 MB` with a duration of `00:11`. That was still the old Beta.9 window; the combined MB and the new layout of Beta.10 are accepted by the separate new-window run above.
 
-真实点击“下次启动时安装”，框架 pending 和恰好两项插件 INSTALL 均已写入，当前加载的插件文件仍与升级前一致。再次正常退出、通过托管启动器启动后：
+A real click on install at next launch wrote the framework pending entry and exactly two plugin INSTALL entries, and the currently loaded plugin files still matched their pre-upgrade state. After another normal exit and a start through the managed launcher:
 
-- 框架为 `0.68.1-beta.10 / Build 84`，源码身份和签名收据与正式更新源一致，全部 36 个框架文件的大小与 SHA-256 匹配。
-- 剪裁蒙版查看器与命令面板均由 `0.68.0` 升为 `0.68.1`，安装哈希与入队包一致；其他 30 个插件 JAR、配置、更新偏好和官方 BAT 未变。
-- 运行时记录 `UPDATE_STARTUP_CONFIRMED`，启动结果为 `host=ACTIVE, plugins=30, failures=0`。
-- 框架及插件 pending/journal 全部清空。实验已正常关闭。
+- The framework was `0.68.1-beta.10 / Build 84` with a source identity and signature receipt matching the production update source, and all 36 framework files matched in size and SHA-256.
+- The clip-mask viewer and the command palette both went from `0.68.0` to `0.68.1` with install hashes matching the queued packages; the other 30 plugin JARs, the configuration, the update preference, and the official BAT were unchanged.
+- The runtime recorded `UPDATE_STARTUP_CONFIRMED` and the startup result was `host=ACTIVE, plugins=30, failures=0`.
+- Framework and plugin pending entries and the journal were all empty. The experiment shut down normally.
 
-证据目录 `build/native/issue50-validation/unified-updates-official-20261101/`：`B-before-update.json`、`F-reconnected-result-6034616.png`、`G-coordinated-queued.json`、`H-coordinated-apply-launcher-out.log`、`I-coordinated-acceptance.json`。精简机器可读结果见 [unified-update-window-evidence.json](unified-update-window-evidence.json)。
+Evidence directory `build/native/issue50-validation/unified-updates-official-20261101/`: `B-before-update.json`, `F-reconnected-result-6034616.png`, `G-coordinated-queued.json`, `H-coordinated-apply-launcher-out.log`, `I-coordinated-acceptance.json`. See [unified-update-window-evidence.json](unified-update-window-evidence.json) for the condensed machine-readable result.
 
-两次正式验收分别证明新窗口的插件独立更新，以及旧正式版的框架与插件联合升级。未通过伪造版本或 CI 身份制造待更新框架条目，也未热替换加载中的框架、SDK、Graal 或插件文件。
+The two production acceptances prove the independent plugin update of the new window and the combined framework and plugin upgrade from an older production version. No pending framework entry was manufactured with a forged version or CI identity, and no loaded framework, SDK, Graal, or plugin file was hot-swapped.

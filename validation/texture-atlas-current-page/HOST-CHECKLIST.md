@@ -1,58 +1,58 @@
-# 原生 / 新单页 / legacy 实机验收清单（部分执行）
+# Native / New Single Page / Legacy Host Acceptance Checklist (Partially Executed)
 
-此文档是完整执行协议，不代表全部通过。真实入口冒烟见 [HOST-SMOKE.md](HOST-SMOKE.md)，160次原生/new重复同边界对照见 [HOST-AB.md](HOST-AB.md)，500图/1024²实际缩放、ForkJoin并行及固定倍率overflow的功能验证见 [HOST-DENSE.md](HOST-DENSE.md)。测试均使用独立 Proton prefix、Xvfb :97 和模型副本。legacy同入口A/B、其他几何/多页场景、overflow后的完整Undo恢复及保存重开仍待验收。
+This document is the complete execution protocol; it does not mean everything passed. The real entry smoke test is in [HOST-SMOKE.md](HOST-SMOKE.md), the 160-run native/new repeated same-boundary comparison is in [HOST-AB.md](HOST-AB.md), and the functional verification of 500 images at a real 1024² scale, ForkJoin parallelism, and fixed-scale overflow is in [HOST-DENSE.md](HOST-DENSE.md). Every test uses an isolated Proton prefix, Xvfb :97, and a model copy. Legacy same-entry A/B, other geometry and multi-page scenarios, full Undo recovery after overflow, and save and reopen still need acceptance.
 
-## 安全准备
+## Safety Preparation
 
-- 仅操作用户指定模型的独立副本和独立测试安装/配置。不要覆盖源模型、共享工作目录、当前未保存会话或正式插件安装。
-- 记录源模型与副本 SHA-256；每组测试从相同副本恢复，不把上一组的排版结果作为下一组输入。
-- 记录 Cubism 精确版本/JAR SHA-256、Java 版本、系统/CPU、插件与框架构建身份、SDK v8 门禁日志。
-- 运行包含当前修改的测试构建；不得误测正式安装中的旧 JAR。启动、许可和界面前置条件由测试环境提供，不绕过许可。
+- Operate only on an isolated copy of a user-specified model and an isolated test installation and configuration. Never overwrite the source model, a shared working directory, an unsaved session, or the production plugin installation.
+- Record the SHA-256 of the source model and of the copy; restore from the same copy for each group and never feed the previous group's layout result into the next group.
+- Record the exact Cubism version and JAR SHA-256, the Java version, the system and CPU, the plugin and framework build identity, and the SDK v8 gate log.
+- Run a test build that contains the current change; never measure the stale JAR of a production installation by mistake. The test environment provides startup, licence, and UI preconditions and bypasses no licence.
 
-## 输入合同
+## Input Contract
 
-每组记录：当前页宽高、这次原生 invocation 的输入 ID 顺序及原始宽高摘要/哈希、mesh 或完整图像模式、固定或自动比例、旋转、margin、parallel。
+Record per group: the current page width and height, the input ID order of this native invocation with the raw width and height digest or hash, mesh or full-image mode, fixed or automatic scale, rotation, margin, and parallel.
 
-只核对这一页：没有其他页搜索、页面创建或副本外对象修改。若实现之间 margin/整数取整语义不同，标明差异，不能宣称逐像素等条件。
+Check only this page: no other page is searched, no page is created, and nothing outside the copy is modified. When two implementations differ in margin or integer rounding semantics, state the difference instead of claiming a pixel-identical condition.
 
-至少包含：
+At minimum include:
 
-1. 稀疏固定1，全放入；固定.5和>1。
-2. 密集固定1，有 overflow；全部 overflow。
-3. 自动缩放，分别开/关旋转及 parallel。
-4. 非零/负数/分数 mesh 原点，旧图集变换非单位；完整图像模式与 mesh 模式。
-5. 多纹理页模型，只操作同一当前页并核对其余页不变。
+1. Sparse fixed 1 with everything placed; fixed .5 and above 1.
+2. Dense fixed 1 with overflow; all overflow.
+3. Automatic scale with rotation and parallel toggled separately.
+4. Non-zero, negative, and fractional mesh origins with a non-identity old atlas transform; full-image mode and mesh mode.
+5. A multi-texture-page model, operating only on the same current page and verifying that the other pages stay unchanged.
 
-## 执行分支与计时
+## Execution Branches and Timing
 
-- 同组轮换原生/new/legacy 顺序，至少3次冷调用、15次热调用；保留每次结果，不只报告最快值。
-- 原生模式必须实际放行原生函数，不能把 new 出错后偶然 fallback 的调用当成 new 跑分。
-- new 的规划日志必须是 `scope=current-page`；记录输入数、placements、overflow、scale、snapshotMs、planMs。
-- 同次必须有写回 outcome 与入口最终处理结果；`status=APPLIED` 后仍应核实画布及最终模型状态。计划日志本身不证明生效。
-- 不混淆阶段时间：snapshotMs 不包含进入服务前的原生投影，applyMs 不包含最终 UI 刷新。端到端时间须另外测量、使用一致的开始/结束边界。
-- 从日志当前偏移/时间戳截取本轮事件，不清空用户原始日志；不得混入上次运行的成功记录。
+- Rotate the native/new/legacy order inside a group with at least 3 cold and 15 warm calls; keep every result instead of reporting only the fastest.
+- Native mode must really call the native function; a call that fell back by accident after a new-mode error never counts as a new-mode measurement.
+- The new planning log must report `scope=current-page`; record the input count, placements, overflow, scale, snapshotMs, and planMs.
+- The same run must carry the write-back outcome and the final entry result; `status=APPLIED` still requires verifying the canvas and the final model state, because the planning log alone does not prove the effect.
+- Never mix phase times: snapshotMs excludes the native projection before the service and applyMs excludes the final UI refresh. Measure end-to-end time separately with consistent start and end boundaries.
+- Take this round's events from the current log offset or timestamps without clearing the user's original log, and never mix in a success record from a previous run.
 
-## 正确性先于速度
+## Correctness Before Speed
 
-每次保存：放入/overflow原生实例数量、最终绝对比例、旋转标记、矩形边界/间隙/无重叠检查、item与LayerRef变换读回、DATA_SCALE一致性。
+For every save, check the placed and overflow native instance counts, the final absolute scale, the rotation flag, the rectangle bounds, gap, and overlap checks, the item and LayerRef transform read-back, and DATA_SCALE consistency.
 
-固定比例不能偷偷缩小；legacy 已知固定失败后缩小及可变候选缺陷必须单独标注，不能将错误或质量不同的结果纳入等质量加速比。
+A fixed scale must never shrink silently; the known legacy shrink after a fixed-scale failure and the variable-candidate defect must be labelled separately, and a wrong or lower-quality result never enters an equal-quality speedup ratio.
 
-另做：撤销→重做、取消/失败恢复、保存副本→关闭→重新打开，并核对其他页保持不变。setter 持续拒绝恢复的场景不能宣称事务完全恢复，应保留全部错误证据。
+Also run undo then redo, cancel and failure recovery, and save copy, close, and reopen, and verify that the other pages stay unchanged. A scenario where the setter keeps rejecting the restore cannot claim a complete transaction restore and must keep all error evidence.
 
-## 结果表
+## Result Table
 
-每次一行，建议字段：
+One row per run with the suggested fields:
 
 ```text
 case,implementation,run,warmup,build,input_hash,page_width,page_height,model_image,requested_scale,rotation,margin,parallel,placed,overflow,final_scale,snapshot_ms,plan_ms,apply_ms,end_to_end_ms,geometry_ok,writeback_ok,entry_branch_verified,undo_redo_ok,save_reopen_ok
 ```
 
-只有相同输入/设置、正确性通过且质量可比的行才计算 `native_time/new_time` 或 `legacy_time/new_time` 的冷/热 P50、P95。缺失测量填空，不填0；不同质量结果并列报告，不混算加速比。
+Compute cold and warm P50 and P95 of `native_time/new_time` or `legacy_time/new_time` only from rows with the same input and settings, a passed correctness check, and comparable quality. Leave a missing measurement empty rather than 0, and report results of different quality side by side instead of mixing them into one speedup ratio.
 
-## 接受条件
+## Acceptance Conditions
 
-- 证明当前测试构建的生产入口实际生效，不依赖预注册假 planner 或只写 item 的假成功。
-- 只处理当前页；所有几何、固定比例、可视写回、生命周期与副本持久化检查通过。
-- 覆盖约定代表性模型，性能至少不劣于正确且等质量的 legacy 结果；并行慢例说明策略和默认值。
-- 无实机数据则维持“未验收”，不把离线内核比值写成相对原生加速比。
+- Prove that the production entry of this test build really takes effect, without a pre-registered fake planner or a fake success that only writes items.
+- Handle the current page only, with every geometry, fixed-scale, visual write-back, lifecycle, and copy persistence check passed.
+- Cover the agreed representative models, and be at least as fast as a correct legacy result of equal quality; explain the strategy and default for a slower parallel case.
+- Without host data the status stays "not accepted", and an offline kernel ratio is never written as a speedup against native.
