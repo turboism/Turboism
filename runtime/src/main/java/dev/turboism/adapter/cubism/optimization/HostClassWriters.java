@@ -23,8 +23,9 @@ public final class HostClassWriters {
     /**
      * Returns a writer that recomputes frames and maximums, resolving supertypes on {@code loader}.
      *
-     * <p>Supertype resolution degrades to {@code java/lang/Object} instead of throwing; see
-     * {@link #commonSuperClass(ClassLoader, String, String)} for why.</p>
+     * <p>Supertype resolution uses the conservative {@code java/lang/Object} fallback for missing
+     * optional metadata instead of throwing; see {@link #commonSuperClass(ClassLoader, String,
+     * String)} for why, and for why that fallback does not guarantee verifier acceptance.</p>
      *
      * @param reader reader whose constant pool the writer reuses
      * @param loader loader that supplies hierarchy metadata, or {@code null} for the runtime loader
@@ -53,9 +54,13 @@ public final class HostClassWriters {
      * {@link TypeNotPresentException} for a type the loader cannot resolve. A weave hook runs
      * against a partially admitted host: the class being transformed is reachable, but optional
      * siblings it references may not be. Throwing there would abort the whole transform and leave
-     * the host unpatched, so an unresolvable pair degrades to {@code java/lang/Object} instead. The
-     * widened frame is always verifiable, and the hook's own method-shape gate has already refused
-     * any body it does not recognise before this runs.</p>
+     * the host unpatched, so an unresolvable pair uses the conservative {@code java/lang/Object}
+     * fallback instead.</p>
+     *
+     * <p>That fallback is not a validity guarantee. Merging to {@code java/lang/Object} discards
+     * the type precision a later invocation or field instruction may require, which surfaces as a
+     * {@link VerifyError} at class definition. A method-shape gate proves the reviewed body, not
+     * verifier acceptance. Downstream JVM verification remains the authoritative check.</p>
      *
      * @param loader class loader inspected for hierarchy metadata, or {@code null} for the runtime loader
      * @param left internal name of the first merged type
