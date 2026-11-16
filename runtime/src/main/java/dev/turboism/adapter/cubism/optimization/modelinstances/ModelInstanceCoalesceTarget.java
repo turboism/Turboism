@@ -65,7 +65,8 @@ public record ModelInstanceCoalesceTarget(String version) {
             final List<String> classes = new ArrayList<>();
             for (final String name : PINNED_CLASSES) {
                 if (!entry.getValue().contains(name)) {
-                    throw new IllegalStateException("model-update target table lacks " + name + " for " + entry.getKey());
+                    throw new IllegalStateException(
+                            "model-update target table lacks " + name + " for " + entry.getKey());
                 }
                 classes.add(name);
             }

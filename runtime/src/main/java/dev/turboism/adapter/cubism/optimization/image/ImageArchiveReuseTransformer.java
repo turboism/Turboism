@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.image;
 
-import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;

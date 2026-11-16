@@ -70,7 +70,8 @@ class TargetClassTableTest {
     @Test
     void classesReturnsDeclaredTargets() {
         assertEquals(
-                List.of("com/example/ClassA", "com/example/ClassB"), TargetClassTable.classes("test-fixture", "5.2.03"));
+                List.of("com/example/ClassA", "com/example/ClassB"),
+                TargetClassTable.classes("test-fixture", "5.2.03"));
     }
 
     @Test

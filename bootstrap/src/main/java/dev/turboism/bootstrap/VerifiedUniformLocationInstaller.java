@@ -50,8 +50,8 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final int EXPECTED_OWNERS = 5;
 
     private static final List<ReviewedHostContract.Candidate<Map<UniformLocationLifecycleTransformer.Role, String>>>
-            CANDIDATES = ReviewedHostContract.candidates(
-                    UniformLocationLifecycleTransformer.targetClasses(), version -> {
+            CANDIDATES =
+                    ReviewedHostContract.candidates(UniformLocationLifecycleTransformer.targetClasses(), version -> {
                         final Map<UniformLocationLifecycleTransformer.Role, String> owners = new HashMap<>();
                         for (final var role : UniformLocationLifecycleTransformer.Role.values()) {
                             owners.put(role, role.ownerForVersion(version));

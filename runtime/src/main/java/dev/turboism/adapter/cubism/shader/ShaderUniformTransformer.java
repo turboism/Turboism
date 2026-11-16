@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.shader;
 
-import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;

@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
-import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
+import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.instrument.ClassFileTransformer;
@@ -688,5 +688,6 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
         }
     }
 
-    private static final Map<String, List<String>> REVIEWED_CLASSES = TargetClassTable.load("uniform-location-lifecycle");
+    private static final Map<String, List<String>> REVIEWED_CLASSES =
+            TargetClassTable.load("uniform-location-lifecycle");
 }

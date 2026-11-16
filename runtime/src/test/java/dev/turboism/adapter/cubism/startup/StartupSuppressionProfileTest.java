@@ -61,8 +61,7 @@ class StartupSuppressionProfileTest {
     @Test
     void keepsEveryReviewedVersionAliasSetConsistentWithItsTargetClassTable() {
         assertEquals(
-                StartupSuppressionProfile.targetClasses().keySet(),
-                StartupSuppressionProfile.reviewedCubismVersions());
+                StartupSuppressionProfile.targetClasses().keySet(), StartupSuppressionProfile.reviewedCubismVersions());
     }
 
     @Test

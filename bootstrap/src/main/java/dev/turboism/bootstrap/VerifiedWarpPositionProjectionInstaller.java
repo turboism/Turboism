@@ -34,8 +34,8 @@ final class VerifiedWarpPositionProjectionInstaller implements VerifiedHookInsta
     /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
-    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
-            WarpPositionProjectionTransformer.targetClasses(), version -> HOOK_ID);
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
+            ReviewedHostContract.candidates(WarpPositionProjectionTransformer.targetClasses(), version -> HOOK_ID);
 
     static final WeaveSpec<ReviewedHostContract.Bound<String>> SPEC = new WeaveSpec<ReviewedHostContract.Bound<String>>(
             ADMISSION,
