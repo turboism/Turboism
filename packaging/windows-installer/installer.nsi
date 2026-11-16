@@ -1569,7 +1569,7 @@ Function .onInstSuccess
     Goto InstallerConfigurationDone
   ${EndIf}
   StrCpy $InstallerConfigurationOperation "InitializeSelection"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection ${CUBISM_DISCOVERY_HANDOFF}'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection -RefreshReceipt ${CUBISM_DISCOVERY_HANDOFF}'
   Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)" /SD IDOK
@@ -1595,10 +1595,12 @@ Function .onInstSuccess
       Goto InstallerConfigurationDone
     ${EndIf}
     DetailPrint "$(ElevationWaitNotice)"
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat ${CUBISM_DISCOVERY_HANDOFF}'
+    System::Call 'user32::AllowSetForegroundWindow(i -1)'
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat -OwnerHwnd $HWNDPARENT ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${Else}
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat ${CUBISM_DISCOVERY_HANDOFF}'
+    System::Call 'user32::AllowSetForegroundWindow(i -1)'
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat -OwnerHwnd $HWNDPARENT ${CUBISM_DISCOVERY_HANDOFF}'
     Pop $0
   ${EndIf}
   ${If} $0 == 3
@@ -1775,7 +1777,8 @@ SectionEnd
 ; 不出现在安装器组件页；须为最后一个 Section）
 Section "Uninstall"
   ; 先由托管配置器按 manifest 清理 Turboism 自己创建的快捷方式和安装状态。
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup'
+  System::Call 'user32::AllowSetForegroundWindow(i -1)'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup -OwnerHwnd $HWNDPARENT'
   Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(ShortcutCleanupFailure)"

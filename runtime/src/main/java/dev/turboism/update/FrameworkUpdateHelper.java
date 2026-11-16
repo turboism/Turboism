@@ -85,7 +85,8 @@ public final class FrameworkUpdateHelper {
             Optional<Long> launcherPid,
             boolean releaseLaunch,
             String launchToken,
-            boolean initializeReceipt) {}
+            boolean initializeReceipt,
+            boolean refreshReceipt) {}
 
     private FrameworkUpdateHelper() {}
 
@@ -380,6 +381,11 @@ public final class FrameworkUpdateHelper {
                         out.println("RECEIPT_INITIALIZED: " + manifest.version());
                         return lease.allowSpawn(EXIT_NOTHING);
                     }
+                    if (invocation.refreshReceipt()) {
+                        FrameworkUpdateReceipt.replace(invocation.root(), manifestBytes, envelopeBytes, verifier);
+                        out.println("RECEIPT_REFRESHED: " + manifest.version());
+                        return lease.allowSpawn(EXIT_NOTHING);
+                    }
                     final FrameworkUpdateApplier.Result result;
                     if (installedAuthority) {
                         final var previous =
@@ -638,6 +644,7 @@ public final class FrameworkUpdateHelper {
         boolean releaseLaunch = false;
         String launchToken = null;
         boolean initializeReceipt = false;
+        boolean refreshReceipt = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--root" -> root = path(args, ++i);
@@ -657,6 +664,7 @@ public final class FrameworkUpdateHelper {
                 }
                 case "--launch-token" -> launchToken = token(args, ++i);
                 case "--initialize-receipt" -> initializeReceipt = true;
+                case "--refresh-receipt" -> refreshReceipt = true;
                 default -> throw new IllegalArgumentException("unknown argument " + args[i]);
             }
         }
@@ -666,7 +674,8 @@ public final class FrameworkUpdateHelper {
         if (prepareLaunch && releaseLaunch) {
             throw new IllegalArgumentException("--prepare-launch and --release-launch are exclusive");
         }
-        if ((recover ? 1 : 0) + (launcherPid == null ? 0 : 1) + (initializeReceipt ? 1 : 0) > 1) {
+        if ((recover ? 1 : 0) + (launcherPid == null ? 0 : 1) + (initializeReceipt ? 1 : 0) + (refreshReceipt ? 1 : 0)
+                > 1) {
             throw new IllegalArgumentException(
                     "Recovery, startup preparation and receipt initialization are exclusive");
         }
@@ -691,7 +700,8 @@ public final class FrameworkUpdateHelper {
                 Optional.ofNullable(launcherPid),
                 releaseLaunch,
                 launchToken,
-                initializeReceipt);
+                initializeReceipt,
+                refreshReceipt);
     }
 
     private static Path path(final String[] args, final int index) {

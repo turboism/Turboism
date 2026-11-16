@@ -552,6 +552,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         render();
         worker.execute(() -> {
             String error = null;
+            boolean frameworkFailure = false;
             try {
                 acquireLease(job);
                 if (job.control.isCancelled()) throw new java.util.concurrent.CancellationException();
@@ -574,6 +575,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 if (verified != null
                         && (verified.phase() != CoreFrameworkUpdates.Phase.STAGED
                                 || !job.version.equals(verified.version()))) {
+                    frameworkFailure = true;
                     throw new IllegalStateException(
                             verified.detail().isBlank() ? "Framework download not ready" : verified.detail());
                 }
@@ -583,6 +585,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                 cleanup(job);
             }
             final String failure = error;
+            final boolean isFrameworkFailure = frameworkFailure;
             CoreDialogs.onEdt(() -> {
                 if (closed || activeJob != job) {
                     future.complete(BatchState.CANCELLED);
@@ -594,8 +597,10 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
                     persistentDetailMessage = text("updates.install.state.cancelled");
                 } else if (failure != null) {
                     batchState = BatchState.DOWNLOAD_FAILED;
-                    persistentDetailMessage = text("updates.plugins.download_failed", failure) + "\n"
-                            + text("updates.plugins.strict_policy");
+                    final String failureKey = isFrameworkFailure
+                            ? "updates.framework.download_failed"
+                            : "updates.plugins.download_failed";
+                    persistentDetailMessage = text(failureKey, failure) + "\n" + text("updates.plugins.strict_policy");
                 } else {
                     batchState = BatchState.PREPARED;
                     persistentDetailMessage = text("updates.plugins.ready");

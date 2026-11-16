@@ -45,6 +45,7 @@ Turboism 的所有重要变更都记录在本文件中。
 - 保持 ACP 输入框跨连接状态可编辑聚焦，支持持久化 Agent 直连、`user_message_chunk` 与原生 Codex/Claude Code/Pi 历史会话重放、Agent 按钮去重对勾、全控件与 Todo 浮层主题适配、流式增量更新、界面预缓存与图片右键菜单。
 - 修复 3D 与预设导入在图集重映射后重读快照（解决甜甜圈回滚）及多语言对象命名，修正批量重命名基准标签，修复剪贴蒙版 GL scissor、ArtMesh 镜像拖拽延迟、T 徽章与镜像按钮显隐问题。
 - 将 ACP 插件内置 Pi MCP 扩展脚本从 `native/` 迁至 `extensions/`（解决插件自动更新与框架联合更新因 `PLUGIN_CONTENT_CONTAMINATION` 被拒收并连带取消框架更新的问题），并在第一方构建门禁与市场打包阶段补全插件内容污染校验。
+- 修复 Windows 安装器与配置器提权弹窗未绑定前台窗口句柄（改用 `ShellExecuteExW` 归属当前窗体以在前台弹出 UAC）、Windows PowerShell 5.1 下 `ERROR_CANCELLED`（1223）取消识别失效、完整安装包覆盖升级未刷新签名安装收据，以及框架自更新缺失收据报错丢失路径并误显示为插件下载失败的问题。
 
 ## [0.68.1] - 2026-10-30
 

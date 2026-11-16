@@ -710,6 +710,19 @@ class FrameworkUpdatesWindowTest {
         }
     }
 
+    @Test
+    void frameworkDownloadFailureUsesFrameworkErrorMessageInsteadOfPluginError() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of(ROW))) {
+            f.planned();
+            f.framework.failDownload = true;
+            edt(f.window::triggerInstall).get(10, TimeUnit.SECONDS);
+            String detail = edt(f.window::currentDetailText);
+            assertTrue(detail.contains("updates.framework.download_failed"), detail);
+            assertTrue(detail.contains("Installation receipt is missing"), detail);
+            assertFalse(detail.contains("updates.plugins.download_failed"), detail);
+        }
+    }
+
     private final class StubPlugins extends CoordinatedPluginUpdateService {
         final AtomicInteger downloads = new AtomicInteger(), commits = new AtomicInteger();
         volatile boolean failDownload;
@@ -847,6 +860,7 @@ class FrameworkUpdatesWindowTest {
     private static final class FakeFramework implements CoreFrameworkUpdates {
         volatile Snapshot state = new Snapshot(Phase.IDLE, "", 0, 0, "");
         final AtomicInteger downloads = new AtomicInteger();
+        volatile boolean failDownload;
         volatile boolean failQueue;
         volatile CompletableFuture<Snapshot> pendingDownload;
 
@@ -856,6 +870,10 @@ class FrameworkUpdatesWindowTest {
 
         public CompletionStage<Snapshot> download() {
             downloads.incrementAndGet();
+            if (failDownload) {
+                state = new Snapshot(Phase.FAILED, "0.44.0", 0, 0, "Installation receipt is missing");
+                return CompletableFuture.completedFuture(state);
+            }
             if (pendingDownload != null) {
                 state = new Snapshot(Phase.DOWNLOADING, "0.44.0", 1_250_000, 10_000_000, "");
                 return pendingDownload;
