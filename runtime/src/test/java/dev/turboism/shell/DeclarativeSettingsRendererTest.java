@@ -940,58 +940,67 @@ class DeclarativeSettingsRendererTest {
         final dev.turboism.internal.core.CoreFrameworkUpdates.Phase[] activePhase = {
             dev.turboism.internal.core.CoreFrameworkUpdates.Phase.IDLE
         };
-        final dev.turboism.internal.core.CoreUpdateService updates = new dev.turboism.internal.core.CoreUpdateService() {
-            private Preferences storedPrefs =
-                    new Preferences(true, dev.turboism.internal.core.CoreUpdateService.CHANNEL_STABLE);
+        final dev.turboism.internal.core.CoreUpdateService updates =
+                new dev.turboism.internal.core.CoreUpdateService() {
+                    private Preferences storedPrefs =
+                            new Preferences(true, dev.turboism.internal.core.CoreUpdateService.CHANNEL_STABLE);
 
-            @Override
-            public boolean available() {
-                return true;
-            }
+                    @Override
+                    public boolean available() {
+                        return true;
+                    }
 
-            @Override
-            public Snapshot snapshot() {
-                return Snapshot.idle("0.70.0");
-            }
-
-            @Override
-            public Preferences preferences() {
-                return storedPrefs;
-            }
-
-            @Override
-            public void start() {}
-
-            @Override
-            public java.util.concurrent.CompletionStage<Snapshot> checkManual() {
-                return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
-            }
-
-            @Override
-            public PreferenceSaveResult savePreferences(final Preferences preferences) {
-                storedPrefs = preferences;
-                return PreferenceSaveResult.success();
-            }
-
-            @Override
-            public dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates() {
-                return new dev.turboism.internal.core.CoreFrameworkUpdates() {
                     @Override
                     public Snapshot snapshot() {
-                        return new Snapshot(activePhase[0], "", 0, 0, "");
+                        return Snapshot.idle("0.70.0");
                     }
 
                     @Override
-                    public java.util.concurrent.CompletionStage<Snapshot> download() {
+                    public Preferences preferences() {
+                        return storedPrefs;
+                    }
+
+                    @Override
+                    public void start() {}
+
+                    @Override
+                    public java.util.concurrent.CompletionStage<Snapshot> checkManual() {
                         return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
                     }
 
                     @Override
-                    public void cancel() {}
+                    public PreferenceSaveResult savePreferences(final Preferences preferences) {
+                        storedPrefs = preferences;
+                        return PreferenceSaveResult.success();
+                    }
 
                     @Override
-                    public java.util.concurrent.CompletionStage<Snapshot> installOnExit() {
-                        return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
+                    public dev.turboism.internal.core.CoreFrameworkUpdates frameworkUpdates() {
+                        return new dev.turboism.internal.core.CoreFrameworkUpdates() {
+                            @Override
+                            public Snapshot snapshot() {
+                                return new Snapshot(activePhase[0], "", 0, 0, "");
+                            }
+
+                            @Override
+                            public java.util.concurrent.CompletionStage<Snapshot> download() {
+                                return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
+                            }
+
+                            @Override
+                            public void cancel() {}
+
+                            @Override
+                            public java.util.concurrent.CompletionStage<Snapshot> installOnExit() {
+                                return java.util.concurrent.CompletableFuture.completedFuture(snapshot());
+                            }
+
+                            @Override
+                            public dev.turboism.sdk.plugin.Registration subscribe(
+                                    final java.util.function.Consumer<Snapshot> listener) {
+                                return () -> {};
+                            }
+                        };
                     }
 
                     @Override
@@ -999,18 +1008,10 @@ class DeclarativeSettingsRendererTest {
                             final java.util.function.Consumer<Snapshot> listener) {
                         return () -> {};
                     }
+
+                    @Override
+                    public void close() {}
                 };
-            }
-
-            @Override
-            public dev.turboism.sdk.plugin.Registration subscribe(
-                    final java.util.function.Consumer<Snapshot> listener) {
-                return () -> {};
-            }
-
-            @Override
-            public void close() {}
-        };
         final SettingsContribution automatic = CoreUpdateSettingsContribution.create(localization(), updates);
         final SettingsContribution channel = CoreUpdateSettingsContribution.createChannel(localization(), updates);
         final SettingsSnapshot.Tab contributedStartup = new SettingsSnapshot.Tab(
@@ -1090,8 +1091,7 @@ class DeclarativeSettingsRendererTest {
                 assertEquals(dev.turboism.internal.core.CoreUpdateService.CHANNEL_BETA, updates.updateChannel());
 
                 activePhase[0] = dev.turboism.internal.core.CoreFrameworkUpdates.Phase.APPLY_PENDING;
-                final SettingsControl.Choice choice =
-                        assertInstanceOf(SettingsControl.Choice.class, channel.control());
+                final SettingsControl.Choice choice = assertInstanceOf(SettingsControl.Choice.class, channel.control());
                 assertFalse(choice.validator()
                         .validate(
                                 dev.turboism.internal.core.CoreUpdateService.CHANNEL_BETA,

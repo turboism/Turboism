@@ -152,8 +152,8 @@ public final class UpdatePreferencesStore {
     public CoreUpdateService.PreferenceSaveResult saveAutomaticPluginUpdatesEnabled(final boolean enabled) {
         synchronized (lock) {
             final StoredPreferences current = readAllLocked(false);
-            return saveAllLocked(new StoredPreferences(
-                    current.automaticChecksEnabled(), enabled, current.updateChannel()));
+            return saveAllLocked(
+                    new StoredPreferences(current.automaticChecksEnabled(), enabled, current.updateChannel()));
         }
     }
 
@@ -192,8 +192,7 @@ public final class UpdatePreferencesStore {
                 || !enabled.isBoolean()
                 || (pluginUpdates != null && !pluginUpdates.isBoolean())
                 || (channel != null
-                        && (!channel.isTextual()
-                                || !CoreUpdateService.isSelectableChannel(channel.textValue())))) {
+                        && (!channel.isTextual() || !CoreUpdateService.isSelectableChannel(channel.textValue())))) {
             throw new IOException("preference schema invalid");
         }
         final boolean pluginUpdatesEnabled = pluginUpdates == null || pluginUpdates.booleanValue();
@@ -241,8 +240,7 @@ public final class UpdatePreferencesStore {
         /** Validates optional stored channel value. */
         public StoredPreferences {
             updateChannel = Objects.requireNonNull(updateChannel, "updateChannel");
-            if (updateChannel.isPresent()
-                    && !CoreUpdateService.isSelectableChannel(updateChannel.get())) {
+            if (updateChannel.isPresent() && !CoreUpdateService.isSelectableChannel(updateChannel.get())) {
                 throw new IllegalArgumentException("unsupported update channel: " + updateChannel.get());
             }
         }

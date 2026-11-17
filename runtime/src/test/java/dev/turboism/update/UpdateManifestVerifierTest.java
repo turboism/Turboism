@@ -995,8 +995,7 @@ final class UpdateManifestVerifierTest {
                 "VERSION_DOWNGRADE",
                 assertThrows(
                                 UpdateManifestVerifier.UpdateManifestVerificationException.class,
-                                () -> verifier.verify(
-                                        stableBytes, stableEnvelope, betaDowngradeVersion, Instant.EPOCH))
+                                () -> verifier.verify(stableBytes, stableEnvelope, betaDowngradeVersion, Instant.EPOCH))
                         .errorCode());
 
         final var betaDowngradeBuild = new UpdateVerificationContext(
@@ -1015,8 +1014,7 @@ final class UpdateManifestVerifierTest {
                 "BUILD_NOT_NEWER",
                 assertThrows(
                                 UpdateManifestVerifier.UpdateManifestVerificationException.class,
-                                () -> verifier.verify(
-                                        stableBytes, stableEnvelope, betaDowngradeBuild, Instant.EPOCH))
+                                () -> verifier.verify(stableBytes, stableEnvelope, betaDowngradeBuild, Instant.EPOCH))
                         .errorCode());
 
         // Nightly cross-channel remains inadmissible even when switch flag is set.

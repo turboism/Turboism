@@ -373,7 +373,8 @@ public class InputPathElisionBridgeTest {
 
         manager.activeWindow = window;
 
-        // 1) The first call with the same Cursor after window activation returns false, so the native cursor refresh runs.
+        // 1) The first call with the same Cursor after window activation returns false, so the native cursor refresh
+        // runs.
         assertFalse(
                 cursorSlot().test(widget, packCursor),
                 "first identical cursor call after window activation must pass to refresh native cursor");
@@ -386,7 +387,8 @@ public class InputPathElisionBridgeTest {
                 cursorSlot().test(widget, packCursor),
                 "subsequent identical cursor call under same active window must elide");
 
-        // 3) After manager.activeWindow moves to another window or null and back, the first same Cursor returns false again and the second returns true.
+        // 3) After manager.activeWindow moves to another window or null and back, the first same Cursor returns false
+        // again and the second returns true.
         manager.activeWindow = other;
         assertFalse(cursorSlot().test(widget, packCursor), "cursor call while inactive must pass");
 

@@ -399,7 +399,8 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             final String nextChannel = requested.selectedChannel().orElse(preferences.updateChannel());
             final boolean channelChanged = !preferences.updateChannel().equals(nextChannel);
             if (channelChanged) {
-                final CoreFrameworkUpdates.Phase phase = frameworkUpdates.snapshot().phase();
+                final CoreFrameworkUpdates.Phase phase =
+                        frameworkUpdates.snapshot().phase();
                 if (phase == CoreFrameworkUpdates.Phase.DOWNLOADING
                         || phase == CoreFrameworkUpdates.Phase.APPLY_PENDING) {
                     return PreferenceSaveResult.failed(CHANNEL_SWITCH_BUSY_MESSAGE);
@@ -407,8 +408,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             }
             final PreferenceSaveResult saved = preferencesStore.save(requested);
             if (!saved.saved()) return saved;
-            preferences = new UpdatePreferencesStoreState(
-                    requested.automaticChecksEnabled(), Optional.of(nextChannel));
+            preferences = new UpdatePreferencesStoreState(requested.automaticChecksEnabled(), Optional.of(nextChannel));
             if (channelChanged) {
                 parser = new UpdateDiscoveryParser(nextChannel);
                 stateStore = new UpdateStateStore(home, nextChannel, diagnostic);

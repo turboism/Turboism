@@ -629,7 +629,8 @@ class AutoBackupCoordinatorTest {
         AutoBackupCoordinator service = coordinator(host, 60_000L);
         // The saved snapshot name differs from the pack file name (runner rename),
         // but the stable document UID matches.
-        BackupRunResult event = service.backupAfterSave(snapshotWithUids("mixed-mode fixture.cmo3", List.of("uid-model-1")))
+        BackupRunResult event = service.backupAfterSave(
+                        snapshotWithUids("mixed-mode fixture.cmo3", List.of("uid-model-1")))
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
         assertEquals(1, event.artifacts().size());

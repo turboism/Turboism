@@ -393,8 +393,7 @@ final class UpdateDiscoveryParserTest {
                         Optional.of("\"v50\"")))
                 .saved());
         final java.util.List<String> diagnostics = new java.util.ArrayList<>();
-        final UpdateStateStore betaStore =
-                new UpdateStateStore(home, UpdateDiscovery.CHANNEL_BETA, diagnostics::add);
+        final UpdateStateStore betaStore = new UpdateStateStore(home, UpdateDiscovery.CHANNEL_BETA, diagnostics::add);
         final UpdateStateStore.State betaState = betaStore.read();
         assertEquals(Optional.of(Instant.parse("2026-10-01T00:00:00Z")), betaState.lastAutomaticAttempt());
         assertTrue(betaState.cachedResult().isEmpty());
