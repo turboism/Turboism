@@ -83,12 +83,12 @@
     {
       "id": "turboism.action.register",
       "scope": "application",
-      "reason": "Registers the double-click open action used by board cards."
+      "reason": "Registers the double-click open action, the header create actions, and the per-card delete action used by board cards."
     },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Creates a new model document through NEW_MODEL and opens the native New Animation flow when the empty board's create links are used."
+      "reason": "Creates a new model document through NEW_MODEL and opens the native New Animation flow when a header create control or an empty-board create link is used."
     },
     {
       "id": "turboism.file.read",

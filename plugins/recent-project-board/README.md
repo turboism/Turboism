@@ -31,9 +31,10 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 ## What it does
 
 - Shows up to eight recent projects in a compact, configurable layout over the native OpenGL viewport while no document is open. An icon-only Lucide layout control in the header cycles 6-column and 3-column grids and a single-row list, and remembers the choice. Hovering it shows the current layout. Text scales up as the layout gets roomier.
+- Places two icon-only create controls left of the layout control: a `plus` for a new model project and a `clapperboard` for a new animation project. Each control runs the same host path as **File > New > Model** and **File > New > Animation**, and a control whose host command is unavailable is not shown at all.
 - Uses the official `recent-preview` plugin's public `thumbnail.captured` event for thumbnails, requesting an immediate cached-preview replay on enable so real-time market installation and re-enable pick up existing thumbnails without an editor restart.
 - Hides the board immediately when any document opens and restores it after the last document closes.
-- Keeps the header title/subtitle left-aligned and the layout button on the right. The header sits outside the scroll region, so the button never shifts when the vertical scrollbar appears, and the button is vertically centered in the header.
+- Keeps the header title/subtitle left-aligned and the create and layout controls on the right. The header sits outside the scroll region, so the controls never shift when the vertical scrollbar appears, and the controls are vertically centered in the header.
 - Deduplicates repeated recent-menu entries by display name while preserving the Recent Files order.
 - Centers each card's name and timestamp, and centers the placeholder text vertically and horizontally when no thumbnail is cached.
 - Every card carries a trash button that deletes that project's cached thumbnail through the provider, so the card returns to the placeholder state and the hover popup stops showing the stale image.
@@ -63,8 +64,9 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 2. Open a project once so Recent Preview can create its thumbnail.
 3. Close the project. The board appears over the empty viewport.
 4. Use the header layout icon to cycle 6-column grid, 3-column grid, and single-row list; the choice is persisted.
-5. Double-click a card to open that project again.
-6. With no recent files, use the centered **Create New Project** link to start a new model, or **Create New Animation Project** to open Cubism's New Animation target dialog.
+5. Use the header `plus` control to create a new model project, or the `clapperboard` control to create a new animation project. Both dispatch the host's own New menu commands, so the resulting dialogs are the native ones.
+6. Double-click a card to open that project again.
+7. With no recent files, use the centered **Create New Project** link to start a new model, or **Create New Animation Project** to open Cubism's New Animation target dialog.
 
 Projects without a cached thumbnail still appear as placeholders, so the board remains a faithful recent-project list. The first successful open or save creates the missing thumbnail.
 
@@ -81,9 +83,9 @@ Projects without a cached thumbnail still appear as placeholders, so the board r
 | `turboism.cubism.recent-file.read` | `application` | List recent projects and dispatch the selected recent file for opening. |
 | `turboism.ui.panel.contribute` | `application` | Contribute the board to the empty viewport placement. |
 | `turboism.cubism.model.observe` | `application` | Refresh the recent-project list after a project is opened, created, or closed. |
-| `turboism.cubism.model.write` | `application` | Create a new model through `NEW_MODEL` and open the native New Animation flow when the empty-state links are clicked. |
+| `turboism.cubism.model.write` | `application` | Create a new model through `NEW_MODEL` and open the native New Animation flow when a header create control or an empty-state link is clicked. |
 | `turboism.event.subscribe` | `application` | Receive live and replayed `thumbnail.captured` events and `thumbnail.deleted` events from the provider. |
-| `turboism.action.register` | `application` | Register the double-click open action and the per-card delete action used by board cards. |
+| `turboism.action.register` | `application` | Register the double-click open action, the header create actions, and the per-card delete action used by board cards. |
 | `turboism.file.read` | `application` | Read the plugin-confined layout preference. |
 | `turboism.file.write` | `application` | Persist the selected layout preference. |
 | `turboism.ui.recent-preview.manage` | `application` | Request cached preview replays on enable and delete one cached preview when the user presses a card's trash button. |
@@ -123,6 +125,7 @@ No telemetry is sent by this plugin.
 - Initial release as an official preview plugin.
 - Added viewport recent project board overlay with double-click open dispatch.
 - Added 6-column grid, 3-column grid, and single-row list layouts with persisted icon-only Lucide header control.
+- Added two icon-only header create controls left of the layout control: `plus` for a new model project and `clapperboard` for a new animation project. Both dispatch the host's native New menu commands, and a control whose host command is unavailable is hidden.
 - Added centered empty state with Create New Project and Create New Animation Project links.
 
 ## Support and license
@@ -134,4 +137,4 @@ No telemetry is sent by this plugin.
 
 ### Icon attribution
 
-The layout control uses the Lucide v0.468.0 `layout-grid` icon, and each card's delete control uses `trash-2`, both under the ISC license (including the upstream Feather notice). See `META-INF/licenses/Lucide-LICENSE.txt`.
+The header create controls use the Lucide v0.468.0 `plus` and `clapperboard` icons, the layout control uses `layout-grid`, and each card's delete control uses `trash-2`, all under the ISC license (including the upstream Feather notice). See `META-INF/licenses/Lucide-LICENSE.txt` and `META-INF/licenses/Lucide-icons.md`.

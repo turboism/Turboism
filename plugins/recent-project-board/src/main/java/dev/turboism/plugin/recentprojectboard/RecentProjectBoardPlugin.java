@@ -71,9 +71,9 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     static final int IMAGE_MAX_WIDTH = 220;
     static final int IMAGE_MAX_HEIGHT = 220;
     static final int PANEL_PRIORITY = 20;
-    /** Pins the header title block so the layout control keeps a stable place beside it. */
+    /** Pins the header title block so the header controls keep a stable place beside it. */
     static final int HEADER_TEXT_WIDTH = 360;
-    /** Header control cell height; the control is centered inside it. */
+    /** Header control cell height; the controls are centered inside it. */
     static final int HEADER_CONTROL_HEIGHT = 34;
     /** Thumbnail column width of one single-row card. */
     static final int ROW_PREVIEW_WIDTH = 96;
@@ -93,13 +93,19 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
     /** Bundled Lucide mask used by the header layout control. */
     private static final String LAYOUT_ICON_NAME = "layout-grid";
 
+    /** Bundled Lucide mask used by the header New Model control. */
+    private static final String CREATE_ICON_NAME = "plus";
+
+    /** Bundled Lucide mask used by the header New Animation control. */
+    private static final String CREATE_ANIMATION_ICON_NAME = "clapperboard";
+
     private static final StoragePath LAYOUT_PATH = new StoragePath(StorageRoot.DATA, "recent-project-board/layout.txt");
 
     private static final DateTimeFormatter MODIFIED_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
 
     private final Map<String, byte[]> previews = new ConcurrentHashMap<>();
-    private final Map<String, byte[]> layoutIcons = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> icons = new ConcurrentHashMap<>();
     private final AtomicBoolean refreshPending = new AtomicBoolean();
     private final AtomicReference<Registration> board = new AtomicReference<>();
 
@@ -391,7 +397,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         return PanelView.column(children.toArray(PanelView[]::new));
     }
 
-    /** Board header: a left title block and the right-aligned layout control. */
+    /** Board header: a left title block and the right-aligned create and layout controls. */
     private PanelView header(final String title, final String subtitle) {
         return PanelView.padded(
                 PanelView.spaceBetween(
@@ -399,7 +405,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
                                 PanelView.column(PanelView.text(title), PanelView.text(subtitle, true)),
                                 HEADER_TEXT_WIDTH,
                                 0),
-                        PanelView.centered(layoutControl(), 0, HEADER_CONTROL_HEIGHT)),
+                        PanelView.centered(headerControls(), 0, HEADER_CONTROL_HEIGHT)),
                 HEADER_TOP_INSET,
                 HEADER_LEFT_INSET,
                 0,
@@ -478,7 +484,7 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
      * preview to delete without a separate mapping.
      */
     private PanelView deleteControl(final RecentFileSummary file) {
-        final byte[] icon = layoutIcons.computeIfAbsent(DELETE_ICON_NAME, this::loadLayoutIcon);
+        final byte[] icon = icons.computeIfAbsent(DELETE_ICON_NAME, this::loadIcon);
         final String tooltip = localization.text("board.delete.action", "Delete preview");
         return icon.length == 0
                 ? PanelView.button(file.id().value(), tooltip, DELETE_ACTION_ID)
@@ -487,23 +493,52 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
 
     /** Icon-only layout control; falls back to a text button if the bundled mask is missing. */
     private PanelView layoutControl() {
-        final byte[] icon = layoutIcons.computeIfAbsent(LAYOUT_ICON_NAME, this::loadLayoutIcon);
+        final byte[] icon = icons.computeIfAbsent(LAYOUT_ICON_NAME, this::loadIcon);
         final String tooltip = layout.buttonLabel(localization);
         return icon.length == 0
                 ? PanelView.button(LAYOUT_ACTION_ID, tooltip, LAYOUT_ACTION_ID)
                 : PanelView.iconButton(LAYOUT_ACTION_ID, icon, tooltip, LAYOUT_ACTION_ID);
     }
 
-    private byte[] loadLayoutIcon(final String name) {
+    /**
+     * Header controls: one icon-only button per create action the host currently admits, then the
+     * layout control. A control the host cannot dispatch is omitted, so the header never offers an
+     * action that would only log a warning.
+     */
+    private PanelView headerControls() {
+        final List<PanelView> controls = new ArrayList<>();
+        if (canCreateNewProject()) {
+            controls.add(iconControl(
+                    CREATE_ICON_NAME, CREATE_ACTION_ID, localization.text("board.create", "Create New Project")));
+        }
+        if (canCreateAnimationProject()) {
+            controls.add(iconControl(
+                    CREATE_ANIMATION_ICON_NAME,
+                    CREATE_ANIMATION_ACTION_ID,
+                    localization.text("board.createAnimation", "Create New Animation Project")));
+        }
+        controls.add(layoutControl());
+        return PanelView.row(controls.toArray(PanelView[]::new));
+    }
+
+    /** One icon-only header control; falls back to a text button if the bundled mask is missing. */
+    private PanelView iconControl(final String iconName, final String actionId, final String tooltip) {
+        final byte[] icon = icons.computeIfAbsent(iconName, this::loadIcon);
+        return icon.length == 0
+                ? PanelView.button(actionId, tooltip, actionId)
+                : PanelView.iconButton(actionId, icon, tooltip, actionId);
+    }
+
+    private byte[] loadIcon(final String name) {
         final String path = "/icons/lucide/" + name + ".png";
         try (InputStream stream = RecentProjectBoardPlugin.class.getResourceAsStream(path)) {
             if (stream == null) {
-                logger.warn("Recent project board layout icon is missing: " + path);
+                logger.warn("Recent project board icon is missing: " + path);
                 return new byte[0];
             }
             return stream.readAllBytes();
         } catch (IOException failure) {
-            logger.warn("Recent project board layout icon could not be read: " + name);
+            logger.warn("Recent project board icon could not be read: " + name);
             return new byte[0];
         }
     }

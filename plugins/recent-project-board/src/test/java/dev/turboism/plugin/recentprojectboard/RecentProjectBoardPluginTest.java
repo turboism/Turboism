@@ -204,6 +204,60 @@ final class RecentProjectBoardPluginTest {
         assertEquals(1, animationCalls.get());
     }
 
+    /** The header carries one create control per action the host admits, left of the layout control. */
+    @Test
+    void headerOffersCreateControlsLeftOfTheLayoutControl() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
+        final List<ActionRegistry.Action> actions = new ArrayList<>();
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(file)),
+                uiHost(contributions),
+                actions,
+                new RecordingCommands(Set.of(EditorCommand.NEW_MODEL))));
+        plugin.enable();
+
+        final List<PanelView.IconButton> controls =
+                headerIconButtons(contributions.get(0).content());
+        assertEquals(
+                List.of(
+                        RecentProjectBoardPlugin.CREATE_ACTION_ID,
+                        RecentProjectBoardPlugin.CREATE_ANIMATION_ACTION_ID,
+                        RecentProjectBoardPlugin.LAYOUT_ACTION_ID),
+                controls.stream().map(PanelView.IconButton::actionId).toList(),
+                "the create controls sit left of the layout control");
+        assertEquals(
+                RecentProjectBoardPlugin.CREATE_ACTION_ID,
+                controls.get(0).id(),
+                "the New Model control keeps the create action id as its source");
+        assertEquals(
+                RecentProjectBoardPlugin.CREATE_ANIMATION_ACTION_ID,
+                controls.get(1).id());
+    }
+
+    /** A create action the host cannot dispatch is not offered at all. */
+    @Test
+    void headerOmitsACreateControlTheHostCannotDispatch() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
+        final RecentProjectBoardPlugin plugin = new RecentProjectBoardPlugin();
+
+        plugin.init(context(
+                new RecordingRecentFiles(List.of(file)),
+                uiHost(contributions),
+                new ArrayList<>(),
+                new RecordingCommands(Set.of())));
+        plugin.enable();
+
+        final List<PanelView.IconButton> controls =
+                headerIconButtons(contributions.get(0).content());
+        assertEquals(
+                List.of(RecentProjectBoardPlugin.CREATE_ANIMATION_ACTION_ID, RecentProjectBoardPlugin.LAYOUT_ACTION_ID),
+                controls.stream().map(PanelView.IconButton::actionId).toList());
+    }
+
     @Test
     void cardWithoutPreviewCentersThePlaceholderAndMetadata() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
@@ -439,6 +493,20 @@ final class RecentProjectBoardPluginTest {
         final PanelView.Column column = (PanelView.Column) content;
         assertInstanceOf(PanelView.Padded.class, column.children().get(0), "the header comes first");
         assertInstanceOf(PanelView.Scroll.class, column.children().get(1), "only the cards scroll");
+    }
+
+    private static List<PanelView.IconButton> headerIconButtons(final PanelView view) {
+        final PanelView.Column column = assertInstanceOf(PanelView.Column.class, view);
+        final PanelView.Padded header =
+                assertInstanceOf(PanelView.Padded.class, column.children().get(0));
+        final PanelView.SpaceBetween titleAndControls = assertInstanceOf(PanelView.SpaceBetween.class, header.child());
+        final PanelView.Centered controlsCell = assertInstanceOf(PanelView.Centered.class, titleAndControls.right());
+        final PanelView.Row controls = assertInstanceOf(PanelView.Row.class, controlsCell.child());
+        final List<PanelView.IconButton> buttons = new ArrayList<>();
+        for (PanelView control : controls.children()) {
+            buttons.add(assertInstanceOf(PanelView.IconButton.class, control));
+        }
+        return buttons;
     }
 
     private static String deleteIconId(final PanelView view) {
