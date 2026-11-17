@@ -8,6 +8,13 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ## [Unreleased]
 
+## [0.70.1] - 2026-11-17
+
+### 変更
+
+- フレームワークのバージョンを `0.70.1` にしました。これに伴いランタイム API のバージョンも `0.70.1` になります。`RecentPreviewCacheService` のリプレイ契約は `0.70.0` ベータ系列の途中で追加されたため、`0.70.0` のベータは `recent-preview` 0.68.2 を許可し、その後有効化時に `NoClassDefFoundError` で失敗していました。ベースバージョンを上げることで、ランタイム API は読み込み時ではなく検出時にこれらのプラグインを拒否します。
+- `recent-preview` 0.68.1 と `recent-project-board` 0.68.2 は、どちらも `RecentPreviewCacheService$ReplayHandler` と `requestReplay()` をリンクするため、`turboismApi` の下限を `[0.70.1,)` に引き上げました。
+
 ## [0.70.0] - 2026-11-15
 
 ### 追加

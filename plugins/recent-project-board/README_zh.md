@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-project-board
-version: 0.68.1
+version: 0.68.2
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, viewport, navigation
-turboismApi: "[0.70.0,)"
+turboismApi: "[0.70.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.1` |
+| 版本 | `0.68.2` |
 | 插件 ID | `dev.turboism.plugin.recent-project-board` |
 | 类别 | `workflow` |
 | 标签 | recent-files, preview, viewport, navigation |
@@ -43,7 +43,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.70.0,)`。
+- **SDK API 范围：** `[0.70.1,)`。
 - **Cubism：** 需要 Cubism。Turboism 目前只接纳已审核的精确版本 `5.0.00`–`5.3.04`；只有在声明的服务和能力可用时才会启用对应功能。
 - **界面模式：** `swing`。
 - **插件依赖：** `dev.turboism.plugin.recent-preview`（必需，排在提供方之后加载）。

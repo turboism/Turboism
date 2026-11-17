@@ -80,6 +80,7 @@ final class CoreWindows implements AutoCloseable {
     static final String PLUGIN_MARKET_PAGE = "https://turboism.dev/plugins";
 
     private static volatile Consumer<String> testUpdateUrlObserver;
+    private static volatile Runnable testUpdatesWindowObserver;
     private static volatile Consumer<URI> testSettingsLinkObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
     static final String ABOUT_THANKS = "https://thanks.turboism.dev";
@@ -203,6 +204,11 @@ final class CoreWindows implements AutoCloseable {
     }
 
     void showUpdates(final CoreUpdateService updates) {
+        final Runnable observer = testUpdatesWindowObserver;
+        if (observer != null) {
+            observer.run();
+            return;
+        }
         CoreDialogs.onEdt(() -> {
             if (closed.get()) return;
             if (updatesWindow == null) updatesWindow = new FrameworkUpdatesWindow(i18n, updates, plugins);
@@ -1402,6 +1408,21 @@ final class CoreWindows implements AutoCloseable {
     /** Clears the package-private test-only download observer. */
     static void clearTestUpdateUrlObserver() {
         testUpdateUrlObserver = null;
+    }
+
+    /**
+     * Package-private test seam: replaces the update window with an observer.
+     *
+     * <p>The real window is a modal Swing dialog, so a test that only needs to know the window was
+     * requested records the request instead of building it.</p>
+     */
+    static void setTestUpdatesWindowObserver(final Runnable observer) {
+        testUpdatesWindowObserver = Objects.requireNonNull(observer, "observer");
+    }
+
+    /** Clears the package-private test-only update window observer. */
+    static void clearTestUpdatesWindowObserver() {
+        testUpdatesWindowObserver = null;
     }
 
     private static boolean openUpdateHttpLink(final String value) {

@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.70.1] - 2026-11-17
+
+### Changed
+
+- Framework version is now `0.70.1`, so the runtime API version is `0.70.1`. The `RecentPreviewCacheService` replay contract shipped inside the `0.70.0` beta series, so a `0.70.0` beta admitted `recent-preview` 0.68.2 and then failed at enable with `NoClassDefFoundError`. Raising the base version makes the runtime API reject those plugins at discovery instead of failing them at load.
+- `recent-preview` 0.68.1 and `recent-project-board` 0.68.2 raise their `turboismApi` floor to `[0.70.1,)`, because both link `RecentPreviewCacheService$ReplayHandler` and `requestReplay()`.
+
 ## [0.70.0] - 2026-11-15
 
 ### Added

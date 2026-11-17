@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, navigation
-turboismApi: "[0.70.0,)"
+turboismApi: "[0.70.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.0` |
+| 版本 | `0.68.1` |
 | 插件 ID | `dev.turboism.plugin.recent-preview` |
 | 类别 | `workflow` |
 | 标签 | recent-files, preview, navigation |
@@ -36,7 +36,7 @@ interface: swing
 
 ## 要求与兼容性
 
-- **SDK API 范围：** `[0.70.0,)`。
+- **SDK API 范围：** `[0.70.1,)`。
 - **Cubism：**需要 Cubism。Turboism 当前允许精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；本插件仅在其声明的服务和功能能力可用时公开各项面向主机的功能。
 - **界面模式：**`swing`。
 - **插件依赖：**未声明。
@@ -136,6 +136,10 @@ interface: swing
 | 缓存增大 | 通过 Turboism 的存储管理清除此插件的缓存，或在 Turboism 停止时删除插件缓存。 |
 
 ## 更新日志
+
+### 0.68.1
+
+- 由于重放契约（`RecentPreviewCacheService$ReplayHandler`、`requestReplay()`）自 `[0.70.1,)` 起才提供，将最低 Turboism API 提升到 `[0.70.1,)`。
 
 ### 0.1.0
 

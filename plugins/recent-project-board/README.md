@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-project-board
-version: 0.68.1
+version: 0.68.2
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, viewport, navigation
-turboismApi: "[0.70.0,)"
+turboismApi: "[0.70.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.1` |
+| Version | `0.68.2` |
 | Plugin ID | `dev.turboism.plugin.recent-project-board` |
 | Category | `workflow` |
 | Tags | recent-files, preview, viewport, navigation |
@@ -43,7 +43,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.70.0,)`.
+- **SDK API range:** `[0.70.1,)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; each host-facing feature is exposed only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** `dev.turboism.plugin.recent-preview` (required, ordered after the provider).
@@ -119,6 +119,10 @@ No telemetry is sent by this plugin.
 | Double-click does not open a project | Confirm the project file still exists at its original path on disk. |
 
 ## Changelog
+
+### 0.68.2
+
+- Raised the minimum Turboism API to `[0.70.1,)` because the board requests a cached-preview replay through `RecentPreviewCacheService.requestReplay()`, which first shipped in `[0.70.1,)`.
 
 ### 0.68.1
 

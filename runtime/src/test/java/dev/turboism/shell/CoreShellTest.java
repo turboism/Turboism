@@ -699,13 +699,13 @@ class CoreShellTest {
     }
 
     @Test
-    void clickingTheCanvasHintDismissesItWithoutOpeningAnything() throws Exception {
+    void clickingTheCanvasHintOpensTheUpdateWindow() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
         final CoreShell plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
         final List<String> opened = new ArrayList<>();
-        dev.turboism.shell.CoreWindows.setTestUpdateUrlObserver(opened::add);
+        dev.turboism.shell.CoreWindows.setTestUpdatesWindowObserver(() -> opened.add("updates"));
         try {
             plugin.start(context);
             updates.publish(new CoreUpdateService.Snapshot(
@@ -718,12 +718,12 @@ class CoreShellTest {
             final RecordedHint hint = context.uiHost().lastCanvasHint();
             assertNotNull(hint);
             hint.notification.onClick().orElseThrow().run();
-            assertTrue(hint.closed, "clicking the hint must dismiss it");
+            assertTrue(hint.closed, "opening the window must retire the hint");
         } finally {
-            dev.turboism.shell.CoreWindows.clearTestUpdateUrlObserver();
+            dev.turboism.shell.CoreWindows.clearTestUpdatesWindowObserver();
         }
 
-        assertEquals(List.of(), opened, "the hint must not open anything");
+        assertEquals(List.of("updates"), opened, "the hint must open the update window");
     }
 
     @Test

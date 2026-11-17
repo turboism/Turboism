@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, navigation
-turboismApi: "[0.70.0,)"
+turboismApi: "[0.70.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -19,7 +19,7 @@ interface: swing
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.0` |
+| 버전 | `0.68.1` |
 | 플러그인 ID | `dev.turboism.plugin.recent-preview` |
 | カテゴリー | `workflow` |
 | 태그 | recent-files, preview, navigation |
@@ -35,7 +35,7 @@ interface: swing
 
 ## 요구 사항 및 호환성
 
-- **SDK API 範囲:** `[0.70.0,)`。
+- **SDK API 範囲:** `[0.70.1,)`。
 - **Cubism:** Cubism が必要です。Turboism は現在、正確にレビュー済みの Editor アーティファクト `5.0.00` から `5.3.04` を受け入れています。このプラグインは、宣言されたサービスと機能が利用可能な場合にのみ、各ホスト向け機能を公開します。
 - **インターフェースモード:** `swing`。
 - **プラグイン依存関係:** 宣言されていません。
@@ -114,6 +114,10 @@ interface: swing
 | キャッシュが増大する | Turboism のストレージ管理でこのプラグインのキャッシュを消去するか、Turboism を停止中にプラグインキャッシュを削除してください。 |
 
 ## 변경 이력
+
+### 0.68.1
+
+- 재생 계약(`RecentPreviewCacheService$ReplayHandler`, `requestReplay()`)이 `[0.70.1,)`부터 제공되므로 최소 Turboism API를 `[0.70.1,)`로 올렸습니다.
 
 ### 0.1.0
 
