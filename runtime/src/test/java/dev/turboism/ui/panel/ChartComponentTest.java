@@ -277,19 +277,33 @@ class ChartComponentTest {
             final int heapColor = ChartSeriesColors.colorFor(chartId, 0).getRGB();
             final int nonHeapColor = ChartSeriesColors.colorFor(chartId, 1).getRGB();
             final int midX = 170;
-            int heapY = -1;
-            int nonHeapY = -1;
-            for (int y = 20; y < 65; y++) {
+            int heapTop = -1;
+            int heapBottom = -1;
+            int nonHeapTop = -1;
+            int nonHeapBottom = -1;
+            // Scan the whole height: the plot top derives from the font metrics, so a
+            // fixed window drops the max-reaching curve when the platform font is one
+            // pixel shorter.
+            for (int y = 0; y < image.getHeight(); y++) {
                 final int rgb = image.getRGB(midX, y);
-                if (rgb == heapColor) heapY = y;
-                if (rgb == nonHeapColor) nonHeapY = y;
+                if (rgb == heapColor) {
+                    if (heapTop < 0) heapTop = y;
+                    heapBottom = y;
+                } else if (rgb == nonHeapColor) {
+                    if (nonHeapTop < 0) nonHeapTop = y;
+                    nonHeapBottom = y;
+                }
             }
-            assertTrue(heapY >= 0, "Heap curve must be painted");
-            assertTrue(nonHeapY >= 0, "Non-Heap curve must be painted");
+            assertTrue(heapTop >= 0, "Heap curve must be painted");
+            assertTrue(nonHeapTop >= 0, "Non-Heap curve must be painted");
             assertTrue(
-                    nonHeapY > heapY + 10,
-                    "Non-Heap (50 MiB) must sit visibly below Heap (100 MiB) on shared Y axis (heapY=" + heapY
-                            + ", nonHeapY=" + nonHeapY + ")");
+                    nonHeapTop > heapBottom + 10,
+                    "Non-Heap (50 MiB) must sit visibly below Heap (100 MiB) on shared Y axis (heapBottom=" + heapBottom
+                            + ", nonHeapTop=" + nonHeapTop + ")");
+            assertTrue(
+                    heapBottom >= heapTop && nonHeapBottom >= nonHeapTop,
+                    "each curve must paint a contiguous run (heap=" + heapTop + ".." + heapBottom + ", nonHeap="
+                            + nonHeapTop + ".." + nonHeapBottom + ")");
         } finally {
             ChartDataRegistry.unpublish(chartId);
         }
