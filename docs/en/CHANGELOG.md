@@ -8,24 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Added
-
-- `RecentPreviewCacheService.requestReplay()` and the `ReplayHandler` provider contract let a dependent plugin ask the recent-preview provider to republish its cached thumbnails on demand, so a board installed or re-enabled from the Plugin Market shows existing previews without restarting Cubism.
-
-### Changed
-
-- `perf-stats` merges the JVM Heap and JVM Non-Heap charts into one Memory chart with two curves on a shared axis, and removes the FPS and GC Pause charts from the embedded panel and the standalone Performance Monitor window.
-
-### Fixed
-
-- A `recent-project-board` installed or re-enabled while `recent-preview` is already running now requests a cached-preview replay on enable, so its cards show existing thumbnails instead of placeholders until the next editor restart.
-
-- A refused GitHub promotion now withdraws the framework feed release it had just admitted, so the feed never advertises an update whose GitHub Release does not exist. The promotion also reports when its workflow head differs from the candidate source, which is the condition under which GitHub refuses tag and Release writes from `GITHUB_TOKEN`.
-
 ## [0.70.0] - 2026-11-15
 
 ### Added
 
+- Users can switch between the Stable and Beta update channels from the Startup settings tab and the update window. The choice persists in `update-preferences.json` as an optional `updateChannel`; its absence keeps the packaged channel. `RuntimeUpdateService` re-resolves its transport, parser and state store per channel, clears the previous channel's ETag cache and re-checks immediately, and refuses a switch while a download or an apply is pending. `UpdateManifestVerifier` admits cross-channel updates only with that opt-in, so Stable to Beta of the same core is a pre-release downgrade and Beta to Stable of the same core at a higher build is a graduation; Nightly stays inadmissible. Plugin market, auto-updater and coordinated planning follow the live channel, so switching to Beta immediately offers preview plugin releases.
+- `RecentPreviewCacheService.requestReplay()` and the `ReplayHandler` provider contract let a dependent plugin ask the recent-preview provider to republish its cached thumbnails on demand, so a board installed or re-enabled from the Plugin Market shows existing previews without restarting Cubism.
 - Plugin Market admission now shares `PluginReleaseCompatibility` with the background auto-updater (`stable` admits only `stable`, `beta`/`nightly` accept `preview` too, requiring `windows-x64` and satisfied `required` dependencies). `packaging/market-plugins.json` tracks per-plugin `publication` (`withheld` by default), and staging automatically patch-bumps and promotes unchanged `preview` plugins to `stable`.
 - Added the `recent-project-board` official preview plugin and `RecentFileService.open`, `PanelView.Card`/`Grid`/`Centered`/`Link`, `RecentPreviewCacheService` (`RecentPreviewDeletedEvent`, `thumbnail.deleted`, `turboism.ui.recent-preview.manage`), pinned header layout controls (6-col, 3-col, details), empty-state project/animation links, per-card thumbnail deletion, and native offscreen model rendering for preview thumbnails (with component capture fallback).
 - Added the `project-work-time` official plugin and shared runtime foreground-only session/project tracker (`CubismFacade.isEditorForeground()`, `activity()`, `CubismActivityChangedEvent`, `ProjectWorkTimeService`), active only while a project is open.
@@ -40,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Plugin Manager footer splits into right-aligned acquisition and selection rows, dropping obsolete "Pending changes" and redundant close buttons; `PanelView.Centered` accepts zero in one dimension to keep the child's natural size.
 - Extracted the plugin template into standalone repository `turboism/turboism-plugin-template`.
+- `perf-stats` merges the JVM Heap and JVM Non-Heap charts into one Memory chart with two curves on a shared axis, and removes the FPS and GC Pause charts from the embedded panel and the standalone Performance Monitor window.
 
 ### Deprecated
 
@@ -53,6 +42,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A `recent-project-board` installed or re-enabled while `recent-preview` is already running now requests a cached-preview replay on enable, so its cards show existing thumbnails instead of placeholders until the next editor restart.
+- A refused GitHub promotion now withdraws the framework feed release it had just admitted, so the feed never advertises an update whose GitHub Release does not exist. The promotion also reports when its workflow head differs from the candidate source, which is the condition under which GitHub refuses tag and Release writes from `GITHUB_TOKEN`.
 - Runtime shell startup uses a dedicated deadline and off-worker settlement lane so theme manager and periodic refresh timers no longer time out or cancel; eliminated hot-path reflection and allocation churn including ArtMesh mirror drag ticks, and added fallback font resolution for startup subtitles.
 - Fixed recent-project board hover/press feedback, list row styling, native rail coverage, `Bitmask Nesting` label consistency, content-fitted recent-preview popup sizing, and in-place thumbnail deletion without dropping recent-file entries.
 - Fixed canvas scrollbar theming, DPI-scaled native palette icons (100–200%), `AcpChatWindow` `MultiUIDefaults` L&F resolution (preserving global `JComboBox` theming), hidden startup checkboxes and Runtime export-directory toggle placement in Settings, installer `LICENSE.txt` receipt alignment, and non-redirecting Wine mount checks in self-update.

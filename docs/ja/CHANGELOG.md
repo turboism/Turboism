@@ -8,22 +8,12 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ## [Unreleased]
 
-### 追加
-
-- `RecentPreviewCacheService.requestReplay()` とプロバイダー側 `ReplayHandler` 契約を追加しました。依存プラグインは最近プレビューのプロバイダーにキャッシュ済みサムネイルの再パブリッシュを要求でき、プラグインマーケットからリアルタイムにインストールまたは再有効化したボードでも Cubism を再起動せずに既存のプレビューを表示できます。
-
-### 変更
-
-- `perf-stats` は JVM ヒープと JVM 非ヒープを 1 つの「メモリー」チャートに統合し、共通軸上に 2 本の曲線を描画します。また FPS と GC 一時停止のチャートを埋め込みパネルと独立パフォーマンスモニターウィンドウから削除しました。
-
-### 修正
-
-- `recent-preview` の動作中に `recent-project-board` をインストールまたは再有効化すると、有効化時にキャッシュ済みプレビューの再生を要求するため、次回のエディター再起動を待たずにカードへ既存サムネイルが表示されます。
-
 ## [0.70.0] - 2026-11-15
 
 ### 追加
 
+- Stable / Beta の更新チャンネルを起動設定タブと更新ウィンドウから切り替えられるようになりました。選択は `update-preferences.json` の任意フィールド `updateChannel` に保存され、フィールドがない場合はパッケージのチャンネルに従います。`RuntimeUpdateService` はチャンネルごとにトランスポート、パーサー、状態ストアを再解決し、切り替え時に前チャンネルの ETag キャッシュを消去して直ちに再確認します。ダウンロードまたは適用の保留中は切り替えを拒否します。`UpdateManifestVerifier` はこのオプトインがある場合のみチャンネル横断更新を許可するため、同一コアでの Stable から Beta はプレリリースへの降格、Beta から Stable でビルド番号が大きい場合は昇格となります。Nightly は常に不可です。プラグインマーケット、自動更新、協調プランニングは現在のチャンネルに追従するため、Beta へ切り替えるとプレビュープラグインのリリースが直ちに提示されます。
+- `RecentPreviewCacheService.requestReplay()` とプロバイダー側 `ReplayHandler` 契約を追加しました。依存プラグインは最近プレビューのプロバイダーにキャッシュ済みサムネイルの再パブリッシュを要求でき、プラグインマーケットからリアルタイムにインストールまたは再有効化したボードでも Cubism を再起動せずに既存のプレビューを表示できます。
 - プラグインマーケットの許可判定をバックグラウンド自動更新と同じ `PluginReleaseCompatibility` に統一（`stable` は `stable` のみ、`beta`/`nightly` は `preview` も許可し、`windows-x64` と `required` 依存関係を検証）。`packaging/market-plugins.json` でプラグインごとの `publication`（新規は既定 `withheld`）を管理し、内容不変の `preview` プラグインはステージング時にパッチ版を上げて `stable` へ昇格します。
 - 公式プレビュープラグイン `recent-project-board` と `RecentFileService.open`、`PanelView.Card`/`Grid`/`Centered`/`Link`、`RecentPreviewCacheService`（`RecentPreviewDeletedEvent`、`thumbnail.deleted`、`turboism.ui.recent-preview.manage`）を追加。スクロール外固定ヘッダーのレイアウト切替（6列/3列/詳細）、空状態の新規作成リンク、カードごとのゴミ箱によるサムネイル削除、エディターのオフスクリーンモデル描画優先キャプチャ（フォールバック付き）に対応しました。
 - 公式 `project-work-time` プラグインと共有ランタイム前面タイマー（`CubismFacade.isEditorForeground()`、`activity()`、`CubismActivityChangedEvent`、`ProjectWorkTimeService`）を追加し、プロジェクトを開いて Cubism が前面にある間だけ累計作業時間を計測します。
@@ -36,6 +26,7 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 変更
 
+- `perf-stats` は JVM ヒープと JVM 非ヒープを 1 つの「メモリー」チャートに統合し、共通軸上に 2 本の曲線を描画します。また FPS と GC 一時停止のチャートを埋め込みパネルと独立パフォーマンスモニターウィンドウから削除しました。
 - プラグイン管理のフッターを右揃えの取得・選択の 2 行へ整理し、不要な「保留中の変更」と重複の「閉じる」ボタンを削除。`PanelView.Centered` は片軸 0 で子の自然サイズを保持します。
 - プラグインテンプレートを独立リポジトリ `turboism/turboism-plugin-template` へ分離しました。
 
@@ -51,6 +42,8 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 修正
 
+- `recent-preview` の動作中に `recent-project-board` をインストールまたは再有効化すると、有効化時にキャッシュ済みプレビューの再生を要求するため、次回のエディター再起動を待たずにカードへ既存サムネイルが表示されます。
+- 拒否された GitHub プロモーションは、直前に登録したフレームワークフィードのリリースを取り消すようになりました。これによりフィードは GitHub Release が存在しない更新を告知しません。またプロモーションは、自身のワークフローヘッドが候補ソースと異なる場合にその旨を報告します。これは GitHub が `GITHUB_TOKEN` によるタグと Release の書き込みを拒否する条件です。
 - ランタイムシェルの起動期限分離と専用完了レーンによりテーママネージャーのデッドロックや周期更新停止を解消。ArtMesh ミラードラッグを含むホットパス反射・割り当てを削減し、起動字幕のフォールバックフォント解決を追加しました。
 - ボードカードのホバー／押下表示、リスト行描画、ネイティブレール被覆、`Bitmask Nesting` 表記統一、内容に合わせた最近プレビューポップアップ高さ調整、項目を失わないインプレースのサムネイル削除を修正しました。
 - キャンバススクロールバーのテーマ追従、表示倍率（100%–200%）対応パレットアイコン、`AcpChatWindow` の `MultiUIDefaults` Look-and-Feel 解決（グローバル `JComboBox` テーマ維持）、設定で非表示だった起動チェックボックスの復元と出力先切替の Runtime 移動、署名済みブートストラップレシートと一致させるインストーラーの `LICENSE.txt` 配置、自己更新時の非リダイレクト Wine マウント判定を修正しました。

@@ -8,22 +8,12 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ## [Unreleased]
 
-### 추가
-
-- `RecentPreviewCacheService.requestReplay()`와 제공자 측 `ReplayHandler` 계약을 추가했습니다. 의존 플러그인은 최근 미리보기 제공자에게 캐시된 썸네일 재게시를 요청할 수 있어, 플러그인 마켓에서 실시간으로 설치하거나 다시 활성화한 보드도 Cubism을 재시작하지 않고 기존 미리보기를 표시합니다.
-
-### 변경
-
-- `perf-stats`는 JVM 힙과 JVM 비힙을 하나의 “메모리” 차트로 통합해 공통 축에 두 개의 곡선을 그립니다. 또한 FPS와 GC 일시 중지 차트를 임베디드 패널과 독립 실행형 성능 모니터 창에서 제거했습니다.
-
-### 수정
-
-- `recent-preview`가 실행 중일 때 `recent-project-board`를 설치하거나 다시 활성화하면, 활성화 시 캐시된 미리보기 재생을 요청하므로 다음 에디터 재시작을 기다리지 않고 카드에 기존 썸네일이 표시됩니다.
-
 ## [0.70.0] - 2026-11-15
 
 ### 추가
 
+- 시작 설정 탭과 업데이트 창에서 Stable 및 Beta 업데이트 채널을 전환할 수 있습니다. 선택은 `update-preferences.json`의 선택적 필드 `updateChannel`에 저장되며, 필드가 없으면 패키지 채널을 따릅니다. `RuntimeUpdateService`는 채널별로 전송, 파서, 상태 저장소를 다시 해석하고 전환 시 이전 채널의 ETag 캐시를 비운 뒤 즉시 다시 확인하며, 다운로드나 적용이 대기 중이면 전환을 거부합니다. `UpdateManifestVerifier`는 이 사용자 선택이 있을 때만 채널 간 업데이트를 허용하므로, 같은 코어에서 Stable에서 Beta로 가는 것은 사전 릴리스로의 강등이고 Beta에서 Stable로 가며 빌드 번호가 더 높은 것은 승격입니다. Nightly는 항상 허용되지 않습니다. 플러그인 마켓, 자동 업데이터, 협조 계획은 실시간 채널을 따르므로 Beta로 전환하면 미리보기 플러그인 릴리스가 즉시 제공됩니다.
+- `RecentPreviewCacheService.requestReplay()`와 제공자 측 `ReplayHandler` 계약을 추가했습니다. 의존 플러그인은 최근 미리보기 제공자에게 캐시된 썸네일 재게시를 요청할 수 있어, 플러그인 마켓에서 실시간으로 설치하거나 다시 활성화한 보드도 Cubism을 재시작하지 않고 기존 미리보기를 표시합니다.
 - 플러그인 마켓 허용 규칙을 백그라운드 자동 업데이트와 동일한 `PluginReleaseCompatibility`로 통합(`stable`은 `stable`만, `beta`/`nightly`는 `preview`도 허용하며 `windows-x64`와 `required` 의존성을 검사)하고 `packaging/market-plugins.json`으로 플러그인별 `publication`(신규 기본 `withheld`)을 관리하며 바이트가 같은 `preview` 플러그인은 스테이징 시 패치 버전을 올려 `stable`로 승격합니다.
 - 공식 미리보기 플러그인 `recent-project-board`와 `RecentFileService.open`, `PanelView.Card`/`Grid`/`Centered`/`Link`, `RecentPreviewCacheService`(`RecentPreviewDeletedEvent`, `thumbnail.deleted`, `turboism.ui.recent-preview.manage`)를 추가했습니다. 스크롤 밖 고정 헤더 레이아웃 전환(6열/3열/세부), 빈 상태 새 프로젝트/애니메이션 링크, 카드별 휴지통 썸네일 삭제, 에디터 오프스크린 모델 렌더 우선 캡처(폴백 포함)를 지원합니다.
 - 공식 `project-work-time` 플러그인과 공유 런타임 전경 타이머(`CubismFacade.isEditorForeground()`, `activity()`, `CubismActivityChangedEvent`, `ProjectWorkTimeService`)를 추가해 프로젝트가 열려 있고 Cubism이 전경에 있을 때만 세션·누적 작업 시간을 측정합니다.
@@ -36,6 +26,7 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 변경
 
+- `perf-stats`는 JVM 힙과 JVM 비힙을 하나의 “메모리” 차트로 통합해 공통 축에 두 개의 곡선을 그립니다. 또한 FPS와 GC 일시 중지 차트를 임베디드 패널과 독립 실행형 성능 모니터 창에서 제거했습니다.
 - 플러그인 관리자 바닥글을 오른쪽 정렬된 가져오기/선택 두 행으로 나누고 불필요한 '대기 중인 변경'과 중복 '닫기' 버튼을 제거했습니다. `PanelView.Centered`는 한 차원이 0일 때 자식의 자연 크기를 유지합니다.
 - 플러그인 템플릿을 독립 저장소 `turboism/turboism-plugin-template`로 분리했습니다.
 
@@ -51,6 +42,8 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 수정
 
+- `recent-preview`가 실행 중일 때 `recent-project-board`를 설치하거나 다시 활성화하면, 활성화 시 캐시된 미리보기 재생을 요청하므로 다음 에디터 재시작을 기다리지 않고 카드에 기존 썸네일이 표시됩니다.
+- 거부된 GitHub 프로모션은 방금 등록한 프레임워크 피드 릴리스를 이제 철회하므로, 피드가 GitHub Release가 존재하지 않는 업데이트를 알리지 않습니다. 또한 프로모션은 자체 워크플로 헤드가 후보 소스와 다를 때 이를 보고하며, 이것이 GitHub가 `GITHUB_TOKEN`으로 태그와 Release 쓰기를 거부하는 조건입니다.
 - 런타임 셸 시작 마감 시간 분리와 전용 완료 레인으로 테마 관리자 교착 및 주기 갱신 중단을 해결했고, ArtMesh 미러 드래그 틱을 포함한 핫패스 리플렉션·할당을 제거하며 시작 자막 폴백 글꼴 해석을 추가했습니다.
 - 보드 카드 호버/누름 피드백, 목록 행 스타일, 네이티브 레일 덮기, `Bitmask Nesting` 표기 일관성, 내용 크기에 맞춘 최근 미리보기 팝업 높이 조정, 항목 유실 없는 제자리 썸네일 삭제를 수정했습니다.
 - 캔버스 스크롤바 테마 키, 화면 배율(100%–200%)별 네이티브 팔레트 아이콘, `AcpChatWindow`의 `MultiUIDefaults` Look-and-Feel 해석(전역 `JComboBox` 테마 보존), 설정에서 숨겨진 시작 체크박스 복구 및 내보내기 폴더 토글의 Runtime 탭 이동, 서명된 부트스트랩 영수증 매니페스트와 일치하도록 설치 프로그램의 `LICENSE.txt` 설치, 자체 업데이트의 비리디렉션 Wine 마운트 경계 검사를 수정했습니다.
