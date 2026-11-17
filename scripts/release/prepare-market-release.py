@@ -660,16 +660,22 @@ def find_jar(build_root: Path, module: str) -> Path:
     module_dir = build_root / module
     if not module_dir.is_dir():
         raise MarketError(f"{module_dir}: no built module directory under build root")
-    jars = sorted(module_dir.rglob("*.jar"))
+    # Gradle publishes the module artifact under libs/. A recursive scan also reaches
+    # tmp/.cache/expanded, where the test runtime unpacks its JaCoCo agent JAR, and that
+    # second JAR reads as an ambiguous artifact.
+    libs_dir = module_dir / "libs"
+    if not libs_dir.is_dir():
+        raise MarketError(f"{libs_dir}: no built module libs directory under build root")
+    jars = sorted(libs_dir.glob("*.jar"))
     for jar in jars:
         if jar.is_symlink():
             raise MarketError(f"{jar}: symlink JAR is not allowed")
     jars = [jar for jar in jars if jar.is_file()]
     if not jars:
-        raise MarketError(f"{module_dir}: no built JAR found")
+        raise MarketError(f"{libs_dir}: no built JAR found")
     if len(jars) > 1:
         raise MarketError(
-            f"{module_dir}: ambiguous built JARs: {', '.join(str(path) for path in jars)}")
+            f"{libs_dir}: ambiguous built JARs: {', '.join(str(path) for path in jars)}")
     jar = jars[0]
     size = jar.stat().st_size
     if size > MAX_JAR_BYTES:
