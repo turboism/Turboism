@@ -8,6 +8,13 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
+## [0.70.1] - 2026-11-17
+
+### 变更
+
+- 框架版本提升至 `0.70.1`，运行时 API 版本随之变为 `0.70.1`。`RecentPreviewCacheService` 的重放契约是在 `0.70.0` beta 系列中途加入的，因此 `0.70.0` 的 beta 会准入 `recent-preview` 0.68.2，随后在启用时以 `NoClassDefFoundError` 失败。提升基础版本后，运行时 API 会在发现阶段拒绝这些插件，而不是在加载阶段失败。
+- `recent-preview` 0.68.1 与 `recent-project-board` 0.68.2 将其 `turboismApi` 下限提升至 `[0.70.1,)`，因为两者都链接 `RecentPreviewCacheService$ReplayHandler` 与 `requestReplay()`。
+
 ## [0.70.0] - 2026-11-15
 
 ### 新增

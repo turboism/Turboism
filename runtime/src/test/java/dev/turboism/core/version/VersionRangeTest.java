@@ -36,6 +36,17 @@ class VersionRangeTest {
     }
 
     @Test
+    void aPatchFloorRejectsTheBetaSeriesThatLackedTheLinkedSdkType() {
+        // The runtime API follows the framework base version, so an SDK type added mid-series is
+        // invisible to a plugin floor that names only the base. Raising the base is what makes the
+        // floor reject the earlier beta instead of admitting it and failing at enable.
+        VersionRange floor = VersionRange.parse("[0.70.1,)");
+        assertFalse(floor.contains(PluginVersion.parse("0.70.0")));
+        assertTrue(floor.contains(PluginVersion.parse("0.70.1")));
+        assertTrue(floor.contains(PluginVersion.parse("0.70.2")));
+    }
+
+    @Test
     void unboundedIntervalAdmitsEveryVersionAtOrAboveItsLowerBound() {
         VersionRange range = VersionRange.parse("[0.67.0,)");
         assertTrue(range.contains(PluginVersion.parse("0.67.0")));

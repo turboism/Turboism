@@ -533,10 +533,11 @@ public final class CoreShell implements ShellHandle {
     /**
      * Keeps one keyed hint on the drawing area while the update is worth showing.
      *
-     * <p>The hint is informational and click-to-dismiss: clicking it acknowledges the message, it
-     * does not open anything. The hint is replaced rather than duplicated when the offered identity
-     * changes, so a newer build never leaves the previous build's message on screen, and a dismissal
-     * is remembered per identity so the message does not reappear the moment it is dismissed.</p>
+     * <p>The hint is click-to-open: clicking it opens the update window, where the user reads the
+     * release notes, picks the update channel and starts the install. The hint is replaced rather
+     * than duplicated when the offered identity changes, so a newer build never leaves the previous
+     * build's message on screen. Opening the window also retires the hint, so a user who already
+     * acted on it is not asked again for the same identity.</p>
      */
     private void showUpdateHint(final CoreUpdateService.Snapshot snapshot) {
         final String identity = snapshot.availableIdentity().orElse("a newer version");
@@ -555,16 +556,20 @@ public final class CoreShell implements ShellHandle {
                                 UPDATE_HINT_ID,
                                 message,
                                 CanvasHintNotification.UNTIL_DISMISSED,
-                                java.util.Optional.of(this::dismissUpdateHint)),
+                                java.util.Optional.of(this::openUpdatesFromHint)),
                         this::updateHintStillWorthShowing);
         logger.info("UPDATE_HINT_SENT id=" + UPDATE_HINT_ID + " identity=" + identity);
     }
 
-    /** Retires the hint because the user clicked it; the same identity is not shown again. */
-    private void dismissUpdateHint() {
+    /** Opens the update window from the hint, then retires the hint for the shown identity. */
+    private void openUpdatesFromHint() {
         dismissedHintIdentity = updateHintIdentity;
-        logger.info("UPDATE_HINT_DISMISSED identity=" + dismissedHintIdentity);
+        logger.info("UPDATE_HINT_OPENED identity=" + updateHintIdentity);
         closeUpdateHint();
+        final CoreUpdateService updates = services.update();
+        if (updates.available()) {
+            windows.showUpdates(updates);
+        }
     }
 
     /**

@@ -1,13 +1,13 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.0
+version: 0.68.1
 kind: feature
 status: preview
 delivery: store-candidate
 category: workflow
 tags: recent-files, preview, navigation
-turboismApi: "[0.70.0,)"
+turboismApi: "[0.70.1,)"
 requiresCubism: true
 interface: swing
 ---
@@ -20,7 +20,7 @@ Captures bounded thumbnails and shows them in Cubism's Recent Files hover popup.
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.1` |
 | Plugin ID | `dev.turboism.plugin.recent-preview` |
 | Category | `workflow` |
 | Tags | recent-files, preview, navigation |
@@ -36,7 +36,7 @@ Captures bounded thumbnails and shows them in Cubism's Recent Files hover popup.
 
 ## Requirements and compatibility
 
-- **SDK API range:** `[0.70.0,)`.
+- **SDK API range:** `[0.70.1,)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
 - **Interface mode:** `swing`.
 - **Plugin dependencies:** None declared.
@@ -136,6 +136,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Cache grows | Clear this plugin's cache through Turboism's storage management or remove the plugin cache while Turboism is stopped. |
 
 ## Changelog
+
+### 0.68.1
+
+- Raised the minimum Turboism API to `[0.70.1,)` because the replay contract (`RecentPreviewCacheService$ReplayHandler`, `requestReplay()`) first shipped in `[0.70.1,)`.
 
 ### 0.68.0
 
