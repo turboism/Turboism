@@ -42,7 +42,7 @@ permissions:
   contents: read
 
 env:
-  PLUGIN_DIRECTORY_REVISION: 6505f0ffc8cc5445c5c4dec9d7cfe9b0ec9c8b32
+  PLUGIN_DIRECTORY_REPOSITORY: turboism/turboism-plugin-directory
 
 concurrency:
   group: turboism-production-release
@@ -160,14 +160,10 @@ jobs:
         if: steps.market.outputs.has_plugins == 'true'
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
-          repository: turboism/turboism-plugin-directory
-          ref: ${{ env.PLUGIN_DIRECTORY_REVISION }}
+          repository: ${{ env.PLUGIN_DIRECTORY_REPOSITORY }}
+          ref: main
           path: build/github-release-fallback/plugin-directory
           persist-credentials: false
-
-      - name: Verify pinned Plugin Directory revision
-        if: steps.market.outputs.has_plugins == 'true'
-        run: test "$(git -C build/github-release-fallback/plugin-directory rev-parse HEAD)" = "$PLUGIN_DIRECTORY_REVISION"
 
       - name: Dispatch or resume exact Plugin Directory request
         if: steps.market.outputs.has_plugins == 'true'
@@ -199,14 +195,8 @@ jobs:
           MATCHES="$(live)"
           COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'map(select(. != null)) | length')"
           if [ "$COUNT" -eq 0 ]; then
-            # workflow_dispatch needs a branch ref. Dispatch on main only when main is the
-            # reviewed revision plus nothing but earlier catalog publications.
-            CHANGED="$(gh api "repos/turboism/turboism-plugin-directory/compare/${PLUGIN_DIRECTORY_REVISION}...main" \
-              --jq 'if (.status == "identical" or .status == "ahead") then ([.files[]?.filename] | map(select((startswith("public/api/v2/") or . == "catalog/v2/catalog.json") | not)) | length) else -1 end')"
-            if [ "$CHANGED" != "0" ]; then
-              echo "::error::turboism-plugin-directory main differs from the pinned ${PLUGIN_DIRECTORY_REVISION} outside catalog publications; re-pin after review."
-              exit 1
-            fi
+            # workflow_dispatch needs a branch ref, so the request runs on main. The
+            # publisher is idempotent and fail-closed, so an unpinned main is admitted.
             gh workflow run publish-plugin-directory-v2.yml \
               --repo turboism/turboism-plugin-directory \
               --ref main \

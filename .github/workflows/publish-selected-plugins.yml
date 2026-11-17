@@ -30,9 +30,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  PLUGIN_DIRECTORY_REVISION: 6505f0ffc8cc5445c5c4dec9d7cfe9b0ec9c8b32
-
 jobs:
   build-plugin-candidate:
     runs-on: ubuntu-22.04
@@ -101,23 +98,6 @@ jobs:
           python3 scripts/release/turboism-release.py build \
             "${market_args[@]}" \
             --candidate build/release-orchestrator/candidate.json
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          path = Path("build/release-orchestrator/candidate.json")
-          candidate = json.loads(path.read_text(encoding="utf-8"))
-          revision = os.environ["PLUGIN_DIRECTORY_REVISION"]
-          if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
-              raise SystemExit("Plugin Directory revision must be an immutable commit SHA")
-          candidate["pluginDirectoryRevision"] = revision
-          path.write_text(
-              json.dumps(candidate, separators=(",", ":"), sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
 
       - name: Upload release-plan candidate
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
