@@ -35,13 +35,15 @@ class GraphPanelTest {
         final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
 
         final Dimension size = panel.getPreferredSize();
-        // The multi-layer concentric sector layout keeps a 1:1 aspect ratio. A row layout of the same 60 nodes needs about 4880px, so the circle is much narrower.
+        // The multi-layer concentric sector layout keeps a 1:1 aspect ratio. A row layout of the same 60 nodes needs
+        // about 4880px, so the circle is much narrower.
         assertTrue(Math.abs((double) size.width / size.height - 1.0) < 0.01, "expected square aspect, got " + size);
         assertTrue(
                 size.width < LEGACY_ROW_WIDTH_ESTIMATE / 2,
                 "circular width " + size.width + " must be well below row-layout width " + LEGACY_ROW_WIDTH_ESTIMATE);
 
-        // The centre stays occupied: an inner-ring node sits closer to the centre than half the total radius, which is the panel radius of size/2, while the old single-ring layout put every node on the outer ring.
+        // The centre stays occupied: an inner-ring node sits closer to the centre than half the total radius, which is
+        // the panel radius of size/2, while the old single-ring layout put every node on the outer ring.
         final int center = size.width / 2;
         final double minDistance = panel.nodeCenters().stream()
                 .mapToDouble(p -> Math.hypot(p.x - center, p.y - center))
@@ -51,7 +53,8 @@ class GraphPanelTest {
                 minDistance < size.width / 4.0,
                 "inner ring must fill the center area, min node distance " + minDistance);
 
-        // The layer count and capacity hold: the top class with 20 nodes needs 3 layers of capacity 5+7+8, and the last layer holds 8 nodes. The bottom class with 40 nodes needs 5 layers of 5+7+9+11+8.
+        // The layer count and capacity hold: the top class with 20 nodes needs 3 layers of capacity 5+7+8, and the last
+        // layer holds 8 nodes. The bottom class with 40 nodes needs 5 layers of 5+7+9+11+8.
         assertEquals(List.of(5, 7, 8), ringSizes(panel, 90, 210), "top sector layers");
         assertEquals(List.of(5, 7, 9, 11, 8), ringSizes(panel, 330, 90), "bottom sector layers");
     }
@@ -81,7 +84,8 @@ class GraphPanelTest {
         final Dimension size = panel.getPreferredSize();
         panel.setSize(size);
         panel.setHighlightedGuids(Set.of("mask-1"));
-        // The highlight throws nothing, which is a regression guard, and the centre point holds no node because every node sits on a circumference.
+        // The highlight throws nothing, which is a regression guard, and the centre point holds no node because every
+        // node sits on a circumference.
         dispatchClick(panel, size.width / 2, size.height / 2);
         assertTrue(clicked.isEmpty());
 
@@ -113,7 +117,8 @@ class GraphPanelTest {
     void compactMultiRingLayoutShrinksTotalRadius() {
         final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> {});
         final int width = panel.getPreferredSize().width;
-        // 60 nodes give the top class 3 layers and the bottom class 5 layers of 5+7+9+11+8, so the total radius is 160 + (5-1)*66 = 424.
+        // 60 nodes give the top class 3 layers and the bottom class 5 layers of 5+7+9+11+8, so the total radius is 160
+        // + (5-1)*66 = 424.
         final int expectedRadius = 160 + 4 * (3 * 22);
         assertEquals((expectedRadius + 40) * 2, width);
         final int oldSingleRingRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
@@ -126,7 +131,8 @@ class GraphPanelTest {
     void smallGroupsDegenerateToSingleRing() {
         final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         final Dimension size = panel.getPreferredSize();
-        // Two nodes per class stay within the first-layer capacity of 5, so the layout degrades to a single ring with radius MIN_RADIUS of 160, the same size as the old layout.
+        // Two nodes per class stay within the first-layer capacity of 5, so the layout degrades to a single ring with
+        // radius MIN_RADIUS of 160, the same size as the old layout.
         assertEquals((160 + 40) * 2, size.width);
         final int center = size.width / 2;
         final Set<Integer> rings = new java.util.TreeSet<>();
@@ -141,7 +147,8 @@ class GraphPanelTest {
         final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         panel.zoomAt(new Point(100, 120), 1.2);
         assertEquals(1.2, panel.scale(), 1e-9);
-        // Anchor invariance: the logical point under the cursor at (100,120) stays the same across the zoom, so the offset moves by the formula.
+        // Anchor invariance: the logical point under the cursor at (100,120) stays the same across the zoom, so the
+        // offset moves by the formula.
         assertEquals(-20, panel.offsetX());
         assertEquals(-24, panel.offsetY());
 
@@ -196,7 +203,8 @@ class GraphPanelTest {
         final List<String> clicked = new ArrayList<>();
         final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked::add);
 
-        // A press and drag that misses a node pans the canvas, while a node hit drags the node, as the selection and drag tests show.
+        // A press and drag that misses a node pans the canvas, while a node hit drags the node, as the selection and
+        // drag tests show.
         dispatchPress(panel, 200, 200);
         dispatchDrag(panel, 241, 250);
         dispatchRelease(panel, 241, 250);
@@ -205,7 +213,8 @@ class GraphPanelTest {
         assertEquals(41, panel.offsetX());
         assertEquals(50, panel.offsetY());
 
-        // A movement of 4px or less still counts as a click: press the new screen position of the node in the panned viewport, drag within 2px, and release.
+        // A movement of 4px or less still counts as a click: press the new screen position of the node in the panned
+        // viewport, drag within 2px, and release.
         clicked.clear();
         dispatchPress(panel, 380, 330);
         dispatchDrag(panel, 382, 332);
@@ -216,7 +225,8 @@ class GraphPanelTest {
 
     @Test
     void filterKeepsMatchingNodesAndDirectNeighbors() {
-        // Alpha uses Beta and Gamma, and Delta uses Alpha, so the mask-to-user edges are Beta to Alpha, Gamma to Alpha, and Alpha to Delta.
+        // Alpha uses Beta and Gamma, and Delta uses Alpha, so the mask-to-user edges are Beta to Alpha, Gamma to Alpha,
+        // and Alpha to Delta.
         final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> {});
 
         panel.setFilter("Alpha");
@@ -225,7 +235,8 @@ class GraphPanelTest {
                 new java.util.HashSet<>(panel.nodeGuids()),
                 "match + direct neighbors (masks of match + users of match)");
 
-        // By semantics, a match on Beta brings only Alpha, the user that takes Beta as its mask, and Delta is not a direct neighbor of Beta.
+        // By semantics, a match on Beta brings only Alpha, the user that takes Beta as its mask, and Delta is not a
+        // direct neighbor of Beta.
         panel.setFilter("Beta");
         assertEquals(
                 Set.of("gA", "gB"),
@@ -271,7 +282,8 @@ class GraphPanelTest {
     @Test
     void categoryToggleHidesCategoryNodesAndTheirDirectNeighbors() {
         // Alpha uses Beta and Gamma, Delta uses Alpha, and Epsilon is unrelated and joins the pool under showUnrelated.
-        // Roles: the pure masks Beta and Gamma become mask, Alpha as both mask and user becomes both, the user Delta becomes user, and Epsilon becomes unrelated.
+        // Roles: the pure masks Beta and Gamma become mask, Alpha as both mask and user becomes both, the user Delta
+        // becomes user, and Epsilon becomes unrelated.
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(
                 record("gA", "idA", "Alpha", false, "gB", "gC"),
@@ -285,7 +297,9 @@ class GraphPanelTest {
         assertEquals(5, panel.nodeGuids().size());
 
         panel.setCategoryVisible("mask", false);
-        // H is {B,C} plus the direct neighbors, which is Alpha as the user of B and C, so A, B, and C hide. D is a neighbor of A but not a direct neighbor of B or C, so it stays and remains visible as an isolated node after A hides.
+        // H is {B,C} plus the direct neighbors, which is Alpha as the user of B and C, so A, B, and C hide. D is a
+        // neighbor of A but not a direct neighbor of B or C, so it stays and remains visible as an isolated node after
+        // A hides.
         assertEquals(
                 Set.of("gD", "gE"),
                 new java.util.HashSet<>(panel.nodeGuids()),
@@ -476,7 +490,8 @@ class GraphPanelTest {
         panel.zoomAt(new Point(200, 200), 2.0);
         assertEquals(-200, panel.offsetX());
         assertEquals(-200, panel.offsetY());
-        // The logical point (339,280) of user-1 maps to screen (478,360), and the logical centre (200,200) maps to screen (200,200).
+        // The logical point (339,280) of user-1 maps to screen (478,360), and the logical centre (200,200) maps to
+        // screen (200,200).
         assertNotNull(panel.findNode(new Point(478, 360)));
         assertNull(panel.findNode(new Point(200, 200)));
         dispatchClick(panel, 478, 360);
