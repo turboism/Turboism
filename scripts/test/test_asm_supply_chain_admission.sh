@@ -186,6 +186,32 @@ source_api_mutations() {
 }
 source_api_mutations
 
+exempt_package_mutations() {
+  local sandbox log wt classes helper
+  sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-api-exempt"
+  copy_source_tree "$sandbox"
+  mkdir -p "$sandbox/runtime/src/main/java/dev/turboism/adapter/cubism/optimization/neighbor"
+  printf 'package dev.turboism.adapter.cubism.optimization.neighbor; public class NeighborLeak { public org.objectweb.asm.Type field; }\n' \
+    > "$sandbox/runtime/src/main/java/dev/turboism/adapter/cubism/optimization/neighbor/NeighborLeak.java"
+  if ! TURBOISM_WORKTREE_ID="$wt" "$sandbox/gradlew" -q :runtime:classes --offline -p "$sandbox" >"$log" 2>&1; then
+    cat "$log" >&2; rm -rf "$sandbox" "$log"; fail "exempt-package neighbor mutation did not compile"
+  fi
+  classes="$sandbox/build/worktree/$wt/runtime/classes/java/main"
+  if python3 "$HELPER" api "$classes" >"$log" 2>&1; then
+    rm -rf "$sandbox" "$log"; fail 'ASM API exemption spread to a neighbor class unexpectedly passed'
+  fi
+  grep -q 'exposes ASM' "$log" || { cat "$log" >&2; rm -rf "$sandbox" "$log"; fail 'neighbor exemption failure had the wrong reason'; }
+  rm -rf "$classes/dev/turboism/adapter/cubism/optimization/neighbor"
+  helper="$sandbox/scripts/test/asm_admission_gate.py"
+  perl -pi -e 's#"dev/turboism/adapter/cubism/optimization/SlotBridgeEmitter",#"dev/turboism/adapter/cubism/optimization/SlotBridgeEmitter",\n    "dev/turboism/adapter/cubism/optimization/AbsentPrimitive",#' "$helper"
+  if python3 "$helper" api "$classes" >"$log" 2>&1; then
+    rm -rf "$sandbox" "$log"; fail 'stale ASM API exemption unexpectedly passed'
+  fi
+  grep -q 'no longer exposes ASM' "$log" || { cat "$log" >&2; rm -rf "$sandbox" "$log"; fail 'stale exemption failure had the wrong reason'; }
+  rm -rf "$sandbox" "$log"
+}
+exempt_package_mutations
+
 resolved_graph_mutations() {
   local sandbox log wt repo_dir source_jar
   sandbox="$(mktemp -d)"; log="$(mktemp)"; wt="bt4-resolved-graph"; repo_dir="$sandbox/mutation-repo"

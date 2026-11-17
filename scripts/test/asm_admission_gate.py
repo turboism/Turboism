@@ -332,15 +332,48 @@ def api_strings(path: Path) -> tuple[int, set[str]]:
     return access, strings
 
 
+# The shared weaving primitives are the only admitted ASM surface. They live in
+# `optimization` while the thirty weaving subpackages consume them, so Java package
+# visibility cannot hide them. Each entry is an exact class internal name, and a new
+# entry is a reviewed change.
+ASM_API_EXEMPT_CLASSES = frozenset({
+    "dev/turboism/adapter/cubism/optimization/HostClassWriters",
+    "dev/turboism/adapter/cubism/optimization/SlotBridgeEmitter",
+})
+ASM_API_EXEMPT_PACKAGE = "dev/turboism/adapter/cubism/optimization/"
+
+
+def internal_name(class_file: Path, class_root: Path) -> str:
+    return class_file.relative_to(class_root).with_suffix("").as_posix()
+
+
 def api_check(class_roots: list[Path]) -> None:
     missing = [str(root) for root in class_roots if not root.is_dir()]
     if missing: fail("expected compiled production class directories are missing: " + ", ".join(missing))
-    class_files = sorted({p for root in class_roots for p in root.rglob("*.class")})
-    if not class_files: fail("expected compiled production classes, found 0")
-    for class_file in class_files:
-        access, strings = api_strings(class_file)
-        if access & 0x0005 and any("org/objectweb/asm" in value or "org.objectweb.asm" in value for value in strings):
-            fail(f"public/protected production API exposes ASM: {class_file}")
+    for name in ASM_API_EXEMPT_CLASSES:
+        if not name.startswith(ASM_API_EXEMPT_PACKAGE) or "/" in name[len(ASM_API_EXEMPT_PACKAGE):]:
+            fail(f"ASM API exemption must name a direct child of {ASM_API_EXEMPT_PACKAGE}: {name}")
+    scanned: set[str] = set()
+    exempt_seen: set[str] = set()
+    total = 0
+    for root in class_roots:
+        for class_file in sorted(root.rglob("*.class")):
+            total += 1
+            name = internal_name(class_file, root)
+            scanned.add(name)
+            access, strings = api_strings(class_file)
+            if not (access & 0x0005 and any("org/objectweb/asm" in value or "org.objectweb.asm" in value for value in strings)):
+                continue
+            if name not in ASM_API_EXEMPT_CLASSES:
+                fail(f"public/protected production API exposes ASM: {class_file}")
+            exempt_seen.add(name)
+    if not total: fail("expected compiled production classes, found 0")
+    # Fixture scans build synthetic class trees that never contain the admitted primitives,
+    # so the staleness rule applies only to a scan that reaches the exempt package.
+    if not any(name.startswith(ASM_API_EXEMPT_PACKAGE) for name in scanned):
+        return
+    stale = sorted(ASM_API_EXEMPT_CLASSES - exempt_seen)
+    if stale: fail("ASM API exemption names a class that no longer exposes ASM; drop it: " + ", ".join(stale))
 
 
 def main() -> None:

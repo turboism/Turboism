@@ -96,7 +96,8 @@ final class GraphPanel extends JComponent {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(final MouseEvent event) {
-                // The legend lives in screen coordinates and wins the hit, so it toggles a class and never selects a node or pans the canvas.
+                // The legend lives in screen coordinates and wins the hit, so it toggles a class and never selects a
+                // node or pans the canvas.
                 for (int i = 0; i < legendHitBounds.size(); i++) {
                     if (legendHitBounds.get(i).contains(event.getPoint())) {
                         final String category = legendCategory(i);
@@ -110,7 +111,8 @@ final class GraphPanel extends JComponent {
                 dragMoved = false;
                 final NodeBox hit = findNode(event.getPoint());
                 if (hit != null && hit.record != null) {
-                    // A node hit selects it and records the drag context: the start logical point and the press screen point.
+                    // A node hit selects it and records the drag context: the start logical point and the press screen
+                    // point.
                     selectedGuid = hit.record.guid();
                     repaint();
                     dragNode = hit;
@@ -158,7 +160,8 @@ final class GraphPanel extends JComponent {
                     final double dy = current.y - pressPoint.y;
                     dragMoved |= dx * dx + dy * dy > 4 * 4;
                     if (dragNode != null) {
-                        // A node drag converts the screen delta through the inverse scale into a logical delta and moves the node.
+                        // A node drag converts the screen delta through the inverse scale into a logical delta and
+                        // moves the node.
                         dragNode.setPosition(
                                 dragNodeStartX + (int) Math.round(dx / scale),
                                 dragNodeStartY + (int) Math.round(dy / scale));
@@ -336,7 +339,8 @@ final class GraphPanel extends JComponent {
         final List<ClipMaskRecord> pool = showUnrelated ? state.records() : state.filterRelated();
         // Class-visible set V: all nodes minus the hidden-class nodes and their direct neighbors, hidden as a block.
         final Set<String> visibleCategoryGuids = visibleCategoryGuids(pool);
-        // Filter node set: a match on displayName or id, never on guid, plus the direct neighbors, which are the mask it points to and the users it masks.
+        // Filter node set: a match on displayName or id, never on guid, plus the direct neighbors, which are the mask
+        // it points to and the users it masks.
         // Combined with the class toggle by AND: the effective set is V ∩ (M ∪ N).
         final List<ClipMaskRecord> filterSet = filter.isBlank() ? pool : filterWithNeighbors();
         final List<ClipMaskRecord> effective = new ArrayList<>(filterSet.size());
@@ -373,7 +377,11 @@ final class GraphPanel extends JComponent {
                 bottom.add(record);
             }
         }
-        // Multi-layer concentric sector layout. The three classes occupy 120° sectors, top from 90° to 210°, middle from 210° to 330°, and bottom from 330° to 90°, and the nodes of a class fill layer by layer from the inner ring outward, so the centre stays occupied and the shape stays circular. A layer capacity is max(1, floor(r * SECTOR_ARC / NODE_SPACING)), a full layer opens the next one, and the total radius grows only with the deepest class. A class within one layer capacity degrades to a single ring.
+        // Multi-layer concentric sector layout. The three classes occupy 120° sectors, top from 90° to 210°, middle
+        // from 210° to 330°, and bottom from 330° to 90°, and the nodes of a class fill layer by layer from the inner
+        // ring outward, so the centre stays occupied and the shape stays circular. A layer capacity is max(1, floor(r *
+        // SECTOR_ARC / NODE_SPACING)), a full layer opens the next one, and the total radius grows only with the
+        // deepest class. A class within one layer capacity degrades to a single ring.
         int maxLayers = 0;
         maxLayers = Math.max(maxLayers, layerCount(top.size()));
         maxLayers = Math.max(maxLayers, layerCount(middle.size()));
@@ -601,7 +609,8 @@ final class GraphPanel extends JComponent {
             g2.setColor(Color.WHITE);
             g2.fillRect(0, 0, getWidth(), getHeight());
 
-            // The legend and the zoom indicator paint before the transform, in screen coordinates at a fixed top-left corner.
+            // The legend and the zoom indicator paint before the transform, in screen coordinates at a fixed top-left
+            // corner.
             drawLegend(g2);
             g2.setColor(new Color(130, 130, 130));
             g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 11f));
@@ -632,7 +641,8 @@ final class GraphPanel extends JComponent {
                 }
             }
 
-            // The user selection highlight set holds the selected node and its direct neighbors, and its red outline covers the editor orange.
+            // The user selection highlight set holds the selected node and its direct neighbors, and its red outline
+            // covers the editor orange.
             final Set<String> selectionSet = selectionSet();
             final FontMetrics fm = g2.getFontMetrics();
             for (NodeBox node : nodes) {
