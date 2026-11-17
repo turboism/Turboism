@@ -118,7 +118,7 @@ final class NativeRowActionTracker {
                 if (current == null || event.isConsumed()) return;
                 final Container target = targetAncestor(current, event);
                 if (target == null) return;
-                final MouseEvent converted = SwingUtilities.convertMouseEvent(current, event, target);
+                final MouseEvent converted = convert(current, event, target);
                 target.dispatchEvent(converted);
                 if (event.getID() == MouseEvent.MOUSE_DRAGGED && !SwingUtilities.isDescendingFrom(current, target)) {
                     final java.awt.Window window = SwingUtilities.getWindowAncestor(target);
@@ -138,6 +138,31 @@ final class NativeRowActionTracker {
                                 MouseEvent.NOBUTTON));
                     }
                 }
+            }
+
+            /**
+             * Converts {@code event} into {@code target} coordinates.
+             *
+             * <p>{@link SwingUtilities#convertMouseEvent} reads the screen location of both components,
+             * which AWT refuses for a component outside a displayable hierarchy. A row built off-screen,
+             * as a unit test or a pre-warmed palette does, must still forward its clicks, so the translation
+             * falls back to the relative offset inside the shared container tree.</p>
+             */
+            private static MouseEvent convert(final JLabel source, final MouseEvent event, final Container target) {
+                if (source.isShowing() && target.isShowing()) {
+                    return SwingUtilities.convertMouseEvent(source, event, target);
+                }
+                final java.awt.Point point = SwingUtilities.convertPoint(source, event.getPoint(), target);
+                return new MouseEvent(
+                        target,
+                        event.getID(),
+                        event.getWhen(),
+                        event.getModifiersEx(),
+                        point.x,
+                        point.y,
+                        event.getClickCount(),
+                        event.isPopupTrigger(),
+                        event.getButton());
             }
 
             private static Container targetAncestor(final Component source, final MouseEvent event) {
