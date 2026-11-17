@@ -268,20 +268,14 @@ public final class UpdateManifestVerifier {
         }
         final int versionOrder = UpdateVersion.parseInstalled(manifest.version())
                 .compareTo(installed.version().orElseThrow());
-        if (versionOrder < 0) {
-            throw new UpdateManifestVerificationException("VERSION_DOWNGRADE", "Target numeric version is older");
-        }
-        if (versionOrder == 0
-                && UpdateDiscovery.CHANNEL_STABLE.equals(installed.channel())
-                && UpdateDiscovery.CHANNEL_BETA.equals(manifest.channel())) {
-            throw new UpdateManifestVerificationException(
-                    "VERSION_DOWNGRADE", "Pre-release of installed stable version is not an upgrade");
-        }
         if (installed.buildNumber().isPresent()) {
             if (manifest.buildNumber() <= installed.buildNumber().getAsLong()) {
                 // Equal builds are rejected even if version or source differs: never reinterpret an identity.
                 throw new UpdateManifestVerificationException("BUILD_NOT_NEWER", "Target build must be strictly newer");
             }
+        } else if (!installed.channel().equals(manifest.channel())) {
+            throw new UpdateManifestVerificationException(
+                    "INSTALLED_IDENTITY_UNKNOWN", "Cross-channel update requires an installed build number");
         } else if (versionOrder <= 0) {
             throw new UpdateManifestVerificationException(
                     "VERSION_NOT_NEWER", "Historical install requires newer numeric version");

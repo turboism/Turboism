@@ -442,8 +442,7 @@ final class UpdateManifestVerifierTest {
         "0.67.4,51,BUILD_NOT_NEWER",
         "0.67.4,50,BUILD_NOT_NEWER",
         "0.68.0,50,BUILD_NOT_NEWER",
-        "0.69.0,50,VERSION_DOWNGRADE",
-        "0.69.0,1,VERSION_DOWNGRADE"
+        "0.69.0,50,BUILD_NOT_NEWER"
     })
     void rejectsDowngradeBuildNumber(final String installedVersion, final long installedBuild, final String code)
             throws Exception {
@@ -912,8 +911,51 @@ final class UpdateManifestVerifierTest {
         return envelopeJson.getBytes(StandardCharsets.UTF_8);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "stable,beta,49",
+        "stable,beta,50",
+        "stable,beta,51",
+        "beta,stable,49",
+        "beta,stable,50",
+        "beta,stable,51"
+    })
+    void crossChannelAdmissionRequiresStrictlyHigherBuild(
+            final String installedChannel, final String targetChannel, final long installedBuild) throws Exception {
+        final String targetVersion = "beta".equals(targetChannel) ? "0.68.0-beta.1" : "0.68.0";
+        final byte[] bytes = validManifestJson()
+                .replace("\"version\": \"0.68.0\"", "\"version\": \"" + targetVersion + "\"")
+                .replace("\"channel\": \"stable\"", "\"channel\": \"" + targetChannel + "\"")
+                .getBytes(StandardCharsets.UTF_8);
+        final byte[] envelope = createEnvelope("test-key-v1", bytes, testKeyPair);
+        final var context = new UpdateVerificationContext(
+                targetVersion,
+                targetChannel,
+                50L,
+                defaultContextSource(),
+                "99.0.0",
+                "windows-x64",
+                InstalledBuild.of("0.69.0", installedChannel, OptionalLong.of(installedBuild), "installed"),
+                Map.of(),
+                "",
+                () -> {},
+                true);
+        if (installedBuild < 50L) {
+            assertEquals(
+                    targetChannel,
+                    verifier.verify(bytes, envelope, context, Instant.EPOCH).channel());
+        } else {
+            assertEquals(
+                    "BUILD_NOT_NEWER",
+                    assertThrows(
+                                    UpdateManifestVerifier.UpdateManifestVerificationException.class,
+                                    () -> verifier.verify(bytes, envelope, context, Instant.EPOCH))
+                            .errorCode());
+        }
+    }
+
     @Test
-    void crossChannelAdmissionAllowsForwardStableBetaTransitionsAndBlocksDowngrades() throws Exception {
+    void crossChannelAdmissionUsesBuildNumbersInsteadOfVersionOrder() throws Exception {
         final byte[] betaBytes = validManifestJson()
                 .replace("\"version\": \"0.68.0\"", "\"version\": \"0.68.0-beta.1\"")
                 .replace("\"channel\": \"stable\"", "\"channel\": \"beta\"")
@@ -938,7 +980,7 @@ final class UpdateManifestVerifierTest {
                 verifier.verify(betaBytes, betaEnvelope, stableToBeta, Instant.EPOCH)
                         .channel());
 
-        // Opted-in Stable -> Beta of the same numeric core is rejected as a pre-release downgrade.
+        // A higher build permits Stable to Beta at the same numeric version.
         final var stableToSameCoreBeta = new UpdateVerificationContext(
                 "0.68.0-beta.1",
                 "beta",
@@ -952,11 +994,9 @@ final class UpdateManifestVerifierTest {
                 () -> {},
                 true);
         assertEquals(
-                "VERSION_DOWNGRADE",
-                assertThrows(
-                                UpdateManifestVerifier.UpdateManifestVerificationException.class,
-                                () -> verifier.verify(betaBytes, betaEnvelope, stableToSameCoreBeta, Instant.EPOCH))
-                        .errorCode());
+                "beta",
+                verifier.verify(betaBytes, betaEnvelope, stableToSameCoreBeta, Instant.EPOCH)
+                        .channel());
 
         // Opted-in Beta -> Stable graduation at same numeric core with higher build passes.
         final byte[] stableBytes = validManifestJson().getBytes(StandardCharsets.UTF_8);
@@ -978,7 +1018,7 @@ final class UpdateManifestVerifierTest {
                 verifier.verify(stableBytes, stableEnvelope, betaToStable, Instant.EPOCH)
                         .channel());
 
-        // Opted-in Beta -> older Stable version or lower build is rejected (no downgrade).
+        // Build order permits a lower numeric version but forbids a lower build.
         final var betaDowngradeVersion = new UpdateVerificationContext(
                 "0.68.0",
                 "stable",
@@ -992,11 +1032,9 @@ final class UpdateManifestVerifierTest {
                 () -> {},
                 true);
         assertEquals(
-                "VERSION_DOWNGRADE",
-                assertThrows(
-                                UpdateManifestVerifier.UpdateManifestVerificationException.class,
-                                () -> verifier.verify(stableBytes, stableEnvelope, betaDowngradeVersion, Instant.EPOCH))
-                        .errorCode());
+                "stable",
+                verifier.verify(stableBytes, stableEnvelope, betaDowngradeVersion, Instant.EPOCH)
+                        .channel());
 
         final var betaDowngradeBuild = new UpdateVerificationContext(
                 "0.68.0",

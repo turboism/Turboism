@@ -101,19 +101,20 @@ class GoldenUpdateStateSnapshotsTest {
 
         final String installed = JSON.readTree(original).path("version").asText();
         assertFalse(installed.isBlank(), "a released installed-build.json always records its version");
-        // The helper compares the numeric core of an installed version against a canonical target,
-        // so a beta channel installation is still compared through the production parser.
+        // Historical installations without build numbers retain numeric version comparison.
         final String numeric = UpdateVersion.parseInstalled(installed).toString();
         final String channel = channelOf(installed);
         final FrameworkUpdateHelper.Invocation invocation = new FrameworkUpdateHelper.Invocation(
                 home, null, null, Optional.empty(), 0L, true, false, Optional.empty(), false, null, false, false);
 
+        final long installedBuild = JSON.readTree(original).path("buildNumber").asLong(80L);
         assertNotNull(
-                FrameworkUpdateHelper.policyProblem(invocation, probeManifest(numeric, channel)),
-                "the recorded version must count as the installed version, so an equal target is not newer");
+                FrameworkUpdateHelper.policyProblem(invocation, probeManifest(numeric, channel, installedBuild)),
+                "an equal identity must not count as an update");
         assertNull(
-                FrameworkUpdateHelper.policyProblem(invocation, probeManifest(nextVersion(numeric), channel)),
-                "a newer target must still be accepted for the recorded version");
+                FrameworkUpdateHelper.policyProblem(
+                        invocation, probeManifest(nextVersion(numeric), channel, installedBuild + 1L)),
+                "a newer build must still be accepted for the recorded version");
         assertArrayEquals(original, Files.readAllBytes(file), "reading installed-build.json must not rewrite it");
     }
 
@@ -187,13 +188,13 @@ class GoldenUpdateStateSnapshotsTest {
         return matcher.group(1) + (Long.parseLong(matcher.group(2)) + 1L);
     }
 
-    private static UpdateManifest probeManifest(final String version, final String channel) {
+    private static UpdateManifest probeManifest(final String version, final String channel, final long buildNumber) {
         return new UpdateManifest(
                 1,
                 "test-key-reproducible",
                 version,
                 channel,
-                80L,
+                buildNumber,
                 "0123456789abcdef0123456789abcdef01234567",
                 "0.42.0",
                 "windows-x64",

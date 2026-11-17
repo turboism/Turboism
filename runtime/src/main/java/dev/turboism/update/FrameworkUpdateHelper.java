@@ -586,6 +586,10 @@ public final class FrameworkUpdateHelper {
         final Path metadata = invocation.root().resolve(InstalledBuild.METADATA_FILE_NAME);
         if (Files.isRegularFile(metadata)) {
             final var tree = UpdateFileSupport.JSON.readTree(Files.readAllBytes(metadata));
+            final var buildNumber = tree.path("buildNumber");
+            if (buildNumber.isIntegralNumber() && buildNumber.canConvertToLong() && buildNumber.longValue() > 0) {
+                return manifest.buildNumber() > buildNumber.longValue() ? null : "target build must be strictly newer";
+            }
             final String installed = tree.path("version").asText("");
             if (!installed.isEmpty()) {
                 final UpdateVersion current = UpdateVersion.parseInstalled(installed);

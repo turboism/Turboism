@@ -747,12 +747,6 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         final UpdateVersion local = installed.version().orElse(null);
         if (local == null) return false;
         final int versionOrder = candidate.version().compareTo(local);
-        if (versionOrder < 0) return false;
-        if (versionOrder == 0
-                && UpdateDiscovery.CHANNEL_STABLE.equals(installed.channel())
-                && UpdateDiscovery.CHANNEL_BETA.equals(preferences.updateChannel())) {
-            return false;
-        }
         if (candidate.buildNumber().isPresent() && installed.buildNumber().isPresent()) {
             final long advertised = candidate.buildNumber().getAsLong();
             final long current = installed.buildNumber().getAsLong();
@@ -764,11 +758,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             }
             return advertised > current;
         }
-        if (versionOrder == 0
-                && !UpdateDiscovery.CHANNEL_STABLE.equals(installed.channel())
-                && UpdateDiscovery.CHANNEL_STABLE.equals(preferences.updateChannel())) {
-            return true;
-        }
+        if (!installed.channel().equals(preferences.updateChannel())) return false;
         return versionOrder > 0;
     }
 

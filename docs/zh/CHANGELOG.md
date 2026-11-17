@@ -12,6 +12,7 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
+- Stable 与 Beta 允许双向切换，但目标 Build 必须严格大于当前 Build。Build 顺序优先于版本标签，更新发现、签名清单校验和退出后安装均执行同一规则。
 - 框架版本提升至 `0.70.1`，运行时 API 版本随之变为 `0.70.1`。`RecentPreviewCacheService` 的重放契约是在 `0.70.0` beta 系列中途加入的，因此 `0.70.0` 的 beta 会准入 `recent-preview` 0.68.2，随后在启用时以 `NoClassDefFoundError` 失败。提升基础版本后，运行时 API 会在发现阶段拒绝这些插件，而不是在加载阶段失败。
 - `recent-preview` 0.68.1 与 `recent-project-board` 0.68.2 将其 `turboismApi` 下限提升至 `[0.70.1,)`，因为两者都链接 `RecentPreviewCacheService$ReplayHandler` 与 `requestReplay()`。
 
