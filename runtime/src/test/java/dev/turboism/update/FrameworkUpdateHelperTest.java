@@ -96,6 +96,35 @@ final class FrameworkUpdateHelperTest {
     }
 
     @Test
+    void buildNumberOverridesNumericVersionDuringApply() throws Exception {
+        final Fixture fixture = new Fixture("1.1.0-beta.1", "1.0.0");
+        final Path metadata = fixture.root.resolve(InstalledBuild.METADATA_FILE_NAME);
+        final var manifest = UpdateManifest.parse(Files.readAllBytes(fixture.stage.resolve("manifest.json")));
+        final var invocation = new FrameworkUpdateHelper.Invocation(
+                fixture.root,
+                null,
+                null,
+                Optional.empty(),
+                0L,
+                true,
+                false,
+                Optional.empty(),
+                false,
+                null,
+                false,
+                false);
+        final var identity = UpdateFileSupport.JSON.readTree(Files.readAllBytes(metadata));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) identity).put("buildNumber", manifest.buildNumber() - 1);
+        Files.write(metadata, UpdateFileSupport.JSON.writeValueAsBytes(identity));
+        assertNull(FrameworkUpdateHelper.policyProblem(invocation, manifest));
+        for (final long build : List.of(manifest.buildNumber(), manifest.buildNumber() + 1)) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) identity).put("buildNumber", build);
+            Files.write(metadata, UpdateFileSupport.JSON.writeValueAsBytes(identity));
+            assertNotNull(FrameworkUpdateHelper.policyProblem(invocation, manifest));
+        }
+    }
+
+    @Test
     void appliesVerifiedUpdateAndWritesIdentityLast() throws Exception {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, f.run(f, GONE), err.toString());

@@ -885,13 +885,13 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void switchesChannelPersistentlyClearsOldStateAndAvoidsDowngrades(@TempDir final Path home) throws Exception {
+    void switchesChannelPersistentlyAndRequiresHigherBuilds(@TempDir final Path home) throws Exception {
         final DeferredTransport stableTransport = new DeferredTransport();
         final DeferredTransport betaTransport = new DeferredTransport();
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final InstalledBuild installedStable = InstalledBuild.of(
-                "0.67.4", UpdateDiscovery.CHANNEL_STABLE, java.util.OptionalLong.of(10L), "0.67.4 (stable, Build 10)");
+                "0.68.0", UpdateDiscovery.CHANNEL_STABLE, java.util.OptionalLong.of(10L), "0.68.0 (stable, Build 10)");
         final RuntimeUpdateService service = RuntimeUpdateService.channelAware(
                 home,
                 scheduler,
@@ -908,7 +908,7 @@ final class RuntimeUpdateServiceTest {
             assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
             stableTransport.completeWithDocument(
                     "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
-                            + "\"release\":{\"version\":\"0.67.4\",\"buildNumber\":10,\"publishedAt\":\"2026-10-01T00:00:00Z\"}}");
+                            + "\"release\":{\"version\":\"0.68.0\",\"buildNumber\":10,\"publishedAt\":\"2026-10-01T00:00:00Z\"}}");
             assertEquals(
                     CoreUpdateService.Status.UP_TO_DATE,
                     stableCheck.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
@@ -983,11 +983,11 @@ final class RuntimeUpdateServiceTest {
             assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
             stableTransport.completeWithDocument(
                     "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"ready\","
-                            + "\"release\":{\"version\":\"0.68.0\",\"buildNumber\":15,\"publishedAt\":\"2026-10-04T00:00:00Z\"}}");
+                            + "\"release\":{\"version\":\"0.67.5\",\"buildNumber\":15,\"publishedAt\":\"2026-10-04T00:00:00Z\"}}");
             final CoreUpdateService.Snapshot caughtUp =
                     caughtUpCheck.toCompletableFuture().get(2, TimeUnit.SECONDS);
             assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, caughtUp.status());
-            assertEquals(Optional.of("0.68.0"), caughtUp.availableVersion());
+            assertEquals(Optional.of("0.67.5"), caughtUp.availableVersion());
 
             restarted.bindFrameworkUpdates(new dev.turboism.internal.core.CoreFrameworkUpdates() {
                 @Override

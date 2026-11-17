@@ -18,6 +18,8 @@ import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
 class NativeRowActionTrackerTest {
+    private static final String PARAMETER_NAME = "Parameter";
+
     @Test
     void clicksAffectOnlyTheOwningVisibleRowIconAndRestoreNativeDecoration() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
@@ -193,7 +195,7 @@ class NativeRowActionTrackerTest {
             var layeredWrapper = new javax.swing.JLayeredPane();
             var hbox = new javax.swing.JPanel(null);
             var nameVBox = new javax.swing.JPanel(null);
-            var label = label(true);
+            var label = new JLabel(PARAMETER_NAME);
 
             rowLayout.setBounds(0, 0, 240, 40);
             layeredWrapper.setBounds(0, 8, 240, 26);
@@ -206,102 +208,124 @@ class NativeRowActionTrackerTest {
             layeredWrapper.add(hbox);
             rowLayout.add(layeredWrapper);
 
-            var lockClicks = new AtomicInteger();
-            var selectedOnRelease = new AtomicInteger();
-            var pressedOnRowLayout = new AtomicInteger();
-            var draggedOnRowLayout = new AtomicInteger();
-            var movedOnRowLayout = new AtomicInteger();
-            var lastPoint = new java.awt.Point();
+            // A real window satisfies AWT screen-coordinate checks after other tests register global listeners.
+            var window = new javax.swing.JFrame();
+            try {
+                window.setUndecorated(true);
+                window.setContentPane(rowLayout);
+                window.setSize(rowLayout.getSize());
+                window.setVisible(true);
 
-            var nativeRowListener = new java.awt.event.MouseAdapter() {
-                @Override
-                public void mousePressed(MouseEvent event) {
-                    pressedOnRowLayout.incrementAndGet();
-                    lastPoint.setLocation(event.getPoint());
-                }
+                var lockClicks = new AtomicInteger();
+                var selectedOnRelease = new AtomicInteger();
+                var pressedOnRowLayout = new AtomicInteger();
+                var draggedOnRowLayout = new AtomicInteger();
+                var movedOnRowLayout = new AtomicInteger();
+                var lastPoint = new java.awt.Point();
 
-                @Override
-                public void mouseReleased(MouseEvent event) {
-                    if (SwingUtilities.isLeftMouseButton(event)) {
-                        selectedOnRelease.incrementAndGet();
+                var nativeRowListener = new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mousePressed(MouseEvent event) {
+                        pressedOnRowLayout.incrementAndGet();
                         lastPoint.setLocation(event.getPoint());
                     }
-                }
 
-                @Override
-                public void mouseDragged(MouseEvent event) {
-                    draggedOnRowLayout.incrementAndGet();
-                    lastPoint.setLocation(event.getPoint());
-                }
+                    @Override
+                    public void mouseReleased(MouseEvent event) {
+                        if (SwingUtilities.isLeftMouseButton(event)) {
+                            selectedOnRelease.incrementAndGet();
+                            lastPoint.setLocation(event.getPoint());
+                        }
+                    }
 
-                @Override
-                public void mouseMoved(MouseEvent event) {
-                    movedOnRowLayout.incrementAndGet();
-                    lastPoint.setLocation(event.getPoint());
-                }
-            };
-            rowLayout.addMouseListener(nativeRowListener);
-            rowLayout.addMouseMotionListener(nativeRowListener);
+                    @Override
+                    public void mouseDragged(MouseEvent event) {
+                        draggedOnRowLayout.incrementAndGet();
+                        lastPoint.setLocation(event.getPoint());
+                    }
 
-            tracker.apply(label, Optional.of(action(PaletteRowAction.State.UNLOCKED, lockClicks)), coordinator);
+                    @Override
+                    public void mouseMoved(MouseEvent event) {
+                        movedOnRowLayout.incrementAndGet();
+                        lastPoint.setLocation(event.getPoint());
+                    }
+                };
+                rowLayout.addMouseListener(nativeRowListener);
+                rowLayout.addMouseMotionListener(nativeRowListener);
 
-            // 1. Clicking the parameter name (x=60, outside the 16px leading lock slot) must reach rowLayout
-            // across intermediate listener-less containers (nameVBox -> hbox -> layeredWrapper -> rowLayout)
-            // and select the parameter on mouseReleased, without toggling the lock.
-            dispatchFullClick(label, 60, 8);
-            assertEquals(0, lockClicks.get());
-            assertEquals(1, pressedOnRowLayout.get());
-            assertEquals(1, selectedOnRelease.get());
-            assertEquals(new java.awt.Point(80, 19), lastPoint);
+                tracker.apply(label, Optional.of(action(PaletteRowAction.State.UNLOCKED, lockClicks)), coordinator);
 
-            // 2. Mouse move and drag on the parameter name must also reach rowLayout's MouseMotionListener.
-            label.dispatchEvent(new MouseEvent(label, MouseEvent.MOUSE_MOVED, 0, 0, 70, 9, 0, false));
-            label.dispatchEvent(new MouseEvent(
-                    label, MouseEvent.MOUSE_DRAGGED, 0, java.awt.event.InputEvent.BUTTON1_DOWN_MASK, 75, 10, 0, false));
-            assertEquals(1, movedOnRowLayout.get());
-            assertEquals(1, draggedOnRowLayout.get());
-            assertEquals(new java.awt.Point(95, 21), lastPoint);
+                // Name clicks must preserve native row selection across intermediate containers.
+                dispatchFullClick(label, 60, 8);
+                assertEquals(0, lockClicks.get());
+                assertEquals(1, pressedOnRowLayout.get());
+                assertEquals(1, selectedOnRelease.get());
+                assertEquals(new java.awt.Point(80, 19), lastPoint);
 
-            // 3. Clicking the leading lock icon (x=4) must toggle the lock without forwarding press/release/drag
-            // to rowLayout, preserving existing editor parameter selection.
-            label.dispatchEvent(new MouseEvent(
-                    label,
-                    MouseEvent.MOUSE_PRESSED,
-                    0,
-                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
-                    4,
-                    8,
-                    1,
-                    false,
-                    MouseEvent.BUTTON1));
-            label.dispatchEvent(new MouseEvent(
-                    label, MouseEvent.MOUSE_DRAGGED, 0, java.awt.event.InputEvent.BUTTON1_DOWN_MASK, 5, 8, 0, false));
-            label.dispatchEvent(new MouseEvent(
-                    label,
-                    MouseEvent.MOUSE_RELEASED,
-                    0,
-                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
-                    4,
-                    8,
-                    1,
-                    false,
-                    MouseEvent.BUTTON1));
-            label.dispatchEvent(new MouseEvent(
-                    label,
-                    MouseEvent.MOUSE_CLICKED,
-                    0,
-                    java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
-                    4,
-                    8,
-                    1,
-                    false,
-                    MouseEvent.BUTTON1));
-            assertEquals(1, lockClicks.get());
-            assertEquals(1, pressedOnRowLayout.get());
-            assertEquals(1, selectedOnRelease.get());
-            assertEquals(1, draggedOnRowLayout.get());
+                // Name motion must preserve native row drag behavior.
+                label.dispatchEvent(new MouseEvent(label, MouseEvent.MOUSE_MOVED, 0, 0, 70, 9, 0, false));
+                label.dispatchEvent(new MouseEvent(
+                        label,
+                        MouseEvent.MOUSE_DRAGGED,
+                        0,
+                        java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                        75,
+                        10,
+                        0,
+                        false));
+                assertEquals(1, movedOnRowLayout.get());
+                assertEquals(1, draggedOnRowLayout.get());
+                assertEquals(new java.awt.Point(95, 21), lastPoint);
 
-            tracker.restoreAll();
+                // Lock gestures must preserve the current editor selection.
+                label.dispatchEvent(new MouseEvent(
+                        label,
+                        MouseEvent.MOUSE_PRESSED,
+                        0,
+                        java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                        4,
+                        8,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1));
+                label.dispatchEvent(new MouseEvent(
+                        label,
+                        MouseEvent.MOUSE_DRAGGED,
+                        0,
+                        java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                        5,
+                        8,
+                        0,
+                        false));
+                label.dispatchEvent(new MouseEvent(
+                        label,
+                        MouseEvent.MOUSE_RELEASED,
+                        0,
+                        java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                        4,
+                        8,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1));
+                label.dispatchEvent(new MouseEvent(
+                        label,
+                        MouseEvent.MOUSE_CLICKED,
+                        0,
+                        java.awt.event.InputEvent.BUTTON1_DOWN_MASK,
+                        4,
+                        8,
+                        1,
+                        false,
+                        MouseEvent.BUTTON1));
+                assertEquals(1, lockClicks.get());
+                assertEquals(1, pressedOnRowLayout.get());
+                assertEquals(1, selectedOnRelease.get());
+                assertEquals(1, draggedOnRowLayout.get());
+
+            } finally {
+                tracker.restoreAll();
+                window.dispose();
+            }
         });
     }
 
@@ -327,7 +351,7 @@ class NativeRowActionTrackerTest {
     }
 
     private static JLabel label(boolean showing) {
-        JLabel label = new JLabel("Parameter") {
+        JLabel label = new JLabel(PARAMETER_NAME) {
             @Override
             public boolean isShowing() {
                 return showing;
