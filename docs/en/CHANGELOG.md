@@ -8,14 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Added
-
-- `recent-project-board` places two icon-only create controls left of the header layout control: a Lucide `plus` for a new model project and a `clapperboard` for a new animation project. Both dispatch the host's native New menu commands, so the resulting dialogs are the native ones, and a control whose host command is unavailable is hidden.
-
 ## [0.70.0] - 2026-11-15
 
 ### Added
 
+- `recent-project-board` places two icon-only create controls left of the header layout control: a Lucide `plus` for a new model project and a `clapperboard` for a new animation project. Both dispatch the host's native New menu commands, so the resulting dialogs are the native ones, and a control whose host command is unavailable is hidden.
 - Users can switch between the Stable and Beta update channels from the Startup settings tab and the update window. The choice persists in `update-preferences.json` as an optional `updateChannel`; its absence keeps the packaged channel. `RuntimeUpdateService` re-resolves its transport, parser and state store per channel, clears the previous channel's ETag cache and re-checks immediately, and refuses a switch while a download or an apply is pending. `UpdateManifestVerifier` admits cross-channel updates only with that opt-in, so Stable to Beta of the same core is a pre-release downgrade and Beta to Stable of the same core at a higher build is a graduation; Nightly stays inadmissible. Plugin market, auto-updater and coordinated planning follow the live channel, so switching to Beta immediately offers preview plugin releases.
 - `RecentPreviewCacheService.requestReplay()` and the `ReplayHandler` provider contract let a dependent plugin ask the recent-preview provider to republish its cached thumbnails on demand, so a board installed or re-enabled from the Plugin Market shows existing previews without restarting Cubism.
 - Plugin Market admission now shares `PluginReleaseCompatibility` with the background auto-updater (`stable` admits only `stable`, `beta`/`nightly` accept `preview` too, requiring `windows-x64` and satisfied `required` dependencies). `packaging/market-plugins.json` tracks per-plugin `publication` (`withheld` by default), and staging automatically patch-bumps and promotes unchanged `preview` plugins to `stable`.

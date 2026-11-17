@@ -12,6 +12,7 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- `recent-project-board` 헤더에서 레이아웃 전환 왼쪽에 아이콘만 있는 만들기 버튼 두 개를 추가했습니다. Lucide `plus`는 새 모델 프로젝트, `clapperboard`는 새 애니메이션 프로젝트용입니다. 둘 다 호스트의 네이티브 '새로 만들기' 메뉴 명령을 호출하므로 표시되는 대화상자는 네이티브입니다. 호스트가 해당 명령을 제공하지 않으면 그 버튼은 표시하지 않습니다.
 - 시작 설정 탭과 업데이트 창에서 Stable 및 Beta 업데이트 채널을 전환할 수 있습니다. 선택은 `update-preferences.json`의 선택적 필드 `updateChannel`에 저장되며, 필드가 없으면 패키지 채널을 따릅니다. `RuntimeUpdateService`는 채널별로 전송, 파서, 상태 저장소를 다시 해석하고 전환 시 이전 채널의 ETag 캐시를 비운 뒤 즉시 다시 확인하며, 다운로드나 적용이 대기 중이면 전환을 거부합니다. `UpdateManifestVerifier`는 이 사용자 선택이 있을 때만 채널 간 업데이트를 허용하므로, 같은 코어에서 Stable에서 Beta로 가는 것은 사전 릴리스로의 강등이고 Beta에서 Stable로 가며 빌드 번호가 더 높은 것은 승격입니다. Nightly는 항상 허용되지 않습니다. 플러그인 마켓, 자동 업데이터, 협조 계획은 실시간 채널을 따르므로 Beta로 전환하면 미리보기 플러그인 릴리스가 즉시 제공됩니다.
 - `RecentPreviewCacheService.requestReplay()`와 제공자 측 `ReplayHandler` 계약을 추가했습니다. 의존 플러그인은 최근 미리보기 제공자에게 캐시된 썸네일 재게시를 요청할 수 있어, 플러그인 마켓에서 실시간으로 설치하거나 다시 활성화한 보드도 Cubism을 재시작하지 않고 기존 미리보기를 표시합니다.
 - 플러그인 마켓 허용 규칙을 백그라운드 자동 업데이트와 동일한 `PluginReleaseCompatibility`로 통합(`stable`은 `stable`만, `beta`/`nightly`는 `preview`도 허용하며 `windows-x64`와 `required` 의존성을 검사)하고 `packaging/market-plugins.json`으로 플러그인별 `publication`(신규 기본 `withheld`)을 관리하며 바이트가 같은 `preview` 플러그인은 스테이징 시 패치 버전을 올려 `stable`로 승격합니다.

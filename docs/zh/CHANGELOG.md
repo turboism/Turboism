@@ -8,14 +8,11 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
-### 新增
-
-- `recent-project-board` 在标题栏布局切换按钮左侧新增两个纯图标创建按钮：Lucide `plus` 用于新建模型工程，`clapperboard` 用于新建动画工程。两者都调用宿主原生的“新建”菜单命令，因此弹出的是原生对话框；宿主未开放对应命令时该按钮不显示。
-
 ## [0.70.0] - 2026-11-15
 
 ### 新增
 
+- `recent-project-board` 在标题栏布局切换按钮左侧新增两个纯图标创建按钮：Lucide `plus` 用于新建模型工程，`clapperboard` 用于新建动画工程。两者都调用宿主原生的“新建”菜单命令，因此弹出的是原生对话框；宿主未开放对应命令时该按钮不显示。
 - 用户可在启动设置页与更新窗口中选择 Stable 或 Beta 更新通道。选择以可选字段 `updateChannel` 持久化到 `update-preferences.json`，字段缺失时仍跟随安装包通道。`RuntimeUpdateService` 按通道重新解析传输、解析器与状态存储，切换时清空上一通道的 ETag 缓存并立即重新检查，下载或应用待处理期间拒绝切换。`UpdateManifestVerifier` 仅在该用户选择存在时允许跨通道更新：同一内核由 Stable 切至 Beta 视为预发布降级，由 Beta 切至 Stable 且构建号更高视为毕业，Nightly 始终不允许。插件市场、自动更新与协同规划跟随实时通道，切换到 Beta 后立即提供预览插件版本。
 - 新增 `RecentPreviewCacheService.requestReplay()` 与提供方 `ReplayHandler` 契约：依赖插件可按需请求最近预览提供方重新发布已缓存缩略图，因此在插件市场实时安装或重新启用的看板无需重启 Cubism 即可显示现有预览图。
 - 插件市场改用与后台自动更新相同的 `PluginReleaseCompatibility` 准入规则（`stable` 仅允许 `stable`，`beta`/`nightly` 同时接受 `preview`，校验 `windows-x64` 与 `required` 依赖）。`packaging/market-plugins.json` 记录每插件 `publication` 决定（新增默认 `withheld`），暂存时自动递增版本号并将字节未变的 `preview` 插件提升至 `stable`。
