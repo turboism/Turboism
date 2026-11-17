@@ -142,7 +142,7 @@ member checkReleasePackaging checkInstallerLocalization
 member checkReleasePackaging checkWindowsInstaller
 
 # --- checkRelease: the formal candidate gate ---------------------------------------------------
-aggregate checkRelease group="verification" owner=".github/workflows/release.yml:217" description="Runs completed-commit verification plus supply-chain and historical release audits." harm="a release candidate ships with a supply-chain, SDK API or installer regression that the completed-commit gate alone does not cover" release-flags require-xvfb
+aggregate checkRelease group="verification" owner=".github/workflows/release.yml:214" description="Runs completed-commit verification plus supply-chain and historical release audits." harm="a release candidate ships with a supply-chain, SDK API or installer regression that the completed-commit gate alone does not cover" release-flags require-xvfb
 member checkRelease checkCompletedCommit
 member checkRelease checkReleasePackaging
 # Registered by gradle/architecture-governance.gradle.kts and reachable through
