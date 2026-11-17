@@ -29,9 +29,6 @@ on:
 permissions:
   contents: read
 
-env:
-  PLUGIN_DIRECTORY_REVISION: 6505f0ffc8cc5445c5c4dec9d7cfe9b0ec9c8b32
-
 concurrency:
   group: product-release-candidate-${{ github.ref }}
   cancel-in-progress: false
@@ -294,23 +291,6 @@ jobs:
             "${market_args[@]}" \
             "${skip_args[@]}" \
             --candidate build/release-orchestrator/candidate.json
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          path = Path("build/release-orchestrator/candidate.json")
-          candidate = json.loads(path.read_text(encoding="utf-8"))
-          revision = os.environ["PLUGIN_DIRECTORY_REVISION"]
-          if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
-              raise SystemExit("Plugin Directory revision must be an immutable commit SHA")
-          candidate["pluginDirectoryRevision"] = revision
-          path.write_text(
-              json.dumps(candidate, separators=(",", ":"), sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
 
       - name: Extract release notes from changelog
         if: needs.preflight.outputs.channel == 'stable'

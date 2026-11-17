@@ -120,8 +120,6 @@ class ReleaseBaselineAuditTest(unittest.TestCase):
 
 
 class ReleaseWorkflowTest(unittest.TestCase):
-    PLUGIN_DIRECTORY_REVISION = "6505f0ffc8cc5445c5c4dec9d7cfe9b0ec9c8b32"
-
     def test_minimum_ci_runs_dev_check_for_pull_requests_and_main(self):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertRegex(workflow, r"(?m)^  pull_request:\s*$")
@@ -142,7 +140,10 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertNotIn("integration-tests", workflow)
         self.assertRegex(workflow, r"(?m)^permissions:\n  contents: read\s*$")
 
-    def test_plugin_directory_revision_and_publisher_permissions_are_immutable(self):
+    def test_plugin_directory_publisher_is_unpinned_and_least_privileged(self):
+        # The Plugin Directory publishes on its own main. A commit pin forced a framework
+        # re-pin for every unrelated directory change, so the pin is gone; the publisher
+        # stays idempotent and fail-closed on its own side.
         candidate_workflows = [
             (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
             (ROOT / ".github/workflows/publish-selected-plugins.yml").read_text(
@@ -153,24 +154,16 @@ class ReleaseWorkflowTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertFalse((ROOT / ".github/workflows/release-publisher.yml").exists())
-        pin = f"PLUGIN_DIRECTORY_REVISION: {self.PLUGIN_DIRECTORY_REVISION}"
-        for workflow in candidate_workflows:
-            self.assertIn(pin, workflow)
-            self.assertIn('candidate["pluginDirectoryRevision"] = revision', workflow)
-        self.assertIn(pin, publisher)
-        # workflow_dispatch needs a branch ref: dispatch on main, guarded so main may
-        # only differ from the pinned revision by earlier catalog publications.
+        for workflow in candidate_workflows + [publisher]:
+            self.assertNotIn("PLUGIN_DIRECTORY_REVISION", workflow)
+            self.assertNotIn("pluginDirectoryRevision", workflow)
+        # workflow_dispatch needs a branch ref, so the request runs on main.
         self.assertIn("--ref main", publisher)
-        self.assertIn("compare/${PLUGIN_DIRECTORY_REVISION}...main", publisher)
-        self.assertIn('startswith("public/api/v2/") or . == "catalog/v2/catalog.json"', publisher)
         verifier_refs = re.findall(
-            r"repository: turboism/turboism-plugin-directory\n\s+ref: ([^\n]+)",
+            r"repository: \$\{\{ env\.PLUGIN_DIRECTORY_REPOSITORY \}\}\n\s+ref: ([^\n]+)",
             publisher,
         )
-        self.assertEqual(
-            verifier_refs,
-            ["${{ env.PLUGIN_DIRECTORY_REVISION }}"],
-        )
+        self.assertEqual(verifier_refs, ["main"])
         top_permissions = re.search(
             r"(?m)^permissions:\n((?:  [^\n]+\n)+)", publisher
         )
