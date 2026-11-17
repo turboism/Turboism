@@ -234,6 +234,18 @@ class ManifestValidationTest(unittest.TestCase):
             self.assertEqual(result.stdout.strip(), f"selected={len(plugins)}")
         return result
 
+    def test_build_root_cache_jars_are_not_mistaken_for_the_artifact(self):
+        # The test runtime unpacks its JaCoCo agent under tmp/.cache/expanded. A build-root
+        # scan that recurses past libs/ reads that JAR as a second module artifact.
+        pmr = load_script()
+        build = self.tmp / "build" / self.fixture.build_id
+        cache = build / "mcp" / "tmp" / ".cache" / "expanded" / "zip_fixture"
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / "jacocoagent.jar").write_bytes(b"agent")
+        jar = pmr.find_jar(build, "mcp")
+        self.assertEqual(jar.parent.name, "libs")
+        self.assertEqual(jar.name, "mcp-0.42.0-SNAPSHOT-market-publish.jar")
+
     def test_empty_manifest_accepted(self):
         manifest = self.fixture.write_manifest([])
         result = run_script(self.tmp, "--manifest", str(manifest), "--plan")
