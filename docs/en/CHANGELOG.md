@@ -8,13 +8,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [0.70.1] - 2026-11-17
+## [0.70.1] - 2026-11-18
+
+Changes since the previous stable release, **0.67.4**. This release includes the intervening beta changes.
+
+### Added
+
+- Signed framework updates download changed files, verify signatures, and apply on the next managed launch with startup recovery.
+- The update window combines framework and plugin updates, localized release notes, download progress, and compatible plugin selection.
+- The Windows installer adds localized plugin previews and individual plugin selection. The Plugin Market adds installation counters and filters.
+- Recent Project Board adds cached thumbnails, layout controls, thumbnail deletion, and native model and animation creation commands.
+- Project Work Time tracks foreground editing sessions. A startup loading window and a product guide improve first launch.
+- Physics Settings records previews as GIF or animated PNG. Parameter Sync, Geometric Mesh Layout, and Deformer Batch Rename expand editing tools.
+- Parameter Batch Transfer can invert bindings in place. The 3D import dialog combines file selection and live preview.
+- ACP adds interactive questions, task progress, speed indicators, collapsible tools, persistent connections, session approvals, and DeepSeek Harness support.
+- Nine additional optimization hooks cover interpolation, warp grids, camera matrices, render traversal, mesh selection, scene handlers, cursors, and parameter repainting.
+- Optimization presets synchronize the available controls. Reviewed compatibility covers Cubism 5.0.00 through 5.3.04.
+- The SDK adds preview capture, host panels, mesh editing contributions, selection dialogs, foreground activity, recent-file access, and bounded UI teardown.
 
 ### Changed
 
-- Updates between Stable and Beta require a strictly higher Build number in either direction. Build order takes priority over version labels. The discovery service, signed manifest verifier, and exit-time installer enforce this rule.
-- Framework version is now `0.70.1`, so the runtime API version is `0.70.1`. The `RecentPreviewCacheService` replay contract shipped inside the `0.70.0` beta series, so a `0.70.0` beta admitted `recent-preview` 0.68.2 and then failed at enable with `NoClassDefFoundError`. Raising the base version makes the runtime API reject those plugins at discovery instead of failing them at load.
-- `recent-preview` 0.68.1 and `recent-project-board` 0.68.2 raise their `turboismApi` floor to `[0.70.1,)`, because both link `RecentPreviewCacheService$ReplayHandler` and `requestReplay()`.
+- Stable and Beta allow updates in either direction only when the target Build number strictly exceeds the installed Build number.
+- Framework API version advances to 0.70.1. Recent Preview and Recent Project Board require this API for cached-thumbnail replay.
+- Plugin discovery and updates share channel and dependency checks. Plugin Market publication operates independently from installer bundling.
+- All official plugins use open-ended minimum API ranges. The plugin template now lives in its own repository.
+- Plugin management simplifies selection actions. Performance Monitor combines heap and non-heap memory charts and removes FPS and GC pause charts.
+- Catalog verification and staging run outside the UI thread. Bounded logging and session rotation limit logging overhead.
+- Removed obsolete SDK surfaces, redundant internal hashes, and unused permission aliases. Deprecated GIF commands now use the preview capture API.
+
+### Fixed
+
+- Recent previews capture the canvas again. Newly enabled boards receive cached thumbnails without an editor restart.
+- Parameter Lock name clicks preserve native row selection. Lock clicks preserve the existing selection.
+- Framework updates recognize complete installations and accept valid catalog explanations. Refused GitHub promotion withdraws its newly admitted update feed entry.
+- Startup settlement, theme initialization, palette icons, canvas scrollbars, menus, and native dark controls behave consistently across reviewed hosts.
+- Incremental callbacks, geometry invalidation, mirrored dragging, parameter synchronization, and plugin lifecycle cleanup preserve their state boundaries.
+- Windows installation handles UAC cancellation, stale launchers, plugin checkbox state, and retained file arguments.
+
+[Full changes since 0.67.4](https://github.com/turboism/Turboism/compare/v0.67.4...v0.70.1)
 
 ## [0.70.0] - 2026-11-15
 
