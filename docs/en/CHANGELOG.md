@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `recent-project-board` places two icon-only create controls left of the header layout control: a Lucide `plus` for a new model project and a `clapperboard` for a new animation project. Both dispatch the host's native New menu commands, so the resulting dialogs are the native ones, and a control whose host command is unavailable is hidden.
+
 ## [0.70.0] - 2026-11-15
 
 ### Added
