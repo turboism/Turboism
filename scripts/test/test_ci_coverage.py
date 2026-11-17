@@ -833,6 +833,7 @@ scripts/test/test_backup_interactive_session_local.sh
 scripts/test/test_build_channels.py
 scripts/test/test_check_ast_grep.py
 scripts/test/test_check_code_quality.py
+scripts/test/test_check_doc_language.py
 scripts/test/test_check_golden_snapshots.py
 scripts/test/test_check_remote_hygiene.py
 scripts/test/test_check_sdk_cubism_annotations.py
