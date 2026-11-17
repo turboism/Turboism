@@ -233,8 +233,7 @@ public final class PluginMarketService implements AutoCloseable {
         this.managementService = Objects.requireNonNull(managementService, "managementService");
         this.cubismVersionSupplier = Objects.requireNonNull(cubismVersionSupplier, "cubismVersionSupplier");
         this.turboismApiVersion = Objects.requireNonNull(turboismApiVersion, "turboismApiVersion");
-        this.frameworkChannelSupplier =
-                Objects.requireNonNull(frameworkChannelSupplier, "frameworkChannelSupplier");
+        this.frameworkChannelSupplier = Objects.requireNonNull(frameworkChannelSupplier, "frameworkChannelSupplier");
         this.logSink = Objects.requireNonNull(logSink, "logSink");
         if (queueCapacity <= 0) {
             throw new IllegalArgumentException("queueCapacity must be positive: " + queueCapacity);

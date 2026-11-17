@@ -285,8 +285,8 @@ public final class FrameworkUpdateHelper {
                                 if (installedAuthority) {
                                     final var previous = FrameworkInstallationReceiptLoader.loadForHelper(
                                             invocation.root(), verifier);
-                                    final var context = verificationContextForInstalled(
-                                            invocation.root(), manifest, previous);
+                                    final var context =
+                                            verificationContextForInstalled(invocation.root(), manifest, previous);
                                     verifier.verify(manifestBytes, envelopeBytes, context, clock.get());
                                     final var receipt = FrameworkUpdateReceipt.prepare(
                                             invocation.root(), manifestBytes, envelopeBytes, verifier);
@@ -380,8 +380,7 @@ public final class FrameworkUpdateHelper {
                     if (installedAuthority) {
                         final var previous =
                                 FrameworkInstallationReceiptLoader.loadForHelper(invocation.root(), verifier);
-                        final var context =
-                                verificationContextForInstalled(invocation.root(), manifest, previous);
+                        final var context = verificationContextForInstalled(invocation.root(), manifest, previous);
                         verifier.verify(manifestBytes, envelopeBytes, context, clock.get());
                         final var receipt = FrameworkUpdateReceipt.prepare(
                                 invocation.root(), manifestBytes, envelopeBytes, verifier);
@@ -606,8 +605,8 @@ public final class FrameworkUpdateHelper {
             final FrameworkInstallationReceiptLoader.Evidence previous) {
         final Optional<String> preferredChannel =
                 new UpdatePreferencesStore(root).readAll().updateChannel();
-        final String expectedChannel =
-                preferredChannel.orElseGet(() -> InstalledBuild.channelFor(previous.loaded().channel()));
+        final String expectedChannel = preferredChannel.orElseGet(
+                () -> InstalledBuild.channelFor(previous.loaded().channel()));
         return new UpdateVerificationContext(
                 manifest.version(),
                 expectedChannel,

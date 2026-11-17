@@ -891,10 +891,7 @@ final class RuntimeUpdateServiceTest {
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
         final InstalledBuild installedStable = InstalledBuild.of(
-                "0.67.4",
-                UpdateDiscovery.CHANNEL_STABLE,
-                java.util.OptionalLong.of(10L),
-                "0.67.4 (stable, Build 10)");
+                "0.67.4", UpdateDiscovery.CHANNEL_STABLE, java.util.OptionalLong.of(10L), "0.67.4 (stable, Build 10)");
         final RuntimeUpdateService service = RuntimeUpdateService.channelAware(
                 home,
                 scheduler,
@@ -967,7 +964,9 @@ final class RuntimeUpdateServiceTest {
                 diagnostics::add);
         try {
             assertEquals(CoreUpdateService.CHANNEL_BETA, restarted.updateChannel());
-            assertTrue(restarted.saveUpdateChannel(CoreUpdateService.CHANNEL_STABLE).saved());
+            assertTrue(restarted
+                    .saveUpdateChannel(CoreUpdateService.CHANNEL_STABLE)
+                    .saved());
             final var olderStableCheck = restarted.checkManual();
             assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
             stableTransport.completeWithDocument(
@@ -975,7 +974,10 @@ final class RuntimeUpdateServiceTest {
                             + "\"release\":{\"version\":\"0.67.5\",\"buildNumber\":11,\"publishedAt\":\"2026-10-03T00:00:00Z\"}}");
             assertEquals(
                     CoreUpdateService.Status.UP_TO_DATE,
-                    olderStableCheck.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+                    olderStableCheck
+                            .toCompletableFuture()
+                            .get(2, TimeUnit.SECONDS)
+                            .status());
 
             final var caughtUpCheck = restarted.checkManual();
             assertTrue(stableTransport.requested.await(2, TimeUnit.SECONDS));
@@ -1012,7 +1014,8 @@ final class RuntimeUpdateServiceTest {
                     return () -> {};
                 }
             });
-            assertFalse(restarted.saveUpdateChannel(CoreUpdateService.CHANNEL_BETA).saved());
+            assertFalse(
+                    restarted.saveUpdateChannel(CoreUpdateService.CHANNEL_BETA).saved());
             assertEquals(CoreUpdateService.CHANNEL_STABLE, restarted.updateChannel());
         } finally {
             restarted.close();

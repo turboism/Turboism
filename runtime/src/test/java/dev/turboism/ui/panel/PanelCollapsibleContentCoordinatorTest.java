@@ -347,7 +347,8 @@ class PanelCollapsibleContentCoordinatorTest {
         assertTrue(findLabel(sections.get(1).getComponent(0), "B-one") != null);
         assertTrue(findLabel(sections.get(2).getComponent(0), "B-two") != null);
 
-        // An injected section is a real collapsible section: the hotspot click toggles it and the i18n labels apply (Locale.CHINESE).
+        // An injected section is a real collapsible section: the hotspot click toggles it and the i18n labels apply
+        // (Locale.CHINESE).
         JPanel injected = sections.get(1);
         assertTrue(CollapsibleSection.isExpanded(injected));
         assertEquals("收起", SwingPanelTestSupport.borderOf(injected).actionText());

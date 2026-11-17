@@ -1042,7 +1042,8 @@ final class FrameworkInstallationReceiptLoaderTest {
         final Path stableStage = helperStage(f, stableTarget);
         assertEquals(FrameworkUpdateHelper.EXIT_APPLIED, runInstalledHelper(f, stableStage));
         f.info = stableTarget.identity();
-        assertEquals(FrameworkBuildInfo.Channel.STABLE, f.loader().load().loaded().channel());
+        assertEquals(
+                FrameworkBuildInfo.Channel.STABLE, f.loader().load().loaded().channel());
     }
 
     private static final class Settings implements RuntimeSettingsService {

@@ -82,7 +82,9 @@ public final class UpdateStateStore {
     /** True when a persisted discovery document belongs to another release channel. */
     private boolean cachedChannelDiffers(final JsonNode cached) {
         final JsonNode channel = cached.get("channel");
-        return channel != null && channel.isTextual() && !parser.expectedChannel().equals(channel.textValue());
+        return channel != null
+                && channel.isTextual()
+                && !parser.expectedChannel().equals(channel.textValue());
     }
 
     /**
