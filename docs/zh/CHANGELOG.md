@@ -8,22 +8,12 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
-### 新增
-
-- 新增 `RecentPreviewCacheService.requestReplay()` 与提供方 `ReplayHandler` 契约：依赖插件可按需请求最近预览提供方重新发布已缓存缩略图，因此在插件市场实时安装或重新启用的看板无需重启 Cubism 即可显示现有预览图。
-
-### 变更
-
-- `perf-stats` 将 JVM 堆与 JVM 非堆合并为一张“内存”图表，在同一坐标轴上绘制两条曲线，并从嵌入式面板与独立性能监视器窗口中移除 FPS 与 GC 暂停图表。
-
-### 修复
-
-- 在 `recent-preview` 已运行时安装或重新启用 `recent-project-board`，看板会在启用时请求重放缓存缩略图，卡片立即显示已有预览图，而不是等到下次重启编辑器才正常。
-
 ## [0.70.0] - 2026-11-15
 
 ### 新增
 
+- 用户可在启动设置页与更新窗口中选择 Stable 或 Beta 更新通道。选择以可选字段 `updateChannel` 持久化到 `update-preferences.json`，字段缺失时仍跟随安装包通道。`RuntimeUpdateService` 按通道重新解析传输、解析器与状态存储，切换时清空上一通道的 ETag 缓存并立即重新检查，下载或应用待处理期间拒绝切换。`UpdateManifestVerifier` 仅在该用户选择存在时允许跨通道更新：同一内核由 Stable 切至 Beta 视为预发布降级，由 Beta 切至 Stable 且构建号更高视为毕业，Nightly 始终不允许。插件市场、自动更新与协同规划跟随实时通道，切换到 Beta 后立即提供预览插件版本。
+- 新增 `RecentPreviewCacheService.requestReplay()` 与提供方 `ReplayHandler` 契约：依赖插件可按需请求最近预览提供方重新发布已缓存缩略图，因此在插件市场实时安装或重新启用的看板无需重启 Cubism 即可显示现有预览图。
 - 插件市场改用与后台自动更新相同的 `PluginReleaseCompatibility` 准入规则（`stable` 仅允许 `stable`，`beta`/`nightly` 同时接受 `preview`，校验 `windows-x64` 与 `required` 依赖）。`packaging/market-plugins.json` 记录每插件 `publication` 决定（新增默认 `withheld`），暂存时自动递增版本号并将字节未变的 `preview` 插件提升至 `stable`。
 - 新增官方预览插件 `recent-project-board` 以及 `RecentFileService.open`、`PanelView.Card`/`Grid`/`Centered`/`Link` 与 `RecentPreviewCacheService`（含 `RecentPreviewDeletedEvent`、`thumbnail.deleted` 事件与 `turboism.ui.recent-preview.manage` 权限），支持滚动区外固定垂直居中标题栏布局切换（6 列/3 列/详情）、空状态新建项目与新建动画链接、卡片垃圾桶图标按项删除缓存缩略图，以及优先使用编辑器原生离屏模型渲染缩略图（失败或无模型时回退组件截图）。
 - 新增官方 `project-work-time` 插件及共享运行时前台计时器（`CubismFacade.isEditorForeground()`、`activity()`、`CubismActivityChangedEvent` 与 `ProjectWorkTimeService`），仅在工程打开且 Cubism 位于前台时统计当前会话与跨会话累计工时。
@@ -36,6 +26,7 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
+- `perf-stats` 将 JVM 堆与 JVM 非堆合并为一张“内存”图表，在同一坐标轴上绘制两条曲线，并从嵌入式面板与独立性能监视器窗口中移除 FPS 与 GC 暂停图表。
 - 插件管理底部拆分为靠右对齐的获取与选择两行，移除过时的“待办变更”及多余“关闭”按钮；`PanelView.Centered` 允许单维为 0 以保持子节点自然尺寸。
 - 将插件模板拆分为独立仓库 `turboism/turboism-plugin-template`。
 
@@ -51,6 +42,8 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 修复
 
+- 在 `recent-preview` 已运行时安装或重新启用 `recent-project-board`，看板会在启用时请求重放缓存缩略图，卡片立即显示已有预览图，而不是等到下次重启编辑器才正常。
+- 被拒绝的 GitHub 发布现在会撤回刚刚登记的框架更新源条目，更新源因此不会再宣传一个 GitHub Release 并不存在的更新；发布流程还会在自身工作流头与候选源不一致时报告该情况，这正是 GitHub 拒绝 `GITHUB_TOKEN` 写入标签与 Release 的条件。
 - 为运行时外壳启动增加独立超时并将完成结算移至专用通道，防止主题管理器阻塞与周期刷新在首次超预算后停止；消除 ArtMesh 镜像拖拽等热路径反射与分配抖动，并补全启动字幕回退字体解析。
 - 修复最近工程看板悬停/按下反馈、列表行样式、原生侧轨遮挡、`Bitmask Nesting` 名称一致性、最近工程预览弹窗高度贴合内容，以及点击垃圾桶后原地清空缩略图而不丢失最近工程条目。
 - 修复画布滚动条主题键值、按屏幕显示比例（100%–200%）选取原生面板图标、`AcpChatWindow` 的 `MultiUIDefaults` 外观解析（保留全局 `JComboBox` 主题）、恢复设置中隐藏的启动复选框并将导出目录开关移至运行时页、修复安装器部署 `LICENSE.txt` 以匹配签名引导收据清单，以及自更新中非重定向 Wine 挂载边界检查。
