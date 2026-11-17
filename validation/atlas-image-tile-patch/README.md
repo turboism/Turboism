@@ -154,7 +154,8 @@ constant pools), so the scene driver gained two opt-in diagnostics:
 
 - `menuDump` (`TURBOISM_ATLAS_IMAGE_SHADOW_MENU_DUMP=true`): bounded read-only
   JMenuBar enumeration → `run/menu-tree.txt`. Confirmed the real path:
-  `文件 → 导出运行时文件 → 导出为moc3文件...` (indices `0 → 0.0.9 → 0.0.9.0.0`).
+  the native export path `File -> Export Runtime Files -> Export as moc3...`
+  (indices `0 → 0.0.9 → 0.0.9.0.0`).
 - `exportProbe` (`TURBOISM_ATLAS_IMAGE_SHADOW_EXPORT_PROBE=true`): clicks that
   item via the host's own menu selection path, captures the dialog it raises,
   dumps the component tree to `run/export-dialog.txt`, then dismisses it with

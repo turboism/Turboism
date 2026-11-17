@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
 # Lane A: Turboism Windows release payload assembly.
 #
-# 用法: assemble-release.sh <version> [--skip-nsis]
+# Usage: assemble-release.sh <version> [--skip-nsis]
 #
-# 流程:
-#   1. Gradle 组装共享 payload（stageInstallerPayload，与 Java 安装器同源：
-#      turboism-agent.jar、plugins/<module>.jar、config.template.json、
-#      启动器、README.txt / README.zh.txt / README.ja.txt、LICENSE.txt）
-#   2. 按 packaging/release-plugins.txt（唯一权威）读取获批插件模块，校验
-#      staging 严格一致后生成 plugin-sections.nsh
-#   3. 产出 turboism-<ver>.zip + .sha256
-#      （zip 内容与历史版本一致：config.json 由 config.template.json 生成，
-#       Java 安装器专属文件 config.template.json/README.java-installer.txt/
-#       uninstall.command 不进入 zip）
-#   4. makensis 构建 TurboismInstaller-<ver>.exe + .sha256（--skip-nsis 跳过）
+# Flow:
+#   1. Gradle assembles the shared payload through stageInstallerPayload, the same source the
+#      Java installer reads: turboism-agent.jar, plugins/<module>.jar, config.template.json,
+#      the launcher, README.txt / README.zh.txt / README.ja.txt, and LICENSE.txt.
+#   2. The approved plugin modules come from packaging/release-plugins.txt, the single authority,
+#      and plugin-sections.nsh is generated after the staging tree matches it exactly.
+#   3. The step writes turboism-<ver>.zip and .sha256. The zip content matches earlier versions:
+#      config.json comes from config.template.json, and the Java-installer-only files
+#      config.template.json, README.java-installer.txt, and uninstall.command stay out of the zip.
+#   4. makensis builds TurboismInstaller-<ver>.exe and .sha256, which --skip-nsis skips.
 #
-# 产物目录: build/windows-installer/<ver>/  (staging/ 与 dist/)
+# Product directory: build/windows-installer/<ver>/ holding staging/ and dist/.
 #
-# 签名流程（Stable/Beta 的可选自更新发布）：受保护的签名 job 已拿到上一次完整打包的
-# staging/dist 与签名后的 bootstrap 文档，只重跑打包而不跑 Gradle：
-#   assemble-release.sh <ver> --skip-gradle --bootstrap-receipt-dir <已签名文档目录>
-# 此时已发布的开发者构件（event-processor）从现有 dist 复制保留，SDK JAR 取自 staging，
-# 因此候选的 8 个 GitHub 资产契约与 SDK/事件构件字节都不变，只更新 ZIP/EXE（含 docs）。
+# Signing flow of an optional Stable or Beta self-update release: the protected signing job
+# already holds the staging and dist of the last complete packaging plus the signed bootstrap
+# documents, so it re-runs the packaging without Gradle:
+#   assemble-release.sh <ver> --skip-gradle --bootstrap-receipt-dir <signed-document-directory>
+# The published developer artifact, event-processor, is copied from the existing dist and the SDK
+# JAR comes from staging, so the 8 GitHub asset contracts and the SDK and event artifact bytes stay
+# unchanged and only the ZIP and EXE, with docs, change.
 
 set -euo pipefail
 
@@ -38,7 +39,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --skip-gradle)
-      # 仅在受保护签名 job 内使用：复用已上传的 staging/dist，不跑 Gradle。
+      # Protected signing job only: reuse the uploaded staging and dist and run no Gradle.
       SKIP_GRADLE=1
       shift
       ;;
@@ -75,12 +76,12 @@ pkg_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$pkg_dir/../.." && pwd)"
 cd "$repo_root"
 
-# 固定路径：installer.nsi 的缺省 STAGING_DIR/OUT_DIR 与此一致，支持独立 makensis 编译
+# Fixed paths that match the default STAGING_DIR and OUT_DIR of installer.nsi, so a standalone makensis build works
 stage="$repo_root/build/windows-installer/staging"
 dist="$repo_root/build/windows-installer/dist"
 generated="$repo_root/build/windows-installer/generated"
 
-# ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
+# ---------- 1. Gradle assembles the shared payload for the Java installer, NSIS, and ZIP ----------
 if [[ "$SKIP_GRADLE" == "1" ]]; then
   echo "[assemble] --skip-gradle: 复用现有 staging/dist，不调用 Gradle"
 else
@@ -102,8 +103,9 @@ if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
   exit 1
 fi
 mkdir -p "$dist" "$generated"
-# 签名重打包时不再有 Gradle 构建目录：只复用已通过校验的上一步候选 dist 里的开发者构件。
-# 普通构建绝不回退到旧 dist，否则本应先失败的“构件缺失”会被掩盖。
+# A signing repack has no Gradle build directory, so it reuses the developer artifact of the
+# verified previous candidate dist only. An ordinary build never falls back to an old dist,
+# because that would hide a missing artifact that should fail first.
 preserved_event_processor=""
 if [[ "$SKIP_GRADLE" == "1" && -f "$dist/turboism-event-processor-$VER.jar" && ! -L "$dist/turboism-event-processor-$VER.jar" ]]; then
   mkdir -p "$generated/previous"
@@ -113,7 +115,7 @@ fi
 # Reassembly must not leak obsolete full/thin assets into the new exact roster.
 find "$dist" -maxdepth 1 -type f -delete
 
-# ---------- 3. 生成插件 Section 与安装前 JAR 校验清单 ----------
+# ---------- 3. Generate the plugin sections and the pre-install JAR checksum list ----------
 python3 - "$stage" "$pkg_dir/plugin-sections.nsh" "$repo_root/packaging/release-plugins.txt" "$generated" <<'PYEOF'
 """按 release-plugins.txt（唯一权威）生成 NSIS 插件 Section，并校验 staging 与清单严格一致。
 
@@ -456,9 +458,10 @@ for entry in engine_entries:
             or hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]):
         sys.exit(f"error: staged optional script engine differs from the download pin: {path.name}")
 
-# script-engine.json 是手工清单：与 Gradle 生成的 verification-metadata.xml
-# 一致性此前无机制保证。此处强制每个钉住工件都能在 Gradle 校验元数据中找到
-# 同名 artifact 且 sha256 相同 —— 手工清单漂移即组装失败。
+# script-engine.json is a hand-maintained list, and nothing previously guaranteed that it agreed
+# with the Gradle-generated verification-metadata.xml. This step requires every pinned artifact to
+# appear in the Gradle verification metadata under the same name and the same sha256, so a drift
+# in the hand-maintained list fails the assembly.
 import xml.etree.ElementTree as _ET
 _verification = Path(os.environ.get(
     "TURBOISM_VERIFICATION_METADATA",
@@ -530,7 +533,8 @@ lines.append("; 由 assemble-release.sh 按 release-plugins.txt 权威清单生�
 lines.append("; 标准安装器携带全部第一方插件 JAR。")
 lines.append("")
 
-# 每项永久载荷都先按目标 SHA-256 生成计划；NSIS 只把缺失或变更项解压到私有临时目录。
+# Every permanent payload builds a plan from its target SHA-256 first, and NSIS extracts only a
+# missing or changed item into a private temporary directory.
 def append_extractor(target, function_name, payload, plan_name, temporary_name):
     target.append(f"Function {function_name}")
     for index, (relative, path) in enumerate(payload):
@@ -557,9 +561,10 @@ append_extractor(
     NSIS_UTF8_BOM + nsis_compile_source("\n".join(extract_lines) + "\n").encode("utf-8")
 )
 
-# 隐藏载荷 Section：标准安装器携带全部插件 JAR。
-# 先按用户在插件选择页的勾选写入 .skip 标记，再用内嵌 SHA-256 清单生成计划，
-# 仅解压并安装用户勾选且需要替换的条目；写入前仍校验源和目标。
+# Hidden payload section: the standard installer carries every plugin JAR.
+# It writes the .skip markers from the plugin selection page first, then builds the plan from the
+# embedded SHA-256 list, and it extracts and installs only the selected item that needs replacing.
+# The source and the target are still verified before the write.
 lines.append('Section "-插件载荷" SecPluginPayload')
 lines.append("  Call WritePluginSelectionSkipMarkers")
 lines.append("  nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\" -PlanOnly'")
@@ -594,7 +599,7 @@ for index in range(len(plugins)):
     lines.append(f"Var PluginState_{index}")
 lines.append("")
 
-# 插件四语言显示名/描述（均来自插件自身 i18n 资源）
+# Four-language plugin display name and description, all from the plugin i18n resources
 for p in plugins:
     key = sanitize(p["id"])
     for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE"), ("kor", "LANG_KOREAN")):
@@ -731,7 +736,7 @@ lines.append(f'  StrCpy $bundledPluginIds "{";".join(p["id"] for p in plugins)}"
 lines.append("FunctionEnd")
 lines.append("")
 
-# 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留。
+# Uninstall allowlist: it deletes only the plugin JARs the installer deployed and keeps an unknown file and a third-party JAR.
 lines.append("; 卸载白名单：仅删除安装器部署的插件 JAR；未知文件与第三方 JAR 保留。")
 lines.append("Function un.DeleteInstallerPluginJars")
 for module in modules:
@@ -740,7 +745,7 @@ lines.append("FunctionEnd")
 lines.append("")
 
 content = "\n".join(lines) + "\n"
-# NSIS Unicode 模式：UTF-8 源文件需带 BOM
+# NSIS Unicode mode needs a BOM on a UTF-8 source file
 out.write_bytes(NSIS_UTF8_BOM + content.encode("utf-8"))
 (generated / NSIS_PLUGIN_SOURCE).write_bytes(NSIS_UTF8_BOM + nsis_compile_source(content).encode("utf-8"))
 installer_source = (manifest.parent / NSIS_INSTALLER_DIRECTORY / NSIS_INSTALLER_SOURCE).read_text(encoding="utf-8-sig")
@@ -752,7 +757,7 @@ for p in plugins:
     print(f"  {p['id']} | {p['name']} | {p['version']}")
 PYEOF
 
-# ---------- 3.5 校验与规范化 Bootstrap Receipt 输入（ZIP 与 NSIS 共享） ----------
+# ---------- 3.5 Validate and normalize the Bootstrap Receipt input shared by the ZIP and NSIS ----------
 bootstrap_bundle_dir=""
 if [[ -n "$BOOTSTRAP_RECEIPT_DIR" ]]; then
   if [[ ! -d "$BOOTSTRAP_RECEIPT_DIR" ]]; then
@@ -776,8 +781,9 @@ if [[ -n "$BOOTSTRAP_RECEIPT_DIR" ]]; then
 fi
 
 # ---------- 4. ZIP + sha256 ----------
-# 使用 python3 zipfile（避免依赖 zip CLI）。
-# 标准 ZIP 携带获批插件及完整 GraalJS 离线依赖。config.json 由共享 payload 的 config.template.json 生成；
+# Uses the python3 zipfile module, so no zip CLI is needed.
+# The standard ZIP carries the approved plugins and the complete offline GraalJS dependency. Its
+# config.json comes from config.template.json of the shared payload;
 # Java 安装器专属文件（config.template.json、README.java-installer.txt、
 # uninstall.command）不进入 Windows zip。
 zip_dir() {
@@ -823,9 +829,10 @@ PYEOF
 
 zip_dir "$stage" "$dist/turboism-$VER.zip" "$bootstrap_bundle_dir"
 
-# ---------- 4.5 SDK 与注解处理器开发构件 ----------
-# 独立的插件开发构件：sdk jar 与发行载荷内 graal/lib 同源同字节，
-# event-processor jar 由同次发布构建产出，以稳定文件名挂到 GitHub Release，供外部插件工程直接消费。
+# ---------- 4.5 SDK and annotation-processor developer artifacts ----------
+# The standalone plugin development artifacts: the sdk jar shares the exact bytes of graal/lib in
+# the release payload, and the event-processor jar comes from the same release build. Both attach
+# to the GitHub Release under a stable file name, so an external plugin project consumes them directly.
 mapfile -t sdk_jars < <(find "$stage/graal/lib" -maxdepth 1 -type f -name 'sdk-*.jar' | LC_ALL=C sort)
 if [[ ${#sdk_jars[@]} -ne 1 || "$(basename "${sdk_jars[0]}")" != "sdk-$VER.jar" ]]; then
   echo "error: expected exactly one staged SDK JAR named sdk-$VER.jar under $stage/graal/lib" >&2
@@ -834,7 +841,7 @@ fi
 cp "${sdk_jars[0]}" "$dist/turboism-sdk-$VER.jar"
 
 if [[ "$SKIP_GRADLE" == "1" ]]; then
-  # 只接受上一步候选 dist 里的同一字节，即使本地存在另一份同版本 build/worktree 构件也不用。
+  # Accepts only the exact bytes of the previous candidate dist, even when another build/worktree artifact of the same version exists locally.
   if [[ -z "$preserved_event_processor" || ! -f "$preserved_event_processor" ]]; then
     echo "error: --skip-gradle requires the verified event-processor JAR already published in $dist" >&2
     exit 1
@@ -850,7 +857,7 @@ else
   cp "$event_processor_jar" "$dist/turboism-event-processor-$VER.jar"
 fi
 
-# sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
+# The sidecar records the bare file name only, so a download verifies with `sha256sum -c *.sha256` in the asset directory.
 (
   cd "$dist"
   sha256sum "turboism-$VER.zip" > "turboism-$VER.zip.sha256"
@@ -867,13 +874,13 @@ else
     exit 1
   fi
   # NSIS 的 LicenseLangString 依赖 BOM 才能可靠按 UTF-8 解析 license 文本；
-  # 无 BOM 的 UTF-8 中文会在非 UTF-8 ACP 下乱码。仅为 makensis 生成带 BOM 的
-  # EULA 副本，源文件（Java 安装器/ZIP 使用的无 BOM 版本）保持字节不变。
+  # UTF-8 Chinese without a BOM garbles under a non-UTF-8 ACP. Only makensis reads a BOM copy of
+  # the EULA, and the source file, the BOM-free version the Java installer and ZIP use, keeps its bytes.
   mkdir -p "$generated/eula"
   for lang in en zh-Hans ja ko; do
     { printf '\xef\xbb\xbf'; cat "$repo_root/packaging/eula/EULA.$lang.txt"; } > "$generated/eula/EULA.$lang.txt"
   done
-  # VIProductVersion 需要纯数字 x.y.z.w；无法从 VER 推导时跳过版本资源
+  # VIProductVersion needs a numeric x.y.z.w, so a version that cannot be derived from VER skips the version resource
   ver_numeric=""
   if [[ "$VER" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(\.([0-9]+))?$ ]]; then
     ver_numeric="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.${BASH_REMATCH[5]:-0}"

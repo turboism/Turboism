@@ -29,8 +29,8 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 33 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
-# 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），增加 frame-animation-import。
+# The frozen 33-item approval list, which is the regression oracle: an added, removed, reordered, or newly public excluded module fails.
+# Item 2 was renamed from "backup" to "webdav-backup" with the plugin rename, and frame-animation-import was added.
 EXPECTED_PATHS = [
     ":plugins:acp",
     ":plugins:artmesh-mirror",
@@ -68,7 +68,7 @@ EXPECTED_PATHS = [
     ":plugins:warp-deformer-alt-symmetry",
     ":plugins:webdav-backup",
 ]
-# 三个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
+# The three public excluded modules must stay absent from the list and from every release payload and selection surface, which is the regression oracle
 EXCLUDED = {"demo", "parameter", "project-inspector"}
 
 
@@ -100,8 +100,9 @@ def load_manifest():
     return modules
 
 
-# 独立合成 fixture：三对 id/module 仅用于镜像 NSIS config 合并与载荷 Section 语义，
-# 不派生自真实插件清单 —— Gradle 模块名不是插件 id 的通用约定。真实捆绑 id 由
+# A standalone synthetic fixture whose three id and module pairs mirror the NSIS config merge and
+# the payload section semantics only. It never derives from the real plugin list, because a Gradle
+# module name is no general convention for a plugin id. The real bundled ids come from
 # verify-installer.py 与 assemble-release.sh 从各 JAR 的 plugin.json 读取校验。
 BUNDLED = [
     ("dev.turboism.plugin.alpha", "plugin-alpha"),
@@ -120,11 +121,12 @@ RETIRED_IDS = [
     # superseded official id (webdav-backup rename), not a fake
     "dev.turboism.plugin.backup",
 ]
-# "backup" 是 webdav-backup 改名前的旧模块/旧交付名，升级后 plugins/backup.jar 必须
-# 消失（真实机制按内嵌旧 id 删除，此处按文件名镜像同一结果）。
+# "backup" is the old module and delivery name of webdav-backup before the rename, so
+# plugins/backup.jar must disappear after an upgrade. The real mechanism deletes by the embedded
+# old id, and this check mirrors the same result by file name.
 RETIRED_MODULES = ["backup", "clip-mask", "log-filter", "perf-opt", "render-opt"]
 
-REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
+REAL_MODULES = load_manifest()  # Regression oracle: a manifest drift, an addition, a removal, a reorder, or a placeholder regression fails
 
 
 
@@ -470,8 +472,8 @@ def check_nsis_retirement_contract():
           "function Remove-TurboismRetiredPlugins" in common
           and "META-INF/turboism/plugin.json" in common)
 
-    # 退休 id 的唯一权威是 packaging/retired-plugins.txt：两份脚本与两个 Java
-    # 站点都必须改为引用它，清单内容即冻结回归集。
+    # packaging/retired-plugins.txt is the single authority for a retired id. Both scripts and both
+    # Java sites must reference it, and the list content is the frozen regression set.
     retired_manifest = MANIFEST_PATH.parent / "retired-plugins.txt"
     raw = retired_manifest.read_text(encoding="utf-8").splitlines()
     bad = [l for l in raw
@@ -714,8 +716,9 @@ def check_managed_graal_installer_contract():
           and "${NSD_OnBack} GraalInstallBack" in graal_create
           and "EnableWindow $GraalInstallNext 0" in graal_create)
     service = (INSTALLER_NSI.parents[2] / "runtime/src/main/java/dev/turboism/graal/ManagedGraalRuntimeService.java").read_text(encoding="utf-8")
-    # 钉值单一源：packaging/managed-graal.json。两份消费者（PS1 按文件名、
-    # Java 按打包资源路径）必须引用它；清单内容与冻结回归集一致。
+    # packaging/managed-graal.json is the single source of the pinned value. Both consumers, the
+    # PS1 by file name and Java by packaged resource path, must reference it, and the list content
+    # matches the frozen regression set.
     graal_manifest = json.loads((MANIFEST_PATH.parent / "managed-graal.json").read_text(encoding="utf-8"))
     graal_pin = graal_manifest["platforms"]["windows-x64"]
     check("GI5 托管 Graal 钉值清单内容固定",
@@ -735,7 +738,7 @@ def check_managed_graal_installer_contract():
           '"/META-INF/turboism/managed-graal.json"' in service
           and "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip" not in service
           and "341_299_924" not in service and "341299924" not in service)
-    # 接口常量和构建版本目录必须与清单一致，构建脚本必须读取该目录。
+    # The interface constants and the build version directory must agree with the list, and the build script must read that directory.
     jvm_settings = (INSTALLER_NSI.parents[2] / "core/contract/src/main/java/dev/turboism/internal/core/CubismJvmSettingsService.java").read_text(encoding="utf-8")
     graal_build = (INSTALLER_NSI.parents[2] / "graal-host/build.gradle.kts").read_text(encoding="utf-8")
     catalog_graal = re.search(
@@ -1552,8 +1555,9 @@ def check_uninstall_config_option():
               for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and "UnDeleteConfigLabel" not in text
           and "$unDeleteConfig" not in text)
-    # 用户文档必须与卸载确认页的真实语义一致：复选框标签是「保留 config.json」
-    # 且默认勾选；此前 en/zh/ja 模板反向描述成「删除」，与实现相反。
+    # The user documentation must match the real semantics of the uninstall confirmation page: the
+    # checkbox label keeps config.json and is checked by default. The en/zh/ja templates previously
+    # described a deletion, the opposite of the implementation.
     readme_dir = INSTALLER_NSI.parent
     readme_semantics = (
         ("README.en.txt.template", "\"Keep config.json (user configuration)\"", "Also delete config.json"),
@@ -1602,9 +1606,10 @@ def check_uninstall_postcondition():
     check("U4 删除精确安装基线名 LICENSE.txt 与旧版 LICENSE 残留",
           lic_txt is not None and lic_legacy is not None and lic_txt < lic_legacy)
 
-    # U5: plugins 目录白名单删除 —— 与 IzPack 卸载器同语义：仅删安装器部署的
-    # JAR（生成的 un.DeleteInstallerPluginJars），未知文件与第三方 JAR 保留，
-    # 目录仅在为空时移除。禁止恢复 RMDir /r。
+    # U5: the plugins directory uses an allowlist delete with the same semantics as the IzPack
+    # uninstaller. It deletes only the JARs the installer deployed, which the generated
+    # un.DeleteInstallerPluginJars names, keeps an unknown file and a third-party JAR, and removes
+    # the directory only when it is empty. Restoring RMDir /r is forbidden.
     generated = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
     check("U5 plugins 目录禁止递归强删",
           not any('RMDir /r "$INSTDIR\\plugins"' in t for t in texts))
@@ -1621,7 +1626,7 @@ def check_uninstall_postcondition():
 def main():
     a, b, c = BUNDLED_IDS
 
-    # T1: Full、全选、无既有配置 → 模板（无 disabledPlugins）
+    # T1: Full with every plugin selected and no existing config yields the template without disabledPlugins
     out = installer_write_config("full", [], None)
     doc = json.loads(out)
     check("T1 模板字段", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
@@ -1630,16 +1635,16 @@ def main():
           and doc["guide"] == {"showOnStartup": True})
     check("T1 无 disabledPlugins", "disabledPlugins" not in doc)
 
-    # T2: Full、未勾选 2 个、无既有配置 → 升序写出
+    # T2: Full with 2 plugins unselected and no existing config writes the list in ascending order
     out = installer_write_config("full", [c, a], None)
     doc = json.loads(out)
     check("T2 升序", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
-    # T2b: JSON 数组形状 —— 前后缀无多余引号，项恰好一次引号、以 "," 分隔
+    # T2b: the JSON array shape holds no extra quote around the brackets, quotes each item once, and separates items with ",
     expected_fragment = '"disabledPlugins":["' + a + '","' + c + '"]'
     check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
-    # T10: 引导状态必须跨安装器升级保留 —— 丢失后“只看一次”的引导会再次弹出。
+    # T10: the onboarding state must survive an installer upgrade, because a lost state shows the once-only onboarding again.
     current_guide = ('{"format":"turboism.runtime.config","schemaVersion":1,'
                      '"worktreeId":"guide-test","disabledPlugins":[],'
                      '"guide":{"showOnStartup":false}}')
@@ -1684,7 +1689,7 @@ def main():
     check("T3c unchecked acp is disabled", doc["disabledPlugins"] == [ACP_ID],
           str(doc.get("disabledPlugins")))
 
-    # T4: Thin 更新保留用户既有 disabledPlugins，同时保留无关禁用项和其他字段。
+    # T4: a Thin update keeps the existing disabledPlugins and also keeps an unrelated disabled entry and the other fields.
     out = installer_write_config("thin", [], existing)
     doc = json.loads(out)
     check("T4 Thin 更新保留用户既有 disabledPlugins",
@@ -1713,14 +1718,14 @@ def main():
           str(doc.get("disabledPlugins")))
     check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
-    # T7: 未知字段在归一化时被丢弃而不是失败关闭。
+    # T7: normalization drops an unknown field instead of failing closed.
     out = installer_write_config("full", [], '{"legacyUnknown":true}')
     doc = json.loads(out)
     check("T7 未知字段被丢弃并归一化为 v1",
           "legacyUnknown" not in doc and doc["schemaVersion"] == 1
           and doc["format"] == "turboism.runtime.config")
 
-    # T8: 未来/非法 schemaVersion 归一化到当前版本而非拒绝安装。
+    # T8: a future or illegal schemaVersion normalizes to the current version instead of refusing the installation.
     out = installer_write_config("full", [],
                                  '{"format":"turboism.runtime.config","schemaVersion":2,'
                                  '"worktreeId":"future-test","futureField":true}')
@@ -1738,7 +1743,7 @@ def main():
         check("T8 schemaVersion " + label + " token 归一化",
               doc["schemaVersion"] == 1 and doc["worktreeId"] == "token-test")
 
-    # T8b: 只有显式声明其他产品 format 的文档仍失败关闭。
+    # T8b: only a document that explicitly declares another product format still fails closed.
     try:
         installer_write_config("full", [],
                                '{"format":"other.runtime.config","schemaVersion":1}')
@@ -1746,7 +1751,7 @@ def main():
     except ValueError:
         check("T8b foreign format 失败关闭", True)
 
-    # T9: current v1 未知字段与非法已知值都归一化：合法值携带，其余丢弃。
+    # T9: a current v1 document normalizes both an unknown field and an illegal known value, so a legal value carries over and the rest is dropped.
     invalid_current = ('{"format":"turboism.runtime.config","schemaVersion":1,'
                        '"worktreeId":"current-test","futureCurrentField":true,'
                        '"logLevel":"DEBUG"}')
@@ -1773,7 +1778,7 @@ def main():
             ok = field not in doc
         check("T9 非法" + label + "被丢弃并归一化", ok and doc["schemaVersion"] == 1)
 
-    # T9b: 归一化覆盖既有 config.json 时保留单份归一化前镜像；current v1 与全新安装不产生镜像。
+    # T9b: a normalization that overwrites an existing config.json keeps one pre-normalization mirror, while a current v1 document and a fresh install produce none.
     out, backup = installer_write_config_with_backup("full", [a], invalid_current)
     check("T9b 归一化保留归一化前镜像",
           backup == invalid_current and "futureCurrentField" not in out)
@@ -1784,8 +1789,8 @@ def main():
     out, backup = installer_write_config_with_backup("full", [], None)
     check("T9b 全新安装不产生镜像", backup is None)
 
-    # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
-    # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]
+    # ---- Plugin payload inventory simulation of the hidden payload section and the checkbox semantics ----
+    # TI1: a fresh partial Full install with {a, c} unselected installs every JAR and writes disabledPlugins=[a,c]
     jars = nsis_jars_after("full", [])
     check("TI1 Full 安装全部 JAR", jars == BUNDLED_MODULES, str(jars))
     out = installer_write_config("full", [a, c], None)
@@ -1815,7 +1820,7 @@ def main():
     doc = json.loads(out)
     check("TI3 Thin 全新无 disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [], str(doc.get("disabledPlugins")))
 
-    # TI4: Full→Thin 不写新 JAR 且原样保留 plugins/ 插件，保留用户既有 disabledPlugins。
+    # TI4: Full to Thin writes no new JAR, keeps the plugins directory unchanged, and keeps the existing disabledPlugins.
     jars = nsis_jars_after("thin", BUNDLED_MODULES)
     check("TI4 Full→Thin 不写新 JAR（当前旧 JAR 原样留盘）", jars == BUNDLED_MODULES, str(jars))
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
@@ -1825,7 +1830,7 @@ def main():
     doc = json.loads(out)
     check("TI4 Full→Thin 保留用户既有 disabledPlugins", doc["disabledPlugins"] == [a])
 
-    # TI5: NSIS 升级：Thin 升级不删插件；Full 升级退休历史模块并铺设全量。
+    # TI5: in an NSIS upgrade, a Thin upgrade deletes no plugin, and a Full upgrade retires the historical module and lays down the full set.
     jars = nsis_jars_after("thin", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
     check("TI5 Thin 升级保留全部既有插件 JAR（包含未知与第三方 JAR）",
           jars == sorted(RETIRED_MODULES + BUNDLED_MODULES + ["third-party"]), str(jars))

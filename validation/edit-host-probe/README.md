@@ -1,5 +1,5 @@
 # edit-host-probe
 
-编辑流程（edit host）综合探针。
+Composite probe for the edit host flow.
 
-运行：`./build.sh` 编译。需要真实 Cubism Editor 宿主。
+Run `./build.sh` to compile. A real Cubism Editor host is required.

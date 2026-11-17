@@ -88,7 +88,7 @@ class RuntimeUiHostPanelActivationTest {
         try {
             assertEquals(1, coordinator.injectedSections(panel).size());
         } finally {
-            // 兜底清理共享内容表，避免断言失败时污染其他用例。
+            // Cleans the shared content table so a failed assertion cannot pollute another case.
             registration.close();
         }
         assertTrue(coordinator.injectedSections(panel).isEmpty());

@@ -305,7 +305,7 @@ class WindowsWorkspaceValidationProbeTest {
                 true,
                 Optional.of(new DocumentSnapshot(
                         "doc-123",
-                        "测试 混合模式.cmo3",
+                        "mixed-mode fixture.cmo3",
                         "fixture.cmo3",
                         Optional.empty(),
                         Optional.of(new ModelSnapshot(
@@ -316,7 +316,7 @@ class WindowsWorkspaceValidationProbeTest {
         assertEquals("OK", result.status());
         assertLine(result, "hostPresent=true");
         assertLine(result, "documentId=" + WindowsWorkspaceValidationProbe.encodeValue("doc-123"));
-        assertLine(result, "documentName=" + WindowsWorkspaceValidationProbe.encodeValue("测试 混合模式.cmo3"));
+        assertLine(result, "documentName=" + WindowsWorkspaceValidationProbe.encodeValue("mixed-mode fixture.cmo3"));
         assertLine(result, "modelPresent=true");
         assertLine(result, "modelId=" + WindowsWorkspaceValidationProbe.encodeValue("model-1"));
         assertLine(result, "activeModelPresent=true");

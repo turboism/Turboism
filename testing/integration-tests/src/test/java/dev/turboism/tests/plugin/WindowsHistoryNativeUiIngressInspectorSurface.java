@@ -49,7 +49,7 @@ final class WindowsHistoryNativeUiIngressInspectorSurface {
     static String openPalette(final String[] itemMarkers, final java.util.function.Supplier<Boolean> realized)
             throws Exception {
         final StringBuilder diag = new StringBuilder(320);
-        // Palettes dock as tabs — the ui-map shows a 参数 tab (com.live2d.ui.swingImpl.K) in
+        // Palettes dock as tabs — the ui-map shows a parameter tab (com.live2d.ui.swingImpl.K) in
         // the right dock's tab bar. A real press on the tab realizes the palette.
         final java.awt.Robot robot = new java.awt.Robot();
         for (int attempt = 0; attempt < 6; attempt++) {

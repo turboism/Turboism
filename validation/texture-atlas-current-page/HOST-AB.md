@@ -1,125 +1,125 @@
-# Circle：原生 / 新单页实现的真实入口 A/B
+# Circle: Real-Entry A/B of the Native and New Single-Page Implementations
 
-## 已验证的结论
+## Verified Conclusion
 
-在本机隔离 Cubism 5.3.03 / GE-Proton10-34 环境中，Circle 四档模型均完成 **40 次真实自动排版调用**（原生 20、新实现 20），共 160 次。
+In the local isolated Cubism 5.3.03 / GE-Proton10-34 environment, all four Circle tiers completed **40 real automatic layout calls** each (20 native, 20 new), 160 in total.
 
-每个实现舍弃最初 4 次作为预热，保留 16 次。下面是同一方法入口到返回的热样本中位数，包含切换后首次调用和连续调用各 8 次：
+Each implementation discards the first 4 runs as warm-up and keeps 16. The table below is the median of the hot samples from the same method entry to return, with 8 consecutive calls and 8 post-switch calls per implementation:
 
-| 当前页输入数 | 页尺寸 | 原生中位数 ms | 新实现中位数 ms | 原生 / 新实现 |
+| Current-page inputs | Page size | Native median ms | New median ms | Native / new |
 |---:|---|---:|---:|---:|
 | 100 | 4096² | 101.49 | 71.76 | **1.41×** |
 | 500 | 4096² | 722.79 | 88.33 | **8.18×** |
 | 1000 | 8192² | 2287.37 | 107.31 | **21.32×** |
 | 2500 | 8192² | 13896.44 | 176.00 | **78.96×** |
 
-**这是四个具体样本、此测试环境、此调用边界下的测量，不是所有模型、整段 UI 操作或 legacy 的性能保证。** 两侧全放入、无 overflow、最终 scale=1；布局位置与 margin 启发式并不逐像素相同。
+**This is a measurement of four concrete samples in this test environment under this call boundary, not a performance guarantee for every model, for a whole UI operation, or for legacy.** Both sides placed everything with no overflow and a final scale of 1; the placement positions and the margin heuristic are not pixel-identical.
 
-## 为什么不能只拿“最漂亮”的中位数
+## Why the Prettiest Median Is Not Enough
 
-试测发现切换算法后的第一次调用存在明显额外耗时。原因尚未归因；可能涉及切换后初始化/配置处理或 UI/调度活动，不能直接认定是某一生产模块的缺陷。
+A trial run found a clear extra cost on the first call after the algorithm switch. The cause is not yet attributed; it may involve post-switch initialization or configuration handling, or UI and scheduling activity, and it cannot be declared a defect of one production module.
 
-为了不让两峰分布的样本数量差一条就大幅改变中位数，正式批次固定为每种实现 **8 条连续调用 + 8 条切换后调用**。完整记录包括慢例和预热，不按速度剔除。
+So that a one-sample difference between the two peak distributions cannot swing the median, the formal batch fixed **8 consecutive calls plus 8 post-switch calls** per implementation. The full record includes the slow cases and the warm-up, and nothing is filtered out by speed.
 
-连续使用同一算法的子集（每种实现 8 条，供参考，不替代上面的混合口径）：
+The subset that keeps using the same algorithm (8 samples per implementation, for reference only and no replacement for the mixed definition above):
 
-| 输入数 | 原生 ms | 新实现 ms | 比值 |
+| Inputs | Native ms | New ms | Ratio |
 |---:|---:|---:|---:|
 | 100 | 26.69 | 8.12 | 3.29× |
 | 500 | 639.55 | 21.40 | 29.88× |
 | 1000 | 2183.67 | 39.48 | 55.32× |
 | 2500 | 13741.50 | 88.19 | 155.82× |
 
-混合热样本 P95（nearest-rank；n=16 时实际就是最大值）：
+Mixed hot-sample P95 (nearest rank; with n=16 this is the maximum):
 
-| 输入数 | 原生 ms | 新实现 ms |
+| Inputs | Native ms | New ms |
 |---:|---:|---:|
 | 100 | 182.64 | 176.78 |
 | 500 | 945.12 | 176.50 |
 | 1000 | 2752.28 | 227.35 |
 | 2500 | 22256.79 | 910.76 |
 
-这说明不能从新算法的几毫秒计划日志直接推导 UI 响应延迟；小样本切换后的尾延迟仍明显，大样本也存在慢例。
+This shows that a few milliseconds of plan log from the new algorithm cannot be turned directly into a UI response latency: the post-switch tail latency is still visible on small samples, and the large samples also hold slow cases.
 
-## 输入与正确性检查
+## Input and Correctness Checks
 
-- 使用原生自动排版对话框：网格模式、margin=3、自动倍率、允许旋转，new 的 parallel 关闭。
-- 原生输入数由实际 invocation 读取，不用 PSD 图层数冒充。
-- 每次下一轮前调用纹理编辑器自身的“复原”，不是重用上一次已排好的状态。
-- **每档 40 次输入哈希完全相同**：包含页尺寸、native settings、DATA_SCALE、输入顺序、原始 rect、item transform（正常入口为 null）及对应可视 LayerRef transform。
-- 原生选择必须观测到 production ingress 返回 false 并正常返回；新选择必须观测到 handled=true，且整个精确方法正常返回 true。
-- 每次检查所有放入对象的矩阵有限、变换后矩形不越页、互不重叠，item 与对应可视 LayerRef 矩阵差 <1e-6。
-- 每档各实现的 **20 次输出哈希也分别完全相同**。两种实现彼此不同是正常的，并未要求位置一致。
-- 所有结果 scale=1、全部放入。没有“新实现偷偷缩小/少放图”换速度。
-- 所有任务结束时模型副本仍与源文件哈希相同（本轮不保存），记录的源模型和原安装 JAR/BAT 哈希未变；测试进程与自有显示已清理。
+- The run used the native automatic layout dialog: mesh mode, margin=3, automatic scale, rotation allowed, with parallel off for the new implementation.
+- The native input count came from the real invocation, never from the PSD layer count.
+- Before each next round the run called the texture editor's own undo instead of reusing the previous laid-out state.
+- **All 40 input hashes per tier were identical**: page size, native settings, DATA_SCALE, input order, original rects, item transforms (null on the normal entry), and the matching visible LayerRef transforms.
+- The native selection had to observe the production ingress returning false and then returning normally; the new selection had to observe handled=true and the whole exact method returning true.
+- Every run checked that all placed matrices are finite, that the transformed rectangles stay inside the page and do not overlap, and that an item differs from its visible LayerRef matrix by less than 1e-6.
+- **The 20 output hashes per implementation and tier were also identical.** The two implementations differ from each other, which is expected, and no position equality was required.
+- Every result had scale=1 and placed everything. No run bought speed with a silent shrink or by placing fewer images.
+- At the end of every task the model copy still matched the source hash (nothing was saved this round), the recorded source model and original installation JAR and BAT hashes were unchanged, and the test processes and the dedicated display were cleaned up.
 
-检查仅覆盖此入口可见的 items/LayerRefs/页数据，不等同于完整模型其他页、Undo 历史记录或保存重开的全状态验证。
+The checks cover only the items, LayerRefs, and page data visible through this entry point; they are not a full-state verification of other pages of the model, the undo history, or save and reopen.
 
-### margin 语义差异保留
+### Margin Semantics Difference Kept
 
-按变换后原始矩形计算，最小轴向相邻间隙 / 最小页边距如下（px；不在计时区间计算）：
+Computed from the transformed original rectangles, the minimum axial neighbour gap and the minimum page margin are below (px, computed outside the timing interval):
 
-| 输入数 | 原生间隙 / 页边距 | 新实现间隙 / 页边距 |
+| Inputs | Native gap / margin | New gap / margin |
 |---:|---:|---:|
 | 100 | 2 / 9 | 6 / 3 |
 | 500 | 6 / 11 | 6 / 3 |
 | 1000 | 4 / 10 | 6 / 3 |
 | 2500 | 6 / 11 | 6 / 3 |
 
-两侧使用同一个 margin=3 UI 参数，但原生缓冲启发式不等于新实现的每侧固定 3px 整数 margin；不能宣传“逐像素相同质量/相同位置”。本批次的可比目标限定为同一输入、同一页、比例1全部放入且矩形无重叠/越界。密集自动缩放时必须重新比较质量，不能外推上述加速比。
+Both sides used the same margin=3 UI parameter, but the native buffer heuristic is not the fixed 3 px integer margin per side of the new implementation, so "pixel-identical quality" or "identical positions" must not be advertised. The comparable goal of this batch is limited to the same input, the same page, scale 1 with everything placed, and rectangle overlap and bounds checks. A dense automatic-scale case must compare quality again, and the speedups above cannot be extrapolated to it.
 
-## 计时边界与探针
+## Timing Boundary and Probe
 
-验证专用 `HostTimingProbe.java` 在生产 transformer 注册后，对精确方法
+After the production transformer registers, the verification-only `HostTimingProbe.java` inserts one outer timer on the exact method
 
 ```text
 com/live2d/cubism/doc/modeling/ui/atlasEditor/a/c.a
 (Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/a/c$c;)Z
 ```
 
-插入同一个外层计时器。输入反射快照发生在计时开始前；返回时首先读取 nanoTime，之后才执行输出快照、几何检查、哈希和落盘。原生与新实现均覆盖从该方法入口到返回的计算与桥接处理。两侧有相同的探针成本，但外部快照可能改变缓存/GC 状态；这是被探测环境下的 A/B，不是零扰动 profiler 结论。
+The input reflection snapshot happens before the timer starts; on return the probe reads nanoTime first and only then runs the output snapshot, the geometry checks, the hashing, and the write. Both native and new cover the computation and bridging from that method entry to return. Both sides carry the same probe cost, but the external snapshots may change cache and GC state; this is an A/B inside a probed environment, not a zero-disturbance profiler conclusion.
 
-通过委托包装现有 production ingress Predicate 记录 handled/native，不替换 planner、不绕开生产注册、不重实现原生算法。出现错误、未知分支、输入哈希不同或结果缺失时拒绝生成 PASS。
+A delegating wrapper over the existing production ingress Predicate records handled or native without replacing the planner, bypassing the production registration, or reimplementing the native algorithm. An error, an unknown branch, a differing input hash, or a missing result refuses a PASS.
 
-此边界 **不包含调用该函数前的原生输入构造、函数返回后的纹理生成/完整 UI 刷新**。不能与 `planMs` 或鼠标点击到屏幕刷新耗时混比。每档一次独立 JVM 启动；没有完成三次独立冷进程基准。
+This boundary **excludes the native input construction before the call and the texture generation and full UI refresh after the return**. It cannot be compared with `planMs` or with the time from mouse click to screen refresh. Each tier used one separate JVM start; three independent cold-process baselines were not completed.
 
-验证 UI agent、计时 agent、Python 控制程序均位于 validation，未加入任何生产 Gradle 产物。
+The validation UI agent, the timing agent, and the Python controller all live in validation and enter no production Gradle artifact.
 
-## 环境、证据与复现
+## Environment, Evidence, and Reproduction
 
-环境与安装来源限制沿用 [HOST-SMOKE.md](HOST-SMOKE.md)：Intel i7-9750H、本机 Wine/Proton、Java 17.0.3.1、Xvfb :97 / llvmpipe、独立 CoW prefix 和模型副本。核心 JAR SHA-256 固定为 `bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166`；不认证整套现有安装为纯净官方发行版。
+The environment and installation provenance limits follow [HOST-SMOKE.md](HOST-SMOKE.md): Intel i7-9750H, local Wine and Proton, Java 17.0.3.1, Xvfb :97 with llvmpipe, an isolated CoW prefix, and a model copy. The core JAR SHA-256 is pinned to `bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166`; the whole existing installation is not certified as a clean official distribution.
 
-正式批次（原始证据仅本机 build 目录，未提交模型/连接元数据）：
+Formal batches (raw evidence in local build directories only; no model or connection metadata committed):
 
 - `build/texture-ab-100-1zsyf9ck/`
 - `build/texture-ab-500-ixu8qybo/`
 - `build/texture-ab-1000-v7xn3b3o/`
 - `build/texture-ab-2500-afvp_if1/`
 
-每个目录的 `evidence/` 包含 `timing-001..040.json`、对话框快照、来源/构建哈希、samples、PASS 状态与 cleanup 记录。`home/logs/runtime/` 保留生产日志。
+The `evidence/` directory of each holds `timing-001..040.json`, the dialog snapshot, the source and build hashes, the samples, the PASS state, and the cleanup record. `home/logs/runtime/` keeps the production logs.
 
-仓库内可审阅的摘要：
+Reviewable summaries in the repository:
 
-- [host-ab-samples.csv](host-ab-samples.csv)：全部160条、预热标记、切换类型、原始证据 SHA-256、输入/输出哈希。
-- [host-ab-summary.json](host-ab-summary.json)：各组 n / 中位数 / P95 / 比值。
-- `summarize-host-ab.py` 重新读取40条原始结果核对分支、哈希、几何和质量后才导出摘要。
+- [host-ab-samples.csv](host-ab-samples.csv): all 160 rows with the warm-up flag, the switch type, the raw evidence SHA-256, and the input and output hashes.
+- [host-ab-summary.json](host-ab-summary.json): n, median, P95, and ratio per group.
+- `summarize-host-ab.py` re-reads the 40 raw results and verifies the branch, the hashes, the geometry, and the quality before it exports a summary.
 
 ```bash
 ./gradlew :bootstrap:jar :plugins:atlas-maxrects-bssf:jar :plugins:mcp:jar
 python3 validation/texture-atlas-current-page/run-host-ab.py --layers 100 --rounds 20
-# 分别以 500、1000、2500 重跑；必须串行（独占 :97，并拒绝已有 Wine 会话）。
+# Repeat with 500, 1000, and 2500; the runs must be serial (own :97 and refuse an existing Wine session).
 python3 validation/texture-atlas-current-page/summarize-host-ab.py \
   build/texture-ab-100-1zsyf9ck build/texture-ab-500-ixu8qybo \
   build/texture-ab-1000-v7xn3b3o build/texture-ab-2500-afvp_if1
 ```
 
-较早试测不混入正式批次：第一版计时探针对正常 null item transform 处理错误已修正；另一次2500档在第30次后因撤销后按钮暂时 disabled 中断，控制程序改为有界等待后，四档完整重跑全部通过。失败证据仍在对应 build 目录，不计为性能退化，也不伪称失败批次通过。
+Earlier trials stay out of the formal batch: the first timing probe mishandled the normal null item transform and was fixed; another 2500 run stopped after run 30 because the undo left the button temporarily disabled, and after the controller gained a bounded wait all four tiers were re-run and passed. The failure evidence stays in its build directory, is not counted as a performance regression, and no failed batch is passed off as a pass.
 
-## 未完成项
+## Open Items
 
-- legacy 的同入口、同输入、同质量实机比较；此前的离线 kernel 数据不能替代。
-- 密集页、固定倍率、旋转与parallel的完整矩阵和多页不变性；后续500图/1024²的部分功能验证已完成，见 [HOST-DENSE.md](HOST-DENSE.md)，不混入本基准。
-- 保存关闭重开、完整模型状态验证。
-- 上述切换相关延迟的根因与是否值得优化。
+- A legacy same-entry, same-input, same-quality host comparison; the earlier offline kernel data cannot replace it.
+- The complete matrix of dense pages, fixed scale, rotation, and parallel plus multi-page invariance; the later partial functional verification of 500 images at 1024² is in [HOST-DENSE.md](HOST-DENSE.md) and is not mixed into this baseline.
+- Save, close, and reopen, and full model state verification.
+- The root cause of the switch-related latency above and whether it deserves optimization.
 
-因此目前可以确认“生产代码生效，四个 Circle 全放入场景比本机原生快”，还不能确认“所有场景不慢于 legacy”或宣布完整实机验收结束。
+The current evidence therefore confirms that the production code takes effect and that four fully placed Circle scenarios are faster than native on this machine; it cannot confirm that every scenario is no slower than legacy, and it does not declare the complete host acceptance finished.

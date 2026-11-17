@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** 离线执行探针断言；不调用 init，不启动宿主或后台线程。 */
+/** Runs the probe assertions offline; it calls no init and starts no host or background thread. */
 public final class SeparateSavePathProbeTest {
     private static final Path PROJECT = Path.of("separate-save-path/project-saves");
     private static final Path EXPORT = Path.of("separate-save-path/export-saves");
@@ -20,14 +20,14 @@ public final class SeparateSavePathProbeTest {
     public static void main(String[] args) throws Exception {
         Path root = Path.of(args[0]);
         seededHistory = Files.readString(Path.of(args[1]));
-        check(run(root.resolve("readonly"), new History("readonly"), "seeded"), true, "只读服务与预置持久化");
+        check(run(root.resolve("readonly"), new History("readonly"), "seeded"), true, "read-only service with seeded persistence");
         for (String mode : List.of("writable", "noop", "project-writable", "export-writable", "provider-writable",
                 "unavailable", "wrong-project", "wrong-export", "wrong-flag", "throws-read")) {
             check(run(root.resolve(mode), new History(mode), "seeded"), false, mode);
         }
-        check(run(root.resolve("missing"), new History("readonly"), "missing"), false, "缺少持久化文件");
-        check(run(root.resolve("wrong-store"), new History("readonly"), "wrong-store"), false, "持久化与读取不一致");
-        check(run(root.resolve("global"), new History("readonly"), "global"), false, "旧全局配置未迁移");
+        check(run(root.resolve("missing"), new History("readonly"), "missing"), false, "persistence file is missing");
+        check(run(root.resolve("wrong-store"), new History("readonly"), "wrong-store"), false, "persistence and read disagree");
+        check(run(root.resolve("global"), new History("readonly"), "global"), false, "old global configuration was not migrated");
         System.out.println("PASS: separate-save-path probe offline contract (14 cases)");
     }
 

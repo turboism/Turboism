@@ -1,120 +1,74 @@
-# Windows 启动租约与原生恢复验收：2026-11-01
+# Windows Launch Lease and Native Recovery Acceptance: 2026-11-01
 
-本记录补充 `HANDOFF.zh-CN.md` 中旧机器的历史状态。此次验收使用当前 Windows 工作区，
-只继续 `local/w2-validation-fixes` / `test/issue-50-windows-validation-fixes`，没有合入 main。
-**本地恢复链路的通过不代表生产自更新已经就绪。**
+This record supplements the historical state of the older machine in `HANDOFF.zh-CN.md`. This acceptance used the current Windows workspace and continued only `local/w2-validation-fixes` and `test/issue-50-windows-validation-fixes`, without merging into main. **A passing local recovery chain does not mean production self-update is ready.**
 
-## 受检构建与隔离环境
+## Build Under Test and Isolated Environment
 
-- 受检源码基于 `bae2f34863d92d0f52804876f8f1ccdb0b7e1bdb`，验收时包含本轮未提交修改。
-- 构建：`gradlew.bat stageInstallerPayload -PinstallerVersion=0.68.1 -PturboismRelease=true --console=plain`。
-  构建和 agent 许可证检查通过；该参数选择包格式，不赋予 CI 身份。
-- 包内实际身份：`version=0.68.1`、`channel=stable`、`buildKind=local`、`dirty=true`、`buildNumber=`。
-- agent SHA256：`3be137ab0cd5df1ff6b973938328e8b70e77eaca8e01caf9de973d9b941e8143`。
-- agent 内没有 `framework-update-client.json` 或 `framework-update-trusted-keys.json` 激活/信任资源。
-- Cubism：`F:\Live2D\Live2D Cubism 5.3.02`，使用内置 Java `17.0.3.1`，没有打开模型。
-- 实验 home（相对仓库）：`build/native/issue50-host/managed-recovery-flash-20261101-092216/home`。
-  由现有 `LabHomeGuard` 标记并限制在仓库的实验目录内。
-- 32 个实际插件 JAR；MCP 和 ACP 在实验配置中明确禁用，避免端口/依赖冲突。因此
-  **30 loaded / 0 failures 指 30 个启用插件，不是 32 个全部启用的验收**。
-- 框架自动检查、插件自动更新关闭；配置基线在这些实验设置完成后建立。
-- 日志、JSON、截图在 `build/native/issue50-validation/managed-recovery-flash-20261101-092216/`。
-  此目录被 git 忽略，复制仓库不会自动带走证据。
+- The source under test is based on `bae2f34863d92d0f52804876f8f1ccdb0b7e1bdb` and carried this round's uncommitted changes at acceptance time.
+- Build: `gradlew.bat stageInstallerPayload -PinstallerVersion=0.68.1 -PturboismRelease=true --console=plain`. The build and the agent licence check passed; that argument selects the package format and grants no CI identity.
+- Real packaged identity: `version=0.68.1`, `channel=stable`, `buildKind=local`, `dirty=true`, `buildNumber=`.
+- agent SHA256: `3be137ab0cd5df1ff6b973938328e8b70e77eaca8e01caf9de973d9b941e8143`.
+- The agent holds no `framework-update-client.json` or `framework-update-trusted-keys.json` activation or trust resource.
+- Cubism: `F:\Live2D\Live2D Cubism 5.3.02` with the bundled Java `17.0.3.1`, no model open.
+- Experiment home (repository-relative): `build/native/issue50-host/managed-recovery-flash-20261101-092216/home`. It is marked by the existing `LabHomeGuard` and confined to the repository experiment directory.
+- 32 real plugin JARs; MCP and ACP are explicitly disabled in the experiment configuration to avoid port and dependency conflicts. So **30 loaded / 0 failures means 30 enabled plugins, not an acceptance of all 32 enabled**.
+- Framework auto-check and plugin auto-update are off; the configuration baseline was taken after these experiment settings.
+- Logs, JSON, and screenshots are in `build/native/issue50-validation/managed-recovery-flash-20261101-092216/`. Git ignores that directory, and copying the repository does not carry the evidence.
 
-## 真实 Cubism 恢复与原生确认
+## Real Cubism Recovery and Native Confirmation
 
-1. 现有 `HostRecoveryFixture seed` 暂存 Clip Mask Viewer、Command Palette 的实际 0.68.1 JAR，
-   故意破坏最后一份暂存包；`HostRollbackFixture` 建立 README-only 组件事务，并保留独立 helper 副本。
-   组件夹具仅在自身 JVM 内使用临时签名密钥，agent 原样复用，不注入客户端信任资源。
-2. 第一次受控启动：launcher **40700**，Cubism JVM **37020**。真实启动恢复全部 32 个插件 JAR 原哈希，
-   `pending.json` 停用为 `failed-pending.json`；30 个启用插件加载成功，0 失败。
-   框架日志保留 `STARTING_HEALTH`，明确输出 `UPDATE_STARTUP_NOT_CONFIRMED: PLUGIN_PENDING_ROLLED_BACK`。
-   premain 将该启动的 `LAUNCHING` 转成绑定实际 JVM PID/启动时间的 `USING`。
-3. 首个 JVM 存活时调用独立 helper 的 `--recover`，实际返回 **75/BUSY**，日志字节不变，JVM 仍存活。
-   `HostRecoveryFixture blocked` 同时确认框架恢复日志存在时，API 拒绝取消插件待办。
-   这一项是 API 证据，不冒称原生按钮阻断已验证。
-4. 仅向本轮无模型的实验实例发送正常关闭请求，确认 JVM 和 launcher 均退出，没有强杀。
-5. 第二次受控启动：launcher **35264**，JVM **25632**。保留的 helper 在 Cubism 前输出
-   `RECOVERED: rolled back interrupted update from state STARTING_HEALTH`。
-   README 恢复原哈希，框架日志清除，旧 JVM 的租约回收，32 个插件、agent、实验配置哈希仍一致。
-   失败插件任务保持停用；真实运行时输出 `PLUGIN_PENDING_REVIEW_REQUIRED`，再次 30 loaded / 0 failures。
-6. 在真实 Cubism 中打开 Turboism → 管理插件 → “待办变更…”。以绑定实验 PID/窗口的 Windows
-   定向键盘事件操作实际 Swing 控件，并逐步截图核对；没有注入服务、调用取消夹具或修改进程内字节码。
-   前台鼠标操作因 Windows 焦点限制未执行，不能将这些尝试当成鼠标验收。
-   对话框标题和 owner 均核对，只列出上述两项失败任务，恰有“取消列出的变更”和“保留待办”两个选项。
-7. 默认选中“保留待办”。激活默认按钮后，失败任务原始 SHA256 保持
-   `85b701b905bfdc7a9189ce286b09872deff200ab4a7ab87cce20be48c810bc34`。
-   原生窗口显示“已保留插件待办。”。
-8. 关闭/重新打开插件管理，再次打开同一确认窗口，明确将焦点移到“取消列出的变更”并激活。
-   失败任务和两份独占暂存包被清理；活动插件任务仍不存在；全部 32 个插件、配置、agent、README
-   保持预期原字节。此步骤是实际原生控件确认，不是 standalone API 调用替代。
-9. 正常关闭第二个空白实验实例后，使用现有 `restage` 重新提交两份未损坏的同版本插件。
-   第三次受控启动：launcher **38120**，JVM **35328**；真实插件应用成功，30 loaded / 0 failures。
-   安装器将两个模块文件名规范化为对应插件 ID 文件名，32 个插件内容哈希保持一致，没有留下重复旧 JAR。
-   框架/插件活动任务及失败任务均不存在。这是同版本本地重装重试，不是下载或正式版本升级证据。
-10. 保持第三个 JVM 运行，在无更新待办的同一 home 再启动第四个实例：launcher **25000**，JVM **41040**。
-    两个真实 JVM 同时存在，各有不同 token、PID、启动时间的 `USING`，各自均为 30 loaded / 0 failures。
-    独立 helper 的 `--recover` 仍返回 **75/BUSY**。普通多实例启动未被错误阻断。
-11. 核对两个窗口仍无模型后，分别发送正常关闭请求，确认两个 JVM 及两个 launcher 全部退出。
-    几乎同时退出时，一次 release 因事务锁竞争返回 **74** 并发出保守清理警告；没有强杀或放宽锁。
-    随后正常 `--recover` 返回 **10/NOTHING**，回收两个已死进程的 `USING`，租约目录为空。
-    最终所有本轮实验 Cubism 均已停止，恢复/活动/失败任务均为空。
+1. The existing `HostRecoveryFixture seed` staged the real 0.68.1 JARs of Clip Mask Viewer and Command Palette and deliberately corrupted the last staged package; `HostRollbackFixture` built a README-only component transaction and kept a separate helper copy. The component fixture uses a temporary signing key inside its own JVM only, reuses the agent unchanged, and injects no client trust resource.
+2. First controlled launch: launcher **40700**, Cubism JVM **37020**. The real startup restored the original hashes of all 32 plugin JARs and deactivated `pending.json` into `failed-pending.json`; 30 enabled plugins loaded with 0 failures. The framework log kept `STARTING_HEALTH` and explicitly printed `UPDATE_STARTUP_NOT_CONFIRMED: PLUGIN_PENDING_ROLLED_BACK`. premain turned that launch's `LAUNCHING` into a `USING` bound to the real JVM PID and start time.
+3. While the first JVM was alive, the separate helper `--recover` really returned **75/BUSY**, the log bytes were unchanged, and the JVM stayed alive. `HostRecoveryFixture blocked` also confirmed that the API refuses to cancel a plugin pending task while the framework recovery log exists. That is API evidence and does not claim the native button block was verified.
+4. Only this round's model-free experiment instance received a normal close request, which confirmed that both the JVM and the launcher exited, with no force kill.
+5. Second controlled launch: launcher **35264**, JVM **25632**. The retained helper printed `RECOVERED: rolled back interrupted update from state STARTING_HEALTH` before Cubism started. The README was restored to its original hash, the framework log was cleared, the lease of the old JVM was reclaimed, and the 32 plugins, the agent, and the experiment configuration hashes stayed identical. The failed plugin task stayed deactivated; the real runtime printed `PLUGIN_PENDING_REVIEW_REQUIRED` and again reported 30 loaded / 0 failures.
+6. Inside the real Cubism the run opened Turboism, then manage plugins, then "pending changes...". It operated the real Swing controls with Windows directed keyboard events bound to the experiment PID and window and checked each step with screenshots; it injected no service, called no cancel fixture, and modified no in-process bytecode. Foreground mouse operation was not executed because of Windows focus limits, and those attempts are not counted as mouse acceptance. The dialog title and owner were verified, and it listed exactly the two failed tasks with exactly the two options "cancel the listed changes" and "keep pending".
+7. "Keep pending" is selected by default. Activating the default button kept the original SHA256 of the failed task at `85b701b905bfdc7a9189ce286b09872deff200ab4a7ab87cce20be48c810bc34`. The native window showed "plugin pending changes kept".
+8. After closing and reopening plugin management and opening the same confirmation window again, the run explicitly moved focus to "cancel the listed changes" and activated it. The failed task and both exclusive staged packages were cleaned up; no active plugin task remained; all 32 plugins, the configuration, the agent, and the README kept their expected original bytes. This step is real native control confirmation, not a substitute for a standalone API call.
+9. After the second blank experiment instance closed normally, the existing `restage` resubmitted the two intact same-version plugins. Third controlled launch: launcher **38120**, JVM **35328**; the real plugin apply succeeded with 30 loaded / 0 failures. The installer normalized the two module file names into the file names of the matching plugin IDs, the content hashes of the 32 plugins stayed consistent, and no duplicate old JAR remained. Neither framework nor plugin active or failed tasks existed. This is a same-version local reinstall retry, not download or official version upgrade evidence.
+10. With the third JVM still running, a fourth instance started in the same home with no pending update: launcher **25000**, JVM **41040**. Two real JVMs coexisted, each with its own `USING` carrying a different token, PID, and start time, and each with 30 loaded / 0 failures. The separate helper `--recover` still returned **75/BUSY**. An ordinary multi-instance launch was not wrongly blocked.
+11. After confirming that neither window held a model, both received a normal close request, which confirmed that both JVMs and both launchers exited. Because they exited almost simultaneously, one release hit a transaction lock race and returned **74** with a conservative cleanup warning; nothing was force-killed and no lock was relaxed. A normal `--recover` then returned **10/NOTHING**, reclaimed the `USING` of both dead processes, and left the lease directory empty. In the end every experiment Cubism of this round had stopped, and the recovery, active, and failed tasks were all empty.
 
-关键证据文件：
+Key evidence files:
 
-- `05-first-launch-verification.json`、`06-live-helper-refusal.log`、`13-framework-cancel-blocked.log`
-- `16-second-launch-verification.json`、`25-native-review-44239744.png`
-- `27-native-keep-result.json`、`43-cancel-focused-44305280.png`、`46-native-cancel-verification.json`
-- `48-valid-restage.log`、`49-third-launch.stdout.log`、`50-valid-retry-verification.json`
-- `51-concurrent-launch.stdout.log`、`52-two-live-leases.json`、`52-two-live-helper-refusal.log`
-- `53-after-exit-reap.log`、`final-verification.json`、`source-sha256.json`
+- `05-first-launch-verification.json`, `06-live-helper-refusal.log`, `13-framework-cancel-blocked.log`
+- `16-second-launch-verification.json`, `25-native-review-44239744.png`
+- `27-native-keep-result.json`, `43-cancel-focused-44305280.png`, `46-native-cancel-verification.json`
+- `48-valid-restage.log`, `49-third-launch.stdout.log`, `50-valid-retry-verification.json`
+- `51-concurrent-launch.stdout.log`, `52-two-live-leases.json`, `52-two-live-helper-refusal.log`
+- `53-after-exit-reap.log`, `final-verification.json`, `source-sha256.json`
 
-## 中文路径与脚本回归
+## Localized Path and Script Regression
 
-此前中文路径红灯是真实缺陷。最小对照证明 CMD 按控制台**输出代码页**解析 BAT；
-`Console.OutputEncoding` 的缓存会在 `chcp` 后给出过期值。现在读取实时 `GetConsoleOutputCP()`，
-按该编码写临时 BAT，并明确区分原官方 ANSI BAT 与本次生成的中间 BAT 的读取编码。
-Java override 路径含空格时，临时副本中的 `%JAVA_EXE%` 调用也加了引号。官方 BAT 没有被编辑。
+The earlier red result on a localized path was a real defect. A minimal comparison proved that CMD parses a BAT with the **output code page of the console**, and that the `Console.OutputEncoding` cache returns a stale value after `chcp`. The launcher now reads the live `GetConsoleOutputCP()`, writes the temporary BAT in that encoding, and clearly separates the read encoding of the original official ANSI BAT from that of the intermediate BAT it generates. When the Java override path contains a space, the `%JAVA_EXE%` call in the temporary copy is quoted as well. The official BAT is never edited.
 
-`cn-diag-v2-*` 保留 CP936、CP65001、输入936/输出65001 三组独立隐藏控制台对照，包含
-Java override → managed options 的两段串接。原生 argv 以显式 UTF-8 文件中的 UTF-16 hex 记录，
-逐参数比较；旧 ANSI 变体可重现失败，当前变体通过。不能用控制台显示乱码替代 argv 正确性判断。
+`cn-diag-v2-*` keeps three independent hidden-console comparisons for CP936, CP65001, and input 936 with output 65001, including the two-stage chaining from the Java override to the managed options. The native argv is recorded as UTF-16 hex inside an explicit UTF-8 file and compared argument by argument; the old ANSI variant reproduces the failure and the current variant passes. A garbled console display is never used as a substitute for argv correctness.
 
-| 检查 | 实际结果 |
+| Check | Actual result |
 | --- | --- |
-| PowerShell 5.1 `test-launch-lease.ps1` | 101 assertions PASS；含中文/空格两段串接及官方 BAT 哈希不变 |
-| `test-managed-launch.ps1` | 196 assertions PASS；输出代码页 65001 下也通过 |
-| `test-bat-integration.ps1` / proxy | 89 assertions PASS / PASS；均是隔离夹具 |
-| Bootstrap receipt Python | 15 tests PASS，最终日志无 `UnicodeDecodeError` |
-| CI coverage | `python -X utf8 scripts/test/test_ci_coverage.py` PASS；默认 GBK 的直接调用会解码失败 |
-| 本地 installer staging / agent licenses | PASS |
+| PowerShell 5.1 `test-launch-lease.ps1` | 101 assertions PASS, including both the localized and the spaced two-stage chaining and an unchanged official BAT hash |
+| `test-managed-launch.ps1` | 196 assertions PASS, also under output code page 65001 |
+| `test-bat-integration.ps1` and proxy | 89 assertions PASS / PASS, both isolated fixtures |
+| Bootstrap receipt Python | 15 tests PASS, and the final log holds no `UnicodeDecodeError` |
+| CI coverage | `python -X utf8 scripts/test/test_ci_coverage.py` PASS; a direct call under the default GBK fails to decode |
+| Local installer staging and agent licences | PASS |
 | `git diff --check` | PASS |
 
-最终脚本日志为 `lease-final-gate.log`、`managed-launch-final-gate.log`、
-`bootstrap-receipt-final-gate.log`、`bat-integration-final-gate.log`、`proxy-final-gate.log`。
-脚本中的 mock Java/host 不算真实 JVM 证据；真实宿主证据见前一节。
+The final script logs are `lease-final-gate.log`, `managed-launch-final-gate.log`, `bootstrap-receipt-final-gate.log`, `bat-integration-final-gate.log`, and `proxy-final-gate.log`. A mock Java or host inside a script is no real JVM evidence; the real host evidence is in the previous section.
 
-## Java 与环境限制
+## Java and Environment Limits
 
-- 整合运行：runtime **564 tests / 5 failures / 0 errors / 10 skips**；5 项均在
-  `Files.createSymbolicLink` 因本机权限不足失败（receipt 3 项、downloader 2 项）。整组没有通过。
-- 最后补充的晚期 BUSY 回归独立重跑后，`FrameworkUpdateLaunchLeaseTest` **31/31**；真实子进程
-  `FrameworkUpdateLaunchLeaseProcessTest` 在整合运行 **8/8**。
-- Bootstrap **251 tests / 0 failures / 30 skips**；真实打包 agent 的 premain probe 和依赖隔离 probe 均通过。
-- Core-contract 保留 **33/33** 的既有 XML；整合日志显示 `UP-TO-DATE`，不称本次重跑。
-- receipt ACL 新回归及原失败用例合计 **8/8**；W2 native 仍为 **22 PASS / 3 NOT_RUN / 0 FAIL**，
-  不算完整 W2 通过。缺符号链接权限和无法赋予 foreign owner 的覆盖没有被伪造成通过。
-- Bootstrap 格式检查通过；runtime 格式检查仍有 **39 个既有文件**失败，本次没有批量格式化它们。
+- Integrated run: runtime **564 tests / 5 failures / 0 errors / 10 skips**; all 5 failed in `Files.createSymbolicLink` because of insufficient local permission (3 in receipt, 2 in downloader). The whole group did not pass.
+- After the late BUSY regression added last was re-run separately, `FrameworkUpdateLaunchLeaseTest` reported **31/31**; the real child-process `FrameworkUpdateLaunchLeaseProcessTest` reported **8/8** in the integrated run.
+- Bootstrap **251 tests / 0 failures / 30 skips**; the premain probe of the real packaged agent and the dependency isolation probe both passed.
+- Core-contract kept its existing **33/33** XML; the integrated log showed `UP-TO-DATE`, which is not claimed as a re-run here.
+- The new receipt ACL regression plus the originally failing cases totalled **8/8**; W2 native stayed at **22 PASS / 3 NOT_RUN / 0 FAIL**, which is not a complete W2 pass. The missing symlink permission and the coverage that needs a foreign owner were never forged into a pass.
+- The Bootstrap format check passed; the runtime format check still fails on **39 existing files**, which this round did not reformat in bulk.
 
-Java 原始日志/XML：`flash-integrated-java.log`、`flash-integrated-evidence/`、
-`flash-final-lease-format.log`；真实 premain 证据在 `build/worktree/macho-hyena/bootstrap/launch-lease-premain/`。
+Java raw logs and XML: `flash-integrated-java.log`, `flash-integrated-evidence/`, `flash-final-lease-format.log`; the real premain evidence is in `build/worktree/macho-hyena/bootstrap/launch-lease-premain/`.
 
-## 尚未完成的边界
+## Boundaries Not Yet Covered
 
-没有正式 CI 发布的完整框架下载/签名应用/连续两次版本升级，没有生产服务部署、正式签名、公钥配置或激活。
-README-only 事务不证明 framework/SDK/Graal 字节码升级。插件和框架日志不是一个全局原子事务。
-旧 retained helper 不支持新启动 token 协议时仍拒绝启动并提示完整包恢复，未实现自动迁移。
-legacy/direct launch 在 premain 注册之前仍有窗口；本次托管启动结果不能推广为所有入口的原子保证。
-物理断电、完整 Windows handle/TOCTOU 防护、NSIS EXE 安装及 Linux/Proton 仍未获本轮证据。
+There is no official CI-released complete framework download, signature apply, or two consecutive version upgrades, and no production service deployment, production signing, public key configuration, or activation. A README-only transaction proves no framework, SDK, or Graal bytecode upgrade. The plugin and framework logs are not one global atomic transaction. An old retained helper that does not support the new launch token protocol still refuses to start and asks for a complete package recovery, and no automatic migration exists. A legacy or direct launch still has a window before premain registers; the managed launch result of this round cannot be generalized into an atomic guarantee for every entry point. A physical power loss, complete Windows handle and TOCTOU protection, the NSIS EXE installation, and Linux or Proton still have no evidence from this round.
 
-本次未恢复任何 DeepSeek V4 Pro 代理；既有 Flash 代理完成最后源码修复后已空闲。
+This round restored no DeepSeek V4 Pro agent; the existing Flash agent went idle after it finished the last source fix.

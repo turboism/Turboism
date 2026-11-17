@@ -1,51 +1,51 @@
-# 插件功能图标
+# Plugin Feature Icons
 
-Turboism 框架和第一方插件嵌入 Cubism 原生界面的自绘功能图标，在右下角统一使用紫色方形白色 `T` 标记，表示功能由 Turboism 第一方提供。保留主体轮廓及按钮状态，避免用户把这些入口当成原生功能。
+The self-drawn feature icons that the Turboism framework and the first-party plugins embed in the native Cubism interface carry one purple square with a white `T` at the bottom right, which marks the feature as first-party Turboism. The body outline and the button states stay unchanged, so a user never mistakes these entries for a native feature.
 
-**使用范围：此标记仅用于 Turboism 框架和第一方插件。第三方插件不使用此标记；接入 Turboism SDK、上架插件商店或兼容框架均不代表第一方身份。** 生成脚本是仓库内部的第一方素材工具，不作为自动标注第三方插件的规则。
+**Scope: this mark belongs to the Turboism framework and the first-party plugins only. A third-party plugin never uses the mark; adopting the Turboism SDK, listing in the plugin store, or being compatible with the framework grants no first-party identity.** The generator is an internal first-party asset tool and is no rule for marking a third-party plugin automatically.
 
-- 标记宽度约为资源宽度的 28%，至少 7px；距右边和下边约为资源宽度的 1/32。
-- 浅色描边使标记在深浅按钮背景上均可辨认；字形同时提供颜色以外的识别线索。
-- 默认、悬停、按下及选中状态保留同一标记；禁用状态使用灰色。
-- 当前覆盖选区笔刷、包围框镜像、Alt 对称切换和历史面板。已有品牌图形的 Turboism 首页、安装器、ACP 入口不再重复加标。
-- 表示 ArtMesh、变形器、部件等对象类型的原生符号，以及通用设置齿轮，不使用功能来源角标。
+- The mark width is about 28% of the asset width and at least 7px, and the right and bottom margins are about 1/32 of the asset width.
+- A light outline keeps the mark legible on a light or dark button background, and the glyph also carries an identity cue beyond color.
+- The default, hover, pressed, and selected states keep the same mark, and the disabled state uses gray.
+- The current coverage is the selection brush, the bounding-box mirror, the Alt symmetry toggle, and the history panel. The Turboism home page, the installer, and the ACP entry already carry brand graphics and take no second mark.
+- A native symbol that names an object type, such as an ArtMesh, deformer, or part, and the generic settings gear take no origin badge.
 
-## 深浅色模式适配
+## Light and Dark Mode Adaptation
 
-新增或修改 UI 图标时，必须遵守 [UI 外观与深色模式规范](../../sdk/plugin-author-guide.md#ui-appearance-and-dark-mode)，同时检查资源文件和运行时绘制路径。
+A new or changed UI icon must follow the [UI appearance and dark mode guide](../../sdk/plugin-author-guide.md#ui-appearance-and-dark-mode) and must check the asset file and the runtime paint path together.
 
-- 优先使用透明背景，使按钮融入其所在工具条。不得在 PNG、代码生成的图像或 GL 状态纹理中烘焙白色、浅灰等固定浅色底板；确需实色背景时，应使用所在工具条的主题颜色。
-- 透明背景不等于完成适配。主体线条、镜像轴、节点和文字在深色工具条下也必须清晰；避免仅使用黑色或过暗的关闭状态图形。需要时提供深浅两套图标，或选用两种背景下均可辨认的配色。
-- 保留抗锯齿边缘的透明度；主体、角标和交互反馈均应在宿主实际显示尺寸及支持的 DPI 下检查。
-- 检查默认、悬停、按下、开启/选中、关闭、禁用等支持的状态。关闭状态仍可点击，不能以禁用样式代替；模式不能只靠颜色区分。
-- 对缓存的位图或 GL 纹理，检查显示期间切换主题的效果。使用透明底板及半透明反馈，或在主题变化时重新生成资源，避免保留旧主题底色。
-- 修改无角标源图后重新生成发布资源，避免下次生成时覆盖修复。浅色/深色背景合成预览和 alpha 检查用于初步验证；最终宿主视觉效果仍需单独确认，并明确记录未完成的验证。
+- Prefer a transparent background so the button joins its toolbar. Never bake a fixed light plate, such as white or light gray, into a PNG, a code-generated image, or a GL state texture. When a solid background is truly needed, use the theme color of the toolbar that holds the button.
+- A transparent background alone is no adaptation. The body line, the mirror axis, the node, and the text must stay legible on a dark toolbar, so avoid a black-only or very dark off-state graphic. Provide a light and a dark icon set when needed, or choose a palette that reads on both backgrounds.
+- Keep the alpha of an anti-aliased edge, and check the body, the badge, and the interaction feedback at the real host display size and at every supported DPI.
+- Check every supported state: default, hover, pressed, on or selected, off, and disabled. An off state stays clickable and never borrows a disabled style, and a mode never relies on color alone.
+- For a cached bitmap or GL texture, check the effect of a theme switch while it is displayed. Use a transparent plate with a translucent feedback, or regenerate the asset on a theme change, so an old theme color never remains.
+- Regenerate the release asset after editing a source image without the badge, so the next generation cannot overwrite the fix. A composited preview on a light and a dark background and an alpha check are an initial verification only; the final host visual effect still needs its own confirmation, and the unfinished verification must be recorded explicitly.
 
-曲面变形器镜像和图形网格镜像按钮共用 `RuntimeViewContextMenuRegistry` 的 GL 状态图像生成逻辑。它们的源图即使透明，运行时叠加不透明浅色底板仍会破坏深色模式；检查这类问题时不能只查看 PNG。
+The surface deformer mirror button and the graphic mesh mirror button share the GL state image generation of `RuntimeViewContextMenuRegistry`. Even with a transparent source image, an opaque light plate added at run time breaks dark mode, so a check of these buttons must not read the PNG alone.
 
-## 独立素材
+## Standalone Assets
 
-素材位于 [`assets/plugin-badge/`](assets/plugin-badge/)，可直接交给设计师或用于后续图标合成：
+The assets live in [`assets/plugin-badge/`](assets/plugin-badge/) and go directly to a designer or into later icon composition:
 
-- [`turboism-plugin-badge.svg`](assets/plugin-badge/turboism-plugin-badge.svg)：正常状态，100×100 归一化坐标，纯几何图形，不依赖字体。
-- [`turboism-plugin-badge-disabled.svg`](assets/plugin-badge/turboism-plugin-badge-disabled.svg)：禁用状态。
-- 同名 PNG 提供 7、9、10、13、18、34、64px 两套状态。文件名末尾数字为角标本身的尺寸；画布不含放置边距。
+- [`turboism-plugin-badge.svg`](assets/plugin-badge/turboism-plugin-badge.svg): the normal state in 100×100 normalized coordinates, drawn as pure geometry with no font dependency.
+- [`turboism-plugin-badge-disabled.svg`](assets/plugin-badge/turboism-plugin-badge-disabled.svg): the disabled state.
+- The PNG of the same name covers 7, 9, 10, 13, 18, 34, and 64px in both states. The trailing number is the size of the badge itself, and the canvas holds no placement margin.
 
-SVG 用于编辑和缩放，PNG 用于像素尺寸精确合成。两者由同一组几何与颜色定义生成；不同渲染器的边缘抗锯齿可能略有不同。小尺寸优先使用对应 PNG，不要从 64px 图反复缩放。
+The SVG serves editing and scaling, and the PNG serves exact pixel-size composition. One set of geometry and color definitions generates both, so the edge anti-aliasing of a different renderer may differ slightly. A small size uses its matching PNG instead of repeated scaling from the 64px image.
 
-| 色彩角色 | 正常状态 | 禁用状态 |
+| Color role | Normal state | Disabled state |
 | --- | --- | --- |
-| 背景 | `#6752C7` | `#BDBDBD` |
-| T 字形 | `#FFFFFF` | `#EEEEEE` |
-| 外沿 | `#F4F3FF` | `#E6E6E6` |
+| Background | `#6752C7` | `#BDBDBD` |
+| T glyph | `#FFFFFF` | `#EEEEEE` |
+| Outer edge | `#F4F3FF` | `#E6E6E6` |
 
-## 合成规范
+## Composition Rules
 
-角标保持正方形和固定方向，不拉伸、不旋转、不另换字体；不要增加阴影或随悬停改变颜色。它表示 Turboism 框架或第一方插件身份，不表示启用、选中或错误。按钮背景继续承担交互状态表达，只有禁用状态切换灰色角标。
+The badge stays square and keeps a fixed orientation, so it is never stretched, rotated, or set in another font, and it gains no shadow and no hover color change. It marks the Turboism framework or first-party plugin identity and never an enabled, selected, or error state. The button background still carries the interaction state, and only the disabled state switches to the gray badge.
 
-尺寸按 `max(7, round(源图宽度 × 0.28))` 计算，右边距和下边距均为 `max(1, round(源图宽度 / 32))`；取整规则以 Python `round` 为准。
+The size is `max(7, round(source width × 0.28))`, and the right and bottom margins are both `max(1, round(source width / 32))`, with the Python `round` rule.
 
-| 源图宽度 | 角标尺寸 | 右、下边距 |
+| Source width | Badge size | Right and bottom margin |
 | --- | --- | --- |
 | 24px | 7px | 1px |
 | 32px | 9px | 1px |
@@ -54,39 +54,39 @@ SVG 用于编辑和缩放，PNG 用于像素尺寸精确合成。两者由同一
 | 64px | 18px | 2px |
 | 120px | 34px | 4px |
 
-新图标设计时给右下角预留角标尺寸和边距，避免遮盖关键图形。此规则用于当前工具栏资源；更小或比例特殊的资源应先检查宿主实际显示尺寸。HiDPI 变体应按同一逻辑尺寸同比放大主体、角标和边距，避免分别取整造成位置跳动。
+A new icon design reserves the badge size and margin at the bottom right, so the badge never covers a key graphic. This rule serves the current toolbar assets, and a smaller or unusual asset needs a check at the real host display size first. A HiDPI variant scales the body, the badge, and the margin by the same logical size, so a separate rounding never shifts the position.
 
-Python 合成入口：
+Python composition entry:
 
 ```python
 from plugin_icon_badge import render_plugin_badge, with_plugin_badge
 
-badge = render_plugin_badge(9)  # 独立的 9×9 RGBA 素材
+badge = render_plugin_badge(9)  # standalone 9×9 RGBA asset
 result = with_plugin_badge(source_image, disabled=False)
 ```
 
-在 `scripts/artwork/` 外使用时，将该目录加入 Python 模块搜索路径。对无角标源图调用一次 `with_plugin_badge`；不要重复处理输出图。
+Outside `scripts/artwork/`, add that directory to the Python module search path. Call `with_plugin_badge` once on a source image without the badge, and never process an output image again.
 
-## 重新生成
+## Regenerate
 
-仅更新独立 SVG 和 PNG 素材（编辑共享定义后执行）：
+To update the standalone SVG and PNG assets only, after editing the shared definition:
 
 ```sh
 python3 scripts/artwork/plugin_icon_badge.py
 ```
 
-在仓库根目录执行（依赖 Python 3 和 Pillow）：
+From the repository root, with Python 3 and Pillow:
 
 ```sh
 python3 scripts/artwork/generate_plugin_icons.py
 ```
 
-选区笔刷也支持单独重新生成：
+The selection brush also regenerates its icons alone:
 
 ```sh
 python3 plugins/selection-brush/artwork/generate_icons.py
 ```
 
-笔刷主体由代码绘制；其他主体的无角标源图保存在各插件 `artwork/` 下。共享的 `plugin_icon_badge.py` 在输出时添加角标，不修改源图，也不在已加角标的资源上重复叠加。新增类似第一方功能入口时，将无角标图放入插件的 `artwork/`，并在 `generate_plugin_icons.py` 的 `ASSETS` 中登记。
+Code draws the brush body, and the source image without the badge of every other body lives in the `artwork/` directory of its plugin. The shared `plugin_icon_badge.py` adds the badge at output time, modifies no source image, and never stacks a second badge on an already badged asset. A new first-party feature entry puts its unbadged image into the `artwork/` directory of the plugin and registers it in the `ASSETS` table of `generate_plugin_icons.py`.
 
-生成过程保留资源路径与尺寸，无需更改图标加载逻辑。最终在宿主中的缩放、主题及 DPI 显示仍需在 Cubism 中确认。
+The generation keeps the asset path and size, so the icon loading logic needs no change. The final scale, theme, and DPI display in the host still needs confirmation inside Cubism.

@@ -1,53 +1,53 @@
-# 020 T036 依赖清单：atlas-image-observe:5303
+# 020 T036 Dependency Inventory: atlas-image-observe:5303
 
-## 授权与边界
+## Authorization and Boundary
 
-- 本目录是 `validation/atlas-image-probe/`，只用于 T036 离线实现与自检。
-- 本次允许的宿主行为尚未执行：没有 prepare、submit、启动 Cubism、外部 collector、信号或强制进程清理。
-- `scripts/preview/host-validation-020.json` 保持 `runnable=false`；场景、依赖和真实宿主证据须由主代理及管理器审核后另行放行。
-- 本轮只观察类定义与固定菜单路径，不做 CPU、内存、JFR、FPS、图像处理时间或并行性能测量。
+- This directory is `validation/atlas-image-probe/` and serves only the T036 offline implementation and self-check.
+- The host behaviour allowed this round has not run: no prepare, no submit, no Cubism start, no external collector, no signal, and no forced process cleanup.
+- `scripts/preview/host-validation-020.json` stays `runnable=false`; the scenario, the dependencies, and the real host evidence need main-agent and manager review before a separate release.
+- This round only observes class definitions and the fixed menu path and measures no CPU, memory, JFR, FPS, image processing time, or parallel performance.
 
-## 固定输入与官方依赖
+## Fixed Inputs and Official Dependencies
 
-| 项目 | 固定值/来源 | 摘要 |
+| Item | Fixed value or source | Summary |
 | --- | --- | --- |
-| 场景 | `atlas-image-observe:5303` | 仅 Circle100、单次 UI 观察 |
-| Circle100 源文件 | 忽略的 `TURBOISM_HOST_VALIDATION_FIXTURE_5303`（`.env`/环境） | wrapper/build 要求绝对路径，规范化后 basename 必须为 `atlas_mapping_100.cmo3` |
-| Circle100 SHA-256 | `2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e` | 不信任环境 hash；build、wrapper、manifest 三处固定校验 |
-| 官方 JAR | JVM 真实只读 `java.class.path` 条目中唯一 basename `Live2D_Cubism.jar` | 不扫描磁盘、不猜进程、不 `Class.forName` |
-| 5303 官方 JAR SHA-256 | `bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166` | observer 在注册前校验；target class bytes 单独读取 |
-| 官方源码/类 | 不进入普通测试 classpath | 只在显式 real-host smoke 中读 JAR；本次未使用 |
-| 生产 agent | 显式 publish 参数或 `$root/build/preview/<worktree-id>/turboism-agent.jar` | realpath 后仍须位于当前 worktree preview root；manifest 固定记录路径与 hash，不使用 `latest` |
+| Scenario | `atlas-image-observe:5303` | Circle100 only, one UI observation |
+| Circle100 source file | the ignored `TURBOISM_HOST_VALIDATION_FIXTURE_5303` (`.env` or environment) | the wrapper and build require an absolute path whose normalized basename must be `atlas_mapping_100.cmo3` |
+| Circle100 SHA-256 | `2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e` | the environment hash is not trusted; the build, the wrapper, and the manifest all verify it |
+| Official JAR | the single basename `Live2D_Cubism.jar` among the real read-only `java.class.path` entries | no disk scan, no process guess, no `Class.forName` |
+| 5303 official JAR SHA-256 | `bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166` | the observer verifies it before registration; the target class bytes are read separately |
+| Official source and classes | never enter the ordinary test classpath | the JAR is read only in an explicit real-host smoke, which this round did not use |
+| Production agent | an explicit publish argument or `$root/build/preview/<worktree-id>/turboism-agent.jar` | after `realpath` it must still sit under the current worktree preview root; the manifest pins the path and hash and never uses `latest` |
 
-## 代码、JAR 与配置
+## Code, JARs, and Configuration
 
-### 生产验证代码
+### Production Validation Code
 
-- `src/.../AtlasImageObserveContract.java`：observer/driver 共享常量，并严格要求 `{FIXTURE}` basename 等于 Runner 实际展开的 `{TASK_ID}-atlas_mapping_100.cmo3`。
-- `src/.../AtlasImageLoadProbeAgent.java`：兼容 `premain(properties-path)`；无参数时读取命名 JVM 属性；同步注册只读 transformer，始终返回 `null`。
-- `src/.../ObservationSession.java`、`src/.../ReportCompletion.java`：已有 finish/shutdown 报告协议，结果写入独立 run 目录。
-- `src/.../SceneDriverState.java`：固定场景状态机；只允许 `Cancel -> finish.request -> observer persisted -> native exit action complete -> result`。
-- `src/.../AtlasImageSceneDriverAgent.java`：独立无参数 auxiliary agent；JDK Swing/EDT 只匹配唯一完整 fixture 窗口、`建模 -> 纹理 -> 编辑纹理集...`、精确编辑器 Window class `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b`、精确 `Cancel`、精确原生 `退出`。editor action 在 Cancel 后以 latch/finally 有界等待并传播异常；native exit action 同样有界完成后才允许一次结果发布；不做自动排版/排序/保存，不启动命令，不调用 `System.exit`，不把 shutdown hook 当成功。
-  每个 `onEdt` 查询/动作改为 `invokeLater` + 5 秒有界等待；5 秒是 dispatch/wait 预算，固定 `QUEUED/STARTED/COMPLETED/TIMED_OUT` gate 让超时或中断时仍在队列的 callback 失效并在迟到时永久跳过，已开始动作不可撤销、不伪称回滚、不重试、不推进。唯一例外是纯读 `MAIN_LOOKUP` 的 `TIMED_OUT + startedAtTimeout=false`：在明确 120 秒 startup safety budget 和原整体 deadline 内只按未就绪继续查询，不重试已开始、异常、菜单、Cancel 或 Exit；预算是失败留证余量，不是性能阈值。
+- `src/.../AtlasImageObserveContract.java` holds the constants shared by the observer and the driver and requires the `{FIXTURE}` basename to equal the `{TASK_ID}-atlas_mapping_100.cmo3` the Runner really expands.
+- `src/.../AtlasImageLoadProbeAgent.java` supports `premain(properties-path)` and, without arguments, reads the named JVM properties; it registers a read-only transformer synchronously and always returns `null`.
+- `src/.../ObservationSession.java` and `src/.../ReportCompletion.java` implement the existing finish and shutdown report protocol and write the result into a separate run directory.
+- `src/.../SceneDriverState.java` is the fixed scene state machine; it allows only `Cancel -> finish.request -> observer persisted -> native exit action complete -> result`.
+- `src/.../AtlasImageSceneDriverAgent.java` is a separate no-argument auxiliary agent. Through JDK Swing and the EDT it matches only the unique complete fixture window, `Modeling -> Texture -> Edit Texture Atlas...`, the exact editor window class `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b`, the exact `Cancel`, and the exact native quit. The editor action waits within a bound through a latch and `finally` after Cancel and propagates exceptions; the native exit action also completes within its bound before a single result publication is allowed. It performs no automatic layout, sorting, or save, starts no command, calls no `System.exit`, and never treats a shutdown hook as success.
+  Every `onEdt` query and action now uses `invokeLater` with a 5-second bounded wait. The 5 seconds is the dispatch and wait budget, and the fixed `QUEUED/STARTED/COMPLETED/TIMED_OUT` gate invalidates a callback still queued at a timeout or interrupt and skips it permanently when it arrives late; a started action cannot be undone, is never claimed rolled back, is not retried, and does not advance. The one exception is the pure read `MAIN_LOOKUP` with `TIMED_OUT + startedAtTimeout=false`, which only keeps querying as not-ready inside the explicit 120-second startup safety budget and the original overall deadline and never retries a started, failed, menu, Cancel, or Exit action; the budget is failure-evidence headroom, not a performance threshold.
 
-### 离线自检代码
+### Offline Self-Check Code
 
-- 原有 `AtlasImageLoadProbeSelfCheck.java`、`AtlasImageLifecycleSelfCheck.java`、`SyntheticLoadTarget` 保留。
-- 新增 `AtlasImageProbeConfigurationSelfCheck.java`：properties-path/no-arg、Runner task-prefixed fixture basename、缺失/重复 JAR、错误路径/hash、重复 run、路径边界、错误编辑器 class、Cancel action 完成屏障异常拒绝和退出后结果顺序。
-  同一 selfcheck 用真实 JDK EDT 阻塞复现实际编辑器菜单 dispatch 的排队超时、队列释放后菜单选择/点击均为零、中断失效、已开始动作迟返、正常完成和异常传递；并复现 `MAIN_LOOKUP` 排队超时后的唯一只读重查、首 callback 失效、预算到期失败和无 UI 副作用；验证迟返不覆盖已记录 FAIL。
-- `selfcheck/premain_smoke_selfcheck.py` 与 `premain-smoke.py` 保留；普通测试只使用项目自有 synthetic bytes。
+- The existing `AtlasImageLoadProbeSelfCheck.java`, `AtlasImageLifecycleSelfCheck.java`, and `SyntheticLoadTarget` stay.
+- The new `AtlasImageProbeConfigurationSelfCheck.java` covers the properties-path and no-argument entries, the Runner task-prefixed fixture basename, a missing or duplicated JAR, a wrong path or hash, a duplicate run, the path boundary, a wrong editor class, the refusal of a Cancel action completion barrier that throws, and the result order after exit.
+  The same self-check reproduces with a real JDK EDT block the queue timeout of the real editor menu dispatch, zero menu selection or click after the queue releases, interrupt invalidation, a late return of a started action, normal completion, and exception propagation; it also reproduces the single read-only re-query after a `MAIN_LOOKUP` queue timeout, the invalidation of the first callback, the budget expiry failure, and the absence of a UI side effect, and verifies that a late return does not overwrite a recorded FAIL.
+- `selfcheck/premain_smoke_selfcheck.py` and `premain-smoke.py` stay; the ordinary tests use only project-owned synthetic bytes.
 
-### 交付物
+### Deliverables
 
-- `atlas-image-load-probe.jar`：仅 observer + shared contract。
-- `atlas-image-scene-driver.jar`：仅 fixed driver + state + shared contract。
-- `build/atlas-image-probe/compile.<unique>/`：每次构建独立 evidence、日志、两个 JAR、`artifact.sha256`、`verified.properties`；没有共享 JAR 或 `latest` 指针。
-- `--publish` 会按自身 worktree ID 写入 `build/preview/<id>/atlas-image-observe/bundle.<observer-hash>.<driver-hash>/`，并用无覆盖 hard-link 原子发布 `bundle.manifest`；已有 manifest 时失败，不覆盖并发产物。wrapper 在 agent realpath 后再次检查 preview root。
-- publish 必须提供/找到明确生产 agent，并把生产 agent、observer、driver、fixture、官方 5303 hash 写入 manifest。
+- `atlas-image-load-probe.jar`: observer plus shared contract only.
+- `atlas-image-scene-driver.jar`: fixed driver plus state plus shared contract only.
+- `build/atlas-image-probe/compile.<unique>/`: independent evidence, logs, both JARs, `artifact.sha256`, and `verified.properties` per build; no shared JAR and no `latest` pointer.
+- `--publish` writes `build/preview/<id>/atlas-image-observe/bundle.<observer-hash>.<driver-hash>/` under its own worktree ID and publishes `bundle.manifest` atomically through a non-overwriting hard link; an existing manifest fails, so concurrent artifacts are never overwritten. The wrapper re-checks the preview root after the agent `realpath`.
+- Publishing must supply or find an explicit production agent and record the production agent, the observer, the driver, the fixture, and the official 5303 hash in the manifest.
 
-## 配置与启动协议
+## Configuration and Startup Protocol
 
-Runner 不修改。wrapper 通过 `--jvm-option` 传入以下属性，并显式传递 `{HOME}/{TASK_ID}/{FIXTURE}/{FIXTURE_NAME}`：
+The Runner is not modified. The wrapper passes the following properties through `--jvm-option` and passes `{HOME}/{TASK_ID}/{FIXTURE}/{FIXTURE_NAME}` explicitly:
 
 ```text
 -Dturboism.validation.atlasImageObserve.home={HOME}
@@ -59,49 +59,49 @@ Runner 不修改。wrapper 通过 `--jvm-option` 传入以下属性，并显式�
 -Dturboism.validation.atlasImageObserve.timeoutSeconds=900
 ```
 
-同时复用 Runner 自带的 `turboism.home`、`turboism.validation.runId`、`hostVersion`。aux agent 均无参数：observer 依据 `java.class.path`，driver 依据命名属性；旧 properties-path 入口继续接受 `version/editorJar/outputRoot/runId`，真实 host 的新入口不依赖 home-file 模板展开。机器路径只来自忽略的 `TURBOISM_HOST_VALIDATION_FIXTURE_5303`。
+It also reuses the Runner's own `turboism.home`, `turboism.validation.runId`, and `hostVersion`. Both auxiliary agents take no arguments: the observer relies on `java.class.path` and the driver on the named properties. The old properties-path entry still accepts `version/editorJar/outputRoot/runId`, and the new real host entry does not depend on home-file template expansion. Machine paths come only from the ignored `TURBOISM_HOST_VALIDATION_FIXTURE_5303`.
 
-## 构建命令与网络/秘密
+## Build Commands, Network, and Secrets
 
-离线构建与全部 synthetic 检查：
+Offline build and all synthetic checks:
 
 ```bash
 bash validation/atlas-image-probe/build-and-selfcheck.sh
 ```
 
-只在主代理完成依赖审核后、且已有明确生产 agent 时，才可由管理器另行决定是否运行（本次不运行）：
+Only after the main agent finishes the dependency review, and only when an explicit production agent exists, may the manager decide separately whether to run (not run this round):
 
 ```bash
 bash validation/atlas-image-probe/build-and-selfcheck.sh \
   --publish --production-agent /absolute/reviewed/turboism-agent.jar
 ```
 
-本实现不需要网络、下载、云服务、外部 collector、SSH、秘密、token 或凭据。构建只需要 JDK 17、`javac`、`jar`、Python 3 和本地 shell 工具。
+This implementation needs no network, download, cloud service, external collector, SSH, secret, token, or credential. The build needs only JDK 17, `javac`, `jar`, Python 3, and local shell tools.
 
-## 结果、超时与 cleanup 责任
+## Result, Timeout, and Cleanup Responsibility
 
-1. observer 原子写入 `state/atlas-image-observe/<runId>/identity.properties` 与 `result.properties`；run 目录通过 `createDirectory` 唯一 claim，重复 run 拒绝。
-   driver 同时在 run 目录原子替换有界 `driver-stage.properties`，记录固定 stage、时间/耗时、startupBudgetSeconds、mainLookupRetryCount、计数、布尔和 onEdt 状态，覆盖 Cancel dispatch/EDT return、关闭轮询、动作完成等待与 finish.request；不记录窗口标题或模型内容。
-2. driver 等待 observer run；严格匹配 Runner 已复制的 task-prefixed fixture 主窗口，异步触发固定菜单；确认精确 `f$b` editor Window 后只点 `Cancel`。
-3. Cancel 成功且 editor/secondary dialog 安全关闭后，driver 用 `CREATE_NEW` 写 `finish.request`；只接受同 run、`completionReason=EXPLICIT_FINISH` 的 observer 结果。
-4. observer 缺失、超时、非 `PASS`、冲突、目标未观察或字段不全，driver 只能原子写 `status=FAIL`，不得伪造 PASS。
-5. Cancel action 完成并读取符合 run/completionReason 协议的 observer 结果后，driver 发起唯一精确原生 `退出`；observer 非 PASS 时也尝试该退出，最终只能写 FAIL。该 action 的 `doClick` 必须有界返回且无异常，随后才单次写 canonical `result.txt`。不依赖 PASS 后覆盖、failure marker 或 shutdown hook；若同步退出在 `doClick` 返回前终止则不写 PASS。action 返回不代表宿主退出完成，仍须最终 normal-exit/containment 证据；不 `dispose`、不 `kill`、不 `System.exit`。
-6. wrapper 不传 readiness/failure marker；现有 Runner 只有 marker 列表非空才读取 `$HOME/logs/runtime/*.log`，所以 stdout/stderr 仅作诊断。result 900 秒、graceful exit 120 秒，driver 自身默认 900 秒固定场景等待。主代理/管理器负责 queue admission、超时证据、宿主正常退出、bounded cleanup 和未完成状态处理。
+1. The observer atomically writes `state/atlas-image-observe/<runId>/identity.properties` and `result.properties`; the run directory is claimed uniquely with `createDirectory`, and a duplicate run is refused.
+   The driver also atomically replaces one bounded `driver-stage.properties` in the run directory that records fixed stages, times and durations, startupBudgetSeconds, mainLookupRetryCount, counters, booleans, and the onEdt state, covering Cancel dispatch and EDT return, close polling, action-completion waiting, and finish.request; it records no window title and no model content.
+2. The driver waits for the observer run, strictly matches the task-prefixed fixture main window the Runner copied, triggers the fixed menu asynchronously, and after confirming the exact `f$b` editor window clicks only `Cancel`.
+3. After Cancel succeeds and the editor and secondary dialog close safely, the driver writes `finish.request` with `CREATE_NEW` and accepts only an observer result of the same run with `completionReason=EXPLICIT_FINISH`.
+4. When the observer is missing, times out, reports a non-`PASS` value, conflicts, misses the target, or omits a field, the driver may only write `status=FAIL` atomically and never fabricates a PASS.
+5. After the Cancel action completes and a conforming observer result is read, the driver issues the single exact native quit; it also attempts that quit on a non-PASS observer result and can still write only FAIL. The `doClick` of that action must return within its bound without an exception before the canonical `result.txt` is written once. The run relies on no PASS overwrite, failure marker, or shutdown hook; a synchronous exit that terminates before `doClick` returns writes no PASS. A returned action does not mean the host exited, which still needs the final normal-exit and containment evidence; the driver never calls `dispose`, `kill`, or `System.exit`.
+6. The wrapper passes no readiness or failure marker; the existing Runner reads `$HOME/logs/runtime/*.log` only when the marker list is non-empty, so stdout and stderr serve diagnosis only. The result timeout is 900 seconds, the graceful exit 120 seconds, and the driver's own default fixed-scene wait 900 seconds. The main agent and the manager own queue admission, timeout evidence, normal host exit, bounded cleanup, and the handling of an incomplete state.
 
-## 本轮修正与离线证据
+## Corrections and Offline Evidence This Round
 
-- Runner 实际把显式 `--fixture-name atlas_mapping_100.cmo3` 展开为 `$TASK_ID-atlas_mapping_100.cmo3`；dry-run 回归同时核对 `fixturePath`、`fixtureName`、`validationFixtureNameJvmOption` 与四个 `{HOME}/{TASK_ID}/{FIXTURE}/{FIXTURE_NAME}` 展开结果。
-- observer 与 driver 都严格核对复制后 fixture basename；driver 只接受 `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b`，对 `atlasEditor.f` 和 `atlasEditor.a.f` 有负控。editor `doClick` 在一次 EDT dispatch 中先释放 driver，Cancel 后由完成 latch/finally 有界等待并检查异常；native exit action 同样先异步派发、完成后才发布结果。
-- wrapper manifest 现在拒绝 unknown key；production agent `realpath` 后再次检查当前 worktree preview root；不传 readiness/failure marker，Runner 默认 marker 列表为空时不读取 readiness 日志。
-- `PreparedStore.capture` -> 删除临时 synthetic source 与输入 -> `load`/`command` 回归通过；没有运行 prepare、submit、worker、host 或外部 hook。测试只使用临时 synthetic bytes，不移动真实项目或 Circle100 fixture。
-- 配置自检注入 Cancel action 异常，确认完成屏障拒绝并不进入结果发布；结果发布顺序由 state/selfcheck 与静态 contract 固定为 native exit action 完成后单次写入，不再保留 PASS 后覆盖方案。
-- 离线证据：`WRAPPER_ARGUMENT_CONTRACT`、`DRIVER_MODAL_DISPATCH_CONTRACT`、`ATLAS_IMAGE_PROBE_SELFCHECK checks=29`、`ATLAS_IMAGE_LIFECYCLE_SELFCHECK checks=39`、`ATLAS_IMAGE_CONFIGURATION_SELFCHECK checks=133`、`ATLAS_IMAGE_EDITOR_DISPATCH_SELFCHECK`、`ATLAS_IMAGE_MAIN_LOOKUP_SELFCHECK`、`ATLAS_IMAGE_STAGE_EVIDENCE_SELFCHECK`、`PREPARED_STORE_OFFLINE` 与 `ATLAS_IMAGE_HOST_VALIDATION_OFFLINE_TEST` 均通过；`host-validation-020.json` 仍为 `runnable=false`。阶段 properties 是固定大小的原子诊断文件，但同步文件 I/O 不宣称严格有界。
-- 本轮新增离线证据 `ATLAS_IMAGE_EDT_GATE_SELFCHECK PASS`、`ATLAS_IMAGE_MAIN_LOOKUP_SELFCHECK PASS queued-retry-only=true startup-budget=120`；阶段证据文件为单文件原子替换，不会随轮询无限增长；未启动宿主或第三次真实作业。第二轮 console/stage 只证明约 7.765 秒时 queued MAIN_LOOKUP 超时，未见 document load/main scale 完成，不能据此断言正常启动、最终能否找到窗口或根因，也不声称解决首轮 Cancel 卡点。
-- 最后一次离线 build evidence（相对 worktree，`PYTHONOPTIMIZE=1` shell 回归）：`build/atlas-image-probe/compile.ap3Tan/`；observer JAR SHA-256 `f5313f97cf682fb7a346ed05d5ac09fdd2739276784ee9dff8d113d65d6631bb`，driver JAR SHA-256 `c69e727402464e53e26a97ede1172956471acdf0a110aca4020ebf4998991ad5`。
+- The Runner really expands an explicit `--fixture-name atlas_mapping_100.cmo3` into `$TASK_ID-atlas_mapping_100.cmo3`; the dry-run regression checks `fixturePath`, `fixtureName`, `validationFixtureNameJvmOption`, and all four `{HOME}/{TASK_ID}/{FIXTURE}/{FIXTURE_NAME}` expansions.
+- Both the observer and the driver strictly verify the copied fixture basename; the driver accepts only `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b` and has negative controls for `atlasEditor.f` and `atlasEditor.a.f`. The editor `doClick` releases the driver inside one EDT dispatch, and after Cancel a completion latch and `finally` wait within a bound and check for an exception; the native exit action is likewise dispatched asynchronously and publishes the result only after it completes.
+- The wrapper manifest now rejects an unknown key; it re-checks the current worktree preview root after the production agent `realpath`; it passes no readiness or failure marker, and the Runner reads no readiness log when the default marker list is empty.
+- `PreparedStore.capture` followed by deleting the temporary synthetic source and input and then `load` and `command` regressed equal; no prepare, submit, worker, host, or external hook ran. The tests use temporary synthetic bytes only and move neither the real project nor the Circle100 fixture.
+- The configuration self-check injects a Cancel action exception and confirms that the completion barrier refuses and never reaches result publication; the state, the self-check, and the static contract fix the publication order to one write after the native exit action completes, and no PASS-overwrite scheme remains.
+- Offline evidence: `WRAPPER_ARGUMENT_CONTRACT`, `DRIVER_MODAL_DISPATCH_CONTRACT`, `ATLAS_IMAGE_PROBE_SELFCHECK checks=29`, `ATLAS_IMAGE_LIFECYCLE_SELFCHECK checks=39`, `ATLAS_IMAGE_CONFIGURATION_SELFCHECK checks=133`, `ATLAS_IMAGE_EDITOR_DISPATCH_SELFCHECK`, `ATLAS_IMAGE_MAIN_LOOKUP_SELFCHECK`, `ATLAS_IMAGE_STAGE_EVIDENCE_SELFCHECK`, `PREPARED_STORE_OFFLINE`, and `ATLAS_IMAGE_HOST_VALIDATION_OFFLINE_TEST` all passed; `host-validation-020.json` stays `runnable=false`. The stage properties file is a fixed-size atomic diagnostic file, and the synchronous file I/O is not claimed to be strictly bounded.
+- New offline evidence this round: `ATLAS_IMAGE_EDT_GATE_SELFCHECK PASS` and `ATLAS_IMAGE_MAIN_LOOKUP_SELFCHECK PASS queued-retry-only=true startup-budget=120`; the stage evidence file is a single atomic replacement that cannot grow without bound with polling; no host and no third real job started. The second-round console and stage evidence prove only a queued MAIN_LOOKUP timeout at about 7.765 seconds with no document load or main scale completion, so they assert neither normal startup nor whether the window would eventually be found, claim no root cause, and do not claim to fix the first-round Cancel stall.
+- Last offline build evidence (worktree-relative, `PYTHONOPTIMIZE=1` shell regression): `build/atlas-image-probe/compile.ap3Tan/`; observer JAR SHA-256 `f5313f97cf682fb7a346ed05d5ac09fdd2739276784ee9dff8d113d65d6631bb`, driver JAR SHA-256 `c69e727402464e53e26a97ede1172956471acdf0a110aca4020ebf4998991ad5`.
 
-### 本次交付 source SHA-256
+### Source SHA-256 of This Delivery
 
-| 文件 | SHA-256 |
+| File | SHA-256 |
 | --- | --- |
 | `src/.../AtlasImageObserveContract.java` | `3b46f7fd1932fff80580cf434d6fdf2c1c779ad040f3a2577122d64f52f1b572` |
 | `src/.../AtlasImageLoadProbeAgent.java` | `6312c1ad87876cb09fbc6bf450bac5312f5fc0c7b24cf4b21d5e5ae2a193749a` |
@@ -117,9 +117,10 @@ bash validation/atlas-image-probe/build-and-selfcheck.sh \
 | `scripts/preview/host-validation-020.json` | `27095486b128fbb00ec5f76d1cd537f17e1657d3f5ac91ee063d2811a960b422` |
 | `scripts/test/test_atlas_image_host_validation.sh` | `c05e02fa7eb51364464c7be3150a97e7804e5375474e3650f6ef074590d7c0e7` |
 | `README.md` | `a64f64e66e02acb9fcf9c9bc9e0d35019005f2ba8c8e075962644453a644c90a` |
-## 剩余门禁
 
-- 主代理审阅源码、bundle manifest、实际生产 agent/hash 和宿主 classpath 事实。
-- 管理器审阅中文菜单路径、唯一窗口标题、exact editor Window class `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b`（负控 `atlasEditor.f`/`atlasEditor.a.f`）、英文 `Cancel`、原生 `退出` 以及 save-dialog fail-closed 行为。
-- 只有上述审阅通过后，管理器才可把 manifest 从 blocked 状态推进到可排队状态，并自行 prepare/submit/启动真实宿主；本次未解除该门禁。
-- 性能与 CPU 采样另立任务，不由 T036 最小正确性观察承担。
+## Remaining Gates
+
+- The main agent reviews the source, the bundle manifest, the real production agent and hash, and the host classpath facts.
+- The manager reviews the localized menu path, the unique window title, the exact editor window class `com.live2d.cubism.doc.modeling.ui.atlasEditor.f$b` (with the `atlasEditor.f` and `atlasEditor.a.f` negative controls), the English `Cancel`, the native quit, and the fail-closed behaviour of a save dialog.
+- Only after those reviews pass may the manager move the manifest from blocked to queueable and prepare, submit, and start the real host itself; this round lifted no such gate.
+- Performance and CPU sampling is a separate task and is not carried by the minimal T036 correctness observation.

@@ -9,10 +9,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 查看器窗口的只读数据状态：从 SDK 服务收集记录并建立索引/反向索引/重复桶。
+ * Read-only data state of the viewer window. It collects the records from the SDK service and
+ * builds the index, the reverse index, and the duplicate buckets.
  *
- * <p>昂贵的服务读取和索引计算先生成不可变 {@link Snapshot}，窗口只在 EDT 上原子应用
- * 已完成的快照，避免大模型的分析工作阻塞 Swing。</p>
+ * <p>The expensive service read and index computation produce an immutable {@link Snapshot}
+ * first, and the window applies a finished snapshot atomically on the EDT only, so the analysis
+ * of a large model never blocks Swing.</p>
  */
 public final class ClipMaskViewerState {
 
@@ -26,48 +28,50 @@ public final class ClipMaskViewerState {
     private int countOrderConflicts;
 
     /**
-     * @return 上一次刷新收集到的全部 clip-mask 记录，按服务返回的顺序；
-     *     未刷新或已 {@link #clear} 时为空列表，绝不为 {@code null}
+     * @return every clip-mask record collected by the last refresh, in the order the service
+     *     returned them. The list is empty before a refresh or after {@link #clear} and is never
+     *     {@code null}
      */
     public List<ClipMaskRecord> records() {
         return records;
     }
 
-    /** @return 以 GUID 为键的记录索引。 */
+    /** @return the record index keyed by GUID. */
     public Map<String, ClipMaskRecord> byGuid() {
         return byGuid;
     }
 
-    /** @return 蒙版 GUID 到使用者记录的反向索引。 */
+    /** @return the reverse index from a mask GUID to the records that use it. */
     public Map<String, List<ClipMaskRecord>> maskUsers() {
         return maskUsers;
     }
 
-    /** @return 按无序蒙版集合分组的疑似重复桶。 */
+    /** @return the suspected duplicate buckets grouped by unordered mask set. */
     public Map<String, List<ClipMaskRecord>> dupeBuckets() {
         return dupeBuckets;
     }
 
-    /** 服务不可用时的空状态（窗口在失败结果后调用）。 */
+    /** Empty state for an unavailable service, which the window applies after a failed result. */
     public void clear() {
         apply(Snapshot.empty());
     }
 
-    /** 重读 SDK 服务并重建全部索引；主要保留给纯逻辑测试和非 Swing 消费者。 */
+    /** Re-reads the SDK service and rebuilds every index. It is kept mainly for pure logic tests and non-Swing consumers. */
     public void refreshData(final CubismClipMaskService service) {
         apply(load(service));
     }
 
     /**
-     * 从 SDK 服务读取并完整分析一个不可变快照。该方法不持有或修改 Swing 组件，适合在
-     * 插件任务线程执行；服务实现负责其宿主读取边界。
+     * Reads the SDK service and fully analyzes one immutable snapshot. The method holds and
+     * modifies no Swing component, so it runs on the plugin task thread, and the service
+     * implementation owns its host read boundary.
      */
     public static Snapshot load(final CubismClipMaskService service) {
         final List<ClipMaskRecord> collected = service.collectClipMaskRecords();
         return analyze(collected);
     }
 
-    /** 分析已经与宿主分离的不可变记录，安全地在插件任务线程运行。 */
+    /** Analyzes immutable records already detached from the host, so it runs safely on the plugin task thread. */
     public static Snapshot analyze(final List<ClipMaskRecord> collected) {
         final List<ClipMaskRecord> records = collected == null ? List.of() : List.copyOf(collected);
         final Map<String, ClipMaskRecord> byGuid = ClipMaskAnalyzer.indexByGuid(records);
@@ -97,7 +101,7 @@ public final class ClipMaskViewerState {
                 countOrderConflicts(dupeBuckets));
     }
 
-    /** 原子替换窗口消费的所有派生数据；必须在 EDT 上由窗口调用。 */
+    /** Atomically replaces every derived datum the window consumes. The window must call it on the EDT. */
     public void apply(final Snapshot snapshot) {
         final Snapshot value = java.util.Objects.requireNonNull(snapshot, "snapshot");
         records = value.records();
@@ -110,22 +114,22 @@ public final class ClipMaskViewerState {
         countOrderConflicts = value.countOrderConflicts();
     }
 
-    /** 只保留与蒙版关系相关的节点（作为蒙版或有蒙版）。 */
+    /** Keeps only the nodes that take part in a mask relation, either as a mask or as a masked node. */
     public List<ClipMaskRecord> filterRelated() {
         return relatedRecords;
     }
 
-    /** 持有蒙版（有 clip-mask 引用）的 ArtMesh 数。 */
+    /** Number of ArtMeshes that hold a clip-mask reference. */
     public int countWithMasks() {
         return countWithMasks;
     }
 
-    /** 唯一的蒙版 ArtMesh 数。 */
+    /** Number of distinct masking ArtMeshes. */
     public int countUniqueMasks() {
         return countUniqueMasks;
     }
 
-    /** 蒙版集合一致但顺序不一致的疑似重复处数。 */
+    /** Number of suspected duplicates whose mask set agrees but whose order differs. */
     public int countOrderConflicts() {
         return countOrderConflicts;
     }
@@ -146,7 +150,7 @@ public final class ClipMaskViewerState {
         return count;
     }
 
-    /** 完整、不可变且可跨线程交付的查看器数据。 */
+    /** Complete immutable viewer data that crosses a thread boundary safely. */
     public record Snapshot(
             List<ClipMaskRecord> records,
             Map<String, ClipMaskRecord> byGuid,

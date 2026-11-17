@@ -11,16 +11,17 @@ import java.util.Set;
 import javax.swing.table.AbstractTableModel;
 
 /**
- * 查看器两种表视角的模型（纯模型，无组件）。
+ * Models of the two table views of the viewer, as pure models with no component.
  *
- * <p>表-蒙版为主：左列=蒙版 ArtMesh 名称，中列=蒙版 ID，右列=使用该蒙版的 ArtMesh 列表；
- * 表-使用者为主：左列=使用者 ArtMesh 名称，中列=使用者 ID，右列=它的蒙版列表（保留原顺序，dupe 桶置顶）。</p>
+ * <p>The mask-first table shows the masking ArtMesh name, the mask ID, and the list of ArtMeshes
+ * that use the mask. The user-first table shows the user ArtMesh name, the user ID, and its mask
+ * list in the original order, with a duplicate bucket on top.</p>
  */
 public final class ClipMaskTableModels {
 
     private ClipMaskTableModels() {}
 
-    /** 蒙版为主模型：行 = 被他人作为蒙版的唯一 ArtMesh。 */
+    /** Mask-first model: one row per distinct ArtMesh that another ArtMesh uses as a mask. */
     public static final class MaskPrimaryTableModel extends AbstractTableModel {
         private final ClipMaskViewerState state;
         private final PluginLocalization localization;
@@ -34,8 +35,9 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * 从 state 重新读取蒙版行集合并通知表刷新。行顺序即 {@code maskUsers()} 的键序；
-         * state 尚未加载时清空为零行。必须在 EDT 上调用。
+         * Re-reads the mask row set from the state and notifies the table to refresh. The row order
+         * follows the key order of {@code maskUsers()}, and an unloaded state clears to zero rows.
+         * The call must run on the EDT.
          */
         public void fireRefresh() {
             maskGuids.clear();
@@ -46,8 +48,9 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * @param row 视图行号
-         * @return 该行蒙版自身的 clip-mask 记录；行号越界，或该蒙版本身不持有蒙版（无记录）时为
+         * @param row the view row index
+         * @return the clip-mask record of the mask itself. The value is {@code null} when the row
+         *     index is out of range, or when the mask holds no mask of its own and has no record
          *     {@code null}——此时仍可用 {@link #getMaskGuidAt(int)} 取到 GUID
          */
         public ClipMaskRecord getMaskAt(final int row) {
@@ -57,7 +60,7 @@ public final class ClipMaskTableModels {
             return state.byGuid().get(maskGuids.get(row));
         }
 
-        /** 行对应的蒙版 GUID（蒙版自身可能没有 clip-mask 记录，仍可复制/高亮）。 */
+        /** Mask GUID of the row. The mask may hold no clip-mask record of its own and still copies or highlights. */
         public String getMaskGuidAt(final int row) {
             if (row < 0 || row >= maskGuids.size()) {
                 return null;
@@ -66,10 +69,11 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * 替换整个高亮 GUID 集合并刷新表。传入集合会被防御性拷贝，调用方之后修改它不影响本模型；
-         * {@code null} 等同于清空高亮。必须在 EDT 上调用。
+         * Replaces the whole highlight GUID set and refreshes the table. The set is copied
+         * defensively, so a later caller change cannot affect this model, and {@code null} clears
+         * the highlight. The call must run on the EDT.
          *
-         * @param guids 需要高亮的 GUID 集合，可为 {@code null}
+         * @param guids the GUID set to highlight, which may be {@code null}
          */
         public void setHighlightedGuids(final Set<String> guids) {
             this.highlightedGuids = guids == null ? Set.of() : Set.copyOf(guids);
@@ -77,8 +81,9 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * @param row 视图行号
-         * @return 该行的蒙版 GUID 是否在当前高亮集合中；行号越界时为 {@code false}
+         * @param row the view row index
+         * @return whether the mask GUID of the row is in the current highlight set. An out-of-range
+         *     row index returns {@code false}
          */
         public boolean isRowHighlighted(final int row) {
             final String guid = getMaskGuidAt(row);
@@ -135,7 +140,7 @@ public final class ClipMaskTableModels {
         }
     }
 
-    /** 使用者为主模型：行 = 持有蒙版的 ArtMesh；疑似重复桶（同集合不同顺序）优先置顶。 */
+    /** User-first model: one row per ArtMesh that holds a mask, with a suspected duplicate bucket on top. */
     public static final class UserPrimaryTableModel extends AbstractTableModel {
         private final ClipMaskViewerState state;
         private final PluginLocalization localization;
@@ -149,8 +154,9 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * 从 state 重新读取使用者行集合并通知表刷新：仅保留持有蒙版的记录，疑似重复桶内的记录
-         * 排在前面，其余按显示名字典序。必须在 EDT 上调用。
+         * Re-reads the user row set from the state and notifies the table to refresh. Only records
+         * that hold a mask stay, a record inside a suspected duplicate bucket comes first, and the
+         * rest sort by display name in dictionary order. The call must run on the EDT.
          */
         public void fireRefresh() {
             users.clear();
@@ -179,8 +185,8 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * @param row 视图行号
-         * @return 该行的使用者记录，行号越界时为 {@code null}
+         * @param row the view row index
+         * @return the user record of the row, or {@code null} when the row index is out of range
          */
         public ClipMaskRecord getUserAt(final int row) {
             if (row < 0 || row >= users.size()) {
@@ -190,10 +196,11 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * 替换整个高亮 GUID 集合并刷新表。传入集合会被防御性拷贝，调用方之后修改它不影响本模型；
-         * {@code null} 等同于清空高亮。必须在 EDT 上调用。
+         * Replaces the whole highlight GUID set and refreshes the table. The set is copied
+         * defensively, so a later caller change cannot affect this model, and {@code null} clears
+         * the highlight. The call must run on the EDT.
          *
-         * @param guids 需要高亮的 GUID 集合，可为 {@code null}
+         * @param guids the GUID set to highlight, which may be {@code null}
          */
         public void setHighlightedGuids(final Set<String> guids) {
             this.highlightedGuids = guids == null ? Set.of() : Set.copyOf(guids);
@@ -201,8 +208,9 @@ public final class ClipMaskTableModels {
         }
 
         /**
-         * @param row 视图行号
-         * @return 该行使用者的 GUID 是否在当前高亮集合中；行号越界时为 {@code false}
+         * @param row the view row index
+         * @return whether the user GUID of the row is in the current highlight set. An out-of-range
+         *     row index returns {@code false}
          */
         public boolean isRowHighlighted(final int row) {
             final ClipMaskRecord record = getUserAt(row);

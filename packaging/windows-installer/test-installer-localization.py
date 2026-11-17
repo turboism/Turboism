@@ -58,15 +58,16 @@ for module in modules:
     if any(not common.issubset(keys) for keys in locale_keys):
         raise SystemExit(f"{module}: localized installer metadata is not in parity")
 
-# 卸载器的自绘 Swing 确认框是手写 Locale 分支，不走 IzPack langpack，因此不被上面
-# 的 CustomLangPack parity 覆盖；而验证器只以 `-console` 运行卸载器，从不执行该 GUI
-# 路径。韩语此前缺失，韩语环境会静默回退到英文文案——故此处直接对源码断言。
+# The self-drawn Swing confirmation of the uninstaller branches on Locale by hand and never reads
+# an IzPack langpack, so the CustomLangPack parity above does not cover it. The verifier also runs
+# the uninstaller with `-console` only and never executes that GUI path. Korean was missing before
+# and a Korean environment silently fell back to English text, so this check asserts the source.
 uninstaller = (ROOT / "packaging/java-installer/listener-src/dev/turboism/installer"
                         / "TurboismUninstallerListener.java").read_text(encoding="utf-8")
 dialog = uninstaller[uninstaller.index("static boolean resolveDeleteConfig()"):
                     uninstaller.index("private static boolean isConsoleRun()")]
 tags = re.findall(r'lang\.startsWith\("(\w+)"\)', dialog)
-expected = {"zh", "ja", "ko"}  # 英文是 base 文案，不以分支形式出现
+expected = {"zh", "ja", "ko"}  # English is the base text and holds no branch
 if set(tags) != expected:
     raise SystemExit(f"uninstaller confirmation locales {sorted(set(tags))} != {sorted(expected)}")
 for tag in tags:
@@ -80,8 +81,9 @@ readme = (ROOT / "packaging/java-installer/README-java-installer.md").read_text(
 if "en/zh/ja/ko confirmation" not in readme:
     raise SystemExit("README-java-installer.md must document all four uninstaller locales")
 
-# EXE 与 JAR 卸载器对 config.json 的默认处置必须一致：都默认保留。验证器只以
-# `-console` 加显式属性运行卸载器，因此“无属性”的默认路径从不被执行——这里直接守卫。
+# The EXE and JAR uninstallers must treat config.json the same way and keep it by default. The
+# verifier runs the uninstaller with `-console` and an explicit property only, so the default path
+# without a property never executes. This check guards it directly.
 if "return true; // default: delete" in uninstaller:
     raise SystemExit("uninstaller must not default to deleting config.json")
 if "return false; // default: keep config.json" not in uninstaller:

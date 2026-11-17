@@ -16,31 +16,40 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * 内容表协调器（方案 B）：维护每个目标 panel 一张注入分区内容表，渲染时把注入分区
- * 合成进既有 content，并记录每个注入分区的贡献者 pluginId 供按钮 action 路由。
+ * Content-table coordinator (option B). It keeps one injected-section table per target panel,
+ * merges the injected sections into the existing content at render time, and records the
+ * contributing pluginId of every injected section so a button action can route back.
  *
- * <p>A 与 B 是同一张内容表的两个入口：A = 插件在 {@code EmbeddedPanelContribution.content}
- * 里声明的分区（渲染器已支持）；B = {@code contributeCollapsibleSection} 运行时注入的分区。
- * 合成规则：A 分区永远保持在 content 中的声明位置，B 注入分区追加在后，B 之间按
- * {@code order} 升序、同 order 按 {@code sectionId} 字典序，与插件加载顺序无关。</p>
+ * <p>A and B are two entries into the same content table: A holds the sections a plugin declares
+ * in {@code EmbeddedPanelContribution.content}, which the renderer already supports, and B holds
+ * the sections injected at run time through {@code contributeCollapsibleSection}. Merge rule: an
+ * A section always keeps its declared position in the content, the B sections follow, and the B
+ * sections sort by ascending {@code order} and then by {@code sectionId} in dictionary order,
+ * independently of plugin load order.</p>
  *
- * <p>注入分区里的 {@link PanelView.Button} 必须路由到贡献者 pluginId 的 action registry，
- * 而不是目标 panel（core）的 registry。{@link #actionOwners(EmbeddedPanelId)} 递归遍历
- * 注入分区内容收集 {@code actionId → pluginId}。按钮 actionId 全局唯一（ActionRegistry
- * 按 actionId 注册）；冲突时后注册的覆盖先注册的（插入序 map，冲突仅在约定被破坏时发生）。</p>
+ * <p>A {@link PanelView.Button} inside an injected section must route to the action registry of
+ * the contributing pluginId, never to the registry of the target core panel.
+ * {@link #actionOwners(EmbeddedPanelId)} walks the injected section content recursively and
+ * collects {@code actionId → pluginId}. A button actionId is globally unique because ActionRegistry
+ * registers by actionId, and a later registration overrides an earlier one on conflict; the map
+ * keeps insertion order, and a conflict happens only when the convention is broken.</p>
  *
- * <p>目标 panel 注册状态由宿主安装生命周期显式驱动（无现成事件 API）：宿主
- * {@code install} 成功时调用 {@link #onPanelRegistered(EmbeddedPanelId)}，面板句柄
- * {@code close} 时调用 {@link #onPanelRemoved(EmbeddedPanelId)}。目标未注册时注入
- * 分区保持 pending（仍登记在内容表），注册后自动落位；注销后回到 pending，不丢不重。</p>
+ * <p>The host installation lifecycle drives the registration state of a target panel explicitly,
+ * because no ready-made event API exists: the host calls
+ * {@link #onPanelRegistered(EmbeddedPanelId)} after a successful {@code install}, and it calls
+ * {@link #onPanelRemoved(EmbeddedPanelId)} when the panel handle closes. An injected section stays
+ * pending while its target is unregistered but remains in the content table, takes its place
+ * automatically after registration, and returns to pending after removal without loss or
+ * duplication.</p>
  *
- * <p>线程模型：synchronized 守卫内部状态（EDT 使用约定，调用方负责 EDT 调度）。</p>
+ * <p>Thread model: a synchronized block guards the internal state. The EDT usage is a convention,
+ * so the caller schedules the EDT work.</p>
  */
 public final class PanelCollapsibleContentCoordinator {
 
     /**
-     * 进程级共享实例：runtime 服务（per-plugin）与宿主 install 渲染之间没有其他
-     * 接线点，注入表必须跨插件可见。
+     * Process-wide shared instance. The per-plugin runtime service and the host install rendering
+     * share no other wiring point, so the injection table must stay visible across plugins.
      */
     public static PanelCollapsibleContentCoordinator shared() {
         return SHARED;
@@ -51,7 +60,7 @@ public final class PanelCollapsibleContentCoordinator {
     public static final String CLIPPING_MASK_SHARED_SECTION_ID = "clipping-mask.section";
     private static final Set<String> SHARED_SECTION_IDS = Set.of(CLIPPING_MASK_SHARED_SECTION_ID);
 
-    /** 注入条目的注册归属：贡献者 pluginId + 注入贡献本身。 */
+    /** Registration ownership of one injected entry: the contributing pluginId and the contribution. */
     private record OwnerSection(String pluginId, CollapsibleSectionContribution contribution) {}
 
     private record ContentListener(EmbeddedPanelId panelId, Runnable callback) {}
@@ -74,7 +83,7 @@ public final class PanelCollapsibleContentCoordinator {
 
     private final Object monitor = new Object();
     private final Set<EmbeddedPanelId> registeredPanels = new HashSet<>();
-    /** 内容表：targetPanelId → sectionId → 注入贡献列表。多插件可向明确的共享 sectionId 注入，渲染时合并为一个折叠区。 */
+    /** Content table: targetPanelId → sectionId → injected contributions. Several plugins may inject into one shared sectionId, and the render merges them into one collapsible section. */
     private final Map<EmbeddedPanelId, Map<String, List<OwnerSection>>> sections = new HashMap<>();
 
     private static boolean isSharedSection(final String sectionId) {
@@ -82,14 +91,18 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     /**
-     * 在内容表中登记一个注入分区（B 入口）。目标 panel 尚未注册时条目保持 pending，
-     * 待宿主安装后自动落位。
+     * Registers one injected section in the content table, the B entry. The entry stays pending
+     * while the target panel is unregistered and takes its place after the host installs it.
      *
-     * @param pluginId 贡献者插件 id；注入分区内按钮的 action 按此 id 路由回贡献者 registry
-     * @param contribution 注入贡献，自带目标 panel、sectionId、order 与内容
-     * @return 注销句柄；幂等，且只会移除本次注册自己的条目（同 sectionId 被他人覆盖时不误删）
-     * @throws NullPointerException 任一参数为 {@code null}
-     * @throws IllegalStateException 普通 sectionId 重复登记，或同一插件在共享 sectionId 上重复登记
+     * @param pluginId the contributing plugin id, which routes an injected button action back to
+     *     the contributor registry
+     * @param contribution the injected contribution, which carries the target panel, the sectionId,
+     *     the order, and the content
+     * @return an unregister handle. It is idempotent and removes only its own entry, so a sectionId
+     *     overridden by another contributor is never deleted by mistake
+     * @throws NullPointerException when any argument is {@code null}
+     * @throws IllegalStateException when an ordinary sectionId is registered twice, or when one
+     *     plugin registers twice on a shared sectionId
      */
     public Registration register(final String pluginId, final CollapsibleSectionContribution contribution) {
         Objects.requireNonNull(pluginId, "pluginId");
@@ -121,7 +134,8 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     /**
-     * 目标 panel 已由宿主安装。幂等；仅影响 pending/落位状态，不改变内容表。
+     * The host installed the target panel. The call is idempotent, affects only the pending and
+     * placed states, and leaves the content table unchanged.
      */
     public void onPanelRegistered(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
@@ -131,7 +145,8 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     /**
-     * 目标 panel 已从宿主移除；注入分区回到 pending，内容表保留（不丢不重）。
+     * The host removed the target panel. The injected sections return to pending and the content
+     * table is kept, so nothing is lost or duplicated.
      */
     public void onPanelRemoved(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
@@ -140,7 +155,7 @@ public final class PanelCollapsibleContentCoordinator {
         }
     }
 
-    /** 目标 panel 当前是否已注册（pending 状态 = 未注册但内容表已登记）。 */
+    /** Reports whether the target panel is registered now. Pending means unregistered but already in the content table. */
     public boolean isRegistered(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
         synchronized (monitor) {
@@ -149,9 +164,10 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     /**
-     * 注入分区视图：order 升序、同 order 按 sectionId 字典序；每个注入分区渲染为
-     * {@link PanelView.CollapsibleSection} 节点（title/expandedByDefault + 内容）。
-     * 若有多个插件向相同 sectionId 注入，合并为一个 CollapsibleSection。
+     * Returns the injected section views sorted by ascending order and then by sectionId in
+     * dictionary order. Every injected section renders as a {@link PanelView.CollapsibleSection}
+     * node holding the title, the expandedByDefault flag, and the content. When several plugins
+     * inject into the same sectionId, the views merge into one CollapsibleSection.
      */
     public List<PanelView> injectedSections(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");
@@ -201,8 +217,9 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     /**
-     * 渲染合成：content 为 Column → 尾部追加注入分区；非 Column → 包一层
-     * column(content, 注入分区...)。无注入时原样返回 content。
+     * Merges for rendering. A Column content gains the injected sections at its tail, any other
+     * content is wrapped in a column(content, injected sections...), and content without an
+     * injection returns unchanged.
      */
     public PanelView merge(final EmbeddedPanelId panelId, final PanelView content) {
         Objects.requireNonNull(panelId, "panelId");
@@ -222,9 +239,10 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     /**
-     * 该面板全部注入分区内的按钮 actionId → 贡献者 pluginId 映射；递归遍历
-     * Column/Row/CollapsibleSection 内容树收集 {@link PanelView.Button}。
-     * 无注入按钮时返回空映射。
+     * Returns the actionId → contributing pluginId map of every button inside the injected sections
+     * of one panel. The walk reads the Column, Row, and CollapsibleSection content tree recursively
+     * and collects every {@link PanelView.Button}. A panel without an injected button returns an
+     * empty map.
      */
     public Map<String, String> actionOwners(final EmbeddedPanelId panelId) {
         Objects.requireNonNull(panelId, "panelId");

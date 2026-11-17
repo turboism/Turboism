@@ -1,5 +1,5 @@
 # supply-chain
 
-供应链/依赖审计脚本目录（非探针）。
+Supply-chain and dependency audit scripts. This directory holds no probe.
 
-运行：见目录内脚本。以本目录脚本为准。
+Run the scripts in this directory. They are authoritative.

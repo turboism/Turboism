@@ -30,11 +30,12 @@ import java.util.function.Consumer;
 import javax.swing.JComponent;
 
 /**
- * 多层同心扇区图视图：三类节点（纯蒙版 | 既是也用 | 纯使用者或无关）各占
- * 120° 扇区，类内节点从内圈到外圈逐层填充（中心不空、整体仍为圆形），
- * 避免两排节点横向溢出。
- * 有向箭头 mask -> user（inverted 红色）；图例 5 色；选中 GUID 节点描边高亮；
- * 点击节点回调 {@code onNodeClick}（复制 GUID 由窗口负责）。
+ * Multi-layer concentric sector graph view. The three node classes, pure mask, both, and pure
+ * user or unrelated, each occupy a 120° sector, and the nodes of a class fill layer by layer from
+ * the inner ring outward, so the centre stays occupied and the shape stays circular while two
+ * rows of nodes never overflow sideways. A directed arrow runs mask -> user and an inverted mask
+ * is red, the legend holds 5 colors, a selected GUID node gets an outline highlight, and a node
+ * click calls {@code onNodeClick}; the window copies the GUID.
  */
 final class GraphPanel extends JComponent {
 
@@ -42,16 +43,16 @@ final class GraphPanel extends JComponent {
     static final double MAX_SCALE = 4.0;
 
     private static final int NODE_RADIUS = 22;
-    /** 圆半径下限：节点再少也保持可读的圆周大小。 */
+    /** Lower bound of the circle radius, so even a few nodes keep a readable circumference. */
     private static final int MIN_RADIUS = 160;
-    /** 相邻节点沿弧的间距（含直径与间隙，gap ≈ 一个半径），决定各层半径与容量。 */
+    /** Arc spacing between adjacent nodes, which includes the diameter and the gap of about one radius and sets each layer radius and capacity. */
     private static final int NODE_SPACING = NODE_RADIUS * 3;
-    /** 每类扇区弧长：120°（2π/3）。 */
+    /** Arc length of each class sector: 120°, which is 2π/3. */
     private static final double SECTOR_ARC = Math.PI * 2 / 3;
 
     private static final int MARGIN = 40;
 
-    /** 可开关的类别（图例 5 项中 user 与 user.inverted 共享 user）。 */
+    /** Toggleable classes, where the user and user.inverted legend items share the user class. */
     private static final List<String> CATEGORIES = List.of("user", "mask", "both", "unrelated");
 
     private final ClipMaskViewerState state;
@@ -61,13 +62,13 @@ final class GraphPanel extends JComponent {
     private Set<String> highlightedGuids = Set.of();
     private final List<NodeBox> nodes = new ArrayList<>();
     private final Map<String, NodeBox> nodesByGuid = new HashMap<>();
-    /** 过滤文本：非空/非空白时图只显示匹配节点及其直接邻居。 */
+    /** Filter text. A non-empty, non-blank value limits the graph to the matching nodes and their direct neighbors. */
     private String filter = "";
-    /** 关闭显示的类别（值：mask|user|both|unrelated）；关闭时该类节点及直接邻居隐藏，图例画删除线。 */
+    /** Hidden classes, valued mask, user, both, or unrelated. A hidden class and its direct neighbors disappear, and the legend strikes the item through. */
     private final Set<String> hiddenCategories = new HashSet<>();
-    /** 最近一次绘制时图例各项的屏幕命中矩形（与 labels/fills 数组 5 项顺序一致）。 */
+    /** Screen hit rectangle of each legend item in the last paint, in the 5-item order of the labels and fills arrays. */
     private final List<Rectangle> legendHitBounds = new ArrayList<>();
-    /** 单击选中的节点 GUID；与编辑器选中高亮（highlightedGuids）并存，用户选中优先。 */
+    /** GUID of the node selected by a click. It coexists with the editor highlight and takes priority. */
     private String selectedGuid;
 
     private NodeBox dragNode;
@@ -95,7 +96,7 @@ final class GraphPanel extends JComponent {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(final MouseEvent event) {
-                // 图例在屏幕坐标，命中优先：切换类别开关，不进入节点选中/画布平移。
+                // The legend lives in screen coordinates and wins the hit, so it toggles a class and never selects a node or pans the canvas.
                 for (int i = 0; i < legendHitBounds.size(); i++) {
                     if (legendHitBounds.get(i).contains(event.getPoint())) {
                         final String category = legendCategory(i);
@@ -109,7 +110,7 @@ final class GraphPanel extends JComponent {
                 dragMoved = false;
                 final NodeBox hit = findNode(event.getPoint());
                 if (hit != null && hit.record != null) {
-                    // 命中节点：选中 + 记录节点拖动上下文（节点起始逻辑坐标 + press 屏幕点）。
+                    // A node hit selects it and records the drag context: the start logical point and the press screen point.
                     selectedGuid = hit.record.guid();
                     repaint();
                     dragNode = hit;
@@ -157,7 +158,7 @@ final class GraphPanel extends JComponent {
                     final double dy = current.y - pressPoint.y;
                     dragMoved |= dx * dx + dy * dy > 4 * 4;
                     if (dragNode != null) {
-                        // 节点拖动：屏幕位移经逆变换（/scale）转逻辑位移，移动节点本身。
+                        // A node drag converts the screen delta through the inverse scale into a logical delta and moves the node.
                         dragNode.setPosition(
                                 dragNodeStartX + (int) Math.round(dx / scale),
                                 dragNodeStartY + (int) Math.round(dy / scale));
@@ -188,7 +189,7 @@ final class GraphPanel extends JComponent {
         notifyViewScaleListener();
     }
 
-    /** 以当前面板视口中心为锚点设置缩放（clamp 到 [MIN_SCALE, MAX_SCALE]）。 */
+    /** Sets the zoom anchored at the current viewport centre and clamps it to [MIN_SCALE, MAX_SCALE]. */
     void setViewScale(final double newScale) {
         final double next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
         if (next == scale) {
@@ -203,7 +204,7 @@ final class GraphPanel extends JComponent {
         notifyViewScaleListener();
     }
 
-    /** 单个可替换的 scale 变化通知；传 null 取消。 */
+    /** One replaceable scale-change listener, where null removes it. */
     void setViewScaleListener(final Consumer<Double> listener) {
         this.viewScaleListener = listener;
     }
@@ -252,7 +253,7 @@ final class GraphPanel extends JComponent {
         repaint();
     }
 
-    /** 过滤：null→""；仅显示名称或 id 匹配的节点及其直接邻居（不重置视口）。 */
+    /** Applies the filter, where null becomes an empty string. Only nodes whose name or id matches and their direct neighbors stay, and the viewport is not reset. */
     void setFilter(final String value) {
         final String next = value == null ? "" : value;
         if (next.equals(filter)) {
@@ -262,7 +263,7 @@ final class GraphPanel extends JComponent {
         rebuild();
     }
 
-    /** 类别开关：null/未知忽略；变化时重建布局并重绘（选中节点被隐藏按现有重建逻辑清空）。 */
+    /** Toggles a class, ignoring null and an unknown value. A change rebuilds the layout and repaints, and the existing rebuild clears a selected node that became hidden. */
     void setCategoryVisible(final String category, final boolean visible) {
         if (category == null || !CATEGORIES.contains(category)) {
             return;
@@ -278,23 +279,23 @@ final class GraphPanel extends JComponent {
         return !hiddenCategories.contains(category);
     }
 
-    /** 测试观察口：当前关闭的类别集合。 */
+    /** Test observation point: the currently hidden class set. */
     Set<String> hiddenCategories() {
         return new HashSet<>(hiddenCategories);
     }
 
-    /** 选中节点（null 清除）；与编辑器高亮并存，绘制时用户选中优先。 */
+    /** Selects a node, where null clears it. The selection coexists with the editor highlight and wins at paint time. */
     void setSelected(final String guid) {
         this.selectedGuid = guid;
         repaint();
     }
 
-    /** 测试观察口：当前选中节点 + 直接邻居（含选中节点自身）。 */
+    /** Test observation point: the selected node and its direct neighbors, including the node itself. */
     Set<String> selectionHighlightGuids() {
         return selectionSet();
     }
 
-    /** 测试观察口：与选中节点相连的边的端点集（面板内）。 */
+    /** Test observation point: the endpoints of the edges attached to the selected node inside the panel. */
     Set<String> selectionEdgeEndpoints() {
         if (selectedGuid == null) {
             return Set.of();
@@ -333,10 +334,10 @@ final class GraphPanel extends JComponent {
         nodes.clear();
         nodesByGuid.clear();
         final List<ClipMaskRecord> pool = showUnrelated ? state.records() : state.filterRelated();
-        // 类别可见集 V：全量 − 关闭类别节点 − 其直接邻居（块级隐藏）。
+        // Class-visible set V: all nodes minus the hidden-class nodes and their direct neighbors, hidden as a block.
         final Set<String> visibleCategoryGuids = visibleCategoryGuids(pool);
-        // 过滤节点集：匹配（displayName/id，绝不读 guid）+ 直接邻居（指向的 mask + 以它为 mask 的使用者）。
-        // 与类别开关 AND：有效集 = V ∩ (M ∪ N)。
+        // Filter node set: a match on displayName or id, never on guid, plus the direct neighbors, which are the mask it points to and the users it masks.
+        // Combined with the class toggle by AND: the effective set is V ∩ (M ∪ N).
         final List<ClipMaskRecord> filterSet = filter.isBlank() ? pool : filterWithNeighbors();
         final List<ClipMaskRecord> effective = new ArrayList<>(filterSet.size());
         for (ClipMaskRecord record : filterSet) {
@@ -345,7 +346,7 @@ final class GraphPanel extends JComponent {
             }
         }
         if (selectedGuid != null && !containsGuid(effective, selectedGuid)) {
-            // 过滤/重建后选中节点不在有效集 → 清空选中。
+            // A selected node outside the effective set after a filter or rebuild is cleared.
             selectedGuid = null;
         }
         if (effective == null || effective.isEmpty()) {
@@ -372,10 +373,7 @@ final class GraphPanel extends JComponent {
                 bottom.add(record);
             }
         }
-        // 多层同心扇区布局：三类各占 120° 扇区（top 90°→210°、middle 210°→330°、
-        // bottom 330°→90°），类内节点从内圈到外圈逐层填充——中心不再空旷、整体仍为圆形；
-        // 每层容量 = max(1, floor(r * SECTOR_ARC / NODE_SPACING))，填满一层才进入下一层，
-        // 总半径只随最深的类增长。每类 ≤ 一层容量时退化为单圈。
+        // Multi-layer concentric sector layout. The three classes occupy 120° sectors, top from 90° to 210°, middle from 210° to 330°, and bottom from 330° to 90°, and the nodes of a class fill layer by layer from the inner ring outward, so the centre stays occupied and the shape stays circular. A layer capacity is max(1, floor(r * SECTOR_ARC / NODE_SPACING)), a full layer opens the next one, and the total radius grows only with the deepest class. A class within one layer capacity degrades to a single ring.
         int maxLayers = 0;
         maxLayers = Math.max(maxLayers, layerCount(top.size()));
         maxLayers = Math.max(maxLayers, layerCount(middle.size()));
@@ -390,7 +388,7 @@ final class GraphPanel extends JComponent {
         revalidate();
     }
 
-    /** 某类节点在扇区内逐层填满所需的层数（0 节点 → 0 层）。 */
+    /** Layer count a class needs to fill its sector, where 0 nodes need 0 layers. */
     private static int layerCount(final int nodeCount) {
         if (nodeCount <= 0) {
             return 0;
@@ -404,13 +402,13 @@ final class GraphPanel extends JComponent {
         return layer;
     }
 
-    /** 第 layer 层（0 起）弧上可容纳的节点数：max(1, floor(r * SECTOR_ARC / NODE_SPACING))。 */
+    /** Node capacity of the arc at layer, counted from 0: max(1, floor(r * SECTOR_ARC / NODE_SPACING)). */
     private static int layerCapacity(final int layer) {
         final double radius = MIN_RADIUS + layer * NODE_SPACING;
         return Math.max(1, (int) Math.floor(radius * SECTOR_ARC / NODE_SPACING));
     }
 
-    /** 把 group 从内圈到外圈逐层填充在 [startDeg, startDeg + 120)° 的扇区内（屏幕坐标 y 向下）。 */
+    /** Fills a group layer by layer from the inner ring outward inside the [startDeg, startDeg + 120)° sector, with screen y pointing down. */
     private void layoutSector(final List<ClipMaskRecord> group, final int startDeg, final int cx, final int cy) {
         final int count = group.size();
         if (count == 0) {
@@ -438,7 +436,7 @@ final class GraphPanel extends JComponent {
         }
     }
 
-    /** 测试观察口：各节点布局圆心（逻辑坐标，未含缩放/平移）。 */
+    /** Test observation point: the layout centre of each node in logical coordinates, without zoom or pan. */
     List<Point> nodeCenters() {
         final List<Point> centers = new ArrayList<>(nodes.size());
         for (NodeBox node : nodes) {
@@ -447,7 +445,7 @@ final class GraphPanel extends JComponent {
         return centers;
     }
 
-    /** 测试观察口：当前面板节点 GUID 列表（布局顺序）。 */
+    /** Test observation point: the node GUID list of the panel in layout order. */
     List<String> nodeGuids() {
         final List<String> guids = new ArrayList<>(nodes.size());
         for (NodeBox node : nodes) {
@@ -458,7 +456,7 @@ final class GraphPanel extends JComponent {
         return guids;
     }
 
-    /** 过滤匹配（只读 displayName 与 id，绝不读 guid）+ 直接邻居。 */
+    /** Filter match on displayName and id, never on guid, plus the direct neighbors. */
     private List<ClipMaskRecord> filterWithNeighbors() {
         final String needle = filter.toLowerCase(Locale.ROOT);
         final List<ClipMaskRecord> matches = new ArrayList<>();
@@ -467,7 +465,7 @@ final class GraphPanel extends JComponent {
             if (record == null) {
                 continue;
             }
-            // 匹配判定只读 displayName 与 id，绝不读 guid。
+            // The match reads displayName and id only and never reads guid.
             if (containsIgnoreCase(record.displayName(), needle) || containsIgnoreCase(record.id(), needle)) {
                 matches.add(record);
                 matchGuids.add(record.guid());
@@ -475,7 +473,7 @@ final class GraphPanel extends JComponent {
         }
         final LinkedHashSet<ClipMaskRecord> result = new LinkedHashSet<>(matches);
         for (ClipMaskRecord record : matches) {
-            // 匹配节点指向的 mask。
+            // The mask a matching node points to.
             for (String maskGuid : record.orderedMaskGuids()) {
                 final ClipMaskRecord mask = state.byGuid().get(maskGuid);
                 if (mask != null) {
@@ -484,7 +482,7 @@ final class GraphPanel extends JComponent {
             }
         }
         for (ClipMaskRecord record : state.records()) {
-            // 以匹配节点为 mask 的使用者（被指向）。
+            // The users that take a matching node as their mask.
             if (record == null) {
                 continue;
             }
@@ -498,7 +496,7 @@ final class GraphPanel extends JComponent {
         return new ArrayList<>(result);
     }
 
-    /** 选中节点 + 直接邻居（按 nodesByGuid 解析，缺失忽略）。 */
+    /** The selected node and its direct neighbors, resolved through nodesByGuid and skipping a missing node. */
     private Set<String> selectionSet() {
         final Set<String> result = new LinkedHashSet<>();
         if (selectedGuid == null || !nodesByGuid.containsKey(selectedGuid)) {
@@ -506,13 +504,13 @@ final class GraphPanel extends JComponent {
         }
         result.add(selectedGuid);
         final ClipMaskRecord selected = nodesByGuid.get(selectedGuid).record;
-        // 它指向的 mask。
+        // The mask it points to.
         for (String maskGuid : selected.orderedMaskGuids()) {
             if (nodesByGuid.containsKey(maskGuid)) {
                 result.add(maskGuid);
             }
         }
-        // 以它为 mask 的使用者。
+        // The users that take it as their mask.
         for (ClipMaskRecord user : state.maskUsers().getOrDefault(selectedGuid, List.of())) {
             if (user != null && nodesByGuid.containsKey(user.guid())) {
                 result.add(user.guid());
@@ -534,7 +532,7 @@ final class GraphPanel extends JComponent {
         return false;
     }
 
-    /** 类别可见集 V：pool 中不属于隐藏类别、且不是隐藏类别节点直接邻居的节点（邻居缺失忽略）。 */
+    /** Class-visible set V: the pool nodes outside a hidden class that are not a direct neighbor of a hidden-class node, skipping a missing neighbor. */
     private Set<String> visibleCategoryGuids(final List<ClipMaskRecord> pool) {
         final Set<String> hidden = new LinkedHashSet<>();
         for (ClipMaskRecord record : pool) {
@@ -542,7 +540,7 @@ final class GraphPanel extends JComponent {
                 continue;
             }
             hidden.add(record.guid());
-            // 直接邻居：它指向的 mask + 以它为 mask 的使用者。
+            // Direct neighbors: the mask it points to and the users that take it as their mask.
             for (String maskGuid : record.orderedMaskGuids()) {
                 hidden.add(maskGuid);
             }
@@ -561,7 +559,7 @@ final class GraphPanel extends JComponent {
         return visible;
     }
 
-    /** 记录 → 类别：纯蒙版 → mask；既是蒙版又是使用者 → both；有蒙版 → user；其余 → unrelated。 */
+    /** Maps a record to a class: a pure mask becomes mask, a mask that is also a user becomes both, a masked record becomes user, and the rest become unrelated. */
     private String categoryOf(final ClipMaskRecord record) {
         final boolean isMask = state.maskUsers().containsKey(record.guid());
         final boolean hasMask = record.hasMasks();
@@ -574,7 +572,7 @@ final class GraphPanel extends JComponent {
         return hasMask ? "user" : "unrelated";
     }
 
-    /** 图例 5 项 → 类别：索引 0,1 → user（含反转使用者）；2 → mask；3 → both；4 → unrelated。 */
+    /** Maps the 5 legend items to classes: index 0 and 1 become user, including the inverted user, 2 becomes mask, 3 becomes both, and 4 becomes unrelated. */
     private static String legendCategory(final int index) {
         switch (index) {
             case 0:
@@ -589,7 +587,7 @@ final class GraphPanel extends JComponent {
         }
     }
 
-    /** 测试观察口：最近一次绘制时图例各项的命中矩形（屏幕坐标）；空时返回不可变副本。 */
+    /** Test observation point: the screen hit rectangle of each legend item in the last paint, returned as an immutable copy when empty. */
     List<Rectangle> legendHitBounds() {
         return legendHitBounds.isEmpty() ? List.of() : new ArrayList<>(legendHitBounds);
     }
@@ -603,7 +601,7 @@ final class GraphPanel extends JComponent {
             g2.setColor(Color.WHITE);
             g2.fillRect(0, 0, getWidth(), getHeight());
 
-            // 图例与缩放指示在变换前绘制（屏幕坐标，固定左上角）。
+            // The legend and the zoom indicator paint before the transform, in screen coordinates at a fixed top-left corner.
             drawLegend(g2);
             g2.setColor(new Color(130, 130, 130));
             g2.setFont(g2.getFont().deriveFont(Font.PLAIN, 11f));
@@ -634,7 +632,7 @@ final class GraphPanel extends JComponent {
                 }
             }
 
-            // 用户选中高亮集（选中节点 + 直接邻居），节点描边红色覆盖编辑器橙色。
+            // The user selection highlight set holds the selected node and its direct neighbors, and its red outline covers the editor orange.
             final Set<String> selectionSet = selectionSet();
             final FontMetrics fm = g2.getFontMetrics();
             for (NodeBox node : nodes) {
@@ -678,7 +676,7 @@ final class GraphPanel extends JComponent {
             return new Color(210, 240, 210);
         }
         if (hasMask) {
-            // inverted=cyan（浅青，与蓝使用者可区分）。
+            // An inverted mask is cyan, light enough to stay distinct from a blue user.
             return inverted ? new Color(170, 230, 235) : new Color(210, 225, 255);
         }
         return new Color(235, 235, 235);
@@ -710,7 +708,7 @@ final class GraphPanel extends JComponent {
             final int cx = x + radius;
             final int cy = y + radius;
             final boolean hidden = hiddenCategories.contains(legendCategory(i));
-            // 关闭类别：色块淡化为浅灰，文字画删除线。
+            // A hidden class fades its swatch to light gray and strikes the text through.
             g2.setColor(hidden ? new Color(200, 200, 200) : fills[i]);
             g2.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
             g2.setColor(new Color(60, 60, 60));
@@ -720,7 +718,7 @@ final class GraphPanel extends JComponent {
             final int baseline = cy + fm.getAscent() / 2 - 2;
             g2.drawString(labels[i], textX, baseline);
             if (hidden) {
-                // 删除线穿过文字中部，横跨 stringWidth。
+                // The strike-through crosses the middle of the text over stringWidth.
                 final int midY = baseline - fm.getAscent() / 2 + 1;
                 g2.drawLine(textX, midY, textX + fm.stringWidth(labels[i]), midY);
             }

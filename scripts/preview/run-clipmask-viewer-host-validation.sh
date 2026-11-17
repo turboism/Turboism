@@ -38,8 +38,8 @@ probe_jar="$repo_root/build/clipmask-viewer-validation-exerciser.jar"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
 # Task-scoped copy name, not the source basename: the generic runner joins
-# JAVA_TOOL_OPTIONS with spaces, so a value containing spaces (e.g.
-# "测试 混合模式.cmo3") would split the JVM option and abort editor startup.
+# JAVA_TOOL_OPTIONS with spaces, so a value that contains a space would split
+# the JVM option and abort editor startup.
 exec bash "$runner" \
   --name clipmask-viewer \
   --version "$version" \

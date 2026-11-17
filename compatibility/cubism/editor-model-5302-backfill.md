@@ -1,27 +1,27 @@
-# 5.3.02 editor-model 别名回填证据
+# 5.3.02 editor-model Alias Backfill Evidence
 
-七个成员均存在。原缺口属于验证记录遗漏。
+All seven members exist. The original gap was an omission in the verification record.
 
-本次只读检查 JAR。未启动 Cubism。
+This round reads the JAR only. Cubism was not started.
 
-- JAR：`/opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar`。
-- 大小：`41922739` 字节。
-- SHA-256：`988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`。
-- 身份与 `ReviewedHostArtifacts.CUBISM_5_3_02` 一致。
-- 身份与 `reviewed-releases.json` 的 5.3.02 行一致。
+- JAR: `/opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar`.
+- Size: `41922739` bytes.
+- SHA-256: `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`.
+- The identity agrees with `ReviewedHostArtifacts.CUBISM_5_3_02`.
+- The identity agrees with the 5.3.02 row of `reviewed-releases.json`.
 
-核查命令：
+Check commands:
 
 ```bash
 stat -c %s /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar
 sha256sum /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar
-javap -p -s -classpath /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar <下表 owner>
+javap -p -s -classpath /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubism.jar <owner from the table below>
 ```
 
-每个 alias 均以 `cubism.editor-model.` 开头。
-表内名称均未混淆。无需用符号映射推断名称。
+Every alias starts with `cubism.editor-model.`.
+No name in the table is obfuscated. No symbol mapping is needed to infer a name.
 
-| Alias 后缀 | owner | member + descriptor | required / forbidden access | classfile 结果 |
+| Alias suffix | owner | member + descriptor | required / forbidden access | classfile result |
 | --- | --- | --- | --- | --- |
 | `morph-target-set.remove` | `com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet` | `remove(Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget;)V` | `17 / 8` | `VERIFIED_STATIC` |
 | `morph-target.set-parameter` | `com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget` | `setParameter(Lcom/live2d/type/CParameterGuid;)V` | `1 / 8` | `VERIFIED_STATIC` |
@@ -31,8 +31,8 @@ javap -p -s -classpath /opt/dev/projects/turboism/cubism-ref/5.3.02/Live2D_Cubis
 | `part-source.remove-child` | `com.live2d.cubism.doc.model.parts.CPartSource` | `removeChild(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;)V` | `17 / 8` | `VERIFIED_STATIC` |
 | `part.id` | `com.live2d.cubism.doc.model.parts.CPart` | `getId()Lcom/live2d/cubism/doc/model/id/CPartId;` | `1 / 8` | `VERIFIED_STATIC` |
 
-`scripts/dev/cubism_matrix/bytecode.py` 的 `verify_selector` 逐项通过。
-`javap -p -s` 的输出含下列成员：
+The `verify_selector` of `scripts/dev/cubism_matrix/bytecode.py` passes item by item.
+The `javap -p -s` output holds the following members:
 
 ```text
 com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet:
@@ -58,7 +58,7 @@ com/live2d/cubism/doc/model/parts/CPart:
     descriptor: ()Lcom/live2d/cubism/doc/model/id/CPartId;
 ```
 
-外推命令：
+Propagation commands:
 
 ```bash
 python3 scripts/materialize_verification_records.py
@@ -67,19 +67,19 @@ python3 scripts/dev/cubism_version_matrix.py propagate --family editor-model --f
 python3 scripts/dev/cubism_version_matrix.py propagate --family editor-model --from 5.3.01 --to 5.3.02 --write
 ```
 
-外推结果：1130 → 1137 个 selector。能力数保持 119。
-两处无关冲突保留 5.3.02 的原定义：
+Propagation result: 1130 → 1137 selectors. The capability count stays 119.
+Two unrelated conflicts keep the original 5.3.02 definition:
 
-- `editable-mesh.class` 的 requiredAccessFlags：17。
-- `parameter-controllable-source.selection` 的 requiredAccessFlags：1。
+- The requiredAccessFlags of `editable-mesh.class`: 17.
+- The requiredAccessFlags of `parameter-controllable-source.selection`: 1.
 
-将外推结果回写到现有七个 selector 的范围。
-在 5.3.02 的 selectorOrder 追加七个索引。
-回写后的记录与外推记录内容相同。
-同步 5.3.02 的 DRAFT 观察包及 metadata。
-同步 manifest 的 propagated alias 集合。
-更新两项集成测试的 selector 数量预期。
-删除对应单调性例外。
-该记录的全部 1137 个 selector 已通过 Java `verifyStaticHostSelectors`。
+The propagated result is written back to the scope of the existing seven selectors.
+Seven indices are appended to the selectorOrder of 5.3.02.
+The written-back record matches the propagated record.
+The DRAFT observation bundle and metadata of 5.3.02 are synchronised.
+The propagated alias set of the manifest is synchronised.
+The selector count expectation of two integration tests is updated.
+The matching monotonicity exception is removed.
+All 1137 selectors of that record pass the Java `verifyStaticHostSelectors`.
 
-此证据只证明静态成员契约。它不证明实机 readiness。
+This evidence proves the static member contract only. It does not prove host readiness.

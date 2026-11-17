@@ -35,13 +35,13 @@ class GraphPanelTest {
         final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
 
         final Dimension size = panel.getPreferredSize();
-        // 多层同心扇区布局：长宽比 1:1；同 60 节点下行布局需 ~4880px 宽，圆形显著收窄。
+        // The multi-layer concentric sector layout keeps a 1:1 aspect ratio. A row layout of the same 60 nodes needs about 4880px, so the circle is much narrower.
         assertTrue(Math.abs((double) size.width / size.height - 1.0) < 0.01, "expected square aspect, got " + size);
         assertTrue(
                 size.width < LEGACY_ROW_WIDTH_ESTIMATE / 2,
                 "circular width " + size.width + " must be well below row-layout width " + LEGACY_ROW_WIDTH_ESTIMATE);
 
-        // 中心非空：存在内圈节点（距圆心 < 总半径（面板半径 = size/2）的一半；旧单圈布局所有节点都在最外圈）。
+        // The centre stays occupied: an inner-ring node sits closer to the centre than half the total radius, which is the panel radius of size/2, while the old single-ring layout put every node on the outer ring.
         final int center = size.width / 2;
         final double minDistance = panel.nodeCenters().stream()
                 .mapToDouble(p -> Math.hypot(p.x - center, p.y - center))
@@ -51,8 +51,7 @@ class GraphPanelTest {
                 minDistance < size.width / 4.0,
                 "inner ring must fill the center area, min node distance " + minDistance);
 
-        // 层数/容量正确：top 类 20 节点 → 3 层（容量 5+7+8，末层 8 个）；
-        // bottom 类 40 节点 → 5 层（5+7+9+11+8）。
+        // The layer count and capacity hold: the top class with 20 nodes needs 3 layers of capacity 5+7+8, and the last layer holds 8 nodes. The bottom class with 40 nodes needs 5 layers of 5+7+9+11+8.
         assertEquals(List.of(5, 7, 8), ringSizes(panel, 90, 210), "top sector layers");
         assertEquals(List.of(5, 7, 9, 11, 8), ringSizes(panel, 330, 90), "bottom sector layers");
     }
@@ -82,11 +81,11 @@ class GraphPanelTest {
         final Dimension size = panel.getPreferredSize();
         panel.setSize(size);
         panel.setHighlightedGuids(Set.of("mask-1"));
-        // 高亮不抛异常（回归）；中心点必然无节点（节点在圆周上）。
+        // The highlight throws nothing, which is a regression guard, and the centre point holds no node because every node sits on a circumference.
         dispatchClick(panel, size.width / 2, size.height / 2);
         assertTrue(clicked.isEmpty());
 
-        // 网格扫描必然命中圆周上的节点（步长 < 节点直径）。
+        // A grid scan always hits a node on a circumference because the step stays below the node diameter.
         for (int x = 0; x < size.width; x += 8) {
             for (int y = 0; y < size.height; y += 8) {
                 dispatchClick(panel, x, y);
@@ -114,7 +113,7 @@ class GraphPanelTest {
     void compactMultiRingLayoutShrinksTotalRadius() {
         final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> {});
         final int width = panel.getPreferredSize().width;
-        // 60 节点 → top 3 层、bottom 5 层（5+7+9+11+8）→ 总半径 = 160 + (5-1)*66 = 424。
+        // 60 nodes give the top class 3 layers and the bottom class 5 layers of 5+7+9+11+8, so the total radius is 160 + (5-1)*66 = 424.
         final int expectedRadius = 160 + 4 * (3 * 22);
         assertEquals((expectedRadius + 40) * 2, width);
         final int oldSingleRingRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
@@ -127,7 +126,7 @@ class GraphPanelTest {
     void smallGroupsDegenerateToSingleRing() {
         final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         final Dimension size = panel.getPreferredSize();
-        // 每类 2 节点 ≤ 首层容量 5 → 单圈退化：半径 = MIN_RADIUS（160），尺寸与旧布局一致。
+        // Two nodes per class stay within the first-layer capacity of 5, so the layout degrades to a single ring with radius MIN_RADIUS of 160, the same size as the old layout.
         assertEquals((160 + 40) * 2, size.width);
         final int center = size.width / 2;
         final Set<Integer> rings = new java.util.TreeSet<>();
@@ -142,7 +141,7 @@ class GraphPanelTest {
         final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         panel.zoomAt(new Point(100, 120), 1.2);
         assertEquals(1.2, panel.scale(), 1e-9);
-        // 锚点不变性：光标 (100,120) 下的逻辑坐标缩放前后一致 → offset 按公式移动。
+        // Anchor invariance: the logical point under the cursor at (100,120) stays the same across the zoom, so the offset moves by the formula.
         assertEquals(-20, panel.offsetX());
         assertEquals(-24, panel.offsetY());
 
@@ -197,7 +196,7 @@ class GraphPanelTest {
         final List<String> clicked = new ArrayList<>();
         final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked::add);
 
-        // 未命中节点的按下+拖动 = 画布平移；命中节点则是节点拖动（见选中/拖动测试）。
+        // A press and drag that misses a node pans the canvas, while a node hit drags the node, as the selection and drag tests show.
         dispatchPress(panel, 200, 200);
         dispatchDrag(panel, 241, 250);
         dispatchRelease(panel, 241, 250);
@@ -206,7 +205,7 @@ class GraphPanelTest {
         assertEquals(41, panel.offsetX());
         assertEquals(50, panel.offsetY());
 
-        // 位移 ≤ 4px 仍视为点击：在已平移的视口里按下节点新屏幕位置、2px 内拖动后释放。
+        // A movement of 4px or less still counts as a click: press the new screen position of the node in the panned viewport, drag within 2px, and release.
         clicked.clear();
         dispatchPress(panel, 380, 330);
         dispatchDrag(panel, 382, 332);
@@ -217,7 +216,7 @@ class GraphPanelTest {
 
     @Test
     void filterKeepsMatchingNodesAndDirectNeighbors() {
-        // Alpha 使用 Beta、Gamma；Delta 使用 Alpha（mask→user 边：Beta→Alpha、Gamma→Alpha、Alpha→Delta）。
+        // Alpha uses Beta and Gamma, and Delta uses Alpha, so the mask-to-user edges are Beta to Alpha, Gamma to Alpha, and Alpha to Delta.
         final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> {});
 
         panel.setFilter("Alpha");
@@ -226,7 +225,7 @@ class GraphPanelTest {
                 new java.util.HashSet<>(panel.nodeGuids()),
                 "match + direct neighbors (masks of match + users of match)");
 
-        // 按语义：匹配 Beta → 邻居仅以 Beta 为 mask 的使用者 Alpha；Delta 不是 Beta 的直接邻居。
+        // By semantics, a match on Beta brings only Alpha, the user that takes Beta as its mask, and Delta is not a direct neighbor of Beta.
         panel.setFilter("Beta");
         assertEquals(
                 Set.of("gA", "gB"),
@@ -242,13 +241,13 @@ class GraphPanelTest {
         panel.setShowUnrelated(true);
         panel.rebuild();
 
-        panel.setFilter("HAIR"); // 忽略大小写命中 displayName（也命中 id）。
+        panel.setFilter("HAIR"); // Matches displayName case-insensitively, and id too.
         assertEquals(List.of("guid-secret-xyz"), panel.nodeGuids());
 
         panel.setFilter("mesh-01"); // 命中 id。
         assertEquals(List.of("guid-secret-xyz"), panel.nodeGuids());
 
-        // guid 含同文本但 displayName/id 都不含 → 不命中 → 空态。
+        // A guid that holds the same text while displayName and id do not match yields no hit and an empty state.
         panel.setFilter("secret");
         assertTrue(panel.nodeGuids().isEmpty());
         assertEquals(new Dimension(400, 200), panel.getPreferredSize(), "empty filter result uses empty state");
@@ -271,8 +270,8 @@ class GraphPanelTest {
 
     @Test
     void categoryToggleHidesCategoryNodesAndTheirDirectNeighbors() {
-        // Alpha 使用 Beta、Gamma；Delta 使用 Alpha；Epsilon 无关（showUnrelated 下入池）。
-        // 角色：Beta/Gamma 纯蒙版 → mask 类；Alpha 既是蒙版又是使用者 → both；Delta 使用者 → user；Epsilon → unrelated。
+        // Alpha uses Beta and Gamma, Delta uses Alpha, and Epsilon is unrelated and joins the pool under showUnrelated.
+        // Roles: the pure masks Beta and Gamma become mask, Alpha as both mask and user becomes both, the user Delta becomes user, and Epsilon becomes unrelated.
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(
                 record("gA", "idA", "Alpha", false, "gB", "gC"),
@@ -286,8 +285,7 @@ class GraphPanelTest {
         assertEquals(5, panel.nodeGuids().size());
 
         panel.setCategoryVisible("mask", false);
-        // H = {B,C} ∪ 直接邻居（以 B/C 为 mask 的使用者 Alpha）→ 隐藏 A,B,C。
-        // D 是 A 的邻居而非 B/C 的直接邻居 → 保留（A 隐藏后 D 成孤立但仍显示）。
+        // H is {B,C} plus the direct neighbors, which is Alpha as the user of B and C, so A, B, and C hide. D is a neighbor of A but not a direct neighbor of B or C, so it stays and remains visible as an isolated node after A hides.
         assertEquals(
                 Set.of("gD", "gE"),
                 new java.util.HashSet<>(panel.nodeGuids()),
@@ -307,7 +305,7 @@ class GraphPanelTest {
         assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()));
 
         panel.setCategoryVisible("mask", false);
-        // V = {gD}（B、C 及其直接邻居 A 被隐藏）；有效集 = V ∩ (M∪N) = {gD}。
+        // V is {gD} because B, C, and their direct neighbor A hide, so the effective set V ∩ (M∪N) is {gD}.
         assertEquals(
                 Set.of("gD"),
                 new java.util.HashSet<>(panel.nodeGuids()),
@@ -363,7 +361,7 @@ class GraphPanelTest {
                 panel.selectionEdgeEndpoints(),
                 "endpoints of edges touching the selected node");
 
-        // 选中状态下绘制不抛异常（红色高亮路径）。
+        // A paint with a selection throws nothing, which covers the red highlight path.
         final Dimension size = panel.getPreferredSize();
         panel.setSize(size);
         final BufferedImage image = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);
@@ -383,7 +381,7 @@ class GraphPanelTest {
     void selectedNodeCanBeDraggedAndUnhitDragPansViewport() {
         final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> {});
 
-        // 命中节点：按下选中 + 拖动移动节点；画布 offset 不变。
+        // A node hit selects on press and moves the node on drag while the canvas offset stays unchanged.
         dispatchPress(panel, 339, 280);
         assertEquals(
                 Set.of("user-1", "mask-1"),
@@ -395,7 +393,7 @@ class GraphPanelTest {
         assertEquals(0, panel.offsetX());
         assertEquals(0, panel.offsetY());
 
-        // 未命中节点：按下+拖动 = 画布平移；节点坐标不变。
+        // A press and drag that misses a node pans the canvas and leaves the node coordinates unchanged.
         final List<Point> before = panel.nodeCenters();
         dispatchPress(panel, 200, 200);
         dispatchDrag(panel, 250, 240);
@@ -427,7 +425,7 @@ class GraphPanelTest {
         panel.setViewScale(10.0);
         assertEquals(4.0, panel.scale(), 1e-9, "scale must clamp to MAX_SCALE");
 
-        // 中心锚点：缩放前后视口中心 (400,300) 的逻辑坐标不变。
+        // Centre anchor: the logical point of the viewport centre at (400,300) stays the same across the zoom.
         panel.setViewScale(1.0);
         panel.zoomAt(new Point(400, 300), 2.0);
         assertEquals(2.0, panel.scale(), 1e-9);
@@ -457,14 +455,14 @@ class GraphPanelTest {
         assertEquals(4, seen.size());
         assertEquals(1 / 1.2, seen.get(3), 1e-9);
 
-        // 空态（无节点）时 scale 变化仍同步 listener。
+        // A scale change in the empty state still synchronises the listener.
         final GraphPanel empty = new GraphPanel(new ClipMaskViewerState(), localization(), clicked -> {});
         final List<Double> emptySeen = new ArrayList<>();
         empty.setViewScaleListener(emptySeen::add);
         empty.setViewScale(3.0);
         assertEquals(List.of(3.0), emptySeen);
 
-        // listener 替换/置 null 不抛异常。
+        // Replacing the listener or setting it to null throws nothing.
         panel.setViewScaleListener(null);
         panel.setViewScale(3.0);
         panel.resetView();
@@ -478,18 +476,18 @@ class GraphPanelTest {
         panel.zoomAt(new Point(200, 200), 2.0);
         assertEquals(-200, panel.offsetX());
         assertEquals(-200, panel.offsetY());
-        // user-1 逻辑 (339,280) → 屏幕 (478,360)；圆心逻辑 (200,200) → 屏幕 (200,200)。
+        // The logical point (339,280) of user-1 maps to screen (478,360), and the logical centre (200,200) maps to screen (200,200).
         assertNotNull(panel.findNode(new Point(478, 360)));
         assertNull(panel.findNode(new Point(200, 200)));
         dispatchClick(panel, 478, 360);
         assertTrue(clicked.contains("user-1"), "click on transformed node must reach the callback");
 
         panel.panBy(-50, 20);
-        // mask-1 逻辑 (61,280) → 屏幕 (-128,380)。
+        // The logical point (61,280) of mask-1 maps to screen (-128,380).
         assertNotNull(panel.findNode(new Point(-128, 380)));
     }
 
-    /** 统计 [startDeg, endDeg)（可跨 0°）扇区内各同心层（从内圈起）的节点数。 */
+    /** Counts the nodes of each concentric layer, from the inner ring, inside the [startDeg, endDeg) sector, which may cross 0°. */
     private static List<Integer> ringSizes(final GraphPanel panel, final int startDeg, final int endDeg) {
         final int center = panel.getPreferredSize().width / 2;
         final int[] counts = new int[16];
@@ -517,7 +515,7 @@ class GraphPanelTest {
         return sizes;
     }
 
-    /** 绘制一次面板，填充 legendHitBounds（图例命中矩形在绘制时记录）。 */
+    /** Paints the panel once and fills legendHitBounds, because the legend hit rectangles are recorded during the paint. */
     private static void paintPanel(final GraphPanel panel) {
         final Dimension size = panel.getPreferredSize();
         panel.setSize(size);
@@ -571,18 +569,18 @@ class GraphPanelTest {
     private static ClipMaskViewerState stateWith(final int perGroup) {
         final List<ClipMaskRecord> records = new ArrayList<>();
         for (int i = 0; i < perGroup; i++) {
-            // 纯蒙版：被引用、无蒙版。
+            // A pure mask is referenced and holds no mask.
             records.add(record("mask-" + i, "Mask " + i, false));
-            // 既是也用：被引用、有蒙版。
+            // A both node is referenced and holds a mask.
             records.add(record("both-" + i, "Both " + i, false, "mask-" + i));
-            // 纯使用者：有蒙版、不被引用。
+            // A pure user holds a mask and is not referenced.
             records.add(record("user-" + i, "User " + i, false, "mask-" + i));
         }
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(records.toArray(new ClipMaskRecord[0])));
         return state;
     }
-    /** Alpha 使用 Beta、Gamma；Delta 使用 Alpha（全部相关，showUnrelated=false 下全量显示）。 */
+    /** Alpha uses Beta and Gamma, and Delta uses Alpha. Every node is related, so showUnrelated=false still shows all of them. */
     private static ClipMaskViewerState filterState() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(

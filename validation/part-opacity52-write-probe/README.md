@@ -1,5 +1,5 @@
 # part-opacity52-write-probe
 
-part opacity 52 位写入路径探针。
+Probe for the 52-bit part opacity write path.
 
-运行：`./build.sh` 编译。以本目录脚本为准。
+Run `./build.sh` to compile. The scripts in this directory are authoritative.

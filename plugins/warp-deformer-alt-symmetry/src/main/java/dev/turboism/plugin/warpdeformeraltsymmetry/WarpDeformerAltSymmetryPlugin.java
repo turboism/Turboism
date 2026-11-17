@@ -149,9 +149,10 @@ public final class WarpDeformerAltSymmetryPlugin implements TurboismPlugin {
                         .require(UiHostCapabilityService.class)
                         .notifyCanvasHint(new dev.turboism.sdk.ui.CanvasHintNotification(
                                 "warp-deformer-alt-symmetry.hint",
-                                // Text convention (operator feedback): armed state 1
-                                // moves the counterpart vertically (across the
-                                // horizontal line) → "水平镜像中"; state 2 → "垂直镜像中".
+                                // Operator feedback fixed the text convention: armed state 1
+                                // moves the counterpart vertically across the horizontal line
+                                // and uses the horizontal hint key, while state 2 uses the
+                                // vertical hint key.
                                 axis == 1
                                         ? context.localization().text("warp-alt-symmetry.hint.horizontal")
                                         : context.localization().text("warp-alt-symmetry.hint.vertical"),

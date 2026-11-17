@@ -1,110 +1,110 @@
-# Test Assets (测试语料与模型资产)
+# Test Assets (Test Corpus and Model Assets)
 
-本目录用于管理 Turboism 的人工测试模型、PSD 及 3D 几何测试夹具。为了保持 Git 仓库精简并防范大文件与私人资产泄露，仓库采用**清单化管理 + 版本化 Release 资产分发**策略。
+This directory manages the manual test models, PSD files, and 3D geometry fixtures for Turboism. The repository keeps the Git tree small and blocks large or private assets, so it uses a **manifest-driven, versioned release distribution** strategy.
 
-- **小体积几何夹具（< 1MB）**：直接以 `storage: git` 形式入库受版本控制。
-- **二进制大文件（CMO3、PSD、CAN3 等）**：**严禁直接提交 Git**。通过 `testing/assets/corpus.json` 登记清单（文件名、字节数、SHA-256 哈希），二进制归档发布至 GitHub Releases，使用 `scripts/test_corpus.py` 工具按需拉取至本地共享缓存并映射至工作区。
+- **Small geometry fixtures (< 1 MB)**: committed directly to version control with `storage: git`.
+- **Large binary files (CMO3, PSD, CAN3, and similar)**: **never committed to Git**. `testing/assets/corpus.json` registers each file (name, byte size, SHA-256 hash), the binary archives publish to GitHub Releases, and `scripts/test_corpus.py` pulls them on demand into a shared local cache and maps them into the workspace.
 
-## 目录结构
+## Directory Structure
 
 ```text
 testing/assets/
-├── .gitignore                     # 排除本地拉取的 cmo3、psd 二进制产物
-├── README.md                      # 测试集总说明（本文档）
-├── corpus.json                    # 语料库总清单（Schema v1）
-├── texture-atlas-layout/          # 纹理图集排版测试集（文档在库，二进制 Release 分发）
-│   ├── README.md                  # 数据集使用说明与许可
-│   ├── BUILDING.md                # 测试模型构建与复现说明
-│   ├── atlas-manifest.md          # 基准包校验与 17 个文件清单
-│   ├── circle-manifest.md         # Circle 8 个样本清单与 PSD 规格
-│   ├── geometry-manifest.md       # Geometry 9 个样本清单与 PSD 规格
-│   ├── cmo3/                      # 本地拉取/解压落地点（Git 忽略）
-│   └── psd/                       # 本地拉取/解压落地点（Git 忽略）
-└── model-import-3d/               # 3D 导入自建最小 GLB 夹具（Git 直接跟踪）
-    ├── README.md                  # 几何规格、来源与构建说明
+├── .gitignore                     # Excludes locally fetched cmo3 and psd binaries
+├── README.md                      # Corpus overview (this document)
+├── corpus.json                    # Corpus manifest (Schema v1)
+├── texture-atlas-layout/          # Texture atlas layout corpus (docs in Git, binaries on Releases)
+│   ├── README.md                  # Dataset usage and license
+│   ├── BUILDING.md                # Test model build and reproduction notes
+│   ├── atlas-manifest.md          # Baseline archive checks and the 17-file manifest
+│   ├── circle-manifest.md         # Circle 8-sample manifest and PSD specs
+│   ├── geometry-manifest.md       # Geometry 9-sample manifest and PSD specs
+│   ├── cmo3/                      # Local fetch/extract target (Git-ignored)
+│   └── psd/                       # Local fetch/extract target (Git-ignored)
+└── model-import-3d/               # Minimal self-built GLB fixtures (tracked by Git)
+    ├── README.md                  # Geometry specs, provenance, and build notes
     ├── cube-985496727e50/
     ├── cube-textured/
     └── plane-textured/
 ```
 
-## 数据集列表
+## Dataset List
 
-| 数据集 ID | 版本 | 存储方式 | 许可 | 文件数 | 总字节数 | 说明 |
+| Dataset ID | Version | Storage | License | Files | Total bytes | Notes |
 |---|---|---|---|---:|---:|---|
-| `texture-atlas-layout` | `1` | `release` | CC0-1.0 | 17 | 123,517,686 (~118MB) | Circle 与 Geometry 纹理图集当前页排版测试集（9 个 CMO3 + 8 个 PSD） |
-| `model-import-3d` | `1` | `git` | CC0-1.0 | 4 | 13,544 (~13KB) | 自建最小立方体与平面 GLB 夹具（含嵌入纹理与对角线展开缝测试） |
+| `texture-atlas-layout` | `1` | `release` | CC0-1.0 | 17 | 123,517,686 (~118MB) | Circle and Geometry texture atlas current-page layout corpus (9 CMO3 + 8 PSD) |
+| `model-import-3d` | `1` | `git` | CC0-1.0 | 4 | 13,544 (~13KB) | Self-built minimal cube and plane GLB fixtures (embedded textures and a diagonal seam case) |
 
-## 语料管理工具 (`scripts/test_corpus.py`)
+## Corpus Tool (`scripts/test_corpus.py`)
 
-`scripts/test_corpus.py` 是基于 Python 标准库的语料管理脚本，提供拉取、校验、打包与状态检查能力。
+`scripts/test_corpus.py` is a standard-library-only corpus tool. It fetches, verifies, packs, and reports status.
 
-### 1. 拉取语料 (`fetch`)
+### 1. Fetch a Corpus (`fetch`)
 
-从 GitHub Release 下载指定数据集并校验归档与成员 SHA-256，解压到共享缓存并映射到本工作区对应路径：
+Download a dataset from GitHub Releases, verify the archive and per-member SHA-256 values, extract it into the shared cache, and map it into this workspace:
 
 ```sh
-# 拉取指定数据集
+# Fetch one dataset
 python3 scripts/test_corpus.py fetch texture-atlas-layout
 
-# 拉取全部 Release 数据集
+# Fetch every release dataset
 python3 scripts/test_corpus.py fetch --all
 
-# 离线或本地测试：从本地归档拉取并解压校验
+# Offline or local test: fetch from a local archive and verify after extraction
 python3 scripts/test_corpus.py fetch texture-atlas-layout --from-file build/test-corpus-release/texture-atlas-layout-v1.tar.gz
 
-# 复制文件（非符号链接）
+# Copy files instead of symlinking
 python3 scripts/test_corpus.py fetch texture-atlas-layout --copy
 ```
 
-- **共享缓存目录**：默认位于 `${XDG_CACHE_HOME:-~/.cache}/turboism/test-corpus/<dataset>@<version>/`。多个本地 worktree 之间共享同一缓存，不重复占用 118MB 磁盘。
-- **工作区映射**：默认创建指向缓存文件的符号链接，保留 `testing/assets/texture-atlas-layout/{cmo3,psd}/...` 既有相对路径，既有单元测试与自动化脚本无需修改路径。
+- **Shared cache directory**: defaults to `${XDG_CACHE_HOME:-~/.cache}/turboism/test-corpus/<dataset>@<version>/`. Multiple local worktrees share one cache, so the 118MB corpus is stored once.
+- **Workspace mapping**: by default the tool creates symlinks into the cache and keeps the existing relative paths `testing/assets/texture-atlas-layout/{cmo3,psd}/...`, so existing unit tests and automation scripts need no path change.
 
-### 2. 校验语料 (`verify`)
+### 2. Verify a Corpus (`verify`)
 
-核对本地工作区中的语料文件是否存在、大小及 SHA-256 是否与 `corpus.json` 清单一致：
+Check that each corpus file in the workspace exists and that its size and SHA-256 match the `corpus.json` manifest:
 
 ```sh
-# 校验指定数据集
+# Verify one dataset
 python3 scripts/test_corpus.py verify texture-atlas-layout
 
-# 校验所有数据集（包括 git 跟踪与 release 拉取项）
+# Verify every dataset, including Git-tracked and release-fetched entries
 python3 scripts/test_corpus.py verify --all
 ```
 
-### 3. 查看状态 (`list`)
+### 3. Report Status (`list`)
 
-查看所有注册数据集的存储方式、许可、文件规模及本地准备情况：
+Show the storage mode, license, file scale, and local readiness of every registered dataset:
 
 ```sh
 python3 scripts/test_corpus.py list
 ```
 
-## 私有资产严禁入库规则
+## Private Asset Policy
 
-Turboism 遵守严格的代码仓库卫生（Hygiene）防范策略：
+Turboism enforces strict repository hygiene:
 
-1. **绝对禁止**：严禁提交任何用户私有工程资产（如未经审查的私有模型、私人插画 PSD）、第三方未授权 3D 模型（如猫/苹果等第三方网格）以及任何不在官方测试清单中的二进制文件。
-2. **强制门禁**：
-   - 根目录 `.gitignore` 与 `testing/assets/.gitignore` 排除所有 `*.cmo3`、`*.can3`、`*.cmo3.bak`、`*.psd`、`*.moc3`。
-   - `scripts/check_remote_hygiene.py` 在 pre-commit、pre-push、`devCheck` 与 CI 门禁中 fail-closed 拦截上述二进制后缀，即使使用 `git add -f` 强行暂存也会被拒绝提交。
+1. **Absolute prohibition**: never commit private user project assets (such as unreviewed private models or personal illustration PSDs), unauthorized third-party 3D models (such as third-party cat or apple meshes), or any binary that is not on the official test manifest.
+2. **Enforced gates**:
+   - The root `.gitignore` and `testing/assets/.gitignore` exclude every `*.cmo3`, `*.can3`, `*.cmo3.bak`, `*.psd`, and `*.moc3` file.
+   - `scripts/check_remote_hygiene.py` fails closed on those binary suffixes in pre-commit, pre-push, `devCheck`, and CI gates. Force-staging with `git add -f` still cannot commit them.
 
-## 如何新增测试数据集
+## Adding a Test Dataset
 
-1. **确定许可与来源**：
-   - 语料必须具备清晰且兼容的开源许可（如 CC0 1.0、MIT、Apache-2.0 等）。私有/不明许可资产严禁纳入。
-2. **在 `testing/assets/corpus.json` 登记元数据**：
-   - 声明 `id`、`version`、`license`、`storage: "release"`、`targetDir`、`usedBy`。
-   - 逐个文件测量并记录相对路径、字节大小与 SHA-256 哈希。
-3. **打包确定性归档 (`pack`)**：
-   - 使用 pure-Python 打包命令从本地准备好的源目录生成可复现归档（固定 mtime、uid、gid、文件排序）：
+1. **Confirm license and provenance**:
+   - The corpus needs a clear, compatible open-source license (such as CC0 1.0, MIT, or Apache-2.0). Never include private assets or assets with unclear licensing.
+2. **Register metadata in `testing/assets/corpus.json`**:
+   - Declare `id`, `version`, `license`, `storage: "release"`, `targetDir`, and `usedBy`.
+   - Measure and record the relative path, byte size, and SHA-256 hash of every file.
+3. **Pack a deterministic archive (`pack`)**:
+   - Generate a reproducible archive from a prepared local source directory with the pure-Python packer, which fixes mtime, uid, gid, and file ordering:
      ```sh
      python3 scripts/test_corpus.py pack <dataset-id> --source <source-dir> --out build/test-corpus-release/
      ```
-   - 打包逻辑会严格比对源目录与清单，若源目录包含清单外的多余文件将直接拒绝打包，防止误夹带杂质。
-4. **提交主管审核与发布**：
-   - 开发者不得私自创建 GitHub Tag 或上传 Release 资产。
-   - 将打包产物与清单提交主管审核。审核通过后，由主管使用 `gh release create` 发布版本化 Release 资产。
-5. **回填清单与提交文档**：
-   - 将主管发布的归档 SHA-256 和字节数回填到 `corpus.json` 的 `release` 字段中。
-   - 编写数据集专用的 `README.md` 与 `BUILDING.md`（说明复现/构建方法）。
-   - 提交清单与文档更新并通过门禁。
+   - The packer compares the source directory against the manifest and refuses to pack when the source holds files outside the manifest, which prevents accidental contamination.
+4. **Submit for maintainer review and release**:
+   - Developers must not create GitHub tags or upload release assets on their own.
+   - Submit the packed archive and manifest for maintainer review. After approval, the maintainer publishes the versioned release asset with `gh release create`.
+5. **Backfill the manifest and commit the docs**:
+   - Write the published archive SHA-256 and byte size back into the `release` field of `corpus.json`.
+   - Write the dataset-specific `README.md` and `BUILDING.md` with reproduction and build instructions.
+   - Commit the manifest and documentation updates and pass the gates.

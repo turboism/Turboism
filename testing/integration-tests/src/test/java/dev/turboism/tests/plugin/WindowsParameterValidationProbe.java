@@ -2685,11 +2685,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final StringBuilder notes = new StringBuilder();
         for (Window window : Window.getWindows()) {
             // The save prompt observed on 5.3.03 is not a Dialog at all (the r16
-            // scan saw only the non-modal "主页" JDialog while the prompt sat on
+            // scan saw only the non-modal home dialog while the prompt sat on
             // screen), so every visible non-Frame window is inspected — dismissal
             // remains gated by the narrow label whitelist below. Every window is
             // examined: returning after the first one (r18) meant the benign
-            // "主页" dialog shadowed the save prompt and nothing was dismissed.
+            // home dialog shadowed the save prompt and nothing was dismissed.
             if (window instanceof java.awt.Frame || !window.isVisible()) continue;
             notes.append(inspectModalWindow(window));
         }
@@ -2706,7 +2706,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         // The newer-file gate is answered only by the shared audited responder.
         // The local copy that once lived here searched for a "Load"-like label
         // and, when the label was unrecognized, let the same dialog fall
-        // through to the discard branch below — a No/否 button there is how
+        // through to the discard branch below — a localized No button there is how
         // the gate got cancelled. Dispatching NativeFreeStartup keeps detection
         // and answering in one place; action stays non-"ignored" so the
         // discard path can never reach this dialog.
@@ -2720,8 +2720,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // Dirty-close prompts mention saving and offer a discard button;
             // dismiss via the discard label only — never the save button.
             // The observed 5.3.03 prompt renders Yes(Y)/No(N)/Cancel(C)
-            // CButton widgets titled 确定, so "No"/"否"/"いいえ" count as
-            // discard — always gated by a 保存/save mention in the body.
+            // CButton widgets under a confirm title, so "No" and its localized
+            // forms count as discard — always gated by a save mention in the body.
             final Component discard = enabled.stream()
                     .filter(b -> {
                         final String label = clickLabel(b);
@@ -2748,7 +2748,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 action = "discarded-save-prompt";
             } else if (enabled.size() == 1) {
                 // A lone confirm button is an informational modal (e.g. the
-                // post-load 确定 notice) — acknowledge it; the body text is
+                // post-load confirmation notice) — acknowledge it; the body text is
                 // still recorded in the status line for review.
                 final String label = clickLabel(enabled.get(0));
                 if (label.equals("确定") || label.equals("確定") || label.equalsIgnoreCase("OK")) {
@@ -3283,7 +3283,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 modelStale = modelBecameStale(model);
                 // Last resort: the prompt sits in the host's AppContext and is
                 // invisible to Window.getWindows() (confirmed r19: the scan saw
-                // only the 主页 dialog while the Yes/No/Cancel prompt was on
+                // only the home dialog while the Yes/No/Cancel prompt was on
                 // screen). Each iteration costs up to ~5s when the modal
                 // starves the EDT, so fire 'N' early and keep repeating it —
                 // the focused save dialog treats it as "No (don't save)".

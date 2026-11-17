@@ -1,5 +1,5 @@
 # startup-suppression-host-probe
 
-启动项抑制（startup suppression）探针。
+Probe for startup item suppression.
 
-运行：`./build.sh` 编译。需要真实 Cubism Editor 宿主。
+Run `./build.sh` to compile. A real Cubism Editor host is required.

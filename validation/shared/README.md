@@ -1,17 +1,18 @@
-# shared/ — validation 探针共享工具箱（单一源）
+# shared/ — Shared Toolbox for Validation Probes (Single Source)
 
-各 `validation/<probe>/build.sh` 在编译期直接 `javac` 本目录源码，替代曾经的每目录副本（RelocateJar 曾四副本分叉）。
+Every `validation/<probe>/build.sh` compiles the source in this directory directly with `javac` at build time, which replaces the former per-directory copies (RelocateJar once existed as four diverged copies).
 
-- `src/dev/turboism/validation/shared/tools/RelocateJar.java` — ASM jar 重定位工具。调用：`java -cp <asm jars> dev.turboism.validation.shared.tools.RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`。含 module-info 剥离与输出名归一注释。
-- `src/dev/turboism/validation/shared/fixture/FixtureLoader.java` — child-first `URLClassLoader`；run.sh 以 `-D<prop>.expectLoader=dev.turboism.validation.shared.fixture.FixtureLoader` 断言。
-- `src/dev/turboism/validation/shared/fixture/CodeSourceUrl.java` — 打印目录 URL 的外部形式，推导期望 codeSource。
-- `src/dev/turboism/validation/shared/verdict/ProbeTerminal.java` — 探针的封闭状态模型与判定规则（`PASS`/`FAIL`/`BLOCKED`/`SKIPPED` 参与终态，`INFO` 仅作证据）。状态是枚举常量，未知状态拼写无法编译。
-- `src/dev/turboism/validation/shared/verdict/ProbeAssertions.java` — 断言记录器（`record(name, expected, actual, ProbeTerminal)`）、计数器与结果行布局；结果尾部只能经 `appendPublication(report, Records, terminalKey)` 发布。
+- `src/dev/turboism/validation/shared/tools/RelocateJar.java` relocates ASM jar packages. Call it as `java -cp <asm jars> dev.turboism.validation.shared.tools.RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`. It strips module-info and normalizes the output name.
+- `src/dev/turboism/validation/shared/fixture/FixtureLoader.java` is a child-first `URLClassLoader`; `run.sh` asserts it with `-D<prop>.expectLoader=dev.turboism.validation.shared.fixture.FixtureLoader`.
+- `src/dev/turboism/validation/shared/fixture/CodeSourceUrl.java` prints the external form of a directory URL, so a probe can derive the expected code source.
+- `src/dev/turboism/validation/shared/verdict/ProbeTerminal.java` holds the closed state model and decision rule of a probe (`PASS`, `FAIL`, `BLOCKED`, and `SKIPPED` decide the terminal state; `INFO` is evidence only). The states are enum constants, so a misspelled state does not compile.
+- `src/dev/turboism/validation/shared/verdict/ProbeAssertions.java` is the assertion recorder (`record(name, expected, actual, ProbeTerminal)`) with the counters and result line layout. Only `appendPublication(report, Records, terminalKey)` may publish the result tail.
 
-`verdict/` 的两个类是四个终态探针（animation-timeline、atlas-polygon、clipmask-viewer、parameter-batch-transfer）唯一的判定来源。离线用例：`bash validation/shared/check-probe-terminal.sh`。
-`src/dev/turboism/validation/SessionGate.java` 是触发等待与 session 钩子的单一源：`SessionGate.trigger(stateDir)` 返回可配置的 `Trigger`，由它轮询 `exerciser.flag`、执行 standalone 截止时间（超时默认 `halt(2)`，需要先写结果文件的探针覆写 `onTimeout`）、并处理 session 模式的 go-flag/finished.flag 语义；探针只提供自己的日志标记、轮询间隔与超时动作。九份探针各自的轮询循环曾分叉，`check_validation_tools_sync.py` 现拒绝 `validation/` 内（`SessionGate.java` 除外）再次声明 `void runWhenFlagged(`，并要求每个 flag 探针的 `build.sh` 编译该源。
+The two classes in `verdict/` are the single decision source for the four terminal-state probes (animation-timeline, atlas-polygon, clipmask-viewer, parameter-batch-transfer). Offline case: `bash validation/shared/check-probe-terminal.sh`.
 
-- `probe-build.sh` — 插件探针的共享构建步骤：`probe_sdk_jar` 按 `scripts/dev/worktree-id.sh` 定位当前 worktree 的 SDK jar，`probe_build_plugin_jar <base> <out.jar> <sources...>` 完成 javac、META-INF 暂存、打包，并要求 `META-INF/turboism/plugin.json`（及 `PROBE_REQUIRED_ENTRIES`）真的进包；最后打印产物与 sha256。调用方只声明自己的源码、产物路径与额外事实（`PROBE_JAVAC_FLAGS`）。**不新增构建依赖**：描述符契约不在共享层重写，探针自己的场景事实（如 parameter-lock 的 schema/id/permissions/UI）在各自 build.sh 对已打包 jar 断言，仍只需 SDK jar。
-- `verdict/ProbeAssertions.appendPublication` 是唯一的结果文件尾部发布点：counters → 断言记录 → 终态行，顺序不再由各探针各自维护；探针只提供业务断言与头部/证据行。
+`src/dev/turboism/validation/SessionGate.java` is the single source for trigger waiting and session hooks. `SessionGate.trigger(stateDir)` returns a configurable `Trigger` that polls `exerciser.flag`, enforces the standalone deadline (the default timeout calls `halt(2)`, and a probe that must write its result file first overrides `onTimeout`), and handles the go-flag and finished.flag semantics of session mode. A probe supplies only its log markers, poll interval, and timeout action. Nine probes once carried diverged polling loops; `check_validation_tools_sync.py` now rejects a new `void runWhenFlagged(` declaration inside `validation/` (except in `SessionGate.java`) and requires every flag probe `build.sh` to compile that source.
 
-改本目录文件前先跑 `python3 scripts/test/check_validation_tools_sync.py .`（devCheck 也跑）：它拒绝 validation/ 下出现同名副本；有意例外在脚本 `CANONICAL`/`DECLARED_EXCEPTIONS` 里登记。
+- `probe-build.sh` holds the shared build steps for plugin probes. `probe_sdk_jar` locates the SDK jar of the current worktree through `scripts/dev/worktree-id.sh`, and `probe_build_plugin_jar <base> <out.jar> <sources...>` runs javac, stages META-INF, and packages, then requires `META-INF/turboism/plugin.json` (and `PROBE_REQUIRED_ENTRIES`) to really enter the jar before it prints the artifact and its sha256. A caller declares only its own sources, artifact path, and extra facts (`PROBE_JAVAC_FLAGS`). **It adds no build dependency**: the descriptor contract is not rewritten in the shared layer, and each probe asserts its own scenario facts (such as the parameter-lock schema, id, permissions, and UI) against the packaged jar in its own `build.sh`, so the SDK jar stays the only requirement.
+- `verdict/ProbeAssertions.appendPublication` is the only publication point for the result file tail: counters, then assertion records, then the terminal line. Probes no longer maintain that order themselves and supply only business assertions plus header and evidence lines.
+
+Before you change a file here, run `python3 scripts/test/check_validation_tools_sync.py .`, which `devCheck` also runs. It rejects a same-name copy under `validation/`, and deliberate exceptions are registered in the `CANONICAL` and `DECLARED_EXCEPTIONS` tables of the script.

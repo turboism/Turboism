@@ -687,7 +687,7 @@ def assert_full_install(jar, payload, payload_plugins):
     rc, out = run_console(jar, install_answers("full", target, deselect=deselect, payload_plugins=payload_plugins))
     check("full install exit 0", rc == 0, "rc=%s" % rc)
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
-    # r6: 载荷 pack 安装全部捆绑 JAR；勾选只控制 disabledPlugins
+    # r6: the payload pack installs every bundled JAR, and a checkbox controls disabledPlugins only
     expected_modules = sorted(p["module"] + ".jar" for p in payload_plugins)
     check("full installs every bundled jar (payload pack)", installed == expected_modules, str(installed))
     config = json.load(open(os.path.join(target, "config.json")))

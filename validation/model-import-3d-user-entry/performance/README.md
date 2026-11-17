@@ -1,28 +1,22 @@
-# Cat 插值缓存性能诊断
+# Cat Interpolation Cache Performance Diagnosis
 
-此目录是隔离 JVM 的差分工具。运行时已有默认关闭的候选接线，尚未完成 Editor 拖动验收或部署。不要将诊断 agent 安装到用户 Editor。
+This directory holds a differential tool that runs in an isolated JVM. The runtime carries candidate wiring that is off by default, and editor drag acceptance and deployment are not complete. Never install the diagnostic agent into a user editor.
 
-冻结结果：`build/model-import-3d-offline/cat-performance-cache-r2-20261003/manifest.json`。
-输入是已交付 Cat 和 SHA 验证的官方 5.3.02 库；不写模型、安装目录或主 Editor。
+Frozen result: `build/model-import-3d-offline/cat-performance-cache-r2-20261003/manifest.json`.
+The input is the delivered Cat and the SHA-verified official 5.3.02 library; the tool writes neither the model, the installation directory, nor the main editor.
 
-| 路径 | 官方 | 候选 |
+| Path | Official | Candidate |
 | --- | ---: | ---: |
-| 全部缓存刷新主线程累计分配 | 8,975,205,840 bytes | 625,092,392 bytes |
-| 同轮缓存刷新耗时 | 22.131 秒 | 20.102 秒 |
-| setup 主线程累计分配 | 24,590,053,728 bytes（先前基线） | 16,227,000,600 bytes |
-| setup 耗时 | 44.614 秒（先前基线） | 35.480 秒 |
+| Cumulative main-thread allocation of a full cache refresh | 8,975,205,840 bytes | 625,092,392 bytes |
+| Duration of the same cache refresh | 22.131 s | 20.102 s |
+| Cumulative main-thread allocation of setup | 24,590,053,728 bytes (earlier baseline) | 16,227,000,600 bytes |
+| Setup duration | 44.614 s (earlier baseline) | 35.480 s |
 
-时间是单轮测量，不能当作稳定性能承诺。累计分配不是同时占用的堆大小。
-候选保留官方椭圆计算器和 form 混合，只绕过逐形态创建点引用并复用临时向量。
-完整 512 网格、557,568 个普通/派生 forms 的坐标原始 float 位、透明度、绘制顺序银行一致；每个 form 的更新版本增量一致。
-21,504 次二维缓存内部调用全部命中候选，无拒绝。
-错误模型、官方库、银行或未命中候选都会拒绝验收；未支持的插值/形态使用官方路径。
+The times are single-round measurements and are no stable performance promise. Cumulative allocation is not the heap size occupied at one moment. The candidate keeps the official ellipse calculator and form blending and only bypasses per-form point reference creation and reuses temporary vectors. The raw float bits of the coordinates of all 512 grids and 557,568 ordinary and derived forms matched, as did alpha, draw order, and the update-version delta of every form. All 21,504 internal two-dimensional cache calls hit the candidate with no rejection. A wrong model, official library, digest, or candidate miss refuses acceptance, and an unsupported interpolation or form uses the official path.
 
-原始反序列化仍约分配 7.5 GB，3 GB 堆基线会 OOM。这里使用 6 GB 堆仅用于有界诊断。
-Editor 的鼠标拖动、全模型失效传播、撤销历史及其他线程内存尚未覆盖，不能宣称用户卡顿已修复。
-现有 CMO3 没有改变；原面、UV、普通参数绑定及 5 px 精度预算没有删减。
+Raw deserialization still allocates about 7.5 GB, and a 3 GB heap baseline runs out of memory. The 6 GB heap here serves a bounded diagnostic only. Editor mouse dragging, whole-model invalidation propagation, undo history, and other-thread memory are not covered, so no user stall may be called fixed. The existing CMO3 is unchanged; original faces, UVs, ordinary parameter bindings, and the 5 px precision budget are not reduced.
 
-复现命令（输出目录必须尚不存在）：
+Reproduction command (the output directory must not exist yet):
 
 ```sh
 python3 -B validation/model-import-3d-user-entry/performance/run-cache-proof.py \
@@ -33,26 +27,17 @@ python3 -B validation/model-import-3d-user-entry/performance/run-cache-proof.py 
   --optimized-setup
 ```
 
-下一门槛：按官方库/类加载器验证接入候选，再在专属 Editor 中覆盖真实拖动和 Undo，比较同一鼠标操作的延迟、分配与银行恢复。反序列化和无插件工程性能需要另外解决。
+Next gate: verify the candidate wiring against the official library and classloader, then cover real dragging and undo in a dedicated editor and compare latency, allocation, and digest recovery for the same mouse operation. Deserialization and plugin-free project performance need separate work.
 
-实际反射运行时已通过同一全 Cat 差分：
-`build/model-import-3d-offline/cat-performance-runtime-r1-20261003/manifest.json`。
-全缓存分配 8,974,800,056 → 636,102,456 bytes，耗时 22.192 → 19.901 秒；全部银行位与更新版本增量相同。
-用 `--production-runtime --optimized-setup` 选择该后端。
-另有五项无写入拒绝与普通/零/负零三项官方差分，证据在 `cat-performance-runtime-guards-r1-20261003`。
+The actual reflection runtime already passed the same full-Cat differential: `build/model-import-3d-offline/cat-performance-runtime-r1-20261003/manifest.json`. Full-cache allocation went from 8,974,800,056 to 636,102,456 bytes and the time from 22.192 to 19.901 s; every digest bit and update-version delta matched. Use `--production-runtime --optimized-setup` to select that backend. A further five no-write refusals and three official differentials for ordinary, zero, and negative zero are recorded in `cat-performance-runtime-guards-r1-20261003`.
 
-启动候选位于 `runtime/.../interpolation` 与 bootstrap，需显式设置
-`-Dturboism.meshInterpolation.enabled=true`，安全模式或禁用 `cubism.mesh.interpolation` 时仍拒绝安装。
-它只允许精确官方 JAR 与原始扩展 class SHA，未知版本、已加载目标或不支持形态保持官方路径。
-候选 agent、源码和 8 项门禁/生命周期测试 XML 已冻结到
-`build/model-import-3d-offline/cat-interpolation-runtime-candidate-r1-20261003`。
-这不是新的可交付 Cat 工程，也不是实际鼠标响应改善的证明。
+The startup candidate lives in `runtime/.../interpolation` and in bootstrap, and it requires the explicit `-Dturboism.meshInterpolation.enabled=true`; safe mode or a disabled `cubism.mesh.interpolation` still refuses installation. It accepts only the exact official JAR and the original extension class SHA, and an unknown version, an already loaded target, or an unsupported form keeps the official path. The candidate agent, source, and the 8 gate and lifecycle test XML files are frozen in `build/model-import-3d-offline/cat-interpolation-runtime-candidate-r1-20261003`. This is neither a new deliverable Cat project nor proof of a real mouse-response improvement.
 
-## 确定性曲面优化候选
+## Deterministic Surface Optimization Candidate
 
-生产 XYZ 直接顶点回退已有本地曲面误差控制的减面。Cat 70,576 → 48,864 面；分区槽 48,497 → 35,397。既有 5px 总预算包含曲面优化和参数插值，纹理误差另限 0.5 texel。冻结证据：`build/model-import-3d-offline/cat-surface-optimization-r2-20261003/manifest.json`。旧无减面工程与上述缓存差分没有改动。
+The production XYZ direct-vertex fallback already simplifies with a local surface error bound. Cat went from 70,576 to 48,864 faces, and partition slots from 48,497 to 35,397. The existing 5 px total budget covers the surface optimization and the parameter interpolation, with a separate 0.5 texel texture error limit. Frozen evidence: `build/model-import-3d-offline/cat-surface-optimization-r2-20261003/manifest.json`. The older non-simplified project and the cache differential above are unchanged.
 
-独立检查读原始 GLB，检查保留端点位置/UV，并对两个方向的顶点、三角形中心和边中点取固定样本计算最近三角形距离。它不调用 Java 合并证明，也不做 Editor 验收。
+An independent check reads the original GLB, verifies the retained endpoint positions and UVs, and takes fixed samples of vertices, triangle centres, and edge midpoints in both directions to compute the nearest triangle distance. It calls no Java merge proof and performs no editor acceptance.
 
 ```sh
 python3 -B validation/model-import-3d-user-entry/performance/verify-cat-simplification.py \
@@ -61,24 +46,24 @@ python3 -B validation/model-import-3d-user-entry/performance/verify-cat-simplifi
   --output /tmp/cat-surface-check.json
 ```
 
-抽样不是完整曲面界的证明，更不是渲染像素或持续遮挡证明。新的实际保存/重开/拖动仍需专属 host profile；不能用旧 Cat driver 的固定 70,576 面门禁验收优化模型。
+The sampling is no proof of a complete surface bound, and even less of rendered pixels or sustained occlusion. A new real save, reopen, and drag still needs a dedicated host profile; the fixed 70,576-face gate of the old Cat driver cannot accept the optimized model.
 
-## 优化工程实测（2026-10-03）
+## Optimized Project Measurement (2026-10-03)
 
-`cat-optimized-cache-r1-20261003/manifest.json`绑定通过独立实机保存审核的新Cat，SHA `70983ff77d29ebb644f3f2bf5ac5ed5b663199d2433919dcfb795dbecdeeaba5`，46,775,888 bytes。512网格/35,397槽/48,864面；557,568普通与派生forms仍存在。
+`cat-optimized-cache-r1-20261003/manifest.json` binds the new Cat that passed an independent host save review, SHA `70983ff77d29ebb644f3f2bf5ac5ed5b663199d2433919dcfb795dbecdeeaba5`, 46,775,888 bytes. 512 grids, 35,397 slots, 48,864 faces; the 557,568 ordinary and derived forms still exist.
 
-- 反序列化：24.219秒，主线程累计分配7,037,428,368 bytes。
-- 候选setup：41.212秒，累计16,054,142,424 bytes。
-- 同轮官方缓存刷新：25.252秒，累计6,585,516,104 bytes。
-- 同轮候选刷新：15.665秒，累计473,240,920 bytes。
-- 完整银行 `ba6aed0f7f545219797f135d0b21ce94fd2db27710657e7640e606dde3993d45` 与更新版本增量exact；21,504命中/0拒绝。
+- Deserialization: 24.219 s with 7,037,428,368 bytes of cumulative main-thread allocation.
+- Candidate setup: 41.212 s with 16,054,142,424 bytes.
+- Official cache refresh in the same round: 25.252 s with 6,585,516,104 bytes.
+- Candidate refresh in the same round: 15.665 s with 473,240,920 bytes.
+- The complete digest `ba6aed0f7f545219797f135d0b21ce94fd2db27710657e7640e606dde3993d45` and the update-version delta matched exactly; 21,504 hits and 0 rejections.
 
-单轮耗时和累计分配不能冒充峰值内存或实际鼠标性能。仅减面仍未消除工程加载成本。工具新增 `--optimized-save-controller <controller>`：先重跑原生保存审核、绑定产物SHA，才允许优化模型；旧模型和冻结银行门禁保持。模型没有写入，候选仍默认关闭。
+A single-round duration and a cumulative allocation cannot pass as peak memory or real mouse performance. Simplification alone does not remove the project load cost. The tool gained `--optimized-save-controller <controller>`: it reruns the native save review and binds the artifact SHA before it allows an optimized model, and the old model and the frozen digest gate stay. The model was not written, and the candidate stays off by default.
 
-## 椭圆系数预计算候选
+## Ellipse Coefficient Precomputation Candidate
 
-`--production-runtime --precompute-ellipse-weights` 在隔离差分工具中开启默认关闭的 `turboism.meshInterpolation.coefficients`。预计算角度系数，不缓存或跳过源顶点变更；保留官方两段 double 累加后的 float 舍入、最终 float 混合与每点更新标记。运行时仍须满足原有 SHA/类型/安装门禁。
+`--production-runtime --precompute-ellipse-weights` enables the default-off `turboism.meshInterpolation.coefficients` in the isolated differential tool. It precomputes the angle coefficients without caching or skipping source vertex changes, and it keeps the official two-stage double accumulation with float rounding, the final float blend, and the per-point update flag. The runtime must still satisfy the existing SHA, type, and installation gates.
 
-`EllipseWeightProof` 与真实官方库对比 14,400 个标量，包括边界、非均匀和退化角度以及正负零。完整优化 Cat 差分证据位于 `cat-optimized-coefficient-cache-r1-20261003`：557,568 forms 的银行和更新版本增量一致；该轮刷新 41.399 秒/6,585,767,480 bytes → 2.120 秒/93,254,848 bytes。此轮与隔离 Editor 并行，不能当稳定延迟或堆峰值结论；反序列化未优化。
+`EllipseWeightProof` compares 14,400 scalars against the real official library, including boundary, non-uniform, and degenerate angles plus positive and negative zero. Full optimized-Cat differential evidence is in `cat-optimized-coefficient-cache-r1-20261003`: the digest and update-version delta of the 557,568 forms matched, and that round's refresh went from 41.399 s and 6,585,767,480 bytes to 2.120 s and 93,254,848 bytes. That round ran in parallel with an isolated editor, so it is no stable latency or heap-peak conclusion; deserialization was not optimized.
 
-原生拖动验证必须使用官方 `l(MouseEvent)` 保存按下事件，并用其 `a(MouseEvent)` / `b(MouseEvent)` 更新拖动和释放。单独 `m(MouseEvent)` 没有按下原点，可能把绝对终点当位移。审查器拒绝旧 v2 carrier，v3 还须满足实际位移与相机映射的 20px 位移一致（0.01px 容差）、完整源银行 Undo 和基线/候选移动坐标 exact。任务内事件不等价于 OS 鼠标测试。
+Native drag verification must save the press event with the official `l(MouseEvent)` and update the drag and release with its `a(MouseEvent)` and `b(MouseEvent)`. A bare `m(MouseEvent)` carries no press origin and may treat the absolute end point as a displacement. The reviewer rejects the old v2 carrier, and v3 must additionally satisfy a 20 px displacement consistent with the real displacement and the camera mapping (0.01 px tolerance), a complete source digest undo, and exact baseline and candidate movement coordinates. An in-task event is not equivalent to an OS mouse test.

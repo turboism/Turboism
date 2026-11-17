@@ -1152,11 +1152,10 @@ post-writer1013 inputs/0mismatches. Production/HOLD and required human review
 remain unchanged; the full goal is not marked complete.
 
 
-## 十轮内存诊断续验
+## Ten-Round Memory Diagnostic Follow-Up
 
-见 [2026-10-02 十轮验证收尾](memory-stability-closeout-20261002.md)。seq2492 开启与 seq2497 关闭各10次/7110条结果，11字段逐条零差异及标准实机 gates PASS；seq2494 排队超时 FAIL 保留。原生自动备份在开/关均造成数 GiB 分配；长时间 RSS 平台与无泄漏未建立，关闭长 recording 的整体 affine 时钟归因失败。生产保持 HOLD / NOT_PASSED，原三轮性能数值不变，T044/T046/T050 partial。
+See the [2026-10-02 ten-round validation closeout](memory-stability-closeout-20261002.md). seq2492 enabled and seq2497 disabled ran 10 times each with 7110 results, all 11 fields matched one by one with zero differences, and the standard host gates passed; the seq2494 queue timeout FAIL is kept. Native automatic backup produced multi-gigabyte allocation with the feature on and off; a long-run RSS plateau and the absence of a leak were not established, and the whole affine clock attribution of the long disabled recording failed. Production stays HOLD / NOT_PASSED, the original three-round performance values are unchanged, and T044/T046/T050 stay partial.
 
+## 2026-10-02 User Approval and Commit
 
-## 2026-10-02 用户批准与提交
-
-用户明确“批准。提交。”。所列最终候选的三轮资源界限及 Lane C 实机证据已获人工批准，当前决策为 APPROVED_BOUNDED_CANDIDATE_WITH_DOCUMENTED_LIMITATIONS；见 [批准记录](candidate-approval-20261002.json)。该决策覆盖历史人工审阅等待，不更改冻结工件、失败、长运行内存未建立或时钟归因限制；未扩展 Atlas/模型/版本准入。
+The user said "approved, commit". The three-round resource bounds of the listed final candidate and its Lane C host evidence received manual approval, and the current decision is APPROVED_BOUNDED_CANDIDATE_WITH_DOCUMENTED_LIMITATIONS; see the [approval record](candidate-approval-20261002.json). That decision lifts the historical manual review wait and changes neither the frozen artifacts, the failures, the unestablished long-run memory, nor the clock attribution limits; it widened no Atlas, model, or version admission.

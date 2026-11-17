@@ -1,26 +1,26 @@
-# triangulation-tlindex 证据索引与保留策略
+# triangulation-tlindex Evidence Index and Retention Policy
 
-本目录是 triangulation / TLI（triangulation index）系列验证的证据仓：约 500 个日期化文件（~133 个 `*.md` 评审/协议记录 + ~127 个 `*.json` 结构化证据 + 其余源码/日志，约 5.5MB），按日追加。
+This directory is the evidence store for the triangulation and TLI (triangulation index) validation series: about 500 dated files (~133 `*.md` review and protocol records, ~127 structured `*.json` evidence files, and the rest source and logs, ~5.5MB), appended by date.
 
-## 证据语义
+## Evidence Semantics
 
-- `*-YYYY-MM-DD.md` / `*-YYYYMMDD.md` — 人工评审记录、协议说明、阶段结论。叙述性证据。
-- `*.json` — 探针/对照运行产出的结构化证据（矩阵签名、指标、序列化状态）。
-- `*.java` / `src/` — 探针与 harness 源码（非证据）。
-- `build.sh` / `run.sh` — 场景驱动脚本：`./build.sh` 编译，`./run.sh` 运行并产出新证据。
+- `*-YYYY-MM-DD.md` / `*-YYYYMMDD.md`: manual review records, protocol notes, and stage conclusions. Narrative evidence.
+- `*.json`: structured evidence produced by a probe or comparison run (matrix signatures, metrics, serialized state).
+- `*.java` / `src/`: probe and harness source, not evidence.
+- `build.sh` / `run.sh`: scenario driver scripts. `./build.sh` compiles, and `./run.sh` runs and produces new evidence.
 
-## 入库规则（什么该进 git）
+## Commit Rules (What Enters Git)
 
-- 入库：本次运行的 verdict 结论、支撑该结论的最小结构化证据、协议/评审记录（md）。
-- 不入库：重复快照、中间态 `work/` 产物、超过诊断需要的原始转储 —— 放 `work/` 目录（已 gitignore）。
+- Commit: the verdict of this run, the minimal structured evidence that supports it, and the protocol or review records (md).
+- Do not commit: duplicate snapshots, intermediate `work/` products, and raw dumps beyond the diagnostic need. Put them in the `work/` directory, which Git ignores.
 
-## 保留与归档策略
+## Retention and Archiving Policy
 
-- **全部历史证据保留**——不删除已入库文件；日期命名天然有序，回溯直接按文件名检索。
-- 当某子阶段收尾（协议关闭/评审通过），写一个 `*-closeout-YYYYMMDD.md` 小结链回关键证据；不移动旧文件。
-- 检索：`ls | grep <日期或关键词>`；按主题检索用 `grep -l <term> *.md`。json 证据与其同名/同期 md 记录对应。
-- 若文件数增长到难以浏览，再按年份分子目录归档（`archive/YYYY/`），届时更新本文件。
+- **Keep every historical evidence file.** Never delete a committed file; date naming is naturally ordered, so a lookup reads the file name directly.
+- When a sub-stage closes (protocol closed or review passed), write a `*-closeout-YYYYMMDD.md` summary that links the key evidence. Do not move old files.
+- Search: `ls | grep <date or keyword>`. Search by topic with `grep -l <term> *.md`. A json evidence file corresponds to the md record of the same name or the same period.
+- If the file count grows hard to browse, archive by year into `archive/YYYY/` and update this file at that point.
 
-## 新增证据
+## Adding Evidence
 
-运行 `run.sh` 后把新证据按现有 `<主题>-<YYYYMMDD>.<md|json>` 命名入库；评审记录随提交信息说明结论（PASS/FAIL、遗留项）。
+After `run.sh`, commit the new evidence under the existing `<topic>-<YYYYMMDD>.<md|json>` naming. The review record states the conclusion (PASS/FAIL, open items) in the commit message.

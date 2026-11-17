@@ -251,7 +251,7 @@ final class SessionParameterKeyOps implements ParameterKeyOps {
     /**
      * Strict requests match conjunctively (parameter and value filters must both hold when
      * present); loose requests match a binding when any supplied filter hits — the official
-     * "任一匹配" shape.
+     * "any filter matches" shape.
      */
     private boolean bindingMatches(
             final DeleteParameterKey request, final boolean parameterMatches, final boolean valueMatches) {

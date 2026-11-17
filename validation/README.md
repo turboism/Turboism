@@ -1,35 +1,35 @@
-# validation/ — 场景探针与证据目录
+# validation/ — Scenario Probes and Evidence
 
-本目录存放**场景级验证探针**：每个子目录是一个自包含场景（build.sh 编译 + run.sh 驱动 + 证据文件），多数需要真实 Cubism Editor 宿主。与 `testing/`（JUnit 自动化测试）的分工见 `testing/README.md`。
+This directory holds **scenario-level validation probes**. Every subdirectory is a self-contained scenario: `build.sh` compiles, `run.sh` drives, and evidence files record the result. Most need a real Cubism Editor host. See `testing/README.md` for the split against `testing/` (automated JUnit tests).
 
-## 布局约定
+## Layout Conventions
 
-- `<probe>/build.sh` — 编译探针工具与被测类；可在无宿主环境跑编译期断言。
-- `<probe>/run.sh` — 场景驱动脚本；产出 `work/` 下证据与 verdict 日志。
-- `<probe>/tools/`、`fixture/`、`selfcheck/` — 场景私有源码。**共享工具一律用 `validation/shared/src/`**（见下）。
-- 证据文件（日期化 `*.md`/`*.json`/日志）随目录入库；`triangulation-tlindex/` 另见 `INDEX.md` 的保留/归档策略。
-- 一次性实验结束后删除，不新建归档目录：只保留仍被 build.sh/run.sh、`scripts/`、`gradle/` 或文档引用的文件。已删除目录见 `REMOVED.md`。新探针一律放在 `validation/<probe>/`。
+- `<probe>/build.sh` compiles the probe tooling and the classes under test. It can run compile-time assertions without a host.
+- `<probe>/run.sh` drives the scenario and produces the evidence and verdict log under `work/`.
+- `<probe>/tools/`, `fixture/`, `selfcheck/` hold scenario-private source. **Share tooling only through `validation/shared/src/`** (below).
+- Evidence files (dated `*.md`, `*.json`, and logs) are committed with the directory. `triangulation-tlindex/` documents its retention and archiving policy in `INDEX.md`.
+- Delete a one-off experiment when it ends and create no archive directory. Keep only files that `build.sh`, `run.sh`, `scripts/`, `gradle/`, or documentation still reference. `REMOVED.md` lists deleted directories. Put every new probe in `validation/<probe>/`.
 
-## shared/ — 单一源工具箱
+## shared/ — Single-Source Toolbox
 
-`shared/src/dev/turboism/validation/shared/`：
+`shared/src/dev/turboism/validation/shared/`:
 
-- `tools/RelocateJar.java` — ASM 包名重定位 jar 工具（`RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`），各 build.sh 直接 `javac` 此文件并以 `dev.turboism.validation.shared.tools.RelocateJar` 调用。
-- `fixture/FixtureLoader.java` — child-first `URLClassLoader`（同名 fixture 类不回落系统 classpath）。
-- `fixture/CodeSourceUrl.java` — 打印目录的 `Path.toUri().toURL().toExternalForm()`，供 run.sh 推导期望 codeSource。
-- `verdict/ProbeTerminal.java` — 终态集合（PASS/FAIL/BLOCKED/SKIPPED）与判定规则：任一 FAIL 为 FAIL；存在 BLOCKED 为 BLOCKED；断言数为 0 为 BLOCKED；存在 SKIPPED 为 SKIPPED；全部 PASS 为 PASS。`INFO` 仅作证据，不参与判定。
-- `verdict/ProbeAssertions.java` — 断言记录器；记录时拒绝未知状态，并输出 `assertions=` 计数行与两种结果行布局。
+- `tools/RelocateJar.java` relocates ASM package prefixes in a jar (`RelocateJar <in.jar> <out.jar> <from/prefix> <to/prefix>`). Each `build.sh` compiles this file directly with `javac` and calls `dev.turboism.validation.shared.tools.RelocateJar`.
+- `fixture/FixtureLoader.java` is a child-first `URLClassLoader`, so a fixture class of the same name never falls back to the system classpath.
+- `fixture/CodeSourceUrl.java` prints `Path.toUri().toURL().toExternalForm()` for a directory, so `run.sh` can derive the expected code source.
+- `verdict/ProbeTerminal.java` holds the terminal state set (PASS/FAIL/BLOCKED/SKIPPED) and the decision rule: any FAIL yields FAIL, a present BLOCKED yields BLOCKED, zero assertions yield BLOCKED, a present SKIPPED yields SKIPPED, and all PASS yields PASS. `INFO` is evidence only and never decides.
+- `verdict/ProbeAssertions.java` is the assertion recorder. It rejects an unknown state while recording, and emits the `assertions=` count line and the two result line layouts.
 
-`verdict/` 是四个终态探针的唯一判定来源；离线用例：`bash validation/shared/check-probe-terminal.sh`。
+`verdict/` is the single decision source for the four terminal-state probes. Offline case: `bash validation/shared/check-probe-terminal.sh`.
 
-历史：RelocateJar 曾四副本分叉（triweave 副本丢 module-info 剥离注释），FixtureLoader/CodeSourceUrl 双副本；2026-10 收敛为单一源。探针终态逻辑曾七份分叉，2026-11 收敛为 `verdict/` 共享实现（spec 066）。`checkValidationToolsSync`（`scripts/test/check_validation_tools_sync.py`，挂 `devCheck`）拒绝目录内再出现同名副本，并拒绝四个终态探针重新实现本地 `computeTerminal` 或漏编译共享源；有意例外（meshhash 字节数组 loader）在脚本内点名。SelfCheck/Probe 各目录实现本就不同，不在收敛范围。
+History: `RelocateJar` once existed as four diverged copies (the triweave copy lost the module-info strip note) and `FixtureLoader`/`CodeSourceUrl` as two copies each; they converged to a single source in 2026-10. The probe terminal logic once existed as seven diverged copies and converged into the shared `verdict/` implementation in 2026-11 (spec 066). `checkValidationToolsSync` (`scripts/test/check_validation_tools_sync.py`, wired into `devCheck`) rejects a new same-name copy inside a directory, and rejects a fourth terminal probe that reimplements a local `computeTerminal` or omits the shared source from compilation. Deliberate exceptions (the meshhash byte-array loader) are named inside the script. SelfCheck and Probe implementations differ per directory by design and stay outside the convergence scope.
 
-## 新探针放哪
+## Where a New Probe Goes
 
-- 需要真实编辑器宿主的场景探针 → `validation/<probe>/`（仿 triangulation-* 结构）。
-- 可由 JUnit 覆盖的 verdict 逻辑 → `testing/integration-tests/`（`dev.turboism.tests.plugin.*Probe` + 配对 `*Test`）。
-- 宿主内 agent（打进 jar 在编辑器进程里跑）→ `testing/host-validation/`。
+- A scenario probe that needs a real editor host goes to `validation/<probe>/` and follows the `triangulation-*` structure.
+- Verdict logic that JUnit can cover goes to `testing/integration-tests/` as a `dev.turboism.tests.plugin.*Probe` with a paired `*Test`.
+- An in-host agent that ships in a jar and runs inside the editor process goes to `testing/host-validation/`.
 
-## 无 README 目录说明
+## Directories Without a README
 
-下列目录为老探针，无独立 README（见各 build.sh/run.sh 头部注释了解用法）：`supply-chain/`（供应链/依赖审计脚本目录，非探针）。其余探针目录均已补最小 README；新增目录请附一句用途 + 运行方式 + 是否需真实宿主。
+The following directory is an older probe with no README of its own; read the header comment of its `build.sh` and `run.sh` for usage: `supply-chain/` (supply-chain and dependency audit scripts, not a probe). Every other probe directory now carries a minimal README. A new directory states its purpose, how to run it, and whether it needs a real host.

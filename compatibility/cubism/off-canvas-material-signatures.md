@@ -1,15 +1,15 @@
-# OffCanvas 材质签名核查
+# OffCanvas Material Signature Check
 
-全部 20 个已审 JAR 均只有一个 public instance `setColor`。
-返回类型均为 void。access 均为 17。
+All 20 reviewed JARs hold exactly one public instance `setColor`.
+Every return type is void. Every access is 17.
 
-- owner：`com/live2d/graphics3d/material/GMaterial`。
-- 两参描述符：`(Ljava/lang/String;Lcom/live2d/type/CColor;)V`。
-- 三参描述符：`(Ljava/lang/String;Lcom/live2d/type/CColor;Ljava/lang/Integer;)V`。
-- JAR 目录：`/opt/dev/projects/turboism/cubism-ref/<version>/Live2D_Cubism.jar`。
-- 全部大小和 SHA-256 均与 `reviewed-releases.json` 一致。
+- owner: `com/live2d/graphics3d/material/GMaterial`.
+- Two-argument descriptor: `(Ljava/lang/String;Lcom/live2d/type/CColor;)V`.
+- Three-argument descriptor: `(Ljava/lang/String;Lcom/live2d/type/CColor;Ljava/lang/Integer;)V`.
+- JAR directory: `/opt/dev/projects/turboism/cubism-ref/<version>/Live2D_Cubism.jar`.
+- Every size and SHA-256 agrees with `reviewed-releases.json`.
 
-| 已审版本 | 参数数 | JAR 大小 | SHA-256 |
+| Reviewed version | Argument count | JAR size | SHA-256 |
 | --- | --- | --- | --- |
 | 5.0.00 | 2 | 36091669 | `42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd` |
 | 5.0.01 | 2 | 36099677 | `1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b` |
@@ -32,19 +32,19 @@
 | 5.3.03 | 3 | 42010633 | `bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166` |
 | 5.3.04 | 3 | 42203164 | `c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d` |
 
-复核单个版本：
+Recheck a single version:
 
 ```bash
 javap -p -s -classpath /opt/dev/projects/turboism/cubism-ref/<version>/Live2D_Cubism.jar com.live2d.graphics3d.material.GMaterial
 ```
 
-核查使用 `scripts/dev/cubism_matrix/bytecode.py` 的 `parse_class`。
-输入版本集合来自 `reviewed-releases.json`。
-测试版本集合来自 `ReviewedHostArtifacts.reviewedCubismVersions()`。
-测试以 `ReviewedVersions.since("5.3.00")` 表达已核实的签名分界。
+The check uses the `parse_class` of `scripts/dev/cubism_matrix/bytecode.py`.
+The input version set comes from `reviewed-releases.json`.
+The test version set comes from `ReviewedHostArtifacts.reviewedCubismVersions()`.
+The test states the verified signature boundary with `ReviewedVersions.since("5.3.00")`.
 
-生产代码按实际签名绑定。它不以该分界选择方法。
-缺失、歧义、静态方法和错误返回类型均拒绝绑定。
-构造器仍先核对已审 JAR 身份。
+Production code binds by the actual signature. It never selects a method from that boundary.
+A missing, ambiguous, static, or wrong-return-type member refuses the binding.
+The constructor still checks the reviewed JAR identity first.
 
-本次只读检查 classfile。未启动或连接 Cubism。
+This round reads the classfile only. Cubism was neither started nor connected.

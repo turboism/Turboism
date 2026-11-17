@@ -123,21 +123,28 @@ def build_inventory(install_root: Path, root: Path = ROOT) -> dict:
 
 def render_markdown(document: dict) -> str:
     lines = [
-        "# 全安装版本验证台账（进行中）", "",
-        "当前表不是最终支持承诺。静态记录、启动成功、验证工具缺口和能力不支持分别记录。",
-        "所有能力仍需与实际断言逐项关联；未验证不得填入支持或不支持。", "",
-        f"基线：`{document['baselineRevision']}`；{len(document['versions'])} 个安装版本；"
-        f"{len(document['capabilities'])} 个静态能力标识；{len(document['services'])} 个可选 SDK 服务；"
-        f"{len(document['plugins'])} 个插件；{len(document['scenarios'])} 个目录测试场景。", "",
-        "| 版本 | 精确静态记录能力数 | 无精确记录能力数 | 支持能力集 | 不支持能力集 | 状态 |",
+        "# Full-Installation Version Verification Ledger (In Progress)", "",
+        "This table is not a final support commitment. Static records, successful startup, "
+        "verification-tool gaps, and unsupported capabilities are recorded separately. "
+        "Every capability still needs a matching real assertion; an unverified capability "
+        "must not be filled in as supported or unsupported.", "",
+        f"Baseline: `{document['baselineRevision']}`; {len(document['versions'])} installed versions; "
+        f"{len(document['capabilities'])} static capability identifiers; "
+        f"{len(document['services'])} optional SDK services; "
+        f"{len(document['plugins'])} plugins; {len(document['scenarios'])} directory test scenarios.", "",
+        "| Version | Capabilities with an exact static record | Capabilities without an exact record | "
+        "Supported capability set | Unsupported capability set | Status |",
         "| --- | ---: | ---: | --- | --- | --- |",
     ]
     for version in document["versions"]:
         lines.append(f"| {version['version']} | {len(version['exactRecordCapabilities'])} | "
-                     f"{len(version['capabilitiesWithoutExactRecord'])} | 待逐项验证 | 待负向证据 | 进行中 |")
-    lines += ["", "完整能力、SDK 服务、插件、场景及安装摘要见 [inventory.json](inventory.json)。",
-              "窄范围实机历史证据见 [验证记录](README.md)，不能直接折算为全能力通过。", "",
-              "## 尚未登记为任务的验证脚本", ""]
+                     f"{len(version['capabilitiesWithoutExactRecord'])} | Pending item-by-item verification | "
+                     "Pending negative evidence | In progress |")
+    lines += ["", "See [inventory.json](inventory.json) for the full capability, SDK service, "
+              "plugin, scenario, and installation summary. Narrow-scope host history is in the "
+              "[verification records](README.md) and does not convert directly into an "
+              "all-capability pass.", "",
+              "## Verification Scripts Not Yet Registered as Tasks", ""]
     lines += [f"- `{path}`" for path in document["wrappersWithoutCatalogueTask"]]
     return "\n".join(lines) + "\n"
 

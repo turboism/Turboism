@@ -1,187 +1,91 @@
-# T029-TLINDEX — TriangleList.a(j) 边→三角形索引（离线差分切片）
+# T029-TLINDEX: Edge-to-Triangle Index for `TriangleList.a(j)` (Offline Differential Slice)
 
-目标：消除 `TriangleList.a(j)` 的全集扫描。宿主 JFR（5.3.03，heavy-nolayout，
-`5303-t041-digest-base1`/`base2` 两腿一致）：`TriangleList.a`+`iterator` 链上
-约 2400–2500 样本（≈25s，占三角化链 ~40%），其中带 iterator 的 a() 帧
-=1231（纯 `a(j)` 扫描；set-add 路径仅 2），`HashMap$HashIterator.<init>`
-为最大叶子（JDK17 上 LinkedHashIterator 继承 HashMap$HashIterator，
-JIT 内联后整段迭代归属其构造帧）。`TriangleList.b`（remove）仅 218 样本。
+Goal: remove the full-set scan of `TriangleList.a(j)`. Host JFR (5.3.03, heavy-nolayout, the two legs `5303-t041-digest-base1` and `base2` agree): about 2400–2500 samples on the `TriangleList.a` plus `iterator` chain (≈25 s, about 40% of the triangulation chain), of which the `a()` frames carrying an iterator are 1231 (pure `a(j)` scans; only 2 from the set-add path), and `HashMap$HashIterator.<init>` is the largest leaf (on JDK 17 the LinkedHashIterator extends HashMap$HashIterator, and after JIT inlining the whole iteration belongs to its constructor frame). `TriangleList.b` (remove) has only 218 samples.
 
-## bytecode 已核实事实（javap，5.3.03 jar sha bd0a23b9…）
+## Facts Verified in Bytecode (javap, 5.3.03 jar sha bd0a23b9…)
 
-- `TriangleList.b` = private final `LinkedHashSet<l>`；写入口仅
-  `a(l)Z`=add、`b(l)Z`=remove、`c()V`=clear；`c(l)Z`=contains 只读；
-  `iterator()` 暴露 set 迭代器（h 内未见 iterator.remove() 调用方）。
-- `a(j)List`：new ArrayList → 全迭代 → `l.b(j)` 过滤 → 按插入序返回。
-- `l.b(j)`：按 `TriPoint.getIndex()` 的无向端点对比较三边
-  (a,b)/(b,c)/(c,a)；边 j 端点下标含 -1/-2/-3 哨兵合法值。
-- `l.equals` = 三顶点 TriPoint-equals 的 6 种循环排列；`TriPoint.equals`
-  只比 (x,y) **忽略 index** → 两个 `l` 可 equals 但端点 index 不同。
-- `l.hashCode()` = **常数 0** → LinkedHashSet 退化为单桶链，
-  add/remove/contains 全部 O(T) equals 扫描（官方代价本就如此）。
-- `l` 三顶点字段仅在 `<init>` 中赋值（putfield 仅此一处）→ 元素入桶后
-  键不变。
-- `a(j)` 返回全新 ArrayList 快照。
-- `a(l)`/`b(l)` 有 `checkNotNullParameter` + `c$a.b()` 门控 debug-log
-  序言；`c()`/`a(j)` 只有 null 检查。
-- 变更入口复审（全部 getfield `b` 站点已枚举）：`a()`=size、`b()`=iterator
-  只读、`iterator()`=iterator、`c(l)`=contains 只读、`d(l)` 只操作本地
-  ArrayList、`toString`/`a(String)`/`a(int)` 只读 —— 写入口仍仅
-  `a(l)/b(l)/c()` 三个 woven 点。`iterator()`/`b()` 暴露的迭代器若被
-  调用方 `remove()`，由 Bridge 的 sz 前检兜住（尺寸不符→dead→回退）。
+- `TriangleList.b` is a private final `LinkedHashSet<l>`; the write entries are only `a(l)Z`=add, `b(l)Z`=remove, and `c()V`=clear; `c(l)Z`=contains is read-only; `iterator()` exposes the set iterator (no caller of iterator.remove() appears in h).
+- `a(j)List`: new ArrayList → full iteration → `l.b(j)` filter → return in insertion order.
+- `l.b(j)`: compares the three edges (a,b), (b,c), and (c,a) by the undirected endpoint pair of `TriPoint.getIndex()`; the endpoint indices of edge j may legitimately hold the sentinels -1, -2, and -3.
+- `l.equals` is the 6 cyclic permutations of a three-vertex TriPoint equality; `TriPoint.equals` compares only (x,y) and **ignores index**, so two `l` values may be equal while their endpoint indices differ.
+- `l.hashCode()` returns **the constant 0**, so the LinkedHashSet degrades into a single bucket chain and add, remove, and contains all cost an O(T) equals scan (the official cost already behaves this way).
+- The three vertex fields of `l` are assigned only in `<init>` (the only putfield site), so an element key never changes after it enters the bucket.
+- `a(j)` returns a brand-new ArrayList snapshot.
+- `a(l)` and `b(l)` carry a `checkNotNullParameter` plus a `c$a.b()` gated debug-log prologue; `c()` and `a(j)` carry only a null check.
+- Entry-point re-review (every getfield `b` site enumerated): `a()`=size, `b()`=iterator read-only, `iterator()`=iterator, `c(l)`=contains read-only, `d(l)` touches only a local ArrayList, and `toString`, `a(String)`, and `a(int)` are read-only, so the write entries stay exactly the three woven points `a(l)`, `b(l)`, and `c()`. If a caller calls `remove()` on the iterator exposed by `iterator()` or `b()`, the size pre-check of the Bridge catches it (a size mismatch marks dead and falls back).
 
-## 候选设计（Bridge.java，纯 JDK 类型 = 宿主可原样织入）
+## Candidate Design (Bridge.java, Pure JDK Types So the Host Can Weave It Unchanged)
 
-- 键：`key(i,j) = (min<<32)|(max&0xffffffff)` 无向端点下标对。
-- 状态：`IdentityHashMap<LinkedHashSet,St>`（**禁止** hash/weak map：
-  LinkedHashSet.hashCode() 是 O(T) 元素求和、equals() O(T²) —— 初版
-  WeakHashMap 实测每次 get 都重新 O(T) 扫描，bench 反而慢 3 倍）。
-- `add(s,tri,ia,ib,ic)`：先真实 `s.add(tri)`；成功后无条件记录
-  `keys[tri]=(k1,k2,k3)`；仅当 `!dirty && sz==size-1` 时精确入桶
-  （否则 dirty）。sz 前检兜住 iterator.remove 等侧路。
-- `remove(s,tri)`：**不按参数键去索引**。迭代集合找第一个
-  `tri.equals(e)` 的元素 e（与 HashMap.removeNode 在单桶链下的选择
-  完全一致），`iterator.remove()` 删除，再按 **e 自己记录的键** 从桶里
-  按**对象身份**摘除——equals-vs-keys 分歧天然安全。O(T)，与官方
-  remove 同阶。
-- `clear(s)`：set.clear + 索引清空。
-- `tryQuery(s,ja,jb)`：dead→null；dirty 或 sz 不符→rebuild；rebuild 遇
-  无键元素（未织入 add 的元素）→ dead，永远回退。返回**新 ArrayList**
-  （官方快照语义；负控证明返回内部桶会被调用方污染）。
-- 所有簿记 try/catch Throwable → 只降级，不向宿主传播。
+- Key: `key(i,j) = (min<<32)|(max&0xffffffff)`, the undirected endpoint index pair.
+- State: `IdentityHashMap<LinkedHashSet,St>` (**never** a hash or weak map: `LinkedHashSet.hashCode()` is an O(T) element sum and `equals()` is O(T²), and the first WeakHashMap version re-scanned O(T) on every get and made the bench 3× slower).
+- `add(s,tri,ia,ib,ic)`: call the real `s.add(tri)` first; on success record `keys[tri]=(k1,k2,k3)` unconditionally; enter the bucket exactly only when `!dirty && sz==size-1` (otherwise mark dirty). The size pre-check catches a side path such as iterator.remove.
+- `remove(s,tri)`: **never look up the index by the argument key**. Iterate the set for the first element with `tri.equals(e)` (exactly the choice HashMap.removeNode makes on a single bucket chain), remove it with `iterator.remove()`, and then detach **the element's own recorded key** from the bucket **by object identity**, so an equals-versus-keys divergence is safe by construction. O(T), the same order as the official remove.
+- `clear(s)`: set.clear plus index clear.
+- `tryQuery(s,ja,jb)`: dead → null; dirty or a size mismatch → rebuild; a rebuild that meets an element without a key (an element whose add was not woven) → dead, always fall back. Return a **new ArrayList** (the official snapshot semantics; a negative control proves that returning the internal bucket lets a caller pollute it).
+- Every bookkeeping path wraps `try/catch Throwable` and only degrades; it never propagates into the host.
 
-## 织入形态（待宿主 A/B，未实施）
+## Weave Shape (Awaiting Host A/B, Not Implemented)
 
-`TliWeave`（ASM，沿用 dweave/kweave 的 shape-gate + INVALID 约定）：
-- `a(l)`：在 `invokevirtual LinkedHashSet.add` 点前插入
-  `aload_1;l.a();getIndex; ×3`，再把该 invoke 换成
-  `invokestatic Bridge.add(LinkedHashSet,Object,III)Z`（序言/日志不动，
-  COMPUTE_FRAMES 仅此方法）。
-- `b(l)`：`invokevirtual LinkedHashSet.remove` →
-  `invokestatic Bridge.remove(LinkedHashSet,Object)Z`（等栈形，纯替换）。
-- `c()`：`invokevirtual LinkedHashSet.clear` →
-  `invokestatic Bridge.clear(LinkedHashSet)V`（等栈形）。
-- `a(j)`：在方法体**前置** tryQuery 派发：`r!=null→areturn`，null→落入
-  **原扫描体**（自动回退，结构性正确）。
-- shape gate：上述 invoke 点各恰好一处、方法签名/访问标志不变；
-  否则整腿 INVALID（沿用 AbTransformer 约定）。
+`TliWeave` (ASM, following the shape-gate and INVALID convention of dweave and kweave):
+- `a(l)`: insert `aload_1;l.a();getIndex; ×3` before the `invokevirtual LinkedHashSet.add` point, then replace that invoke with `invokestatic Bridge.add(LinkedHashSet,Object,III)Z` (the prologue and the log stay, and COMPUTE_FRAMES applies to this method only).
+- `b(l)`: `invokevirtual LinkedHashSet.remove` → `invokestatic Bridge.remove(LinkedHashSet,Object)Z` (the same stack shape, a pure replacement).
+- `c()`: `invokevirtual LinkedHashSet.clear` → `invokestatic Bridge.clear(LinkedHashSet)V` (the same stack shape).
+- `a(j)`: dispatch tryQuery in front of the method body: `r!=null` → areturn, null → fall into the **original scan body** (an automatic fallback that is structurally correct).
+- Shape gate: each invoke point above must occur exactly once and the method signature and access flags must not change; otherwise the whole leg is INVALID (following the AbTransformer convention).
 
-## 集成验证（triangulation-weave-ab 一次性探针，agent 级；该探针源码已删除）
+## Integration Verification (the triangulation-weave-ab one-off probe, agent level; that probe source was deleted)
 
-`TliWeave`+`Bridge` 编入 `tri-weave-agent.jar`；`WeaveAbConfig` 新增
-`turboism.validation.tlWeave.*` 命名空间（mode `tl-dump-only` /
-`tl-dump+weave`，profile `tl-official`/`tl-shadow-selfcheck`），
-`AbTransformer` 按 `t.tliWeave` 派发 `TliWeave.weaveChecked`；官方
-5.3.03 字节上 `OfficialShapeProbe` 报 `TLINDEX_PROBE PASS`（四方法 gate
-全中、capture-after-weave 兼容）。`run.sh` 48 场景 PASS（含
-tlHappyDump/tlHappyWeave/tlMissingHelperWeave/tlShapeRejectWeave/
-tlWrongSha/tlShapePins），`hostExecuted=false officialClassLoaded=false`
-—— 离线 agent 证据不构成实机 readiness。
+`TliWeave` and `Bridge` are compiled into `tri-weave-agent.jar`; `WeaveAbConfig` gained the `turboism.validation.tlWeave.*` namespace (mode `tl-dump-only` or `tl-dump+weave`, profile `tl-official` or `tl-shadow-selfcheck`), and `AbTransformer` dispatches `TliWeave.weaveChecked` on `t.tliWeave`; on the official 5.3.03 bytes `OfficialShapeProbe` reports `TLINDEX_PROBE PASS` (all four method gates hit and capture-after-weave compatible). `run.sh` passes 48 scenarios (including tlHappyDump, tlHappyWeave, tlMissingHelperWeave, tlShapeRejectWeave, tlWrongSha, and tlShapePins) with `hostExecuted=false officialClassLoaded=false`, so offline agent evidence is no host readiness.
 
-## 差分验证（本目录，纯离线，own-fixture）
+## Differential Verification (This Directory, Fully Offline, Own Fixture)
 
-`run.sh`：javac（ASM+kotlin-stdlib 仅编译/运行期依赖，见脚本解析链）→
-`-Xverify:all` SelfCheck ×3 + WeaveSelfCheck ×3 + Negatives + Bench。
+`run.sh`: javac (ASM and kotlin-stdlib are compile and runtime dependencies only, see the resolution chain in the script) → `-Xverify:all` SelfCheck ×3 plus WeaveSelfCheck ×3 plus Negatives plus Bench.
 
-- `SelfCheck`：ref(暴力) vs idx(Bridge) 共享同一 ShadowL 实例流，
-  每次 a(j) 比 size+逐槽对象身份与顺序，a(l)/b(l)/c(l)/size/iterator
-  全比；流 = 网格 mesh + Lawson 翻边交错（4 种子 × 4 规模）+ 8 组定点
-  语义（反向边、dup-add、equals-键分歧 remove、退化重复顶点、
-  iterator.remove 侧路+续接织入 add、clear 中段、哨兵负数、remove-miss）。
-  结果：**72953 checks PASS**。
-- `Negatives`：7 个单缺陷变体全部被判别流拒绝（directed-keys /
-  no-dedup / no-dirty-remove / no-sidepath-check / unordered-bucket /
-  coord-keys / shared-bucket-list）。
-- `Bench`（side=30，~1682 三角形，15642 查询/腿）：
-  stride=1（对抗性逐边翻）idx≈590-778ms vs ref≈762-1196ms；
-  stride=12（≈宿主 query:remove 比）idx≈236-283ms vs ref≈454-866ms；
-  stride=1000（近纯查询）idx≈12-25ms vs ref≈309-464ms。
-  量级结论：查询占比越高收益越大；宿主 2500 样本扫描窗对 218 remove
-  样本（≈12:1）落在 stride≈12 区间，最坏交错也不劣于基线。
+- `SelfCheck`: ref (brute force) against idx (Bridge) share the same ShadowL instance stream; every `a(j)` compares size and the object identity and order of every slot, and `a(l)`, `b(l)`, `c(l)`, size, and iterator are all compared; the stream is a mesh plus Lawson edge-flip interleaving (4 seeds × 4 sizes) plus 8 fixed-point semantic groups (reversed edge, duplicate add, equals-versus-key divergent remove, degenerate duplicate vertex, iterator.remove side path with a continued woven add, a clear in the middle, negative sentinels, and a remove miss). Result: **72953 checks PASS**.
+- `Negatives`: 7 single-defect variants are all rejected by the discriminating stream (directed-keys, no-dedup, no-dirty-remove, no-sidepath-check, unordered-bucket, coord-keys, and shared-bucket-list).
+- `Bench` (side=30, about 1682 triangles, 15642 queries per leg): stride=1 (adversarial per-edge flip) idx≈590–778 ms against ref≈762–1196 ms; stride=12 (about the host query-to-remove ratio) idx≈236–283 ms against ref≈454–866 ms; stride=1000 (nearly pure query) idx≈12–25 ms against ref≈309–464 ms. Magnitude conclusion: the higher the query share, the larger the gain; the host window of 2500 scan samples against 218 remove samples (≈12:1) falls in the stride≈12 range, and even the worst interleaving is no worse than the baseline.
 
-## 宿主等价门（A/B 时）
+## Host Equivalence Gate (During A/B)
 
-- dump 腿四序号 SHA 与基线逐字节一致（等价门，同 DWEAVE）。
-- 标准门全过；JFR 中 TriangleList.a/iterator 窗样本应塌缩至零头。
-- 任一 INVALID/reject/verdict 异常 → 停批。
+- The four sequence SHAs of the dump leg are byte-identical to the baseline (the equivalence gate, as with DWEAVE).
+- Every standard gate passes; the `TriangleList.a` and iterator window samples in JFR must collapse to a fraction.
+- Any INVALID, reject, or verdict exception stops the batch.
 
+## 2026-10-01 Production Remove Correction (New Artifact Awaiting Host)
 
-## 2026-10-01 生产 remove 修正（新工件待实机）
+The old claim that "an equals scan in insertion order selects exactly what HashMap removal selects" is no general guarantee: a bucket with a constant hash becomes a tree, and if the equals relation of an existing object changes, the native tree lookup may select an object other than the first match in insertion order. Even when a common host input never reaches that degradation, the old helper first ran a linear equals scan and then entered the native removeNode through iterator.remove, which added cost. Two host pairs on 5203 proved no performance gain; the on and off CPU of the second pair were 308.4 s and 287.8 s.
 
-旧文“按插入序 equals 扫描与 HashMap 删除选择完全一致”不是一般性保证：
-常数 hash 的桶会 treeify；如果已有对象的 equals 关系改变，原生树查找可能选中
-不同于插入序首个匹配的对象。即使宿主常见输入没有此退化，旧 helper 先做
-一次线性 equals 扫描，再经 iterator.remove 进入原生 removeNode，增加了成本。
-5203 两对实机观测未证明性能收益；第二对 on/off CPU 为308.4/287.8秒。
+The production correction runs `s.remove(tri)` first and exactly once, and the native set decides the return value and the object actually removed. The bookkeeping no longer calls element equals: only when the state is clean, the recorded key count equals the current set size plus one, and the record contains tri does it scan every live identity. If every live identity is recorded and tri is not among them, the cardinality proves tri is the single missing record, so its own key can be detached precisely; otherwise the state is marked dirty, the next query rebuilds from the real set and clears vanished records, and an unknown live object still falls back permanently. The removed object is never guessed from the argument equals or from the index. This proof depends on neither coordinates nor equality stability, and it also covers an equal re-add after an iterator removal.
 
-生产修正先执行且只执行一次 s.remove(tri)，返回值和实际被删除对象由原生集合
-决定。簿记不再调用元素 equals：仅在状态干净、记录键数=当前集合大小+1、记录
-含 tri 时扫描所有存活身份。如果每个存活身份都已记录且 tri 不在其中，基数
-证明 tri 是唯一缺失记录，可按其自录键精确摘桶；否则标脏，下次查询按真实集合
-重建并清除消失记录，未知存活对象仍永久回退。不能根据参数 equals 或索引猜测
-被删对象。此证明不依赖坐标/equality 不变，也覆盖 iterator 移除后等值重加。
+The tests first reproduced the extra equals count and the differing victim under mutable equality, and then verified that the correction matches the native set in per-object identity and order; the existing equal-but-different-index, weak identity lifecycle, concurrency, and weave regressions stay. An offline pass does not mean the new candidate has host performance acceptance.
 
-测试先复现额外 equals 次数及可变 equality 下实际 victim 不同的失败，再验证
-修正与原生集合的逐对象身份顺序一致；既有等值异索引、弱身份生命周期、并发与
-织入回归保留。离线通过不代表新候选已取得实机性能验收。
+The second-round candidate 640e3b1e… passed the 5203 seq2063 and seq2069 standard gates, edge order, and production run, but CPU and duration still regressed, and JFR showed a new `IdentityHashMap.containsKey` leaf with 806 samples. Querying the identity table again for every live object ignored the already verified change protocol: every add and clear is woven, and the only unwoven write is iterator.remove, whose monotonic shrink the size pre-check (or the next add pre-check) detects. So "clean and the cardinality matches before the removal" already proves that every member identity of the original set is recorded, and the native remove deletes exactly one of them. It suffices to confirm with `==` whether the argument identity is still live: if it is live, the real victim is another equal object and the state becomes dirty for a rebuild; if it is not live, the argument's own key can be detached. The later candidate drops the per-live-object containsKey without changing the native removal or the fallback path. This relies on the reviewed change entries of the exact host and promises no support for an arbitrary same-size replacement hidden behind an unwoven add.
 
+## 2026-10-01 Later Candidate: A Contains Fast Path That Hits Only on Object Identity (Implemented, Awaiting Host)
 
-第二轮候选640e3b1e…的5203 seq2063/2069标准门、边序及生产实跑PASS，但CPU/耗时
-仍退化，JFR新增IdentityHashMap.containsKey叶806样本。逐存活对象再次查身份表
-没有利用已验证变更协议：所有add/clear均织入，唯一未织入写是iterator.remove，
-其单调缩小由sz前检（或下一次add前检）检测。因此“干净且删除前基数吻合”已证明
-原集合成员身份完整登记；原生remove只从其中删除一个。只须用==确认参数身份
-是否仍存活：存活则实际victim是另一等值对象，置dirty重建；不存活则可摘参数
-的自录键。后续候选去掉逐存活对象的containsKey，不改变原生删除和回退路径。
-这依赖精确宿主的已审阅变更入口，不承诺支持未织入add隐藏的任意同尺寸替换。
+Three pairs on 29f13cf8 proved no stable gain on the host. In the 64-frame stack export of r3, the on leg had 669 `l.equals` leaf samples inside the `HashSet.contains` chain against 15 on the off leg. That is only sample attribution, not a call count or a causal effect. The 5203 javap again confirms that `TriangleList.c(l)` calls only `b.contains(l)` after the original null check; a triangle hashCode is always zero and equals is a permutation comparison of vertex coordinates.
 
-## 2026-10-01 后续候选：仅对象身份命中的 contains 快路（已实现，待实机）
+The testable proposal returns true only for "a known still-live identical object": the state is neither dead nor dirty, the recorded size equals the real set size, and the identity table holds the argument. It relies on the existing all-add and all-clear weave plus the change protocol where iterator.remove only shrinks the set. Endpoint indices must never replace the geometric equals, and an identity miss must never return false directly; an unknown, stale, or equal-but-different-identity argument still runs the native contains. The original null check stays. This proposal bypasses no native add or remove semantics.
 
-三对 29f13cf8 实机未证明稳定收益。r3 的 64 层栈导出中，on 的
-`l.equals` 叶样本有 669 个位于 `HashSet.contains` 链，off 为 15 个。
-这只是采样归因，不是调用次数或因果效应。5203 javap 再次确认
-`TriangleList.c(l)` 在原 null 检查后只调用 `b.contains(l)`；三角形
-hashCode 恒零，equals 为顶点坐标的排列比较。
+Before implementation, confirm the exact `c(l)` shape of the three versions, the fixed element type, and the constant-zero hash binding; add differential regressions for an identity hit, an equal but different identity, changed coordinates, a stale state after iterator.remove, and a dead state. The weave shape and the artifact hash must be updated and verified on the host separately. The current resource A/B keeps using the frozen old candidate without this proposal, and no performance promise is made for it.
 
-可检验的方案是仅对“已知仍存活的相同对象”返回 true：状态非 dead、非 dirty，
-记录尺寸与原集合尺寸相同，身份表存在参数。依赖既有全 add/clear 织入与
-iterator.remove 仅缩小集合的变更协议。不得用端点 index 代替几何 equals，
-不得把身份未命中直接返回 false；未知、过期或相等但不同身份的参数仍执行
-原生 contains。原 null 检查保留。此方案不绕过 add/remove 的原生语义。
+Additional static verification: the official JARs of 5203 (bcc6e34f…), 5302 (988ef6a8…), and 5303 (bd0a23b9…) all confirm that `c(l)` calls LinkedHashSet.contains and that `l.hashCode` holds only iconst_0 and ireturn. The per-version JAR SHA and the raw javap excerpts are in `build/t029-real-host-acceptance/contains-shape-review.json`. This rules out a version shape difference at those two entries only and does not replace a candidate differential test or a host effect verification.
 
-实施前还需确认三版本 c(l) 精确形状、固定元素类型与恒零哈希绑定；增加
-身份命中、相等异身份、坐标变化、iterator.remove 后过期状态、dead 状态的
-差分回归。必须更新织入形状与工件哈希，并单独实机验证。当前资源 A/B
-继续使用冻结的旧候选，不含此方案；尚未对该方案作性能承诺。
-
-补充静态核验：5203（bcc6e34f…）、5302（988ef6a8…）、5303（bd0a23b9…）
-三个官方 JAR 均确认 c(l) 调用 LinkedHashSet.contains，且 l.hashCode 只有
-iconst_0 / ireturn。逐版本 JAR SHA 与原始 javap 片段保存在
-`build/t029-real-host-acceptance/contains-shape-review.json`。这只排除了这两个
-入口的版本形状差异，不替代候选差分测试或实机效果验证。
-
-
-实现进展：生产 helper 新增正向身份 contains；patcher 对 c(l) 的唯一原生
-contains 站点增加第五项准入检查，缺失时整类拒绝。19 项 helper、12 项
-transformer、5 项 installer 测试通过；官方类形状测试和 devCheck 通过。
-打包后的 agent 为 `77ce425567f8a4fb1ef1c5055fe5015a33c1cf1dcefbc90dcfff9c0bbeebd17c`。
-使用该 JAR 中的 patcher 处理三版本官方类得到：
+Implementation progress: the production helper gained a positive identity contains; the patcher adds a fifth admission check on the single native contains site of `c(l)` and rejects the whole class when it is missing. 19 helper, 12 transformer, and 5 installer tests pass; the official class shape test and devCheck pass. The packaged agent is `77ce425567f8a4fb1ef1c5055fe5015a33c1cf1dcefbc90dcfff9c0bbeebd17c`. Running the patcher from that JAR on the official classes of the three versions produced:
 
 - 5203 patched SHA `33bea8bc8bf437df71915b17a704a2283946424458b54848cdb8cdea35010cb4`
-- 5302/5303 patched SHA `f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5`
+- 5302 and 5303 patched SHA `f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5`
 
-原始类 SHA 未变。原生 add/remove 保持不变，unknown/dirty/dead contains
-仍使用原生几何相等查找。新候选尚无实机效果证据；完整 wrapper 绑定回归已通过。
+The original class SHAs are unchanged. The native add and remove stay unchanged, and an unknown, dirty, or dead contains still uses the native geometric equality lookup. The new candidate has no host effect evidence yet; the complete wrapper binding regression passed.
 
+## 2026-10-02 T047: Bounded Removal-Identity Batching (Offline Experiment Only)
 
-## 2026-10-02 T047：有界删除身份批处理（仅离线实验）
+The limited 5302 pairing of the final 021e still proved no net gain. In the saved first-operation JFR, remove had 428 inclusive samples, of which 420 leaf frames landed on the live-identity scan back edge of the frozen bridge class at BCI 123. A sample is neither a call count nor a causal duration; native `h.a(l,l,j)` statically confirms two consecutive removals followed by an in-order add of a replacement triangle.
 
-最终021e的限定5302配对仍未证明净收益。保存的首次操作JFR中，remove有428个inclusive样本，420个leaf帧落在冻结桥接类BCI123的存活身份扫描回边。采样不是调用次数或因果耗时；原生h.a(l,l,j)则静态确认连续两次删除，之后按序加入替代三角形。
+The experiment keeps the native remove running first with its return value and real victim, and only stages at most 8 recorded, distinct removal arguments. Before reading the index or a positive membership, it scans the real set once and confirms by identity that every argument has vanished; combined with the recorded cardinality that proves they are the real victims. The common 1 or 2 arguments get a dedicated loop. It never assumes the argument is the victim, and the bucket may not publish before the pending verification.
 
-实验保留每次原生remove首先执行、返回值和实际victim，只暂存最多8个已记录、互异的删除实参。读取索引或正向membership前，统一扫描实际集合，按身份确认所有实参均已消失；结合记录基数才能证明它们是实际victim。常见1/2实参有专用循环。不允许直接假定实参就是victim，桶在pending核验前不可发布。
+During pending, a normal add may record a new object and keep the original insertion order; re-inserting a pending identity, an unknown or duplicate removal argument, a size drift, a full budget, or a still-live argument marks dirty. A query rebuilds from the real live set, an unknown live key falls back permanently, and membership takes the native fallback. A scan exception degrades permanently so partial bookkeeping is never trusted again. clear, rebuild, and invalid release the pending references, the registration stays weak-identity, and no set holds a back reference. The eight references are only an extra metadata bound, not a real memory acceptance.
 
-pending期间正常add可记录新对象并保持原插入顺序；重插入pending身份、未知/重复删除实参、size漂移、预算满或仍存活实参导致dirty。查询从实际存活集合重建，未知存活键永久回退；membership走原生回退。扫描异常会永久降级，避免部分簿记被再次信任。clear、rebuild及invalid释放pending引用，仍为弱身份登记且无集合反向引用。八个引用只是额外元数据上限，不是实际内存验收。
+The new behaviour regression drops the old 509 live accesses to 256 and keeps 26 differential, lifecycle, and real mutable-equals double-victim checks; the related focused 53 cases, the two static weave families, and devCheck pass. In the 5 pairs of the own 512-triangle flip experiment, the median thread CPU fell 21.43% and the thread-measured allocation fell 38.18%, covering only the post-warm-up change cycle and excluding the initial index and pending array construction. This is no host speedup, RSS improvement, or stability acceptance.
 
-新行为回归从旧509次存活访问降至256次，保留26项差分/生命周期与实际可变equals双victim检查；相关focused共53项、双族2项静态织入和devCheck通过。自有512三角形翻边实验的5组配对中，线程CPU中位减少21.43%、线程实测分配减少38.18%，仅覆盖预热后的变更周期，排除了初始索引/pending数组构造。不是宿主加速、RSS改善或稳定性验收。
-
-冻结021e Agent未覆盖，本轮未打包或提交新实机工件。详见[实机与离线证据](host-evidence-20261001.md)及build/t047-offline/offline-review.json。正式候选仍须冻结新Agent并完成T044/T046实机、资源与重复目标门禁。
+The frozen 021e agent does not include this, and no new host artifact was packaged or committed this round. See the [host and offline evidence](host-evidence-20261001.md) and `build/t047-offline/offline-review.json`. A production candidate still needs a frozen new agent plus the T044 and T046 host, resource, and repeated-target gates.

@@ -78,7 +78,7 @@ class EditorObjectModelApiContractTest {
         assertThrows(UnsupportedOperationException.class, drawable::guid);
     }
 
-    /** 除默认方法外全部抛出：验证 default 语义（guid 未实现时不可用）。 */
+    /** Throws on every member except a default method, so a missing guid stays unusable. */
     private abstract static class StubDrawable implements Drawable {
         @Override
         public ArtMeshId id() {

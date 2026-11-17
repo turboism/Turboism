@@ -250,7 +250,7 @@ and code-generated icons, as well as packaged image resources.
   which checks ran and explicitly identify any missing host visual verification.
 
 First-party icon source and regeneration rules are in the
-[artwork guide](../scripts/artwork/README.md#深浅色模式适配).
+[artwork guide](../scripts/artwork/README.md#light-and-dark-mode-adaptation).
 
 ## Test and review
 

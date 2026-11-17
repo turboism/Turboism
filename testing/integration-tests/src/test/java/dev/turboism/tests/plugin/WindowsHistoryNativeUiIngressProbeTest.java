@@ -778,7 +778,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
     @Test
     void aSelectionDoesNotCloseAnActionStep() {
         // The host records a selection as an ordinary undo entry, and this run recorded
-        // 选择对象, 拖动选择 and 选择顶点 that way. An ACTION step
+        // selection, drag-select and vertex-select steps that way. An ACTION step
         // must be closed only by the significant entries changing, so the click that precedes an
         // action cannot satisfy it.
         final String none = WindowsHistoryNativeUiIngressParameterEvidence.significantSequence(List.of());
