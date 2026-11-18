@@ -1014,6 +1014,10 @@ $script:ElevationCanceledExitCode = 3
 $script:ElevationTimeoutExitCode = 4
 $script:BatUnmatchedBackupExitCode = 5
 
+# An unanswered elevation prompt must never block the caller indefinitely. The
+# installer shows the matching localized timeout notice, which states one minute.
+$script:ElevationTimeoutMilliseconds = 60000
+
 function Test-ElevationCancelledException {
     param([System.Exception]$Exception)
     $localizedCancel = ""
@@ -1057,6 +1061,10 @@ using System.Runtime.InteropServices;
 namespace Turboism {
     public static class ElevatedShell {
         private const uint SEE_MASK_NOCLOSEPROCESS = 0x00000040;
+        // ShellExecuteExW runs its own work on a worker thread unless the caller asks for
+        // synchronous completion. This helper waits on the returned handle, so the launch
+        // must finish before the wait begins.
+        private const uint SEE_MASK_NOASYNC = 0x00000100;
         private const uint WAIT_OBJECT_0 = 0x00000000;
         private const uint WAIT_TIMEOUT = 0x00000102;
         private const int SW_HIDE = 0;
@@ -1104,7 +1112,7 @@ namespace Turboism {
         public static Outcome Run(string file, string arguments, long ownerHwnd, uint timeoutMs) {
             var sei = new SHELLEXECUTEINFOW();
             sei.cbSize = Marshal.SizeOf(typeof(SHELLEXECUTEINFOW));
-            sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
             sei.hwnd = ownerHwnd != 0 ? new IntPtr(ownerHwnd) : IntPtr.Zero;
             sei.lpVerb = "runas";
             sei.lpFile = file;
@@ -1163,7 +1171,7 @@ function Invoke-ElevatedConfiguratorMode {
         if ($OwnerHandle -ne 0) {
             # Attach UAC to the foreground installer/configurator HWND so Windows presents
             # the prompt visibly instead of burying it behind a windowless console child.
-            $outcome = Invoke-OwnedElevatedProcess -FilePath $powershell -Arguments $arguments -OwnerHandle $OwnerHandle -TimeoutMs 180000
+            $outcome = Invoke-OwnedElevatedProcess -FilePath $powershell -Arguments $arguments -OwnerHandle $OwnerHandle -TimeoutMs $script:ElevationTimeoutMilliseconds
             if ($outcome.TimedOut) {
                 Write-InstallerLog "ELEVATION_TIMEOUT" ("mode={0} childPid={1}" -f $Mode, $outcome.ProcessId)
                 return $script:ElevationTimeoutExitCode
@@ -1178,7 +1186,7 @@ function Invoke-ElevatedConfiguratorMode {
         $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -PassThru
         try {
             # An unanswered or hidden UAC prompt must not block the caller forever.
-            if (-not $process.WaitForExit(180000)) {
+            if (-not $process.WaitForExit($script:ElevationTimeoutMilliseconds)) {
                 Write-InstallerLog "ELEVATION_TIMEOUT" ("mode={0} childPid={1}" -f $Mode, $process.Id)
                 return $script:ElevationTimeoutExitCode
             }

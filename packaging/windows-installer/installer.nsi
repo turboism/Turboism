@@ -444,14 +444,14 @@ LangString BatElevationCanceled ${LANG_ENGLISH} "Administrator approval (UAC) wa
 LangString BatElevationCanceled ${LANG_SIMPCHINESE} "管理员授权（UAC）已被拒绝，已跳过 Cubism BAT 集成。Turboism 已安装；可运行 Turboism_Configurator 并启用 BAT 集成后重试。"
 LangString BatElevationCanceled ${LANG_JAPANESE} "管理者承認（UAC）が拒否されたため、Cubism BAT の統合をスキップしました。Turboism はインストール済みです。Turboism_Configurator で BAT 統合を有効にして再試行してください。"
 LangString BatElevationCanceled ${LANG_KOREAN} "관리자 승인(UAC)이 거부되어 Cubism BAT 통합을 건너뛰었습니다. Turboism은 설치되었습니다. Turboism_Configurator에서 BAT 통합을 활성화하여 다시 시도하세요."
-LangString BatElevationTimeout ${LANG_ENGLISH} "Administrator approval (UAC) was not given within 3 minutes, so Cubism BAT integration was skipped. Turboism is installed; run Turboism_Configurator and enable BAT integration to retry."
-LangString BatElevationTimeout ${LANG_SIMPCHINESE} "3 分钟内未收到管理员授权（UAC），已跳过 Cubism BAT 集成。Turboism 已安装；可运行 Turboism_Configurator 并启用 BAT 集成后重试。"
-LangString BatElevationTimeout ${LANG_JAPANESE} "3 分以内に管理者承認（UAC）がなかったため、Cubism BAT の統合をスキップしました。Turboism はインストール済みです。Turboism_Configurator で BAT 統合を有効にして再試行してください。"
-LangString BatElevationTimeout ${LANG_KOREAN} "3분 이내에 관리자 승인(UAC)이 없어 Cubism BAT 통합을 건너뛰었습니다. Turboism은 설치되었습니다. Turboism_Configurator에서 BAT 통합을 활성화하여 다시 시도하세요."
-LangString ElevationWaitNotice ${LANG_ENGLISH} "Waiting for administrator approval (UAC) to update Cubism BAT files. If no prompt is visible, check the taskbar; this step times out after 3 minutes."
-LangString ElevationWaitNotice ${LANG_SIMPCHINESE} "正在等待管理员授权（UAC）以更新 Cubism BAT 文件。若没有看到弹窗，请检查任务栏；此步骤 3 分钟后超时。"
-LangString ElevationWaitNotice ${LANG_JAPANESE} "Cubism BAT を更新するため、管理者の承認（UAC）を待っています。表示されない場合はタスクバーを確認してください。この手順は 3 分でタイムアウトします。"
-LangString ElevationWaitNotice ${LANG_KOREAN} "Cubism BAT 파일을 업데이트하기 위해 관리자 승인(UAC)을 기다리는 중입니다. 표시되지 않으면 작업 표시줄을 확인하세요. 이 단계는 3분 후 시간 초과됩니다."
+LangString BatElevationTimeout ${LANG_ENGLISH} "Administrator approval (UAC) was not given within 1 minute, so Cubism BAT integration was skipped. Turboism is installed; run Turboism_Configurator and enable BAT integration to retry."
+LangString BatElevationTimeout ${LANG_SIMPCHINESE} "1 分钟内未收到管理员授权（UAC），已跳过 Cubism BAT 集成。Turboism 已安装；可运行 Turboism_Configurator 并启用 BAT 集成后重试。"
+LangString BatElevationTimeout ${LANG_JAPANESE} "1 分以内に管理者承認（UAC）がなかったため、Cubism BAT の統合をスキップしました。Turboism はインストール済みです。Turboism_Configurator で BAT 統合を有効にして再試行してください。"
+LangString BatElevationTimeout ${LANG_KOREAN} "1분 이내에 관리자 승인(UAC)이 없어 Cubism BAT 통합을 건너뛰었습니다. Turboism은 설치되었습니다. Turboism_Configurator에서 BAT 통합을 활성화하여 다시 시도하세요."
+LangString ElevationWaitNotice ${LANG_ENGLISH} "Waiting for administrator approval (UAC) to update Cubism BAT files. If no prompt is visible, check the taskbar; this step times out after 1 minute."
+LangString ElevationWaitNotice ${LANG_SIMPCHINESE} "正在等待管理员授权（UAC）以更新 Cubism BAT 文件。若没有看到弹窗，请检查任务栏；此步骤 1 分钟后超时。"
+LangString ElevationWaitNotice ${LANG_JAPANESE} "Cubism BAT を更新するため、管理者の承認（UAC）を待っています。表示されない場合はタスクバーを確認してください。この手順は 1 分でタイムアウトします。"
+LangString ElevationWaitNotice ${LANG_KOREAN} "Cubism BAT 파일을 업데이트하기 위해 관리자 승인(UAC)을 기다리는 중입니다. 표시되지 않으면 작업 표시줄을 확인하세요. 이 단계는 1분 후 시간 초과됩니다."
 LangString StartMenuResultCreated ${LANG_ENGLISH} "Turboism Start-menu shortcuts are enabled."
 LangString StartMenuResultCreated ${LANG_SIMPCHINESE} "已启用 Turboism 开始菜单快捷方式。"
 LangString StartMenuResultCreated ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを有効にしました。"
@@ -1567,7 +1567,11 @@ FunctionEnd
 
 !define CUBISM_DISCOVERY_HANDOFF '-InstallerDiscoverySnapshot "$CubismDiscoveryResult.json" -InstallerDiscoverySnapshotSha256 "$CubismDiscoverySnapshotHash"'
 
-Function .onInstSuccess
+; Final configuration runs from a Section, never from the .onInstSuccess callback.
+; That callback runs on the UI thread, so a blocking wait freezes the wizard into
+; "Not Responding" and ShellExecuteEx cannot finish the elevation launch. A Section
+; runs on the install thread, and the UI thread keeps pumping messages meanwhile.
+Function RunFinalConfiguration
   ; A failed/skipped middle scan is explicitly framework-only. Never start a
   ; hidden recovery scan here. Successful scans are consumed before cleanup.
   ${If} $CubismDiscoverySnapshotHash == ""
@@ -1779,6 +1783,20 @@ Section -"开始菜单与注册" SecStartMenuReg
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayIcon" "$\"$INSTDIR\uninstall.exe$\""
+SectionEnd
+
+; ---------- Final launch configuration ----------
+; Hidden Section: it runs after every payload and shortcut Section, because the
+; configurator reads the installed agent and plugins. This Section keeps the UI
+; thread free to pump messages, so the optional elevation prompt can appear.
+Section "-最终配置" SecFinalConfiguration
+  ; nsExec hides a child console, and that child can briefly take focus. Restore the
+  ; wizard before the dialog below claims the foreground for the elevation prompt.
+  BringToFront
+  Call RunFinalConfiguration
+  BringToFront
+  ; A configuration failure already sets the error level and tells the user to retry
+  ; from Turboism_Configurator. Aborting here would discard an installed payload.
 SectionEnd
 
 ; 卸载 Section：名字必须恰好为 "Uninstall"（NSIS 特殊命名，代码编入卸载器，

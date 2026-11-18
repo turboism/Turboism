@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows installer runs the final launch configuration from an install Section instead of the `.onInstSuccess` callback. That callback blocks the UI thread, so the wizard froze as "Not Responding" and the UAC elevation prompt could not appear. `ShellExecuteExW` now also passes `SEE_MASK_NOASYNC`, and the elevation wait is bounded to 60 seconds with matching localized notices.
+
 ## [0.70.1] - 2026-11-18
 
 Changes since the previous stable release, **0.67.4**. This release includes the intervening beta changes.
