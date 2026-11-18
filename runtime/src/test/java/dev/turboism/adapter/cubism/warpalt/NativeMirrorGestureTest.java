@@ -5,12 +5,85 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import com.live2d.cubism.view.context.action.U$b;
 import java.awt.Canvas;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 final class NativeMirrorGestureTest {
+    @ParameterizedTest
+    @CsvSource({"1, 3, 0.75, 1.5", "2, 2, 1.25, 0.5"})
+    void nativeDragReflectsBasePointRefsBeforeRelease(int axis, int counterpart, float expectedX, float expectedY) {
+        var view = new TestView();
+        var canvas = new Canvas();
+        var form = new WarpForm(new float[] {0, 0, 1, 0, 2, 0, 0, 2, 1, 2, 2, 2});
+        var driver = new BaseWarpRef(new WarpSource(), 0, form);
+        var partner = new BaseWarpRef(driver.d(), counterpart, form);
+        NativeWarpAltMirrorBridge.install();
+        NativeWarpAltMirrorBridge.setWarpRefClassNameForTesting(BaseWarpRef.class.getName());
+        NativeWarpAltMirrorBridge.setArmedAxis(axis);
+        try (var registration = NativeWarpAltMirrorBridge.moveParticipation().participate()) {
+            NativeWarpAltMirrorBridge.filterInput(
+                    view,
+                    new MouseEvent(
+                            canvas,
+                            MouseEvent.MOUSE_PRESSED,
+                            0,
+                            InputEvent.BUTTON1_DOWN_MASK,
+                            10,
+                            20,
+                            1,
+                            false,
+                            MouseEvent.BUTTON1));
+
+            for (int tick = 0; tick < 2; tick++) {
+                NativeWarpAltMirrorBridge.filterInput(
+                        view,
+                        new MouseEvent(
+                                canvas,
+                                MouseEvent.MOUSE_DRAGGED,
+                                tick,
+                                InputEvent.BUTTON1_DOWN_MASK,
+                                11,
+                                21,
+                                0,
+                                false));
+                partner.drag(0.75f, 0.5f);
+                driver.drag(0.75f, 0.5f);
+            }
+
+            assertEquals(new TestVector(0.75f, 0.5f), driver.getPos());
+            assertEquals(new TestVector(expectedX, expectedY), partner.getPos());
+
+            for (int tick = 2; tick < 10; tick++) {
+                NativeWarpAltMirrorBridge.filterInput(
+                        view,
+                        new MouseEvent(
+                                canvas,
+                                MouseEvent.MOUSE_DRAGGED,
+                                tick,
+                                InputEvent.BUTTON1_DOWN_MASK,
+                                11,
+                                21,
+                                0,
+                                false));
+                driver.drag(0.17f, 0.11f);
+                partner.drag(0.17f, 0.11f);
+
+                var point = driver.getPos();
+                var mirrored = axis == 1
+                        ? new TestVector(point.getX(), 2 - point.getY())
+                        : new TestVector(2 - point.getX(), point.getY());
+                assertEquals(mirrored, partner.getPos());
+            }
+        } finally {
+            NativeWarpAltMirrorBridge.uninstall();
+        }
+    }
+
     @Test
     void pressUsesNativeComponentPointAndReleaseEndsGesture() throws Exception {
         var view = new TestView();
@@ -51,6 +124,10 @@ final class NativeMirrorGestureTest {
         public TestCamera getCameraManager() {
             return new TestCamera();
         }
+
+        public TestEditMode getCurrentEditMode() {
+            return new TestEditMode();
+        }
     }
 
     public static final class TestCamera {
@@ -60,6 +137,51 @@ final class NativeMirrorGestureTest {
     }
 
     public record TestVector(float getX, float getY) {}
+
+    public static final class TestEditMode {
+        public TestModel getCurrentModel() {
+            return new TestModel();
+        }
+    }
+
+    public static final class TestModel {}
+
+    public static final class WarpSource {
+        public int getCol() {
+            return 2;
+        }
+
+        public int getRow() {
+            return 1;
+        }
+    }
+
+    public record WarpForm(float[] positions) {}
+
+    public record BaseWarpRef(WarpSource d, int a, WarpForm f) {
+        public float[] g() {
+            return f.positions();
+        }
+
+        TestVector getPos() {
+            return new TestVector(g()[a * 2], g()[a * 2 + 1]);
+        }
+
+        public TestVector getPosOnCanvas(TestModel model) {
+            var point = getPos();
+            return new TestVector(120 + 10 * point.getX(), 260 + 10 * point.getY());
+        }
+
+        void drag(float dx, float dy) {
+            final float weight = 0.5f;
+            var point = getPos();
+            var target = new TestVector(point.getX() + dx, point.getY() + dy);
+            if (!U$b.skipNativePointWrite(this, target, weight)) {
+                g()[a * 2] = point.getX() * (1 - weight) + target.getX() * weight;
+                g()[a * 2 + 1] = point.getY() * (1 - weight) + target.getY() * weight;
+            }
+        }
+    }
 
     @Test
     void eitherSideRemainsDriverRegardlessOfNativeIterationOrder() {
