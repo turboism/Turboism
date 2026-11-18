@@ -27,8 +27,12 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
      * @throws IllegalStateException if this coordinator has been closed
      */
     public synchronized void connect(final VerifiedMemberResolver resolver) {
+        connect(resolver, null);
+    }
+
+    synchronized void connect(final VerifiedMemberResolver resolver, final TextureAtlasScaleLocks locks) {
         requireOpen();
-        adapter = new VerifiedTextureAtlasNativeInvocationAdapter(Objects.requireNonNull(resolver, "resolver"));
+        adapter = new VerifiedTextureAtlasNativeInvocationAdapter(Objects.requireNonNull(resolver, "resolver"), locks);
         generation++;
     }
 

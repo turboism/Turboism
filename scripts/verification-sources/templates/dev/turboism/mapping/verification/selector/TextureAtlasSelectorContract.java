@@ -145,6 +145,19 @@ public final class TextureAtlasSelectorContract {
         "cubism.texture-atlas.statistics.page-state.atlas"
     );
 
+    /** Canvas projection and model image identity for the reviewed scale lock surface. */
+    public static final Set<String> SCALE_LOCK_ALIASES = Set.of(
+        "cubism.texture-atlas.scale-lock.canvas-paint",
+        "cubism.texture-atlas.scale-lock.canvas-page-view",
+        "cubism.texture-atlas.scale-lock.page-view-state",
+        "cubism.texture-atlas.scale-lock.canvas-transform",
+        "cubism.texture-atlas.scale-lock.page-selection",
+        "cubism.texture-atlas.scale-lock.selected-layers",
+        "cubism.texture-atlas.scale-lock.edit-layer-image",
+        "cubism.texture-atlas.scale-lock.edit-layer-data",
+        "cubism.texture-atlas.scale-lock.edit-layer-ref"
+    );
+
     private TextureAtlasSelectorContract() {
     }
 }

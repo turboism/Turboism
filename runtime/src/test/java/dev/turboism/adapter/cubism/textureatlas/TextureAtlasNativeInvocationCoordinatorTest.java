@@ -13,15 +13,65 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.test.Stubs;
 import java.awt.geom.AffineTransform;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class TextureAtlasNativeInvocationCoordinatorTest {
+
+    @Test
+    void reopensScaleLocksByModelAndUnlocksOneImage(@TempDir final Path home) {
+        final var locks = new TextureAtlasScaleLocks(home);
+        locks.update("model-a", Map.of("skirt", 0.8D, "sleeve", 0.9D), Set.of());
+        locks.update("model-b", Map.of("skirt", 1D), Set.of());
+
+        final var reopened = new TextureAtlasScaleLocks(home);
+        assertEquals(Map.of("skirt", 0.8D, "sleeve", 0.9D), reopened.snapshot("model-a"));
+        reopened.update("model-a", Map.of(), Set.of("skirt"));
+
+        final var stored = new TextureAtlasScaleLocks(home);
+        assertEquals(Map.of("sleeve", 0.9D), stored.snapshot("model-a"));
+        assertEquals(Map.of("skirt", 1D), stored.snapshot("model-b"));
+    }
+
+    @Test
+    void writesLockedAndOriginalScalesFromOneRectanglePlan(@TempDir final Path home) {
+        final var fixture = new Fixture();
+        fixture.first.rect = new Rect(0, 0, 10, 10);
+        fixture.receiver.b.scale = 0.5D;
+        final var locks = new TextureAtlasScaleLocks(home);
+        locks.update(
+                LayerIdentity.MODEL_GUID, Map.of(fixture.first.layer.image().value(), 0.8D), Set.of());
+        final var coordinator = new TextureAtlasNativeInvocationCoordinator();
+        coordinator.connect(resolver(), locks);
+        final var service = service(new TextureAtlasLayoutCoordinator(), coordinator);
+
+        assertTrue(coordinator
+                .ingress(() -> {
+                    final var snapshot = service.current().orElseThrow();
+                    assertEquals(8, snapshot.items().get(0).width());
+                    assertEquals(1D, snapshot.constraints().singlePageOptions().requestedScale());
+                    final var locked = new TextureAtlasPlacement("native-item-0", 0, 1, 1, 8, 8, false);
+                    final var unlocked = new TextureAtlasPlacement("native-item-1", 0, 12, 1, 2, 2, false);
+                    final var partial = TextureAtlasLayoutPlan.currentPage(32, 16, List.of(locked), 1D);
+                    assertTrue(service.apply(snapshot.target(), partial)
+                            .failureCode()
+                            .isPresent());
+                    final var plan = TextureAtlasLayoutPlan.currentPage(32, 16, List.of(locked, unlocked), 1D);
+                    return service.apply(snapshot.target(), plan).status().isPresent();
+                })
+                .test(fixture.receiver));
+        assertEquals(0.8D, fixture.firstRef.transform.getScaleX(), 1e-8);
+        assertEquals(1D, fixture.secondRef.transform.getScaleX(), 1e-8);
+        assertTrue(fixture.receiver.i.isEmpty());
+    }
 
     @Test
     void degenerateMeshBoundsDoNotForceTheWholePageBackToNativePacking() {
@@ -604,6 +654,8 @@ class TextureAtlasNativeInvocationCoordinatorTest {
         final String container = internal(Container.class);
         final String layerRef = internal(LayerRef.class);
         final String editorAffine = internal(EditorAffine.class);
+        final String layerIdentity = internal(LayerIdentity.class);
+        final String guid = internal(Guid.class);
         final List<StaticSelector> selectors = List.of(
                 StaticSelector.classSelector(VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_CLASS, receiver),
                 StaticSelector.field(
@@ -673,6 +725,24 @@ class TextureAtlasNativeInvocationCoordinatorTest {
                         layerRef,
                         "setTransformToParent",
                         "(L" + editorAffine + ";)V"),
+                method(
+                        "cubism.texture-atlas.scale-lock.edit-layer-data",
+                        layerIdentity,
+                        "data",
+                        "()L" + layerIdentity + ";"),
+                method(
+                        "cubism.texture-atlas.data-model.model-source",
+                        layerIdentity,
+                        "data",
+                        "()L" + layerIdentity + ";"),
+                method("cubism.editor-model.model-source.guid", layerIdentity, "model", "()L" + guid + ";"),
+                method(
+                        "cubism.texture-atlas.scale-lock.edit-layer-image",
+                        layerIdentity,
+                        "data",
+                        "()L" + layerIdentity + ";"),
+                method("cubism.texture-atlas.image.guid", layerIdentity, "image", "()L" + guid + ";"),
+                method("cubism.editor-model.guid.value", guid, "value", "()Ljava/lang/String;"),
                 StaticSelector.constructor(
                         VerifiedTextureAtlasNativeInvocationAdapter.EDITOR_AFFINE_CREATE,
                         editorAffine,
@@ -786,11 +856,12 @@ class TextureAtlasNativeInvocationCoordinatorTest {
         private Rect rect;
         private boolean failMeshRead;
         private int fullWidth = 12, fullHeight = 10;
-        private final Object layer = new Object();
+        private final LayerIdentity layer;
 
         Item(float width, float height, double x) {
             rect = new Rect(0, 0, width, height);
             f = new Affine(AffineTransform.getTranslateInstance(x, 0));
+            layer = new LayerIdentity(new Guid(Double.toString(x)));
         }
 
         public Object a() {
@@ -818,6 +889,20 @@ class TextureAtlasNativeInvocationCoordinatorTest {
             return rect;
         }
     }
+
+    public record LayerIdentity(Guid image) {
+        private static final String MODEL_GUID = "model-guid";
+
+        public Guid model() {
+            return new Guid(MODEL_GUID);
+        }
+
+        public LayerIdentity data() {
+            return this;
+        }
+    }
+
+    public record Guid(String value) {}
 
     public static final class Rect {
         final float x, y, width, height;

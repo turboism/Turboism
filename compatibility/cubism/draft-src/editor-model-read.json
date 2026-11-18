@@ -7950,6 +7950,60 @@
         "template": 90
       }
     ],
+    "cubism.texture-atlas.scale-lock.canvas-page-view": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.canvas-paint": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.canvas-transform": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.edit-layer-data": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.edit-layer-image": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.edit-layer-ref": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.page-selection": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.page-view-state": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
+    "cubism.texture-atlas.scale-lock.selected-layers": [
+      {
+        "versions": "5.3.03-5.3.04",
+        "template": 90
+      }
+    ],
     "cubism.texture-atlas.statistics.data-model.current-page": [
       {
         "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",

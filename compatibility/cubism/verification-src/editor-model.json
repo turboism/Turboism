@@ -49008,6 +49008,348 @@
           "id": "cubism.mapping.v5_3_04.object_context_menu.method.workspace_selector"
         }
       ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.canvas-paint",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/T",
+        "memberName": "paint",
+        "descriptor": "(Ljava/awt/Graphics;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_canvas_paint"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_canvas_paint"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_canvas_paint"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.canvas-page-view",
+        "kind": "field",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/T",
+        "memberName": "b",
+        "descriptor": "Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/V;",
+        "requiredAccessFlags": 2,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_canvas_page_view"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_canvas_page_view"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_canvas_page_view"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.page-view-state",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/V",
+        "memberName": "c",
+        "descriptor": "()Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/S;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_page_view_state"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_page_view_state"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_page_view_state"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.canvas-transform",
+        "kind": "method",
+        "ownerInternalName": "jp/noids/graphics/f/w",
+        "memberName": "x",
+        "descriptor": "()Ljp/live2d/type_editor/a;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_canvas_transform"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_canvas_transform"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_canvas_transform"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.page-selection",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/S",
+        "memberName": "i",
+        "descriptor": "()Ljp/noids/design/layer/c/b;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_page_selection"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_page_selection"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_page_selection"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.selected-layers",
+        "kind": "method",
+        "ownerInternalName": "jp/noids/design/layer/c/b",
+        "memberName": "a",
+        "descriptor": "()[Ljp/noids/design/layer/core/ILayer;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_selected_layers"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_selected_layers"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_selected_layers"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.edit-layer-image",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage",
+        "memberName": "getModelImage",
+        "descriptor": "()Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_edit_layer_image"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_edit_layer_image"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_edit_layer_image"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.edit-layer-data",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage",
+        "memberName": "getTexRelocModel$cubism",
+        "descriptor": "()Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE_DataModel;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_edit_layer_data"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_edit_layer_data"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_edit_layer_data"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.texture-atlas.scale-lock.edit-layer-ref",
+        "kind": "method",
+        "ownerInternalName": "jp/noids/design/layer/core/AbstractLayer",
+        "memberName": "getLayerRef",
+        "descriptor": "()Ljp/noids/design/layer/core/LayerRef;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.02-5.3.04",
+      "mappingId": [
+        {
+          "versions": "5.3.02",
+          "id": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_edit_layer_ref"
+        },
+        {
+          "versions": "5.3.03",
+          "id": "cubism.mapping.v5_3_03.texture_atlas.scale_lock_edit_layer_ref"
+        },
+        {
+          "versions": "5.3.04",
+          "id": "cubism.mapping.v5_3_04.texture_atlas.scale_lock_edit_layer_ref"
+        }
+      ]
     }
   ],
   "selectorOrder": [
@@ -60127,7 +60469,16 @@
         1070,
         1071,
         1072,
-        1073
+        1073,
+        1228,
+        1229,
+        1230,
+        1231,
+        1232,
+        1233,
+        1234,
+        1235,
+        1236
       ]
     },
     {
@@ -61280,7 +61631,16 @@
         1070,
         1071,
         1072,
-        1073
+        1073,
+        1228,
+        1229,
+        1230,
+        1231,
+        1232,
+        1233,
+        1234,
+        1235,
+        1236
       ]
     },
     {
@@ -62433,7 +62793,16 @@
         1070,
         1071,
         1072,
-        1073
+        1073,
+        1228,
+        1229,
+        1230,
+        1231,
+        1232,
+        1233,
+        1234,
+        1235,
+        1236
       ]
     }
   ],

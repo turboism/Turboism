@@ -143,6 +143,33 @@ class TextureAtlasAutoLayoutTransformerTest {
     }
 
     @Test
+    void aScaleLockVetoStopsNativePackingAfterDispatchDeclines() throws Exception {
+        final String ingress = "test.texture-atlas.scale-lock-dispatch";
+        final String veto = TextureAtlasAutoLayoutTransformer.SCALE_LOCK_VETO_KEY;
+        final var transformer = new TextureAtlasAutoLayoutTransformer(
+                "fixture/AutoLayout", "a", "(Ljava/lang/Object;)Z", null, ingress);
+        final var type = new FixtureLoader(null)
+                .define(
+                        "fixture.AutoLayout",
+                        transformer.transform(null, null, "fixture/AutoLayout", null, null, fixtureClass()));
+        final Object receiver = type.getConstructor().newInstance();
+        final var pack = type.getMethod("a", Object.class);
+        try {
+            System.getProperties().put(veto, (Predicate<Object>) target -> target == receiver);
+            System.getProperties().put(ingress, (Predicate<Object>) target -> false);
+            assertFalse((Boolean) pack.invoke(receiver, new Object()));
+            assertEquals(0, type.getField("nativeCalls").getInt(null));
+
+            System.getProperties().put(ingress, (Predicate<Object>) target -> true);
+            assertTrue((Boolean) pack.invoke(receiver, new Object()));
+            assertEquals(0, type.getField("nativeCalls").getInt(null));
+        } finally {
+            System.getProperties().remove(veto);
+            System.getProperties().remove(ingress);
+        }
+    }
+
+    @Test
     void explicitDalsooNeverFallsBackWhenIngressIsMissingDeclinesOrThrows() throws Exception {
         final String key = "test.texture-atlas.no-native-fallback";
         final String selectionKey = TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY;

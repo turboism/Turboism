@@ -2512,7 +2512,10 @@ public final class EditorModelVerificationManifest {
     }
 
     private static Set<String> cubism5_3_04Aliases() {
-        return cubism5_3_00Aliases();
+        return union(
+            cubism5_3_00Aliases(),
+            dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract.SCALE_LOCK_ALIASES
+        );
     }
     // </version-matrix:em-sets>
 
@@ -2737,6 +2740,7 @@ public final class EditorModelVerificationManifest {
     /** Exact selector roster carried by the reviewed 5.3.02 static record. */
     public static Set<String> cubism5302Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.addAll(dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract.SCALE_LOCK_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(dev.turboism.mapping.selector.MeshToolSessionSelectorContract.REQUIRED_ALIASES);
         values.addAll(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
@@ -2785,6 +2789,7 @@ public final class EditorModelVerificationManifest {
      */
     public static Set<String> cubism5303Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.addAll(dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract.SCALE_LOCK_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
