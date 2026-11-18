@@ -791,6 +791,24 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
+    void automaticChecksToggleDoesNotSelectAChannel(@TempDir final Path home) {
+        final RuntimeScheduler scheduler = RuntimeTestKit.scheduler(Clock.systemUTC(), 1, 8);
+        final InstalledBuild installed = InstalledBuild.of(
+                "0.67.0-beta.1", UpdateDiscovery.CHANNEL_BETA, java.util.OptionalLong.of(10L), "0.67.0-beta.1");
+        try (RuntimeUpdateService service =
+                installedService(home, scheduler, new DeferredTransport(), installed, ignored -> {})) {
+            assertTrue(service.saveAutomaticChecksEnabled(false).saved());
+            assertFalse(service.preferences().automaticChecksEnabled());
+            assertEquals(
+                    Optional.empty(), new UpdatePreferencesStore(home).readAll().updateChannel());
+            assertEquals(Optional.empty(), service.preferences().selectedChannel());
+            assertEquals(CoreUpdateService.CHANNEL_BETA, service.updateChannel());
+        } finally {
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void infersInstalledVariantAndPicksMatchingInstallerAsset(@TempDir final Path home) throws Exception {
         // 1. Inferred from installed-build.json
         final Path metadata = home.resolve("installed-build.json");

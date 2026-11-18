@@ -185,9 +185,9 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
         this.preferencesStore = new UpdatePreferencesStore(this.home, diagnostic);
         final String fallbackChannel = UpdatePreferencesStore.defaultSelectableChannel(installed.channel());
-        final Preferences loadedPreferences = preferencesStore.read(fallbackChannel);
+        final UpdatePreferencesStore.StoredPreferences loadedPreferences = preferencesStore.readAll();
         this.preferences = new UpdatePreferencesStoreState(
-                loadedPreferences.automaticChecksEnabled(), loadedPreferences.selectedChannel());
+                loadedPreferences.automaticChecksEnabled(), loadedPreferences.updateChannel(), fallbackChannel);
         this.transport = Objects.requireNonNull(transportFactory.apply(this.preferences.updateChannel()), "transport");
         this.parser = new UpdateDiscoveryParser(this.preferences.updateChannel());
         this.stateStore = new UpdateStateStore(this.home, this.preferences.updateChannel(), diagnostic);
@@ -351,8 +351,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
     @Override
     public Preferences preferences() {
         synchronized (lock) {
-            // The stored override stays optional: an installation that never switched keeps following
-            // its packaged channel, and that absence is what authorizes cross-channel admission.
+            // The fallback selects a feed. Only a stored override records consent to switch channels.
             return new Preferences(preferences.automaticChecksEnabled(), preferences.selectedChannel());
         }
     }
@@ -396,7 +395,11 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         long deliveryGeneration = -1;
         synchronized (lock) {
             if (closed) return PreferenceSaveResult.failed("Automatic update checks are closed.");
-            final String nextChannel = requested.selectedChannel().orElse(preferences.updateChannel());
+            final UpdatePreferencesStoreState next = new UpdatePreferencesStoreState(
+                    requested.automaticChecksEnabled(),
+                    requested.selectedChannel().or(preferences::selectedChannel),
+                    preferences.fallbackChannel());
+            final String nextChannel = next.updateChannel();
             final boolean channelChanged = !preferences.updateChannel().equals(nextChannel);
             if (channelChanged) {
                 final CoreFrameworkUpdates.Phase phase =
@@ -408,7 +411,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
             }
             final PreferenceSaveResult saved = preferencesStore.save(requested);
             if (!saved.saved()) return saved;
-            preferences = new UpdatePreferencesStoreState(requested.automaticChecksEnabled(), Optional.of(nextChannel));
+            preferences = next;
             if (channelChanged) {
                 parser = new UpdateDiscoveryParser(nextChannel);
                 stateStore = new UpdateStateStore(home, nextChannel, diagnostic);
@@ -928,9 +931,10 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         return value;
     }
 
-    private record UpdatePreferencesStoreState(boolean automaticChecksEnabled, Optional<String> selectedChannel) {
+    private record UpdatePreferencesStoreState(
+            boolean automaticChecksEnabled, Optional<String> selectedChannel, String fallbackChannel) {
         String updateChannel() {
-            return selectedChannel.orElse(CoreUpdateService.CHANNEL_STABLE);
+            return selectedChannel.orElse(fallbackChannel);
         }
     }
 

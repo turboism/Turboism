@@ -103,6 +103,11 @@ for the actual number. Do not read the latest API number or the current counter
 as if it belonged to this candidate. Re-run **all build jobs including the
 allocator** when rebuilding; publication-only retries retain the original number.
 
+Each candidate passes native Windows installer-configuration and updater checks
+before packaging. The checks use temporary installations without Cubism. They
+cover upgrade and shortcut recovery, installation receipt permissions, and
+rollback when Windows locks a file.
+
 ### Explicitly publish Stable or Beta without rebuilding
 
 Review the successful candidate's eight files, receipt and source identity.

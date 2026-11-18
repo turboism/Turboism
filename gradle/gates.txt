@@ -69,6 +69,7 @@ member devCheck checkLocalizedChangelogs
 member devCheck :runtime:checkHeadlessRuntimeClasspath
 member devCheck :runtime:admissionPreflightTest
 member devCheck :runtime:admissionUnitTests
+member devCheck :runtime:updateUiRegressionTest
 member devCheck :persistence-core:test
 member devCheck :compatibility-policy:test
 member devCheck :sdk:test

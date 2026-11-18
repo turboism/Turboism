@@ -67,7 +67,7 @@ jobs:
       channel: ${{ needs.preflight.outputs.channel }}
       version: ${{ needs.preflight.outputs.version }}
   build:
-    needs: [preflight, allocate-build]
+    needs: [preflight, allocate-build, windows-release-verification]
     permissions:
       contents: read
     env:
@@ -428,3 +428,44 @@ jobs:
         run: |
           cp -a build/nightly-candidate/windows-installer/dist build/nightly-candidate/release-orchestrator/dist
           python3 scripts/release/product-build.py publish-nightly --source "$GITHUB_SHA" --channel nightly --attempt "$CANDIDATE_ATTEMPT" --bundle build/nightly-candidate/release-orchestrator
+
+  windows-release-verification:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Check out immutable candidate revision
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Select Git for Windows Bash
+        shell: pwsh
+        run: |
+          $gitBashDirectory = Join-Path $env:ProgramFiles 'Git\bin'
+          if (-not (Test-Path -LiteralPath (Join-Path $gitBashDirectory 'bash.exe'))) {
+            throw 'Git for Windows Bash is required.'
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $gitBashDirectory -Encoding utf8
+      - name: Set up Java 17
+        uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Verify native installer configuration and upgrade
+        shell: powershell
+        run: |
+          & .\packaging\windows-installer\test-installer-import.ps1
+          & .\packaging\windows-installer\test-bat-integration.ps1
+          & .\packaging\windows-installer\test-shortcut-recovery.ps1
+      - name: Verify native update apply, ACLs and rollback
+        shell: powershell
+        env:
+          TURBOISM_WORKTREE_ID: windows-release-ci
+        run: >-
+          .\gradlew.bat --no-daemon --console=plain :runtime:test
+          --tests dev.turboism.update.FrameworkInstallationReceiptLoaderTest
+          --tests dev.turboism.update.FrameworkUpdateApplierTest
+          --tests dev.turboism.update.FrameworkUpdateNextLaunchTest
