@@ -4,9 +4,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.host.HostSession;
+import dev.turboism.failure.RuntimeFailureSnapshot;
+import dev.turboism.kernel.report.KernelReportDocuments;
+import dev.turboism.kernel.report.KernelReportType;
+import dev.turboism.kernel.report.KernelReportValidator;
+import dev.turboism.mapping.verification.CompatibilityResolution;
+import dev.turboism.mapping.verification.CubismHostIdentity;
+import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.HostIdentityProbe;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.Test;
@@ -15,6 +28,16 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 
 class KernelRuntimeEditorReleaseAdmissionTest {
+
+    private static final String COMPATIBLE_FIXTURE_VERSION = "5.3.99";
+    private static final int COMPATIBLE_FIXTURE_BUILD = 503990001;
+    private static final String FIXTURE_PRODUCT = "Live2D Cubism Editor";
+    private static final String FIXTURE_DECLARATION = "com/live2d/cubism/h";
+    private static final String SOURCE_RECORD = "project-workspace.json";
+    private static final String SOURCE_VERSION = "5.3.04";
+    private static final String SOURCE_VERSION_FIELD = "cubismVersion";
+    private static final String FIXTURE_ADMISSION_DETAIL = "fixture admitted";
+    private static final String FIXTURE_RUNTIME_ID = "runtime-compatible-host";
 
     @TempDir
     Path tempDir;
@@ -74,6 +97,55 @@ class KernelRuntimeEditorReleaseAdmissionTest {
                 IllegalStateException.class,
                 () -> KernelHostAdmission.requireAdmittedEditorRelease(artifact, resolution),
                 "a previously admitted version cannot authorize a replaced artifact");
+    }
+
+    @Test
+    void compatibleRuntimeReportUsesTheDeclaredVersion() throws Exception {
+        final Path artifact = editorJar(COMPATIBLE_FIXTURE_VERSION, COMPATIBLE_FIXTURE_BUILD);
+        final var identity = new CubismHostIdentity(
+                FIXTURE_PRODUCT,
+                COMPATIBLE_FIXTURE_VERSION,
+                Optional.empty(),
+                COMPATIBLE_FIXTURE_BUILD,
+                FIXTURE_DECLARATION,
+                HostArtifactDigest.from(artifact));
+        final var resolution = CompatibilityResolution.of(
+                CompatibilityResolution.Mode.COMPATIBLE,
+                new HostIdentityProbe(
+                        HostIdentityProbe.Status.DECLARED, Optional.of(identity), FIXTURE_ADMISSION_DETAIL),
+                Map.of(),
+                true,
+                FIXTURE_ADMISSION_DETAIL);
+        final Path record = tempDir.resolve(SOURCE_RECORD);
+        KernelReportDocuments.json()
+                .writeValue(
+                        record.toFile(),
+                        KernelReportDocuments.json().createObjectNode().put(SOURCE_VERSION_FIELD, SOURCE_VERSION));
+
+        final var report = KernelReportSnapshotFactory.create(
+                        FIXTURE_RUNTIME_ID,
+                        Instant.EPOCH,
+                        tempDir,
+                        HostSession.State.ACTIVE,
+                        artifact,
+                        record,
+                        new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
+                        List.of(),
+                        RuntimeFailureSnapshot.empty(),
+                        false,
+                        false,
+                        resolution)
+                .get(KernelReportType.PREVIEW_RUNTIME);
+
+        final var host = KernelReportValidator.validate(
+                        KernelReportDocuments.json().writeValueAsBytes(report))
+                .document()
+                .path("payload")
+                .path("host");
+        assertEquals(COMPATIBLE_FIXTURE_VERSION, host.path("version").textValue());
+        assertEquals(
+                CompatibilityResolution.Mode.COMPATIBLE.name(),
+                host.path("identityState").textValue());
     }
 
     @Test

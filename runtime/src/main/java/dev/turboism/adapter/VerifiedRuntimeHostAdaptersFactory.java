@@ -4,6 +4,7 @@ import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.SliceContract;
 import dev.turboism.mapping.verification.SliceRegistry;
 import dev.turboism.mapping.verification.SliceResolverFactory;
+import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -163,7 +164,9 @@ public final class VerifiedRuntimeHostAdaptersFactory {
                     createResolver(SliceRegistry.AUTO_BACKUP.resolverFactory(), autoBackup);
             composed = RuntimeHostAdapters.withVerifiedAutoBackup(composed, autoBackupResolver);
         }
-        if (evidence.statusBar().isPresent()) {
+        if (evidence.statusBar()
+                .filter(VerifiedRuntimeHostAdaptersFactory::hasCompleteStatusBarContract)
+                .isPresent()) {
             final HostVerificationEvidence.Slice statusBar =
                     evidence.statusBar().orElseThrow();
             final VerifiedMemberResolver statusBarResolver = createResolver(statusBarResolverFactory, statusBar);
@@ -186,6 +189,13 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             diagnose("adapter-diag:embedded-panel-evidence-missing");
         }
         return composed;
+    }
+
+    static boolean hasCompleteStatusBarContract(final HostVerificationEvidence.Slice slice) {
+        return slice.contract()
+                .filter(SliceContract::compatible)
+                .map(contract -> contract.capabilities().containsAll(StatusBarVerificationManifest.CAPABILITY_IDS))
+                .orElse(true);
     }
 
     private static VerifiedMemberResolver createResolver(

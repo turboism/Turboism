@@ -48,13 +48,18 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
 
     public VerifiedWorkspaceLayoutHostProvider(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        if (!resolver.authorizesFeature(
-                EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
-                EmbeddedPanelVerificationManifest.CAPABILITY_ID,
-                REQUIRED_ALIASES)) {
+        if (!supports(resolver)) {
             throw new IllegalArgumentException("resolver is not admitted for workspace layout reads");
         }
         this.traversal = new DockTreeTraversal(resolver);
+    }
+
+    /** Checks whether the resolver can read all elements of the workspace layout. */
+    public static boolean supports(final VerifiedMemberResolver resolver) {
+        return resolver.authorizesFeature(
+                EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
+                EmbeddedPanelVerificationManifest.CAPABILITY_ID,
+                REQUIRED_ALIASES);
     }
 
     @Override

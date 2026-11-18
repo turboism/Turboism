@@ -742,8 +742,13 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             return null;
         }
         final HostVerificationEvidence.Slice slice = evidence.embeddedPanel().orElseThrow();
+        final VerifiedMemberResolver resolver = embeddedPanelResolverFactory.create(slice);
+        if (resolver.isCompatibilityBinding()
+                && !dev.turboism.ui.workspace.layout.VerifiedWorkspaceLayoutHostProvider.supports(resolver)) {
+            return null;
+        }
         return new PanelMaterial(
-                embeddedPanelResolverFactory.create(slice),
+                resolver,
                 sliceAdmissionEvidence(
                         slice,
                         EmbeddedPanelVerificationManifest::admissionForArtifact,
