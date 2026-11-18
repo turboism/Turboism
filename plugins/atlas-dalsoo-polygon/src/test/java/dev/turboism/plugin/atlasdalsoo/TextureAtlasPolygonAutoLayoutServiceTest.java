@@ -103,6 +103,29 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
     }
 
     @Test
+    void preservesIssuedImageScaleAlongsideSourceScaleImages() {
+        final var locked = new TextureAtlasPolygonItem(
+                "skirt",
+                40,
+                40,
+                TextureAtlasOutline.rect(40, 40),
+                new TextureAtlasItemLayoutPolicy("skirt", true, false, true, false),
+                TextureAtlasOutlineSource.BOUNDS_FALLBACK,
+                new double[] {0.8, 0, 0, 0.8, 100, 100},
+                true);
+        final var layouts =
+                new FakeLayouts(snapshot(200, 200, TextureAtlasRotationMode.NONE, 1D, List.of(locked, rect("other"))));
+        final var service = new TextureAtlasPolygonAutoLayoutService(
+                layouts, () -> policy(TextureAtlasRotationMode.NONE, true, 1D), message -> {});
+
+        assertTrue(service.applyAutomaticLayout(false).status().isPresent());
+        final var skirt = layouts.applied.placementFor("skirt").orElseThrow();
+        assertEquals(0.8D, skirt.scale(), 1e-6);
+        assertTrue(skirt.x() != 100D || skirt.y() != 100D);
+        assertEquals(1D, layouts.applied.placementFor("other").orElseThrow().scale(), 1e-6);
+    }
+
+    @Test
     void sessionRotationBoundsPluginPolicy() {
         final var layouts =
                 new FakeLayouts(snapshot(400, 400, TextureAtlasRotationMode.NONE, 0, List.of(rect("a"), rect("b"))));

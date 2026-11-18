@@ -21,7 +21,9 @@ import org.objectweb.asm.Opcodes;
 public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileTransformer {
 
     private final String ownerInternalName;
-    private final String constructorDescriptor;
+    private final String methodName;
+    private final String descriptor;
+    private final boolean passArgument;
     private final ClassLoader expectedClassLoader;
     private final String ingressKey;
 
@@ -30,10 +32,22 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
             final String constructorDescriptor,
             final ClassLoader expectedClassLoader,
             final String ingressKey) {
+        this(ownerInternalName, "<init>", constructorDescriptor, expectedClassLoader, ingressKey, false);
+    }
+
+    TextureAtlasAutoLayoutDialogTransformer(
+            final String ownerInternalName,
+            final String methodName,
+            final String descriptor,
+            final ClassLoader expectedClassLoader,
+            final String ingressKey,
+            final boolean passArgument) {
         this.ownerInternalName = Requirements.text(ownerInternalName, "ownerInternalName");
-        this.constructorDescriptor = Requirements.text(constructorDescriptor, "constructorDescriptor");
+        this.methodName = Requirements.text(methodName, "methodName");
+        this.descriptor = Requirements.text(descriptor, "descriptor");
         this.expectedClassLoader = expectedClassLoader;
         this.ingressKey = Requirements.text(ingressKey, "ingressKey");
+        this.passArgument = passArgument;
     }
 
     @Override
@@ -68,7 +82,7 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
                             final String[] exceptions) {
                         final MethodVisitor delegate =
                                 super.visitMethod(access, name, methodDescriptor, signature, exceptions);
-                        if (!"<init>".equals(name) || !constructorDescriptor.equals(methodDescriptor)) {
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
                             return delegate;
                         }
                         transformed[0] = true;
@@ -77,8 +91,11 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
 
                             @Override
                             public void visitInsn(final int opcode) {
-                                if (opcode == Opcodes.RETURN && !injected) {
+                                if (opcode == Opcodes.RETURN && (passArgument || !injected)) {
                                     injected = true;
+                                    final String callbackType = passArgument
+                                            ? "java/util/function/BiConsumer"
+                                            : "java/util/function/Consumer";
                                     visitMethodInsn(
                                             Opcodes.INVOKESTATIC,
                                             "java/lang/System",
@@ -93,17 +110,20 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
                                             "(Ljava/lang/Object;)Ljava/lang/Object;",
                                             false);
                                     visitInsn(Opcodes.DUP);
-                                    visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
+                                    visitTypeInsn(Opcodes.INSTANCEOF, callbackType);
                                     final Label skip = new Label();
                                     final Label after = new Label();
                                     visitJumpInsn(Opcodes.IFEQ, skip);
-                                    visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
+                                    visitTypeInsn(Opcodes.CHECKCAST, callbackType);
                                     visitVarInsn(Opcodes.ALOAD, 0);
+                                    if (passArgument) visitVarInsn(Opcodes.ALOAD, 1);
                                     visitMethodInsn(
                                             Opcodes.INVOKEINTERFACE,
-                                            "java/util/function/Consumer",
+                                            callbackType,
                                             "accept",
-                                            "(Ljava/lang/Object;)V",
+                                            passArgument
+                                                    ? "(Ljava/lang/Object;Ljava/lang/Object;)V"
+                                                    : "(Ljava/lang/Object;)V",
                                             true);
                                     visitJumpInsn(Opcodes.GOTO, after);
                                     visitLabel(skip);

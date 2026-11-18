@@ -82,7 +82,13 @@ final class TextureAtlasPolygonAutoLayoutService {
         final List<TextureAtlasPolygonItem> items =
                 new ArrayList<>(snapshot.items().size());
         for (final TextureAtlasPolygonItem item : snapshot.items()) {
-            final TextureAtlasItemLayoutPolicy itemPolicy = policy.policyFor(snapshot.modelId(), item.textureId());
+            final TextureAtlasItemLayoutPolicy configured = policy.policyFor(snapshot.modelId(), item.textureId());
+            final TextureAtlasItemLayoutPolicy itemPolicy = new TextureAtlasItemLayoutPolicy(
+                    item.textureId(),
+                    configured.participate() && item.policy().participate(),
+                    configured.preserveAngle() || item.policy().preserveAngle(),
+                    configured.preserveScale() || item.policy().preserveScale(),
+                    configured.preservePosition() || item.policy().preservePosition());
             items.add(new TextureAtlasPolygonItem(
                     item.textureId(),
                     item.width(),

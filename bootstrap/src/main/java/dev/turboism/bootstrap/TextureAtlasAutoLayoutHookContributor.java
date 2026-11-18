@@ -44,6 +44,8 @@ final class TextureAtlasAutoLayoutHookContributor implements HookContributor {
                         runtime.hostAccess().textureAtlasEditorUi(),
                         runtime.hostAccess().textureAtlasAlgorithms(),
                         runtime.effectiveLocale());
+        installer.configureScaleLocks(
+                runtime.home(), runtime.hostAccess().adapters().uiResources(), runtime.effectiveLocale());
         // The status names what this installation actually rewrote: a registered transformer alone
         // leaves the host bytes untouched until the automatic-layout class loads.
         final VerifiedTextureAtlasAutoLayoutHookInstaller.Installation installation = installer.install();

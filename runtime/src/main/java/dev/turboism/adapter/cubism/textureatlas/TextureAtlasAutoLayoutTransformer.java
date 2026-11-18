@@ -19,6 +19,7 @@ import org.objectweb.asm.Opcodes;
 
 /** Routes one exact native automatic-layout entry through a loader-neutral Predicate receiver ingress. */
 public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransformer {
+    static final String SCALE_LOCK_VETO_KEY = "dev.turboism.texture-atlas.scale-lock.veto";
 
     private final String ownerInternalName;
     private final String methodName;
@@ -152,6 +153,7 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                                 visitLabel(callbackFailure);
                                 visitInsn(Opcodes.POP);
                                 visitLabel(nativePath);
+                                emitScaleLockVeto();
                                 // An explicit Dalsoo choice must never silently run native packing,
                                 // including missing/failed ingress. The coordinator has restored any
                                 // failed plugin session; report failure without claiming it was applied.
@@ -231,6 +233,41 @@ public final class TextureAtlasAutoLayoutTransformer implements ClassFileTransfo
                                 visitLabel(completionEnd);
                                 visitInsn(Opcodes.POP);
                                 visitLabel(completionDone);
+                            }
+
+                            private void emitScaleLockVeto() {
+                                visitMethodInsn(
+                                        Opcodes.INVOKESTATIC,
+                                        "java/lang/System",
+                                        "getProperties",
+                                        "()Ljava/util/Properties;",
+                                        false);
+                                visitLdcInsn(SCALE_LOCK_VETO_KEY);
+                                visitMethodInsn(
+                                        Opcodes.INVOKEVIRTUAL,
+                                        "java/util/Properties",
+                                        "get",
+                                        "(Ljava/lang/Object;)Ljava/lang/Object;",
+                                        false);
+                                final Label absent = new Label();
+                                final Label allowed = new Label();
+                                visitInsn(Opcodes.DUP);
+                                visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
+                                visitJumpInsn(Opcodes.IFEQ, absent);
+                                visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Predicate");
+                                visitVarInsn(Opcodes.ALOAD, 0);
+                                visitMethodInsn(
+                                        Opcodes.INVOKEINTERFACE,
+                                        "java/util/function/Predicate",
+                                        "test",
+                                        "(Ljava/lang/Object;)Z",
+                                        true);
+                                visitJumpInsn(Opcodes.IFEQ, allowed);
+                                visitInsn(Opcodes.ICONST_0);
+                                super.visitInsn(Opcodes.IRETURN);
+                                visitLabel(absent);
+                                visitInsn(Opcodes.POP);
+                                visitLabel(allowed);
                             }
                         };
                     }

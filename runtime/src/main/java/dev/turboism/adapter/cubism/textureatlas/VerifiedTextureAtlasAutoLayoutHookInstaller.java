@@ -20,6 +20,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     static final String DIALOG_INGRESS_KEY = "dev.turboism.texture-atlas.auto-layout.dialog-ingress";
     static final String STATISTICS_VIEW_INIT_ALIAS = "cubism.texture-atlas.statistics.view-init";
     static final String STATISTICS_INGRESS_KEY = "dev.turboism.texture-atlas.statistics.ingress";
+    private static final String SCALE_LOCK_PAINT_KEY = "dev.turboism.texture-atlas.scale-lock.paint";
 
     /** Lifecycle outcome of one {@link #install()} call. */
     public enum Installation {
@@ -51,6 +52,12 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     private volatile Class<?> transformedDialogClass;
     private volatile Class<?> transformedStatisticsClass;
     private final String dialogOwnerName;
+    private TextureAtlasScaleLocks scaleLocks;
+    private TextureAtlasScaleLockEditor scaleLockEditor;
+    private TextureAtlasAutoLayoutDialogTransformer scaleLockTransformer;
+    private java.util.function.BiConsumer<Object, Object> scaleLockPaint;
+    private java.util.function.Predicate<Object> scaleLockVeto;
+    private Class<?> transformedScaleLockClass;
 
     private VerifiedTextureAtlasAutoLayoutHookInstaller(
             final Instrumentation instrumentation,
@@ -233,6 +240,44 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         return editorUi;
     }
 
+    /** Enables persistent scale locks when the exact canvas contract is available. */
+    public void configureScaleLocks(
+            final java.nio.file.Path home,
+            final dev.turboism.sdk.ui.resource.UiResourceService resources,
+            final Locale locale) {
+        if (installed.get()) throw new IllegalStateException("Configure scale locks before installation.");
+        if (resolver.isCompatibilityBinding()
+                || !resolver.authorizesFeature(
+                        VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                        CAPABILITY_ID,
+                        dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract.SCALE_LOCK_ALIASES)) {
+            return;
+        }
+        final StaticSelector paint = resolver.verifiedSelector(TextureAtlasScaleLockEditor.CANVAS_PAINT);
+        scaleLocks = new TextureAtlasScaleLocks(home);
+        final var editor = new TextureAtlasScaleLockEditor(resolver, scaleLocks, resources, locale);
+        scaleLockEditor = editor;
+        scaleLockTransformer = new TextureAtlasAutoLayoutDialogTransformer(
+                paint.ownerInternalName(),
+                paint.memberName(),
+                paint.descriptor(),
+                hostClassLoader,
+                SCALE_LOCK_PAINT_KEY,
+                true);
+        scaleLockPaint = editor::paint;
+        final var adapter = new VerifiedTextureAtlasNativeInvocationAdapter(resolver, scaleLocks);
+        scaleLockVeto = receiver -> {
+            try {
+                if (!adapter.hasLockedItems(receiver)) return false;
+            } catch (RuntimeException failure) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                        "texture-atlas", "Cannot verify texture atlas scale locks before native layout.", failure);
+            }
+            editor.layoutRejected();
+            return true;
+        };
+    }
+
     /**
      * Installs the transformers and retransforms the already-loaded host classes.
      *
@@ -255,7 +300,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             installed.set(false);
             throw new IllegalStateException("Class retransformation is unavailable.");
         }
-        nativeInvocations.connect(resolver);
+        nativeInvocations.connect(resolver, scaleLocks);
         System.getProperties().put(CALLBACK_KEY, ingress);
         System.getProperties().put(DIALOG_INGRESS_KEY, dialogIngress);
         System.getProperties().put(STATISTICS_INGRESS_KEY, statisticsIngress);
@@ -264,7 +309,26 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         if (statisticsTransformer != null) {
             instrumentation.addTransformer(statisticsTransformer, true);
         }
+        if (scaleLockTransformer != null) {
+            System.getProperties().put(SCALE_LOCK_PAINT_KEY, scaleLockPaint);
+            System.getProperties().put(TextureAtlasAutoLayoutTransformer.SCALE_LOCK_VETO_KEY, scaleLockVeto);
+            instrumentation.addTransformer(scaleLockTransformer, true);
+        }
         try {
+            if (scaleLockTransformer != null) {
+                final String owner = resolver.verifiedSelector(TextureAtlasScaleLockEditor.CANVAS_PAINT)
+                        .ownerInternalName()
+                        .replace('/', '.');
+                for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
+                    if (loaded.getName().equals(owner)
+                            && loaded.getClassLoader() == hostClassLoader
+                            && instrumentation.isModifiableClass(loaded)) {
+                        instrumentation.retransformClasses(loaded);
+                        transformedScaleLockClass = loaded;
+                        break;
+                    }
+                }
+            }
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(targetClassName)
                         && loaded.getClassLoader() == hostClassLoader
@@ -345,10 +409,25 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         if (statisticsTransformer != null) {
             instrumentation.removeTransformer(statisticsTransformer);
         }
+        if (scaleLockTransformer != null) {
+            instrumentation.removeTransformer(scaleLockTransformer);
+            System.getProperties().remove(SCALE_LOCK_PAINT_KEY, scaleLockPaint);
+            System.getProperties().remove(TextureAtlasAutoLayoutTransformer.SCALE_LOCK_VETO_KEY, scaleLockVeto);
+            scaleLockEditor.close();
+        }
         System.getProperties().remove(CALLBACK_KEY, ingress);
         System.getProperties().remove(DIALOG_INGRESS_KEY, dialogIngress);
         System.getProperties().remove(STATISTICS_INGRESS_KEY, statisticsIngress);
         nativeInvocations.deactivate();
+        if (transformedScaleLockClass != null && instrumentation.isModifiableClass(transformedScaleLockClass)) {
+            try {
+                instrumentation.retransformClasses(transformedScaleLockClass);
+            } catch (java.lang.instrument.UnmodifiableClassException failure) {
+                throw new IllegalStateException("Texture-atlas scale lock hook restoration failed.", failure);
+            } finally {
+                transformedScaleLockClass = null;
+            }
+        }
         final Class<?> loaded = transformedClass;
         transformedClass = null;
         if (loaded != null && instrumentation.isModifiableClass(loaded)) {
