@@ -438,6 +438,28 @@ def check_workflow(root: Path, gates: dict[str, set[str]]) -> None:
         assert not forbidden, f'unified {event} paths must stay scoped to channel/release inputs: {forbidden}'
     check_channel_topology(unified)
     check_history_gate(root)
+    check_windows_release_gate(workflow_document(root, 'release.yml'))
+
+
+def check_windows_release_gate(workflow: dict) -> None:
+    """Keep native file locking and installer cases on the candidate build path."""
+    name = 'windows-release-verification'
+    jobs = workflow['jobs']
+    assert name in jobs['build']['needs'], 'candidate packaging must depend on native Windows verification'
+    assert 'always()' not in jobs['build'].get('if', ''), 'candidate packaging must not ignore gate failure'
+    job = jobs[name]
+    assert job['runs-on'].startswith('windows-'), 'native release verification requires Windows'
+    assert job['needs'] == 'preflight' and job['if'] == jobs['build']['if'], \
+        'test every channel that produces a candidate'
+    assert any(step.get('uses', '').startswith('actions/checkout@') and
+               step.get('with', {}).get('ref') == '${{ github.sha }}' for step in job['steps']), \
+        'native verification must use the exact source revision'
+    commands = '\n'.join(step.get('run', '') for step in job['steps'] if not step.get('if')
+                         and not step.get('continue-on-error'))
+    for verification in ('test-installer-import.ps1', 'test-bat-integration.ps1', 'test-shortcut-recovery.ps1',
+                         'FrameworkInstallationReceiptLoaderTest', 'FrameworkUpdateApplierTest',
+                         'FrameworkUpdateNextLaunchTest'):
+        assert verification in commands, f'Windows release gate lost {verification}'
 
 
 def check_channel_topology(document: dict) -> None:
@@ -617,6 +639,8 @@ def check_gates(bodies: dict[str, list[str]], manifest: Manifest,
     assert 'checkHostToolingSelfTest' not in reachable(graph, {'devCheck'}), \
         'host tooling belongs to completed commits'
     assert '@all-module-tests' in covered, 'all module tests must run on completed commits'
+    assert ':runtime:updateUiRegressionTest' in reachable(graph, {'devCheck'}), \
+        'update and UI regressions must run before merge'
     assert 'checkLocalizedChangelogs' in covered, \
         'release-notes data changes must stay gated by the required changelog render check'
     for name in OPT_IN_TESTS:

@@ -368,14 +368,16 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
     }
 }
 
+// Cross-language update verification consumes the actual offline Python/OpenSSL producer.
+val frameworkUpdateToolingFiles = files(
+    rootProject.file("scripts/release/build-framework-update.py"),
+    rootProject.fileTree("scripts/release/turboism_release") { include("*.py") },
+    rootProject.file("scripts/test/test_release_tooling.py"),
+    rootProject.file("packaging/framework-update-layout.json")
+)
+
 tasks.named<Test>("test") {
-    // Cross-language update verification consumes the actual offline Python/OpenSSL producer.
-    inputs.files(
-        rootProject.file("scripts/release/build-framework-update.py"),
-        rootProject.fileTree("scripts/release/turboism_release") { include("*.py") },
-        rootProject.file("scripts/test/test_release_tooling.py"),
-        rootProject.file("packaging/framework-update-layout.json")
-    )
+    inputs.files(frameworkUpdateToolingFiles)
     @Suppress("UNCHECKED_CAST")
     val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
     systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
@@ -435,6 +437,23 @@ val admissionUnitTests by tasks.registering(Test::class) {
         includeTestsMatching("dev.turboism.core.lifecycle.*")
         includeTestsMatching("dev.turboism.kernel.context.*")
         legacyEvidenceTests.forEach { excludeTestsMatching(it) }
+        isFailOnNoMatchingTests = true
+    }
+}
+
+val updateUiRegressionTest by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Checks update channel policy and native row interaction without a Cubism host."
+    inputs.files(frameworkUpdateToolingFiles)
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("dev.turboism.update.RuntimeUpdateServiceTest")
+        includeTestsMatching("dev.turboism.update.UpdateManifestVerifierTest")
+        includeTestsMatching("dev.turboism.update.FrameworkUpdateHelperTest")
+        includeTestsMatching("dev.turboism.shell.FrameworkUpdatesWindowTest")
+        includeTestsMatching("dev.turboism.ui.appearance.control.NativeRowActionTrackerTest")
         isFailOnNoMatchingTests = true
     }
 }

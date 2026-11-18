@@ -3,11 +3,13 @@ package dev.turboism.update;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.nio.file.ExtendedOpenOption;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PublicKey;
@@ -337,10 +339,9 @@ final class FrameworkUpdateNextLaunchTest {
         final Fixture f = new Fixture("1.0.0", "1.1.0");
         f.persistPending("1.1.0");
 
-        // On Windows, holding an open FileChannel on the target file prevents Files.move(REPLACE_EXISTING)
-        // from overwriting it, triggering a clean rollback to old version and returning EXIT_ROLLED_BACK (20).
+        // Windows file channels allow deletion by default. Deny it to exercise the rollback path.
         try (var channel = java.nio.channels.FileChannel.open(
-                f.root.resolve("turboism-agent.jar"), java.nio.file.StandardOpenOption.READ)) {
+                f.root.resolve("turboism-agent.jar"), StandardOpenOption.READ, ExtendedOpenOption.NOSHARE_DELETE)) {
             final int code = f.runPrepare(ProcessHandle.current().pid(), ProcessHandle::of);
             assertEquals(FrameworkUpdateHelper.EXIT_ROLLED_BACK, code);
             assertEquals("agent-old", Files.readString(f.root.resolve("turboism-agent.jar")));
