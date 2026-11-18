@@ -112,7 +112,7 @@ without requesting `WRITE_OWNER`. Existing user file bytes under `state` are pre
    - Conditional compile flag: `-DBOOTSTRAP_RECEIPT_DIR=<dir>`.
    - Uses `SetOutPath "$INSTDIR\bootstrap"` followed by `File "/oname=manifest.json"` and `.sig`,
      restoring `SetOutPath "$INSTDIR"`.
-   - During `.onInstSuccess`, `configure_turboism.ps1 -InitializeSelection` automatically executes `bootstrap-receipt.ps1`.
+   - The final `-最终配置` Section runs `configure_turboism.ps1 -InitializeSelection`, which automatically executes `bootstrap-receipt.ps1`.
    - On uninstall, cleans up `$INSTDIR\bootstrap` and `$INSTDIR\bootstrap-receipt.ps1`.
    - When omitted (e.g. legacy build), the conditional receipt payload is absent.
 

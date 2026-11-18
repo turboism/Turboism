@@ -913,8 +913,18 @@ def check_configurator_flow_contract():
           and "$candidate.Reason" not in common
           and " — $reason" not in common
           and "[int]$MaximumLength = 900" in common)
-    success = text[text.index("Function .onInstSuccess"):
-                   text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
+    # Final configuration must run during installation, not in .onInstSuccess:
+    # that callback blocks the UI thread, so the wizard turns "Not Responding"
+    # and an elevation prompt has no live owner window to attach to.
+    final_section_start = text.index('Section "-最终配置" SecFinalConfiguration')
+    final_section = text[final_section_start:text.index("SectionEnd", final_section_start)]
+    success = text[text.index("Function RunFinalConfiguration"):
+                   text.index("FunctionEnd", text.index("Function RunFinalConfiguration"))]
+    check("CF2 final configuration runs as an install Section",
+          final_section_start < text.index('Section "Uninstall"')
+          and "Call RunFinalConfiguration" in final_section
+          and "Function .onInstSuccess" not in text
+          and final_section_start > text.index('Section -"开始菜单与注册" SecStartMenuReg'))
     check("CF2 successful installation performs hidden headless initial configuration",
           success.count("nsExec::ExecToLog") == 5
           and "ExecWait" not in success
@@ -972,10 +982,12 @@ def check_configurator_flow_contract():
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
           and "-Verb RunAs" in configure
-          and "$process.WaitForExit(180000)" in configure
+          and "$process.WaitForExit($script:ElevationTimeoutMilliseconds)" in configure
+          and "$script:ElevationTimeoutMilliseconds = 60000" in configure
           and "-PassThru" in configure
           and "[switch]$Elevated" in configure
           and "ShellExecuteExW" in configure
+          and "SEE_MASK_NOASYNC" in configure
           and "Test-ElevationCancelledException" in configure
           and "-OwnerHwnd $HWNDPARENT" in text
           and "AllowSetForegroundWindow" in text
@@ -1289,8 +1301,8 @@ def check_launcher_and_shortcut_contract():
           and 'Exec \'"$SYSDIR\\cmd.exe" /D /S /C ""$INSTDIR\\launch-cubism-turboism.bat""\'' in text
           and 'ExecShell "" "$INSTDIR\\launch-cubism-turboism.bat"' not in text
           and 'explorer.exe' in text)
-    install_success = text[text.index("Function .onInstSuccess"):
-                           text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
+    install_success = text[text.index("Function RunFinalConfiguration"):
+                           text.index("FunctionEnd", text.index("Function RunFinalConfiguration"))]
     check("L7b discovery payload is removed after configuration and before the Finish page",
           'RMDir /r "$CubismDiscoveryWorkDir"' in install_success
           and 'StrCpy $CubismDiscoveryWorkDir ""' in install_success
