@@ -21231,6 +21231,177 @@
             },
             "intermediary": "",
             "descriptor": "()Ljava/awt/image/BufferedImage;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_canvas_paint",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.canvas-paint",
+            "runtime": "paint",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/T"
+            },
+            "intermediary": "",
+            "descriptor": "(Ljava/awt/Graphics;)V"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_canvas_page_view",
+            "kind": "field",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.canvas-page-view",
+            "runtime": "b",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/T"
+            },
+            "intermediary": "",
+            "descriptor": "Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/V;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_page_view_state",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.page-view-state",
+            "runtime": "c",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/V"
+            },
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/S;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_canvas_transform",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.canvas-transform",
+            "runtime": "x",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "jp/noids/graphics/f/w"
+            },
+            "intermediary": "",
+            "descriptor": "()Ljp/live2d/type_editor/a;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_page_selection",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.page-selection",
+            "runtime": "i",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/S"
+            },
+            "intermediary": "",
+            "descriptor": "()Ljp/noids/design/layer/c/b;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_selected_layers",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.selected-layers",
+            "runtime": "a",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "jp/noids/design/layer/c/b"
+            },
+            "intermediary": "",
+            "descriptor": "()[Ljp/noids/design/layer/core/ILayer;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_edit_layer_image",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.edit-layer-image",
+            "runtime": "getModelImage",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage"
+            },
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_edit_layer_data",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.edit-layer-data",
+            "runtime": "getTexRelocModel$cubism",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage"
+            },
+            "intermediary": "",
+            "descriptor": "()Lcom/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE_DataModel;"
+          },
+          {
+            "semanticName": "cubism.mapping.v5_3_02.texture_atlas.scale_lock_edit_layer_ref",
+            "kind": "method",
+            "owner": "texture-atlas-authoring",
+            "name": "cubism.texture-atlas.scale-lock.edit-layer-ref",
+            "runtime": "getLayerRef",
+            "profile": "cubism-5.3.02",
+            "status": "DRAFT",
+            "stability": "experimental",
+            "source": "exact-5.3.02-classfile-observation",
+            "verifiedBy": "none",
+            "verifiedAt": null,
+            "confidence": "high",
+            "x.verification": {
+              "ownerInternalName": "jp/noids/design/layer/core/AbstractLayer"
+            },
+            "intermediary": "",
+            "descriptor": "()Ljp/noids/design/layer/core/LayerRef;"
           }
         ]
       },

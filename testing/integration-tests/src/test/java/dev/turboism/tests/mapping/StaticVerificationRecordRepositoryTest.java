@@ -215,7 +215,7 @@ class StaticVerificationRecordRepositoryTest {
                                     EditorModelVerificationManifest.RECORD_5_3_02
                                             .artifact()
                                             .sha256(),
-                                    1148,
+                                    1157,
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     recordMethodAliases("build/generated/verification/cubism-5.3.02-editor-model.json"),

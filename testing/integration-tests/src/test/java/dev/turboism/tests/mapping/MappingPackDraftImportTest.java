@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -51,8 +52,8 @@ class MappingPackDraftImportTest {
         final var record = mapper.readTree(bytes);
         assertEquals("DRAFT", pack.path("status").asText());
         assertEquals("VERIFIED_STATIC", record.path("status").asText());
-        assertEquals(1148, record.path("selectors").size());
-        assertEquals(1148, pack.path("entries").size());
+        assertEquals(1157, record.path("selectors").size());
+        assertEquals(1157, pack.path("entries").size());
         assertEquals(
                 record.path("selectors").size(),
                 pack.path("metadata").path("selectorCount").asInt());
@@ -68,7 +69,8 @@ class MappingPackDraftImportTest {
                     && !dev.turboism.mapping.verification.selector.EditorArtMeshMorphSelectorContract.NEW_ALIASES
                             .contains(alias)
                     && !dev.turboism.mapping.verification.selector.EditorMocExportSelectorContract.NEW_ALIASES.contains(
-                            alias)) continue;
+                            alias)
+                    && !TextureAtlasSelectorContract.SCALE_LOCK_ALIASES.contains(alias)) continue;
             final var entry = entries.get(alias);
             assertNotNull(entry);
             assertEquals(selector.path("mappingId"), entry.path("semanticName"));
