@@ -1026,8 +1026,8 @@ def check_configurator_flow_contract():
           and '[Environment]::SetEnvironmentVariable($name, $null, "Process")' in common
           and "-Duser.dir=$root" in common
           and "-Dturboism.home=$canonicalHome" in common
-          and '$agentOptions = "home=$canonicalHome;timeoutSeconds=120"' in common
-          and '$agentOptions += ";launchToken=$LaunchToken"' in common
+          and '$agentOptions = $script:CubismAgentStartupOptions' in common
+          and '$agentOptions += $script:CubismAgentLaunchTokenOption + $LaunchToken' in common
           and '"-javaagent:$Agent=$agentOptions"' in common
           and '-LaunchToken $LaunchToken' in common)
 

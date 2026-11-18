@@ -121,6 +121,17 @@ try {
     $untrackedEditHash = Get-CubismSha256 $bat
     Assert-BatThrows { Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate) } 'lost state never permits overwriting unknown BAT edits'
     Assert-BatRegression ((Get-CubismSha256 $bat) -eq $untrackedEditHash -and (Get-CubismSha256 $records[0].BackupPath) -eq $originalHash) 'rejected state recovery preserves BAT and backup'
+    $secondBat = Join-Path $syntheticRoot 'CubismEditor5.bat'
+    $secondBackup = $secondBat + '.turboism-original.bak'
+    [System.IO.File]::WriteAllText($secondBat, $original, $encoding)
+    [System.IO.File]::Copy($secondBat, $secondBackup)
+    $secondCandidate = [pscustomobject]@{ Selected = $true; Selectable = $true; OfficialBat = $secondBat; D3DBat = $null }
+    $unmatched = [System.Collections.Generic.List[string]]::new()
+    $mixed = @(Invoke-CubismBatIntegration -TurboismHome $homePath -Candidates @($candidate, $secondCandidate) -UnmatchedBackupPaths $unmatched)
+    Assert-BatRegression ($unmatched.Count -eq 1 -and $unmatched[0] -eq $bat -and $mixed.Count -eq 1 -and $mixed[0].Path -eq $secondBat) 'an unmatched backup does not block a second selected installation with an identical backup'
+    Assert-BatRegression ((Get-CubismSha256 $bat) -eq $untrackedEditHash -and (Get-CubismSha256 $records[0].BackupPath) -eq $originalHash) 'partial integration preserves both conflicting files'
+    Restore-CubismBatIntegrations -Records $mixed
+    Assert-BatRegression ((Get-CubismSha256 $secondBat) -eq $originalHash) 'reusing an identical backup preserves exact restoration'
     [System.IO.File]::WriteAllText($bat, (Get-CubismBatIntegrationText -OriginalText $original -TurboismHome $homePath), $encoding)
 
     # Previous releases froze these options in the official BAT. State may

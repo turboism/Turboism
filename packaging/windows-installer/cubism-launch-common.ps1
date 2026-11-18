@@ -14,6 +14,8 @@ $script:CubismMaxJdkOptionText = 16384
 $script:CubismMaxJdkOptionTokens = 256
 $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
+$script:CubismAgentStartupOptions = 'timeoutSeconds=120'
+$script:CubismAgentLaunchTokenOption = ';launchToken='
 $script:CubismScriptRoot = $PSScriptRoot
 $script:CubismArtifactVersionResolver = $null
 $script:CubismProbeSchemaVersion = 2
@@ -1838,7 +1840,12 @@ function Get-CubismLegacyManagedBatOriginalText {
 }
 
 function Invoke-CubismBatIntegration {
-    param([string]$TurboismHome, [object[]]$Candidates, [object[]]$ExistingRecords = @())
+    param(
+        [string]$TurboismHome,
+        [object[]]$Candidates,
+        [object[]]$ExistingRecords = @(),
+        [System.Collections.Generic.List[string]]$UnmatchedBackupPaths
+    )
     $existing = @{}
     foreach ($record in @($ExistingRecords)) { $existing[[System.IO.Path]::GetFullPath($record.Path).ToUpperInvariant()] = $record }
     $records = [System.Collections.Generic.List[object]]::new()
@@ -1861,9 +1868,7 @@ function Invoke-CubismBatIntegration {
                 $text = [System.IO.File]::ReadAllText($bat, [System.Text.Encoding]::Default)
                 $legacyOriginal = Get-CubismLegacyManagedBatOriginalText -Text $text -TurboismHome $TurboismHome
                 if (Test-Path -LiteralPath $backup) {
-                    # Lost state is recoverable only when the complete current BAT
-                    # equals a known generator output from the surviving original backup.
-                    # Marker presence alone never establishes ownership of either file.
+                    # A verified backup supports recovery from a known managed BAT or an exact copy of the original.
                     if (-not (Test-CubismNormalFile $backup)) { throw "Cubism BAT backup is not a normal file: $backup" }
                     $originalText = [System.IO.File]::ReadAllText($backup, [System.Text.Encoding]::Default)
                     if ($originalText -match '(?im)^rem\s+TURBOISM' -or $originalText -match '(?i)-javaagent:.*turboism-agent\.jar') {
@@ -1872,12 +1877,17 @@ function Invoke-CubismBatIntegration {
                     $recoveryVariant = if ($path -ieq $candidate.D3DBat) { "d3d" } else { "normal" }
                     $expectedText = Get-CubismBatIntegrationText -OriginalText $originalText -TurboismHome $TurboismHome -Variant $recoveryVariant
                     $expectedBytes = [System.Text.Encoding]::Default.GetBytes($expectedText)
+                    $backupHash = Get-CubismSha256 $backup
                     if ([Convert]::ToBase64String([System.IO.File]::ReadAllBytes($bat)) -ceq [Convert]::ToBase64String($expectedBytes)) {
-                        [void]$records.Add([pscustomobject]@{ Path = $bat; BackupPath = $backup; OriginalSha256 = (Get-CubismSha256 $backup); ManagedSha256 = $currentHash })
+                        [void]$records.Add([pscustomobject]@{ Path = $bat; BackupPath = $backup; OriginalSha256 = $backupHash; ManagedSha256 = $currentHash })
                         continue
                     }
-                    if ($null -eq $legacyOriginal -or $legacyOriginal -cne $originalText.TrimStart("`r", "`n")) {
-                        throw "Cubism BAT backup exists without matching managed state; existing files were preserved: $bat"
+                    if ($backupHash -ine $currentHash -and ($null -eq $legacyOriginal -or $legacyOriginal -cne $originalText.TrimStart("`r", "`n"))) {
+                        if ($null -eq $UnmatchedBackupPaths) {
+                            throw "Cubism BAT backup exists without matching managed state; existing files were preserved: $bat"
+                        }
+                        $UnmatchedBackupPaths.Add($bat)
+                        continue
                     }
                 }
                 elseif ($null -ne $legacyOriginal) {
@@ -2621,9 +2631,10 @@ function New-CubismManagedOptionsBat {
         -not (Test-CubismNormalFile $source) -or -not (Test-CubismNormalFile $Agent)) {
         throw "managed Cubism launch input is invalid"
     }
-    $agentOptions = "home=$canonicalHome;timeoutSeconds=120"
+    # Keep agent options ASCII because Windows JVMs can truncate options that contain Unicode.
+    $agentOptions = $script:CubismAgentStartupOptions
     if (-not [string]::IsNullOrWhiteSpace($LaunchToken)) {
-        $agentOptions += ";launchToken=$LaunchToken"
+        $agentOptions += $script:CubismAgentLaunchTokenOption + $LaunchToken
     }
     $managedOptions = @(
         "-Duser.dir=$root",

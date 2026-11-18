@@ -1012,6 +1012,7 @@ function Test-CurrentProcessElevated {
 # apart from a failed BAT integration (exit code 1).
 $script:ElevationCanceledExitCode = 3
 $script:ElevationTimeoutExitCode = 4
+$script:BatUnmatchedBackupExitCode = 5
 
 function Test-ElevationCancelledException {
     param([System.Exception]$Exception)
@@ -1398,8 +1399,14 @@ if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
             $retainedRecords = @($state.BatIntegrations | Where-Object { $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
             $removedRecords = @($state.BatIntegrations | Where-Object { -not $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
             if ($removedRecords.Count -gt 0) { Restore-CubismBatIntegrations -Records $removedRecords }
-            $records = Invoke-CubismBatIntegration -TurboismHome $turboismHome -Candidates $candidates -ExistingRecords $retainedRecords
+            $unmatchedBackupPaths = [System.Collections.Generic.List[string]]::new()
+            $records = @(Invoke-CubismBatIntegration -TurboismHome $turboismHome -Candidates $candidates -ExistingRecords $retainedRecords -UnmatchedBackupPaths $unmatchedBackupPaths)
             Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $records -LaunchMode $state.LaunchMode
+            if ($unmatchedBackupPaths.Count -gt 0) {
+                foreach ($path in $unmatchedBackupPaths) { Write-InstallerLog "BAT_BACKUP_CONFLICT" $path }
+                Write-InstallerLog "BAT_INTEGRATION_PARTIAL" ("applied={0} restored={1} skipped={2}" -f $records.Count, $removedRecords.Count, $unmatchedBackupPaths.Count)
+                exit $script:BatUnmatchedBackupExitCode
+            }
             Write-InstallerLog "BAT_INTEGRATION_OK" ("applied={0} restored={1}" -f $records.Count, $removedRecords.Count)
             Write-Host "TURBOISM_BAT_INTEGRATION applied=$($records.Count) restored=$($removedRecords.Count)"
         }
@@ -1449,6 +1456,7 @@ $uiStrings = @{
         StateWarning = "Managed installation state is invalid; repair it before saving: {0}"
         AddTitle = "Select a Cubism installation folder"; RemovePrompt = "Select an installation to remove first."
         Saved = "Configuration saved."; SaveError = "Could not save configuration: {0}"
+        BatBackupConflict = "Configuration saved. Turboism skipped Cubism launch BAT files with unmatched backups and preserved both files. See the log for the affected paths."
         TakeoverSummary = "Eligible: {0}; unmatched fallback: {1}; conflicts: {2}"
         TakeoverUnavailable = "Takeover preview unavailable; save will fail closed: {0}"
         IndependentSummary = "Independent mode: existing Cubism shortcuts are untouched."
@@ -1469,6 +1477,7 @@ $uiStrings = @{
         StatusNoCubism = "未找到受支持的 Cubism 安装。Turboism 仍可使用；稍后可添加。"
         StateWarning = "托管安装状态无效；修复后才能保存：{0}"; AddTitle = "选择 Cubism 安装文件夹"
         RemovePrompt = "请先选择要移除的安装。"; Saved = "配置已保存。"; SaveError = "无法保存配置：{0}"
+        BatBackupConflict = "配置已保存。Turboism 跳过了备份不匹配的 Cubism 启动 BAT，并保留了 BAT 和备份。请查看日志中的文件路径。"
         TakeoverSummary = "可接管：{0}；未匹配回退：{1}；冲突：{2}"; TakeoverUnavailable = "无法预览接管；保存将安全失败：{0}"
         IndependentSummary = "独立模式：不修改现有 Cubism 快捷方式。"
     }
@@ -1488,6 +1497,7 @@ $uiStrings = @{
         StatusNoCubism = "対応する Cubism インストールが見つかりません。Turboism は利用でき、後で追加できます。"
         StateWarning = "管理対象インストール状態が不正です。修復するまで保存できません：{0}"; AddTitle = "Cubism インストールフォルダーを選択"
         RemovePrompt = "先に削除するインストールを選択してください。"; Saved = "設定を保存しました。"; SaveError = "設定を保存できません：{0}"
+        BatBackupConflict = "設定を保存しました。バックアップが一致しない Cubism 起動 BAT は処理をスキップし、両方のファイルを保持しました。対象のパスはログを確認してください。"
         TakeoverSummary = "対象：{0}；未一致の回退：{1}；競合：{2}"; TakeoverUnavailable = "引き継ぎプレビューを取得できません。保存は失敗します：{0}"
         IndependentSummary = "独立モード：既存の Cubism ショートカットは変更しません。"
     }
@@ -1507,6 +1517,7 @@ $uiStrings = @{
         StatusNoCubism = "지원되는 Cubism 설치를 찾지 못했습니다. Turboism은 계속 사용할 수 있으며 나중에 추가할 수 있습니다."
         StateWarning = "관리형 설치 상태가 잘못되었습니다. 저장하기 전에 복구하세요: {0}"; AddTitle = "Cubism 설치 폴더 선택"
         RemovePrompt = "먼저 제거할 설치를 선택하세요."; Saved = "설정을 저장했습니다."; SaveError = "설정을 저장할 수 없습니다: {0}"
+        BatBackupConflict = "설정을 저장했습니다. 백업이 일치하지 않는 Cubism 시작 BAT는 건너뛰고 두 파일을 모두 보존했습니다. 해당 경로는 로그에서 확인하세요."
         TakeoverSummary = "인계 가능: {0}; 일치하지 않는 대체: {1}; 충돌: {2}"; TakeoverUnavailable = "인계 미리보기를 사용할 수 없습니다. 저장은 안전하게 실패합니다: {0}"
         IndependentSummary = "독립 모드: 기존 Cubism 바로 가기는 변경되지 않습니다."
     }
@@ -1693,11 +1704,12 @@ $saveButton.Add_Click({
         }
         $postLaunchState = Read-CubismInstallationState -StatePath $statePath
         if (-not $postLaunchState.Valid) { throw "Managed installation state is invalid after shortcut configuration: $($postLaunchState.Error)" }
+        $batBackupConflict = $false
         if ($batCheck.Checked) {
             $batExit = Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat" -OwnerHandle ($form.Handle.ToInt64())
-            if ($batExit -ne 0) { throw "Elevated Cubism BAT integration failed with exit code $batExit." }
+            $batBackupConflict = $batExit -eq $script:BatUnmatchedBackupExitCode
+            if ($batExit -ne 0 -and -not $batBackupConflict) { throw "Elevated Cubism BAT integration failed with exit code $batExit." }
             $postLaunchState = Read-CubismInstallationState -StatePath $statePath
-            Write-InstallerLog "BAT_INTEGRATION_OK" ("records={0}" -f $postLaunchState.BatIntegrations.Count)
         }
         elseif ($postLaunchState.BatIntegrations.Count -gt 0) {
             $batExit = Invoke-ElevatedConfiguratorMode -Mode "DisableBat" -OwnerHandle ($form.Handle.ToInt64())
@@ -1726,7 +1738,13 @@ $saveButton.Add_Click({
             $cubismStatus.Text = $S.TakeoverSummary -f $launch.Eligible.Count, $launch.Unmatched.Count, $launch.Conflicted.Count
         }
         else { $statusLabel.Text = $S.StatusSaved -f $selectedCount }
-        [System.Windows.Forms.MessageBox]::Show($S.Saved, $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        if ($batBackupConflict) {
+            $message = $S.BatBackupConflict + "`r`n`r`n" + $installerLogPath
+            [System.Windows.Forms.MessageBox]::Show($message, $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        }
+        else {
+            [System.Windows.Forms.MessageBox]::Show($S.Saved, $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+        }
         $form.Close()
     }
     catch {
