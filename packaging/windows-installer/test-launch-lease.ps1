@@ -547,12 +547,12 @@ public static class SyntheticLeaseHost {
                     '-showversion',
                     "-Duser.dir=$chainRoot",
                     "-Dturboism.home=$chainHome",
-                    "-javaagent:$(Join-Path $chainHome 'turboism-agent.jar')=home=$chainHome;timeoutSeconds=120;launchToken=$chainToken",
+                    "-javaagent:$(Join-Path $chainHome 'turboism-agent.jar')=timeoutSeconds=120;launchToken=$chainToken",
                     '-Dturboism.graal.enabled=false',
                     '-Djava.locale.providers=CLDR,SPI',
                     '-XX:+UseZGC',
                     '-XX:ZUncommitDelay=60',
-                    '-XX:+DisableAttachMechanism',
+                    '-Dturboism.optimization.reinitPairElision=false',
                     'com.live2d.cubism.CECubismEditorApp',
                     (Join-Path $chainRoot 'chain probe')
                 )

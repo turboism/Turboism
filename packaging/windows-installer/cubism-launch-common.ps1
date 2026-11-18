@@ -14,6 +14,8 @@ $script:CubismMaxJdkOptionText = 16384
 $script:CubismMaxJdkOptionTokens = 256
 $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
+$script:CubismAgentStartupOptions = 'timeoutSeconds=120'
+$script:CubismAgentLaunchTokenOption = ';launchToken='
 $script:CubismScriptRoot = $PSScriptRoot
 $script:CubismArtifactVersionResolver = $null
 $script:CubismProbeSchemaVersion = 2
@@ -2621,9 +2623,10 @@ function New-CubismManagedOptionsBat {
         -not (Test-CubismNormalFile $source) -or -not (Test-CubismNormalFile $Agent)) {
         throw "managed Cubism launch input is invalid"
     }
-    $agentOptions = "home=$canonicalHome;timeoutSeconds=120"
+    # Keep agent options ASCII because Windows JVMs can truncate options that contain Unicode.
+    $agentOptions = $script:CubismAgentStartupOptions
     if (-not [string]::IsNullOrWhiteSpace($LaunchToken)) {
-        $agentOptions += ";launchToken=$LaunchToken"
+        $agentOptions += $script:CubismAgentLaunchTokenOption + $LaunchToken
     }
     $managedOptions = @(
         "-Duser.dir=$root",
