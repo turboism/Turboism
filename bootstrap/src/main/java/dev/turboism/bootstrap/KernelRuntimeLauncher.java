@@ -213,13 +213,14 @@ final class KernelRuntimeLauncher {
 
     /**
      * Extracts the record bound to {@code sliceId} when admission granted one.
-     * Unadmitted slices contribute {@code null}; admitted slices whose record
-     * fails to extract fail the whole start closed.
+     * Slices without usable capabilities cannot supply startup evidence.
+     * A missing record for a usable slice still blocks startup.
      */
     private static Path extractContract(final Path home, final CompatibilityResolution resolution, final String sliceId)
             throws IOException {
         final CompatibilityResolution.SliceResolution slice = resolution.slice(sliceId);
         return slice.contract()
+                .filter(contract -> !contract.compatible() || !contract.capabilities().isEmpty())
                 .map(contract -> {
                     try {
                         return extract(home, contract.recordFileName());
