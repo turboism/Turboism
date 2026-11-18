@@ -435,6 +435,11 @@ LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration failed. R
 LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成失败。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合に失敗しました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatIntegrationError ${LANG_KOREAN} "Cubism BAT 통합에 실패했습니다. 설치 로그를 확인하고 Turboism_Configurator를 실행하여 점검하거나 다시 시도하세요. 알 수 없는 변경이 감지된 해시 보호 파일은 절대 덮어쓰지 않습니다.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+!define BAT_UNMATCHED_BACKUP_EXIT_CODE 5
+LangString BatBackupConflict ${LANG_ENGLISH} "Turboism is installed. The installer skipped Cubism launch BAT files with unmatched backups and preserved both files. See the log for the affected paths.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatBackupConflict ${LANG_SIMPCHINESE} "Turboism 已安装。安装程序跳过了备份不匹配的 Cubism 启动 BAT，并保留了 BAT 和备份。请查看日志中的文件路径。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatBackupConflict ${LANG_JAPANESE} "Turboism のインストールが完了しました。バックアップが一致しない Cubism 起動 BAT は処理をスキップし、両方のファイルを保持しました。対象のパスはログを確認してください。$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
+LangString BatBackupConflict ${LANG_KOREAN} "Turboism 설치를 완료했습니다. 백업이 일치하지 않는 Cubism 시작 BAT는 건너뛰고 두 파일을 모두 보존했습니다. 해당 경로는 로그에서 확인하세요.$\r$\n$\r$\n$INSTDIR\logs\installer\configure-turboism.log"
 LangString BatElevationCanceled ${LANG_ENGLISH} "Administrator approval (UAC) was declined, so Cubism BAT integration was skipped. Turboism is installed; run Turboism_Configurator and enable BAT integration to retry."
 LangString BatElevationCanceled ${LANG_SIMPCHINESE} "管理员授权（UAC）已被拒绝，已跳过 Cubism BAT 集成。Turboism 已安装；可运行 Turboism_Configurator 并启用 BAT 集成后重试。"
 LangString BatElevationCanceled ${LANG_JAPANESE} "管理者承認（UAC）が拒否されたため、Cubism BAT の統合をスキップしました。Turboism はインストール済みです。Turboism_Configurator で BAT 統合を有効にして再試行してください。"
@@ -1610,6 +1615,8 @@ Function .onInstSuccess
   ${ElseIf} $0 == 4
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatElevationTimeout)" /SD IDOK
     SetErrorLevel 2
+  ${ElseIf} $0 == ${BAT_UNMATCHED_BACKUP_EXIT_CODE}
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatBackupConflict)" /SD IDOK
   ${ElseIf} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)" /SD IDOK
     SetErrorLevel 2

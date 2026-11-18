@@ -109,8 +109,19 @@ try {
     $state = Read-CubismInstallationState -StatePath $statePath
     Assert-DiscoveryCache ($state.Valid -and $state.Installations[0].Version -ceq '5.3.04') 'shortcut operation never reprobes synthetic Java'
 
-    # Reproduce the full reinstall sequence with an already managed BAT.
     $originalBatBytes = [IO.File]::ReadAllBytes($bat)
+    $unmatchedBackup = $bat + '.turboism-original.bak'
+    [IO.File]::WriteAllText($unmatchedBackup, 'rem unmatched backup fixture')
+    $unmatchedBackupHash = Get-CubismSha256 $unmatchedBackup
+    & $powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $configurator -Home $homePath -IntegrateBat -Elevated -InstallerDiscoverySnapshot $snapshot -InstallerDiscoverySnapshotSha256 $snapshotHash
+    Assert-DiscoveryCache ($LASTEXITCODE -eq 5) 'headless installation reports an unmatched backup as partial integration'
+    $state = Read-CubismInstallationState -StatePath $statePath
+    $log = [IO.File]::ReadAllText((Join-Path $homePath 'logs/installer/configure-turboism.log'))
+    Assert-DiscoveryCache ($state.Valid -and $state.BatIntegrations.Count -eq 0 -and $log.Contains('BAT_BACKUP_CONFLICT ' + $bat)) 'partial integration records the affected path without claiming the BAT'
+    Assert-DiscoveryCache ((Get-CubismSha256 $unmatchedBackup) -eq $unmatchedBackupHash -and [Convert]::ToBase64String([IO.File]::ReadAllBytes($bat)) -ceq [Convert]::ToBase64String($originalBatBytes)) 'headless installation preserves the conflicting BAT and backup'
+    [IO.File]::Delete($unmatchedBackup)
+
+    # Verify reinstall recovery against an existing integration.
     & $powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $configurator -Home $homePath -IntegrateBat -Elevated -InstallerDiscoverySnapshot $snapshot -InstallerDiscoverySnapshotSha256 $snapshotHash
     Assert-DiscoveryCache ($LASTEXITCODE -eq 0) 'first elevated BAT integration consumes the snapshot'
     $integratedState = Read-CubismInstallationState -StatePath $statePath
