@@ -742,8 +742,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             return null;
         }
         final HostVerificationEvidence.Slice slice = evidence.embeddedPanel().orElseThrow();
+        final VerifiedMemberResolver resolver = embeddedPanelResolverFactory.create(slice);
+        if (resolver.isCompatibilityBinding()
+                && !resolver.authorizesFeature(
+                        EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
+                        EmbeddedPanelVerificationManifest.CAPABILITY_ID,
+                        java.util.Set.of())) {
+            return null;
+        }
         return new PanelMaterial(
-                embeddedPanelResolverFactory.create(slice),
+                resolver,
                 sliceAdmissionEvidence(
                         slice,
                         EmbeddedPanelVerificationManifest::admissionForArtifact,
