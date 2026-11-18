@@ -1548,12 +1548,31 @@ def check_uninstall_config_option():
     uninstall = text[uninstall_start:uninstall_end]
 
     check("UC1 checkbox belongs to the MUI uninstall page",
-          'i $mui.UnConfirmPage, i 2000' in show)
+          'p $mui.UnConfirmPage, i ${UN_KEEP_CONFIG_CONTROL_ID}' in show)
     check("UC1 checkbox is not attached to the wizard parent",
-          'i $HWNDPARENT, i 2000' not in show)
+          'p $HWNDPARENT, i ${UN_KEEP_CONFIG_CONTROL_ID}' not in show)
     check("UC2 keep-config option defaults checked",
           "StrCpy $unKeepConfig 1" in show
-          and '${BM_SETCHECK} 1 0' in show)
+          and '${BM_SETCHECK} ${BST_CHECKED} 0' in show)
+    # The page is laid out by NSIS itself, so fixed pixel geometry collided with the
+    # directory label and path edit box that MUI draws on the same rows.
+    create = show[show.index("user32::CreateWindowEx"):]
+    create = create[:create.index("\n")]
+    check("UC2b checkbox geometry derives from the directory row",
+          'user32::GetClientRect(p $mui.UnConfirmPage' in show
+          and 'user32::GetWindowRect(p $mui.UnConfirmPage.Directory,' in show
+          and 'user32::GetWindowRect(p $mui.UnConfirmPage.DirectoryText,' in show
+          and 'i $R3, i $R6, i $R7, i $R4' in create)
+    check("UC2c checkbox row follows the measured directory edit box",
+          'IntOp $R4 $R2 - $R1' in show
+          and 'IntOp $R5 $R4 / ${UN_KEEP_CONFIG_GAP_DIVISOR}' in show
+          and 'IntOp $R6 $R2 + $R5' in show)
+    check("UC2d checkbox inherits the page font",
+          '${WM_GETFONT} 0 0 $unCfgFont' in show
+          and '${WM_SETFONT} $unCfgFont 1' in show)
+    check("UC2e checkbox handle comes back through a register",
+          "p .r0'" in create
+          and 'StrCpy $unCfgCheckbox $0' in show)
     check("UC3 leave callback reads checkbox state directly",
           '${BM_GETCHECK} 0 0 $unKeepConfig' in leave)
     check("UC4 config is deleted only when keep is unchecked",

@@ -595,6 +595,7 @@ Var next
 Var unKeepConfig        ; 卸载时是否保留 config.json（1 = 保留，默认勾选）
 Var unCfgCheckbox       ; 卸载确认页复选框句柄
 Var unCfgStyle          ; 复选框控件样式
+Var unCfgFont           ; 卸载确认页字体句柄（复选框必须继承，否则字号与页内文字不一致）
 
 ; 控件样式常量（WinMessages.nsh 未覆盖；已定义时跳过）
 !ifndef WS_CHILD
@@ -621,6 +622,10 @@ Var unCfgStyle          ; 复选框控件样式
 !ifndef PLUGIN_COUNT_STYLE
   !define PLUGIN_COUNT_STYLE 0x50000302
 !endif
+; 卸载确认页没有布局管理器：复选框的位置必须由 MUI 实际绘制的目录行推导。
+; 行高取目录编辑框高度，行间距取其四分之一，控件宽度延伸到页内右边距。
+!define UN_KEEP_CONFIG_CONTROL_ID 2000
+!define UN_KEEP_CONFIG_GAP_DIVISOR 4
 
 ; ---------- 初始化 ----------
 
@@ -1873,15 +1878,52 @@ SectionEnd
 
 ; 卸载确认页 SHOW：创建「保留 config.json」复选框（默认勾选）。MUI 的确认页是
 ; $HWNDPARENT 下的子对话框；控件必须属于该页，否则鼠标输入会落到错误窗口并造成卡顿。
+; 本页由 NSIS 内部布局，故行位置从目录编辑框的实测矩形推导，不写死像素坐标：
+; 写死坐标会与 MUI 自己绘制的目录标签和路径编辑框重合。
 Function un.ConfirmShow
   StrCpy $unKeepConfig 1
   StrCpy $unCfgCheckbox 0
+  StrCpy $unCfgFont 0
+
+  ; 页面宽度决定复选框可用宽度。
+  System::Call 'user32::GetClientRect(p $mui.UnConfirmPage, @r1)'
+  System::Call '*$1(i .r2, i .r3, i .r4, i .r5)'
+  StrCpy $R0 $4
+
+  ; 目录编辑框的上下边界决定行高，即目录行在页内的位置。
+  System::Call 'user32::GetWindowRect(p $mui.UnConfirmPage.Directory, @r1)'
+  System::Call 'user32::MapWindowPoints(p 0, p $mui.UnConfirmPage, p r1, i 2)'
+  System::Call '*$1(i .r2, i .r3, i .r4, i .r5)'
+  StrCpy $R1 $3
+  StrCpy $R2 $5
+
+  ; 目录标签的左边界决定复选框的左缩进，使其与标签左对齐。
+  System::Call 'user32::GetWindowRect(p $mui.UnConfirmPage.DirectoryText, @r1)'
+  System::Call 'user32::MapWindowPoints(p 0, p $mui.UnConfirmPage, p r1, i 2)'
+  System::Call '*$1(i .r2, i .r3, i .r4, i .r5)'
+  StrCpy $R3 $2
+
+  IntOp $R4 $R2 - $R1                       ; 行高 = 编辑框高度
+  IntOp $R5 $R4 / ${UN_KEEP_CONFIG_GAP_DIVISOR}
+  IntOp $R6 $R2 + $R5                       ; 顶边 = 目录行下方一个行距
+  IntOp $R7 $R0 - $R3                       ; 宽度 = 页面右边距减去左缩进
+  IntOp $R7 $R7 - $R5
+
   IntOp $unCfgStyle ${WS_CHILD} | ${WS_VISIBLE}
   IntOp $unCfgStyle $unCfgStyle | ${WS_TABSTOP}
-  IntOp $unCfgStyle $unCfgStyle | 0x0003        ; BS_AUTOCHECKBOX
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(UnKeepConfigLabel)", i $unCfgStyle, i 24, i 96, i 330, i 28, i $mui.UnConfirmPage, i 2000, i 0, i 0) i .r$unCfgCheckbox'
+  IntOp $unCfgStyle $unCfgStyle | ${BS_AUTOCHECKBOX}
+  IntOp $unCfgStyle $unCfgStyle | ${BS_MULTILINE}
+  IntOp $unCfgStyle $unCfgStyle | ${BS_TOP}
+  ; System 插件只识别 $0-$9/$R0-$R9 寄存器，命名变量不能作为目的地。
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(UnKeepConfigLabel)", i $unCfgStyle, i $R3, i $R6, i $R7, i $R4, p $mui.UnConfirmPage, i ${UN_KEEP_CONFIG_CONTROL_ID}, p 0, p 0) p .r0'
+  StrCpy $unCfgCheckbox $0
   ${If} $unCfgCheckbox != 0
-    SendMessage $unCfgCheckbox ${BM_SETCHECK} 1 0
+    ; 原生控件不继承页字体；不设置时标签会以系统缺省字号绘制并与复选标记错位。
+    SendMessage $mui.UnConfirmPage ${WM_GETFONT} 0 0 $unCfgFont
+    ${If} $unCfgFont != 0
+      SendMessage $unCfgCheckbox ${WM_SETFONT} $unCfgFont 1
+    ${EndIf}
+    SendMessage $unCfgCheckbox ${BM_SETCHECK} ${BST_CHECKED} 0
   ${EndIf}
 FunctionEnd
 
