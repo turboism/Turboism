@@ -30,7 +30,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 
 ## What it does
 
-- Shows up to eight recent projects in a compact, configurable layout over the native OpenGL viewport while no document is open. An icon-only Lucide layout control in the header cycles 6-column and 3-column grids and a single-row list, and remembers the choice. Hovering it shows the current layout. Text scales up as the layout gets roomier.
+- Shows up to eight recent projects in a compact, configurable layout over the native OpenGL viewport while no document is open. The header layout button cycles through one, three, and six projects per row. It remembers the selected layout. Hovering it shows the current layout. Text scales up as the layout gets roomier.
 - Places two icon-only create controls left of the layout control: a `plus` for a new model project and a `clapperboard` for a new animation project. Each control runs the same host path as **File > New > Model** and **File > New > Animation**, and a control whose host command is unavailable is not shown at all.
 - Uses the official `recent-preview` plugin's public `thumbnail.captured` event for thumbnails, requesting an immediate cached-preview replay on enable so real-time market installation and re-enable pick up existing thumbnails without an editor restart.
 - Hides the board immediately when any document opens and restores it after the last document closes.
@@ -63,7 +63,7 @@ This official plugin is bundled with Turboism and is available through **Plugin 
 1. Enable both **Recent Preview** and **Recent Project Board**.
 2. Open a project once so Recent Preview can create its thumbnail.
 3. Close the project. The board appears over the empty viewport.
-4. Use the header layout icon to cycle 6-column grid, 3-column grid, and single-row list; the choice is persisted.
+4. Use the header layout button to cycle through one, three, and six projects per row.
 5. Use the header `plus` control to create a new model project, or the `clapperboard` control to create a new animation project. Both dispatch the host's own New menu commands, so the resulting dialogs are the native ones.
 6. Double-click a card to open that project again.
 7. With no recent files, use the centered **Create New Project** link to start a new model, or **Create New Animation Project** to open Cubism's New Animation target dialog.

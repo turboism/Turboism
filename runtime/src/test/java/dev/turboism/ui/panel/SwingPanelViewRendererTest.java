@@ -730,6 +730,26 @@ class SwingPanelViewRendererTest {
     }
 
     @Test
+    void scrollViewportKeepsGridRowsAtTheirPreferredHeight() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final PanelView grid = PanelView.grid(
+                    3, PanelView.card("card", "open", PanelView.centered(PanelView.text("Preview"), 220, 180)));
+            final JScrollPane scroll = assertInstanceOf(JScrollPane.class,
+                    SwingPanelViewRenderer.render(PanelView.scroll(grid), (action, event) -> {}));
+            final JComponent content = (JComponent) scroll.getViewport().getView();
+            final int preferredHeight = content.getPreferredSize().height;
+
+            scroll.setSize(560, 640);
+            scroll.doLayout();
+            scroll.getViewport().doLayout();
+            content.doLayout();
+
+            assertEquals(scroll.getViewport().getWidth(), content.getWidth());
+            assertEquals(preferredHeight, named(content, "card").getHeight());
+        });
+    }
+
+    @Test
     void centeredBoxUsesItsFixedPreferredSize() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             final JComponent rendered = SwingPanelViewRenderer.render(

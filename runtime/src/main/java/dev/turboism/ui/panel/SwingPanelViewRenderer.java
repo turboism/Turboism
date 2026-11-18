@@ -478,15 +478,14 @@ public final class SwingPanelViewRenderer {
         }
 
         if (view instanceof PanelView.Grid grid) {
-            final JPanel panel = new JPanel(new GridLayout(0, grid.columns(), 12, 12));
+            final JPanel panel = new ScrollableFillPanel(new GridLayout(0, grid.columns(), 12, 12));
             panel.setOpaque(false);
             panel.setAlignmentX(Component.LEFT_ALIGNMENT);
             panel.setAlignmentY(Component.TOP_ALIGNMENT);
             for (PanelView child : grid.children()) {
                 panel.add(renderNode(child, action, false, locale, iconResolver));
             }
-            // Keep the grid at its natural row height: stretching it to the whole
-            // viewport would leave large empty card cells under short content.
+            // Also cap the height when a parent layout honors maximum size instead of Scrollable.
             panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
             return panel;
         }
