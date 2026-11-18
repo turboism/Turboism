@@ -8,6 +8,10 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ## [Unreleased]
 
+### 修复
+
+- Windows 安装器从安装 Section 执行最终启动配置，不再放在 `.onInstSuccess` 回调中。该回调阻塞 UI 线程，导致向导卡成「未响应」且 UAC 提权框无法弹出。`ShellExecuteExW` 同时补上 `SEE_MASK_NOASYNC`，提权等待上限缩短到 60 秒并同步更新四语言提示。
+
 ## [0.70.1] - 2026-11-18
 
 相比上一个正式版本 **0.67.4** 的变化，包含期间各个 Beta 版本的更新。
