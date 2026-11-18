@@ -33,7 +33,8 @@ final class KernelReportVariantValidator {
             Set.of("UNAVAILABLE", "INITIALIZING", "READY", "DEGRADED", "FAILED", "SHUTDOWN");
     private static final Set<String> RUNTIME_STATES =
             Set.of("STARTING", "RUNNING", "DEGRADED", "STOPPING", "STOPPED", "FAILED");
-    private static final Set<String> IDENTITY_STATES = Set.of("UNKNOWN", "MATCHED", "MISMATCHED", "NOT_APPLICABLE");
+    private static final Set<String> IDENTITY_STATES =
+            Set.of("UNKNOWN", "MATCHED", "COMPATIBLE", "MISMATCHED", "NOT_APPLICABLE");
     private static final Set<String> DISCOVERY_STATES =
             Set.of("DISCOVERED", "INVALID_DESCRIPTOR", "BAD_NEIGHBOR", "NOT_DISCOVERED");
     private static final Set<String> DEPENDENCY_STATES = Set.of("NOT_EVALUATED", "RESOLVED", "FAILED");

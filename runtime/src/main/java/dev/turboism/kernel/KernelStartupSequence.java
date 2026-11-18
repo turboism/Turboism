@@ -310,7 +310,8 @@ final class KernelStartupSequence {
                     "runtime-" + UUID.randomUUID(),
                     normalizedVerificationRecord,
                     normalizedHostArtifact,
-                    effectiveLocale.get());
+                    effectiveLocale.get(),
+                    hostResolution);
             // The orchestrator is a degraded-capability seam: when the record is absent or the
             // pinned chain fails, no orchestrator is bound and checked export stays rejected. It is
             // built once the runtime exists because the orchestration owner is read from the

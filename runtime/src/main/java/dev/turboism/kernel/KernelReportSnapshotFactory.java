@@ -10,6 +10,7 @@ import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.kernel.report.KernelReportDocuments;
 import dev.turboism.kernel.report.KernelReportType;
 import dev.turboism.kernel.report.KernelReportValidator;
+import dev.turboism.mapping.verification.CompatibilityResolution;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.permission.PermissionIds;
 import java.io.IOException;
@@ -303,6 +304,34 @@ public final class KernelReportSnapshotFactory {
             final RuntimeFailureSnapshot failureSnapshot,
             final boolean stopped,
             final boolean shutdownAttempted) {
+        return create(
+                runtimeId,
+                createdAt,
+                home,
+                hostState,
+                hostArtifact,
+                verificationRecord,
+                loadReport,
+                summaries,
+                failureSnapshot,
+                stopped,
+                shutdownAttempted,
+                null);
+    }
+
+    static Map<KernelReportType, ObjectNode> create(
+            final String runtimeId,
+            final Instant createdAt,
+            final Path home,
+            final HostSession.State hostState,
+            final Path hostArtifact,
+            final Path verificationRecord,
+            final LocalPluginRuntime.LoadReport loadReport,
+            final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
+            final RuntimeFailureSnapshot failureSnapshot,
+            final boolean stopped,
+            final boolean shutdownAttempted,
+            final CompatibilityResolution hostResolution) {
         Objects.requireNonNull(loadReport, "loadReport");
         final RuntimeFailureSnapshot neutralFailures = Objects.requireNonNull(failureSnapshot, "failureSnapshot");
         final List<LocalPluginRuntime.LoadedPluginSummary> neutralSummaries =
@@ -319,7 +348,8 @@ public final class KernelReportSnapshotFactory {
                         neutralSummaries,
                         neutralFailures,
                         stopped,
-                        shutdownAttempted));
+                        shutdownAttempted,
+                        hostResolution));
         reports.put(KernelReportType.PLUGIN_LOAD, pluginLoad(runtimeId, createdAt, home, loadReport, neutralSummaries));
         reports.put(
                 KernelReportType.CAPABILITY,
@@ -337,16 +367,22 @@ public final class KernelReportSnapshotFactory {
             final List<LocalPluginRuntime.LoadedPluginSummary> summaries,
             final RuntimeFailureSnapshot failures,
             final boolean stopped,
-            final boolean shutdownAttempted) {
+            final boolean shutdownAttempted,
+            final CompatibilityResolution hostResolution) {
         final ObjectNode report =
                 KernelReportDocuments.emptyReport(KernelReportType.PREVIEW_RUNTIME, runtimeId, createdAt);
         final ObjectNode payload = (ObjectNode) report.get("payload");
         final ObjectNode host = (ObjectNode) payload.get("host");
-        host.put("version", verifiedHostVersion(hostState, verificationRecord));
+        final boolean compatible = hostState == HostSession.State.ACTIVE
+                && hostResolution != null
+                && hostResolution.mode() == CompatibilityResolution.Mode.COMPATIBLE;
+        host.put(
+                "version",
+                compatible ? hostResolution.declaredVersion() : verifiedHostVersion(hostState, verificationRecord));
         host.put(
                 "identityState",
                 switch (hostState) {
-                    case ACTIVE -> "MATCHED";
+                    case ACTIVE -> compatible ? CompatibilityResolution.Mode.COMPATIBLE.name() : "MATCHED";
                     case FAILED -> "MISMATCHED";
                     case SAFE_MODE -> "UNKNOWN";
                     case CLOSED -> "NOT_APPLICABLE";

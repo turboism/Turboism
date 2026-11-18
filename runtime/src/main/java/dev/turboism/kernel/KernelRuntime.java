@@ -30,6 +30,7 @@ public final class KernelRuntime implements AutoCloseable {
     private final String runtimeId;
     private final Path verificationRecord;
     private final Path hostArtifact;
+    private final CompatibilityResolution hostResolution;
     private final java.util.Locale effectiveLocale;
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -64,7 +65,8 @@ public final class KernelRuntime implements AutoCloseable {
                 runtimeId,
                 verificationRecord,
                 hostArtifact,
-                java.util.Locale.getDefault());
+                java.util.Locale.getDefault(),
+                null);
     }
 
     KernelRuntime(
@@ -78,7 +80,8 @@ public final class KernelRuntime implements AutoCloseable {
             final String runtimeId,
             final Path verificationRecord,
             final Path hostArtifact,
-            final java.util.Locale effectiveLocale) {
+            final java.util.Locale effectiveLocale,
+            final CompatibilityResolution hostResolution) {
         this.home = home;
         this.log = log;
         this.scheduler = scheduler;
@@ -89,6 +92,7 @@ public final class KernelRuntime implements AutoCloseable {
         this.runtimeId = runtimeId;
         this.verificationRecord = verificationRecord;
         this.hostArtifact = hostArtifact;
+        this.hostResolution = hostResolution;
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
         this.shutdownLifecycle = new ShutdownLifecycle() {
             @Override
@@ -152,6 +156,7 @@ public final class KernelRuntime implements AutoCloseable {
         this.runtimeId = null;
         this.verificationRecord = null;
         this.hostArtifact = null;
+        this.hostResolution = null;
         this.effectiveLocale = java.util.Locale.getDefault();
         this.shutdownLifecycle = Objects.requireNonNull(shutdownLifecycle, "shutdownLifecycle");
     }
@@ -713,7 +718,8 @@ public final class KernelRuntime implements AutoCloseable {
                 snapshot.pluginSummaries(),
                 snapshot.failures(),
                 stopped,
-                shutdownAttempted);
+                shutdownAttempted,
+                hostResolution);
         final Map<?, Boolean> results = reportWriter.writeAll(reports);
         return results.values().stream().allMatch(Boolean.TRUE::equals);
     }
