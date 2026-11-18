@@ -543,13 +543,19 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         }
     }
 
-    /** Board layouts cycled by the header button, from compact to large preview. */
+    /** Board layouts in order of increasing projects per row. */
     enum BoardLayout {
-        SIX(6, 220, 1.0f),
+        ONE(1, ROW_PREVIEW_HEIGHT, 1.15f),
         THREE(3, 340, 1.15f),
-        ONE(1, ROW_PREVIEW_HEIGHT, 1.15f);
+        SIX(6, 220, 1.0f);
 
         private static final BoardLayout[] ORDER = values();
+        private static final String LAYOUT_LABEL_KEY = "board.layout";
+        private static final String DEFAULT_LAYOUT_LABEL = "Layout";
+        private static final String PROJECTS_PER_ROW_KEY = "board.layout.projectsPerRow";
+        private static final String DEFAULT_PROJECT_PER_ROW = " project per row";
+        private static final String DEFAULT_PROJECTS_PER_ROW = " projects per row";
+        private static final String LABEL_SEPARATOR = ": ";
 
         private final int columns;
         private final int imageSize;
@@ -578,10 +584,11 @@ public final class RecentProjectBoardPlugin implements TurboismPlugin, ModelFile
         }
 
         String buttonLabel(final PluginLocalization localization) {
-            final String label = localization.text("board.layout", "Layout") + ": ";
-            return this == ONE
-                    ? label + localization.text("board.layout.row", "1 row")
-                    : label + columns + " " + localization.text("board.columns", "columns");
+            final String label = localization.text(LAYOUT_LABEL_KEY, DEFAULT_LAYOUT_LABEL);
+            final String count = localization.isAvailable() && localization.contains(PROJECTS_PER_ROW_KEY)
+                    ? localization.format(PROJECTS_PER_ROW_KEY, columns)
+                    : columns + (this == ONE ? DEFAULT_PROJECT_PER_ROW : DEFAULT_PROJECTS_PER_ROW);
+            return label + LABEL_SEPARATOR + count;
         }
 
         static BoardLayout parse(final String raw) {

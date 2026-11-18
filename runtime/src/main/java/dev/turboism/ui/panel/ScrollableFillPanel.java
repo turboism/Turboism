@@ -1,18 +1,18 @@
 package dev.turboism.ui.panel;
 
+import java.awt.LayoutManager;
 import java.awt.Rectangle;
 import javax.swing.JPanel;
 
-/**
- * Vertical stack used as a scroll viewport's view. Implements {@code Scrollable}
- * so {@code JViewport} hands it the viewport width (HTML content then wraps to
- * the available width) instead of keeping its preferred width, which would push
- * long entries off-viewport (no horizontal scrollbar is ever shown).
- */
+/** Fits content to the viewport width without stretching short content vertically. */
 final class ScrollableFillPanel extends JPanel implements javax.swing.Scrollable {
 
     ScrollableFillPanel() {
-        super(new VerticalFillLayout());
+        this(new VerticalFillLayout());
+    }
+
+    ScrollableFillPanel(final LayoutManager layout) {
+        super(layout);
     }
 
     @Override

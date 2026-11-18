@@ -272,7 +272,7 @@ final class RecentProjectBoardPluginTest {
     }
 
     @Test
-    void layoutActionCyclesFromSixToThreeToOneRow() {
+    void layoutActionCyclesThroughOneThreeAndSixProjectsPerRow() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
         final List<EmbeddedPanelContribution> contributions = new CopyOnWriteArrayList<>();
         final UiHostCapabilityService uiHost = uiHost(contributions);
@@ -284,7 +284,7 @@ final class RecentProjectBoardPluginTest {
 
         assertEquals(RecentProjectBoardPlugin.BoardLayout.SIX, plugin.layout());
         assertEquals(6, gridColumns(contributions.get(0).content()));
-        assertTrue(hasIconButton(contributions.get(0).content()));
+        assertEquals("Layout: 6 projects per row", layoutTooltip(contributions.get(0).content()));
 
         final ActionRegistry.Action layout = actions.stream()
                 .filter(action -> RecentProjectBoardPlugin.LAYOUT_ACTION_ID.equals(action.id()))
@@ -292,15 +292,6 @@ final class RecentProjectBoardPluginTest {
                 .orElseThrow();
         layout.handler().accept(new ActionRegistry.ActionContext() {});
 
-        assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, plugin.layout());
-        assertEquals(3, gridColumns(contributions.get(contributions.size() - 1).content()));
-        assertEquals(
-                1.15f,
-                textWithValue(contributions.get(contributions.size() - 1).content(), "One.cmo3")
-                        .fontScale(),
-                0.001f);
-
-        layout.handler().accept(new ActionRegistry.ActionContext() {});
         assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, plugin.layout());
         final PanelView single = contributions.get(contributions.size() - 1).content();
         assertEquals(0, gridColumns(single), "the single-column layout is a row list, not a grid");
@@ -315,6 +306,18 @@ final class RecentProjectBoardPluginTest {
         assertInstanceOf(PanelView.Centered.class, block.left());
         assertInstanceOf(PanelView.IconButton.class, row.right());
         assertEquals(1.15f, textWithValue(single, "One.cmo3").fontScale(), 0.001f);
+        assertEquals("Layout: 1 project per row", layoutTooltip(single));
+
+        layout.handler().accept(new ActionRegistry.ActionContext() {});
+        assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, plugin.layout());
+        final PanelView three = contributions.get(contributions.size() - 1).content();
+        assertEquals(3, gridColumns(three));
+        assertEquals(1.15f, textWithValue(three, "One.cmo3").fontScale(), 0.001f);
+        assertEquals("Layout: 3 projects per row", layoutTooltip(three));
+
+        layout.handler().accept(new ActionRegistry.ActionContext() {});
+        assertEquals(RecentProjectBoardPlugin.BoardLayout.SIX, plugin.layout());
+        assertEquals(6, gridColumns(contributions.get(contributions.size() - 1).content()));
     }
 
     /** The grid layouts center the name and timestamp under the preview. */
@@ -338,6 +341,7 @@ final class RecentProjectBoardPluginTest {
             assertTrue(hasCenteredText(content, "One.cmo3"), "the name should be centered in " + plugin.layout());
             assertTrue(hasCenteredText(content, modified), "the timestamp should be centered in " + plugin.layout());
             plugin.cycleLayout();
+            plugin.cycleLayout();
         }
     }
 
@@ -354,7 +358,6 @@ final class RecentProjectBoardPluginTest {
                 new RecordingRecentFiles(List.of(file)), uiHost(new CopyOnWriteArrayList<>()), new ArrayList<>()));
 
         plugin.cycleLayout();
-        plugin.cycleLayout();
         assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, plugin.layout());
 
         final PanelView content = plugin.contentFor(List.of(file));
@@ -364,9 +367,9 @@ final class RecentProjectBoardPluginTest {
 
     @Test
     void boardLayoutCyclesAndParsesPersistedValues() {
-        assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, RecentProjectBoardPlugin.BoardLayout.SIX.next());
-        assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, RecentProjectBoardPlugin.BoardLayout.THREE.next());
-        assertEquals(RecentProjectBoardPlugin.BoardLayout.SIX, RecentProjectBoardPlugin.BoardLayout.ONE.next());
+        assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, RecentProjectBoardPlugin.BoardLayout.ONE.next());
+        assertEquals(RecentProjectBoardPlugin.BoardLayout.SIX, RecentProjectBoardPlugin.BoardLayout.THREE.next());
+        assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, RecentProjectBoardPlugin.BoardLayout.SIX.next());
         assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, RecentProjectBoardPlugin.BoardLayout.parse("three"));
         assertEquals(RecentProjectBoardPlugin.BoardLayout.ONE, RecentProjectBoardPlugin.BoardLayout.parse(" ONE "));
         assertEquals(RecentProjectBoardPlugin.BoardLayout.THREE, RecentProjectBoardPlugin.BoardLayout.parse("four"));
@@ -683,35 +686,12 @@ final class RecentProjectBoardPluginTest {
         return textWithValue(view, value);
     }
 
-    private static boolean hasIconButton(final PanelView view) {
-        if (view instanceof PanelView.IconButton) {
-            return true;
-        }
-        if (view instanceof PanelView.Column column) {
-            return column.children().stream().anyMatch(RecentProjectBoardPluginTest::hasIconButton);
-        }
-        if (view instanceof PanelView.Row row) {
-            return row.children().stream().anyMatch(RecentProjectBoardPluginTest::hasIconButton);
-        }
-        if (view instanceof PanelView.Grid grid) {
-            return grid.children().stream().anyMatch(RecentProjectBoardPluginTest::hasIconButton);
-        }
-        if (view instanceof PanelView.Scroll scroll) {
-            return hasIconButton(scroll.child());
-        }
-        if (view instanceof PanelView.Centered centered) {
-            return hasIconButton(centered.child());
-        }
-        if (view instanceof PanelView.SpaceBetween between) {
-            return hasIconButton(between.left()) || hasIconButton(between.right());
-        }
-        if (view instanceof PanelView.LeftRow leftRow) {
-            return hasIconButton(leftRow.left()) || hasIconButton(leftRow.right());
-        }
-        if (view instanceof PanelView.Padded padded) {
-            return hasIconButton(padded.child());
-        }
-        return false;
+    private static String layoutTooltip(final PanelView view) {
+        return headerIconButtons(view).stream()
+                .filter(button -> RecentProjectBoardPlugin.LAYOUT_ACTION_ID.equals(button.actionId()))
+                .findFirst()
+                .orElseThrow()
+                .tooltip();
     }
 
     private static List<PanelView.Card> cards(final PanelView view) {
