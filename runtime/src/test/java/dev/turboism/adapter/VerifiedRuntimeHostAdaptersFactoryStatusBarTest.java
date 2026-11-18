@@ -5,7 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.SliceContract;
+import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class VerifiedRuntimeHostAdaptersFactoryStatusBarTest {
@@ -63,6 +69,28 @@ class VerifiedRuntimeHostAdaptersFactoryStatusBarTest {
         assertTrue(
                 evidence.statusBar().isEmpty(), "5.2 or status-less evidence must stay statusBar-absent (safe mode)");
         assertTrue(evidence.boundingBoxOverlayButton().isPresent());
+    }
+
+    @Test
+    void skipsCompatibleStatusBarWhenTheEditorUiHookDidNotAdmitItsCapabilities() {
+        final Path artifact = Path.of("host/Live2D_Cubism.jar");
+        final ClassLoader loader = getClass().getClassLoader();
+        final var missingHook = new SliceContract(
+                "ui-status-bar",
+                "5.3.04",
+                "status.json",
+                "status",
+                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                "5.3.05",
+                503050001,
+                new HostArtifactDigest(1, "a".repeat(64)),
+                true,
+                Set.of(),
+                Map.of("ui.status.notify", "hook:editor-ui", "ui.canvas.hint", "hook:editor-ui"));
+        assertFalse(VerifiedRuntimeHostAdaptersFactory.hasCompleteStatusBarContract(new HostVerificationEvidence.Slice(
+                Path.of("status.json"), artifact, loader, Optional.of(missingHook))));
+        assertTrue(VerifiedRuntimeHostAdaptersFactory.hasCompleteStatusBarContract(
+                slice("status.json", artifact, loader)));
     }
 
     private static HostVerificationEvidence.Slice slice(
