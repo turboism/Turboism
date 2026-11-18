@@ -220,7 +220,8 @@ final class KernelRuntimeLauncher {
             throws IOException {
         final CompatibilityResolution.SliceResolution slice = resolution.slice(sliceId);
         return slice.contract()
-                .filter(contract -> !contract.compatible() || !contract.capabilities().isEmpty())
+                .filter(contract ->
+                        !contract.compatible() || !contract.capabilities().isEmpty())
                 .map(contract -> {
                     try {
                         return extract(home, contract.recordFileName());
