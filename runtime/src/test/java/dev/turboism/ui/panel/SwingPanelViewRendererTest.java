@@ -734,8 +734,8 @@ class SwingPanelViewRendererTest {
         SwingUtilities.invokeAndWait(() -> {
             final PanelView grid = PanelView.grid(
                     3, PanelView.card("card", "open", PanelView.centered(PanelView.text("Preview"), 220, 180)));
-            final JScrollPane scroll = assertInstanceOf(JScrollPane.class,
-                    SwingPanelViewRenderer.render(PanelView.scroll(grid), (action, event) -> {}));
+            final JScrollPane scroll = assertInstanceOf(
+                    JScrollPane.class, SwingPanelViewRenderer.render(PanelView.scroll(grid), (action, event) -> {}));
             final JComponent content = (JComponent) scroll.getViewport().getView();
             final int preferredHeight = content.getPreferredSize().height;
 

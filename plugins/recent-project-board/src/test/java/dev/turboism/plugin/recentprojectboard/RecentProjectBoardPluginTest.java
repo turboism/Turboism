@@ -284,7 +284,8 @@ final class RecentProjectBoardPluginTest {
 
         assertEquals(RecentProjectBoardPlugin.BoardLayout.SIX, plugin.layout());
         assertEquals(6, gridColumns(contributions.get(0).content()));
-        assertEquals("Layout: 6 projects per row", layoutTooltip(contributions.get(0).content()));
+        assertEquals(
+                "Layout: 6 projects per row", layoutTooltip(contributions.get(0).content()));
 
         final ActionRegistry.Action layout = actions.stream()
                 .filter(action -> RecentProjectBoardPlugin.LAYOUT_ACTION_ID.equals(action.id()))

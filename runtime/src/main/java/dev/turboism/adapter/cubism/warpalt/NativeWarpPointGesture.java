@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.warpalt;
 
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.event.MouseEvent;
@@ -18,7 +19,16 @@ import java.util.Set;
 /** Keeps the pressed side of each selected pair in charge of a native point drag. */
 final class NativeWarpPointGesture {
     private static final String CPOINT_CLASS = "com.live2d.type.CPoint";
+    private static final String CURRENT_EDIT_MODE = "getCurrentEditMode";
+    private static final String CURRENT_MODEL = "getCurrentModel";
+    private static final String CANVAS_POSITION = "getPosOnCanvas";
+    private static final String VECTOR_X = "getX";
+    private static final String VECTOR_Y = "getY";
+    private static final int VERTICAL_MOTION = 1;
+    private static final int HORIZONTAL_MOTION = 2;
     private static final ThreadLocal<Gesture> CURRENT = new ThreadLocal<>();
+
+    private record Pair(int driver, float driverX, float driverY, float counterpartX, float counterpartY) {}
 
     static final class Gesture {
         final float x;
@@ -26,6 +36,7 @@ final class NativeWarpPointGesture {
         final WeakReference<Object> view;
         final Map<float[], int[]> drivers = new IdentityHashMap<>();
         final Map<float[], Map<Integer, Integer>> overflowDrivers = new IdentityHashMap<>();
+        final Map<float[], Map<Integer, Pair>> warpPairs = new IdentityHashMap<>();
         final Map<float[], Set<Integer>> written = new IdentityHashMap<>();
 
         Gesture(Object view, float x, float y) {
@@ -118,24 +129,52 @@ final class NativeWarpPointGesture {
         int height = ((Number) call(source, "getRow")).intValue() + 1;
         if (width < 1 || height < 1 || positions.length != 2L * width * height || index < 0 || index >= width * height)
             return false;
-        int other = axis == 1
+        int other = axis == VERTICAL_MOTION
                 ? (height - 1 - index / width) * width + index % width
                 : index / width * width + width - 1 - index % width;
         if (other == index) return false;
         Set<Integer> written = gesture.written.computeIfAbsent(positions, ignored -> new HashSet<>());
         if (written.contains(index)) return true;
-        Object counterpart = NativeWarpAltMirrorBridge.counterpartForGesture(ref, other);
-        if (counterpart == null) return false;
-        Object a = call(ref, "e");
-        Object b = call(counterpart, "e");
-        int driver = gesture.driver(
-                positions, index, other, number(a, "getX"), number(a, "getY"), number(b, "getX"), number(b, "getY"));
-        if (driver != index) return true;
-        float dx = (number(target, "getX") - positions[index * 2]) * weight;
-        float dy = (number(target, "getY") - positions[index * 2 + 1]) * weight;
-        if (!Float.isFinite(dx) || !Float.isFinite(dy)) return false;
-        positions[other * 2] += axis == 2 ? -dx : dx;
-        positions[other * 2 + 1] += axis == 1 ? -dy : dy;
+        Map<Integer, Pair> pairs = gesture.warpPairs.computeIfAbsent(positions, ignored -> new HashMap<>());
+        int key = Math.min(index, other);
+        Pair pair = pairs.get(key);
+        if (pair == null) {
+            Object view = gesture.view.get();
+            Object counterpart = NativeWarpAltMirrorBridge.counterpartForGesture(ref, other);
+            if (view == null || counterpart == null) return false;
+            Object editMode = call(view, CURRENT_EDIT_MODE);
+            if (editMode == null) return false;
+            Object model = call(editMode, CURRENT_MODEL);
+            if (model == null) return false;
+            Method canvasPosition = MethodHandleCache.declaredByArity(ref.getClass(), CANVAS_POSITION, 1);
+            Object a = canvasPosition.invoke(ref, model);
+            Object b = canvasPosition.invoke(counterpart, model);
+            int driver = gesture.chooseDriver(
+                    index,
+                    other,
+                    key,
+                    number(a, VECTOR_X),
+                    number(a, VECTOR_Y),
+                    number(b, VECTOR_X),
+                    number(b, VECTOR_Y));
+            int partner = driver == index ? other : index;
+            pair = new Pair(
+                    driver,
+                    positions[driver * 2],
+                    positions[driver * 2 + 1],
+                    positions[partner * 2],
+                    positions[partner * 2 + 1]);
+            pairs.put(key, pair);
+        }
+        if (pair.driver() != index) return true;
+        float nextX = positions[index * 2] * (1 - weight) + number(target, VECTOR_X) * weight;
+        float nextY = positions[index * 2 + 1] * (1 - weight) + number(target, VECTOR_Y) * weight;
+        if (!Float.isFinite(nextX) || !Float.isFinite(nextY)) return false;
+        // Gesture baselines preserve the initial shape and prevent cumulative rounding drift.
+        double dx = (double) nextX - pair.driverX();
+        double dy = (double) nextY - pair.driverY();
+        positions[other * 2] = (float) (pair.counterpartX() + (axis == HORIZONTAL_MOTION ? -dx : dx));
+        positions[other * 2 + 1] = (float) (pair.counterpartY() + (axis == VERTICAL_MOTION ? -dy : dy));
         written.add(index);
         written.add(other);
         return false;
@@ -188,7 +227,7 @@ final class NativeWarpPointGesture {
     }
 
     private static Object call(Object target, String name) throws ReflectiveOperationException {
-        return target.getClass().getMethod(name).invoke(target);
+        return MethodHandleCache.method(target.getClass(), name).invoke(target);
     }
 
     private static float number(Object target, String name) throws ReflectiveOperationException {

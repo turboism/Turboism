@@ -21,4 +21,8 @@ public final class U$b {
     public static void writePoint(final Object ref, final Object target, final float blendWeight) {
         NativeWarpAltMirrorBridge.mirrorPointMove(ref, target, blendWeight);
     }
+
+    public static boolean skipNativePointWrite(final Object ref, final Object target, final float blendWeight) {
+        return NativeWarpAltMirrorBridge.handlePointMove(ref, target, blendWeight);
+    }
 }
