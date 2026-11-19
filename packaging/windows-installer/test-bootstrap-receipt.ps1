@@ -357,6 +357,22 @@ public class TestReceiptHelper {
             $ErrorActionPreference = $prevEap
         }
         Assert-ReceiptRegression ($cfgFailExit -ne 0) 'configurator -InitializeSelection propagates bootstrap failure'
+
+        # 15. Configurator -InitializeSelection -SkipReceipt succeeds and -ResetUpdateState clears stale signed state safely
+        & $configuratorScript -Home $cfgFailHome -InitializeSelection -SkipReceipt 2>&1 | Out-Null
+        Assert-ReceiptRegression ($LASTEXITCODE -eq 0) 'configurator -InitializeSelection -SkipReceipt skips receipt check'
+
+        $resetStateUpdate = Join-Path $cfgFailHome 'state\runtime\update'
+        $resetPluginState = Join-Path $cfgFailHome 'state\runtime\plugin-management'
+        [void][System.IO.Directory]::CreateDirectory($resetStateUpdate)
+        [void][System.IO.Directory]::CreateDirectory($resetPluginState)
+        [System.IO.File]::WriteAllText((Join-Path $resetStateUpdate 'installed-receipt.json'), '{}')
+        [System.IO.File]::WriteAllText((Join-Path $resetPluginState 'pending.json'), '{"keep":true}')
+        & $configuratorScript -Home $cfgFailHome -ResetUpdateState 2>&1 | Out-Null
+        Assert-ReceiptRegression ($LASTEXITCODE -eq 0) 'configurator -ResetUpdateState succeeds'
+        Assert-ReceiptRegression (-not (Test-Path -LiteralPath $cfgFailBootstrap)) 'ResetUpdateState removes bootstrap directory'
+        Assert-ReceiptRegression (-not (Test-Path -LiteralPath $resetStateUpdate)) 'ResetUpdateState removes state\runtime\update'
+        Assert-ReceiptRegression (Test-Path -LiteralPath (Join-Path $resetPluginState 'pending.json')) 'ResetUpdateState preserves plugin-management state'
     } else {
         Write-Warning 'javac not found; Java-dependent mock tests skipped in this run'
     }

@@ -249,10 +249,16 @@ class BootstrapReceiptStaticContractTest(unittest.TestCase):
         """Point 4 & 5: configurator passes snapshot digest and propagates failures."""
         configurator = (ROOT / "packaging/windows-installer/configure_turboism.ps1").read_text(encoding="utf-8")
         self.assertIn("[switch]$InitializeReceipt", configurator)
+        self.assertIn("[switch]$SkipReceipt", configurator)
+        self.assertIn("[switch]$ResetUpdateState", configurator)
         self.assertIn("[string]$ReceiptStage", configurator)
         self.assertIn("[string]$ReceiptJava", configurator)
         self.assertIn("DiscoverySnapshotSha256", configurator)
         self.assertIn("Bootstrap receipt initialization failed with exit code", configurator)
+        nsi = (ROOT / "packaging/windows-installer/installer.nsi").read_text(encoding="utf-8")
+        self.assertIn("-ResetUpdateState", nsi)
+        self.assertIn('!define INITIALIZE_RECEIPT_SWITCH "-RefreshReceipt"', nsi)
+        self.assertIn('!define INITIALIZE_RECEIPT_SWITCH "-SkipReceipt"', nsi)
 
     def test_zip_builder_embeds_bootstrap_receipt_when_provided(self):
         """Point 1 & 4 (Cross-platform): ZIP builder includes bootstrap/manifest.json and .sig when directory is passed."""
@@ -850,6 +856,63 @@ class BootstrapReceiptExecutionTest(unittest.TestCase):
         self.assertIn("INITIALIZED", res_refresh.stdout)
         self.assertIn(b'"version":"2.0.0"', published_v1_manifest.read_bytes())
         self.assertEqual(published_v1_sig.read_bytes(), sig_v2)
+
+    def test_reset_update_state_and_skip_receipt_protect_unsigned_upgrade(self):
+        """Unsigned/nightly upgrades clear stale signed bootstrap/update state and skip receipt refresh."""
+        configurator = ROOT / "packaging/windows-installer/configure_turboism.ps1"
+        home = self.fixture / "unsigned-upgrade-home"
+        (home / "bootstrap").mkdir(parents=True)
+        (home / "bootstrap/manifest.json").write_text('{"version":"0.70.1"}', encoding="utf-8")
+        (home / "bootstrap/manifest.json.sig").write_text("signed-sig", encoding="utf-8")
+        (home / "state/runtime/update/receipts/current").mkdir(parents=True)
+        (home / "state/runtime/update/installed-receipt.json").write_text("{}", encoding="utf-8")
+        (home / "state/runtime/update/helper").mkdir(parents=True)
+        (home / "state/runtime/update/helper/journal.json").write_text("{}", encoding="utf-8")
+        (home / "state/runtime/plugin-management").mkdir(parents=True)
+        plugin_pending = home / "state/runtime/plugin-management/pending.json"
+        plugin_pending.write_text('{"keep":true}', encoding="utf-8")
+        (home / "turboism-agent.jar").write_bytes(b"unsigned-agent")
+        (home / "cubism-installations.json").write_text(
+            '{"format":"turboism.cubism-installations","schemaVersion":1,"installations":[],"managedShortcuts":[]}',
+            encoding="utf-8",
+        )
+
+        reset_res = run_console_process([
+            "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(configurator), "-Home", str(home), "-ResetUpdateState",
+        ])
+        self.assertEqual(reset_res.returncode, 0, reset_res.stdout + reset_res.stderr)
+        self.assertFalse((home / "bootstrap").exists())
+        self.assertFalse((home / "state/runtime/update").exists())
+        self.assertEqual(plugin_pending.read_text(encoding="utf-8"), '{"keep":true}')
+
+        # Even if a stray manifest sits directly in home, -SkipReceipt prevents receipt bootstrap.
+        (home / "manifest.json").write_text('{"version":"0.70.1"}', encoding="utf-8")
+        (home / "manifest.json.sig").write_text("signed-sig", encoding="utf-8")
+        skip_res = run_console_process([
+            "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(configurator), "-Home", str(home), "-InitializeSelection", "-SkipReceipt",
+        ])
+        self.assertEqual(skip_res.returncode, 0, skip_res.stdout + skip_res.stderr)
+        self.assertFalse((home / "state/runtime/update/installed-receipt.json").exists())
+
+        # Reparse-point guard: -ResetUpdateState refuses a state junction without touching target files.
+        junc_home = self.fixture / "reset-junction-home"
+        junc_home.mkdir()
+        external = self.fixture / "reset-external"
+        external.mkdir()
+        sentinel = external / "keep.txt"
+        sentinel.write_text("untouched", encoding="utf-8")
+        self._create_junction(junc_home / "state", external)
+        try:
+            junc_res = run_console_process([
+                "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                "-File", str(configurator), "-Home", str(junc_home), "-ResetUpdateState",
+            ])
+            self.assertNotEqual(junc_res.returncode, 0)
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "untouched")
+        finally:
+            self._remove_junction(junc_home / "state")
 
 
 if __name__ == "__main__":

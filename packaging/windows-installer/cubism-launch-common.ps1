@@ -3045,3 +3045,61 @@ function Invoke-TurboismManagedLaunch {
     }
     return $exitCode
 }
+
+$script:TurboismBootstrapDirectoryName = "bootstrap"
+$script:TurboismStateDirectoryName = "state"
+$script:TurboismRuntimeStateDirectoryName = "runtime"
+$script:TurboismUpdateStateDirectoryName = "update"
+
+function Remove-TurboismDirectoryTreeSafely {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    # Walks directories explicitly to refuse deleting or traversing Windows junctions.
+    $rootItem = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if ($null -eq $rootItem) { return }
+    if (-not $rootItem.PSIsContainer -or (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "Refusing to remove non-directory or reparse point: $Path"
+    }
+    foreach ($entry in @(Get-ChildItem -LiteralPath $Path -Force)) {
+        if (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Refusing to traverse or remove reparse point: $($entry.FullName)"
+        }
+        if ($entry.PSIsContainer) {
+            Remove-TurboismDirectoryTreeSafely -Path $entry.FullName
+        }
+        else {
+            if (($entry.Attributes -band [System.IO.FileAttributes]::ReadOnly) -ne 0) {
+                $entry.Attributes = $entry.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+            }
+            [System.IO.File]::Delete($entry.FullName)
+        }
+    }
+    if (($rootItem.Attributes -band [System.IO.FileAttributes]::ReadOnly) -ne 0) {
+        $rootItem.Attributes = $rootItem.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+    }
+    [System.IO.Directory]::Delete($Path, $false)
+}
+
+function Clear-TurboismFrameworkUpdateState {
+    param([Parameter(Mandatory = $true)][string]$TurboismHome)
+    # Purges obsolete bootstrap documents and update journals after full-payload replacement.
+    if (-not (Test-CubismNormalDirectory $TurboismHome)) {
+        throw "Turboism home is not a normal directory: $TurboismHome"
+    }
+    $bootstrapDir = Join-Path $TurboismHome $script:TurboismBootstrapDirectoryName
+    Remove-TurboismDirectoryTreeSafely -Path $bootstrapDir
+
+    $stateDir = Join-Path $TurboismHome $script:TurboismStateDirectoryName
+    $stateItem = Get-Item -LiteralPath $stateDir -Force -ErrorAction SilentlyContinue
+    if ($null -eq $stateItem) { return }
+    if (-not (Test-CubismNormalDirectory $stateDir)) {
+        throw "Turboism state path is not a normal directory: $stateDir"
+    }
+    $runtimeDir = Join-Path $stateDir $script:TurboismRuntimeStateDirectoryName
+    $runtimeItem = Get-Item -LiteralPath $runtimeDir -Force -ErrorAction SilentlyContinue
+    if ($null -eq $runtimeItem) { return }
+    if (-not (Test-CubismNormalDirectory $runtimeDir)) {
+        throw "Turboism runtime state path is not a normal directory: $runtimeDir"
+    }
+    $updateDir = Join-Path $runtimeDir $script:TurboismUpdateStateDirectoryName
+    Remove-TurboismDirectoryTreeSafely -Path $updateDir
+}

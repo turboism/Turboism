@@ -93,8 +93,9 @@ without requesting `WRITE_OWNER`. Existing user file bytes under `state` are pre
 
 - `-InitializeReceipt`: explicitly executes `bootstrap-receipt.ps1` with `-ReceiptStage`, `-ReceiptJava`,
   and discovery snapshot digest verification.
+- `-ResetUpdateState`: removes prior `bootstrap` documents and `state/runtime/update` state safely without following reparse points.
 - `-InitializeSelection`: when run as part of installer finalization, checks for bootstrap documents,
-  initializes receipt before first launch, and propagates real exit codes (non-zero exits abort).
+  initializes receipt before first launch, and propagates real exit codes (non-zero exits abort). Pass `-SkipReceipt` for unsigned installers without `BOOTSTRAP_RECEIPT_DIR`.
 
 ## Packaging and Release Pipeline
 
@@ -112,7 +113,8 @@ without requesting `WRITE_OWNER`. Existing user file bytes under `state` are pre
    - Conditional compile flag: `-DBOOTSTRAP_RECEIPT_DIR=<dir>`.
    - Uses `SetOutPath "$INSTDIR\bootstrap"` followed by `File "/oname=manifest.json"` and `.sig`,
      restoring `SetOutPath "$INSTDIR"`.
-   - The final `-最终配置` Section runs `configure_turboism.ps1 -InitializeSelection`, which automatically executes `bootstrap-receipt.ps1`.
+   - `SecCore` runs `configure_turboism.ps1 -ResetUpdateState` before writing optional bootstrap documents so unsigned or nightly installs never retain stale signed state.
+   - The final `-最终配置` Section runs `configure_turboism.ps1 -InitializeSelection` with `-RefreshReceipt` when `BOOTSTRAP_RECEIPT_DIR` is defined, or `-SkipReceipt` otherwise.
    - On uninstall, cleans up `$INSTDIR\bootstrap` and `$INSTDIR\bootstrap-receipt.ps1`.
    - When omitted (e.g. legacy build), the conditional receipt payload is absent.
 

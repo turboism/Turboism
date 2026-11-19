@@ -992,6 +992,20 @@ def check_configurator_flow_contract():
           and "-OwnerHwnd $HWNDPARENT" in text
           and "AllowSetForegroundWindow" in text
           and "-RefreshReceipt" in text)
+    core_start = text.index('Section "-核心文件" SecCore')
+    core_section = text[core_start:text.index("SectionEnd", core_start)]
+    check("CF2d installer clears stale bootstrap and update state before conditional receipt setup",
+          "-ResetUpdateState" in core_section
+          and core_section.index("-ResetUpdateState") < core_section.index("!ifdef BOOTSTRAP_RECEIPT_DIR")
+          and '!define INITIALIZE_RECEIPT_SWITCH "-RefreshReceipt"' in text
+          and '!define INITIALIZE_RECEIPT_SWITCH "-SkipReceipt"' in text
+          and "${INITIALIZE_RECEIPT_SWITCH}" in success
+          and "[switch]$ResetUpdateState" in configure
+          and "[switch]$SkipReceipt" in configure
+          and "Clear-TurboismFrameworkUpdateState" in configure
+          and "function Clear-TurboismFrameworkUpdateState" in common
+          and "function Remove-TurboismDirectoryTreeSafely" in common
+          and "ReparsePoint" in common)
     disable_guard_start = configure.index("if ($DisableBat -and -not $Elevated)")
     integrate_guard_start = configure.index(
         "if ($IntegrateBat -and -not $Elevated)", disable_guard_start)
