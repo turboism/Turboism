@@ -947,7 +947,7 @@
     },
     {
       "field": "capabilityIds",
-      "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
+      "versions": "5.3.00-5.3.01,5.3.04",
       "value": [
         "cubism.editor-history.move",
         "cubism.editor-history.read",
@@ -1069,6 +1069,133 @@
         "cubism.editor-model.source-triangulation.read",
         "cubism.editor-model.texture.register-bind",
         "cubism.editor-model.texture-pixels.read"
+      ]
+    },
+    {
+      "field": "capabilityIds",
+      "versions": "5.3.05",
+      "value": [
+        "cubism.editor-history.move",
+        "cubism.editor-history.read",
+        "cubism.editor-history.semantic-read",
+        "cubism.editor-model.animation-eval",
+        "cubism.editor-model.animation-playback",
+        "cubism.editor-model.animation-scene-edit",
+        "cubism.editor-model.animation-timeline.read",
+        "cubism.editor-model.animation-timeline.write",
+        "cubism.editor-model.animation.read",
+        "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.evaluated-read",
+        "cubism.editor-model.art-mesh.inspector-write",
+        "cubism.editor-model.art-mesh.morph-authoring",
+        "cubism.editor-model.art-mesh.parameter-bindings.write",
+        "cubism.editor-model.art-mesh.parameter-interpolation.write",
+        "cubism.editor-model.art-mesh.write",
+        "cubism.editor-model.auto-yure.read",
+        "cubism.editor-model.clip-mask.write",
+        "cubism.editor-model.default-keyform-lock.read",
+        "cubism.editor-model.default-keyform-lock.write",
+        "cubism.editor-model.deformer-inspector.write",
+        "cubism.editor-model.edit-level.read",
+        "cubism.editor-model.edit-level.write",
+        "cubism.editor-model.edit.deformer.add-rotation-deformer",
+        "cubism.editor-model.edit.deformer.add-warp-deformer",
+        "cubism.editor-model.edit.deformer.edit-rotation-deformer",
+        "cubism.editor-model.edit.deformer.edit-warp-deformer",
+        "cubism.editor-model.edit.deformer.get-deformer-structure",
+        "cubism.editor-model.edit.parameter-key.add-parameter-key",
+        "cubism.editor-model.edit.parameter-key.delete-parameter-key",
+        "cubism.editor-model.edit.parameter-key.get-objects-by-parameter-keys",
+        "cubism.editor-model.edit.parameter-key.get-parameter-keys",
+        "cubism.editor-model.edit.parameter-key.move-parameter-key",
+        "cubism.editor-model.edit.parameter-structure.add-parameter",
+        "cubism.editor-model.edit.parameter-structure.add-parameter-group",
+        "cubism.editor-model.edit.parameter-structure.delete-parameter",
+        "cubism.editor-model.edit.parameter-structure.delete-parameter-group",
+        "cubism.editor-model.edit.parameter-structure.edit-parameter",
+        "cubism.editor-model.edit.parameter-structure.edit-parameter-group",
+        "cubism.editor-model.edit.parameter-structure.get-parameter-structure",
+        "cubism.editor-model.edit.parameter-structure.move-parameter",
+        "cubism.editor-model.edit.parameter-structure.move-parameter-group",
+        "cubism.editor-model.edit.part-object.add-part",
+        "cubism.editor-model.edit.part-object.delete-object",
+        "cubism.editor-model.edit.part-object.edit-art-mesh",
+        "cubism.editor-model.edit.part-object.edit-glue",
+        "cubism.editor-model.edit.part-object.edit-part",
+        "cubism.editor-model.edit.part-object.get-object",
+        "cubism.editor-model.edit.part-object.get-part-structure",
+        "cubism.editor-model.edit.part-object.move-object-on-parts-palette",
+        "cubism.editor-model.edit.selection.add-selected-objects",
+        "cubism.editor-model.edit.selection.clear-selected-objects",
+        "cubism.editor-model.edit.selection.get-selected-objects",
+        "cubism.editor-model.edit.session.edit-begin",
+        "cubism.editor-model.edit.session.edit-end",
+        "cubism.editor-model.edit.session.edit-send-log",
+        "cubism.editor-model.edit.session.edit-send-progress",
+        "cubism.editor-model.edit.session.get-is-edit-approval",
+        "cubism.editor-model.edit.session.notify-undo-cancel",
+        "cubism.editor-model.glue-inspector.write",
+        "cubism.editor-model.moc-export.display-info",
+        "cubism.editor-model.moc-export.read",
+        "cubism.editor-model.model-instance.read",
+        "cubism.editor-model.model-name.write",
+        "cubism.editor-model.model-profile.read",
+        "cubism.editor-model.morph-target.read",
+        "cubism.editor-model.morph-target.write",
+        "cubism.editor-model.native-control-appearance.read",
+        "cubism.editor-model.native-control-appearance.write",
+        "cubism.editor-model.object-hierarchy.apply-deformer-to-children",
+        "cubism.editor-model.object-hierarchy.art-mesh.create",
+        "cubism.editor-model.object-hierarchy.edit",
+        "cubism.editor-model.object-hierarchy.rename",
+        "cubism.editor-model.objects.read",
+        "cubism.editor-model.parameter-bindings.invert",
+        "cubism.editor-model.parameter-bindings.read",
+        "cubism.editor-model.parameter-bindings.transfer",
+        "cubism.editor-model.parameter-combined.write",
+        "cubism.editor-model.parameter-definition.write",
+        "cubism.editor-model.parameter-groups.read",
+        "cubism.editor-model.parameter-structure.write",
+        "cubism.editor-model.part-basic-settings.read",
+        "cubism.editor-model.part-basic-settings.write",
+        "cubism.editor-model.part-inspector.id-write",
+        "cubism.editor-model.part-inspector.write",
+        "cubism.editor-model.part-name.read",
+        "cubism.editor-model.part-name.write",
+        "cubism.editor-model.part-opacity.read",
+        "cubism.editor-model.part-opacity.write",
+        "cubism.editor-model.part-structure.write",
+        "cubism.editor-model.part-tree.read",
+        "cubism.editor-model.physics.read",
+        "cubism.editor-model.psd.raw-image.export",
+        "cubism.editor-model.psd.raw-image.replace",
+        "cubism.editor-model.psd.snapshot.read",
+        "cubism.editor-model.read",
+        "cubism.editor-model.render.read",
+        "cubism.editor-model.rotation-deformer.parameter-bindings.write",
+        "cubism.editor-model.rotation-deformer.write",
+        "cubism.editor-model.selection.read",
+        "cubism.editor-model.source-triangulation.read",
+        "cubism.editor-model.statistics.read",
+        "cubism.editor-model.texture-pixels.read",
+        "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.register-bind",
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.undo.revert",
+        "cubism.editor-model.warp-deformer.parameter-bindings.write",
+        "cubism.editor-model.warp-deformer.write",
+        "cubism.editor-model.warp-mirror",
+        "cubism.editor-model.write",
+        "cubism.integration.edit-api-bridge.dispatch",
+        "cubism.integration.external-app-settings.edit-toggle",
+        "cubism.mesh-tool.session",
+        "cubism.modeling-tool.selection-brush",
+        "cubism.texture-atlas.auto-layout-hook",
+        "cubism.texture-atlas.data-model-hook",
+        "cubism.texture-atlas.dialog-injection",
+        "cubism.texture-atlas.layout.write",
+        "cubism.texture-atlas.native-layout-invocation",
+        "ui.object-context-menu.contribute"
       ]
     },
     {
@@ -2618,7 +2745,7 @@
     },
     {
       "field": "capabilityConditions",
-      "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
+      "versions": "5.3.00-5.3.01,5.3.04",
       "value": {
         "cubism.editor-history.move": [
           "hook:native-edit-begin"
@@ -2980,6 +3107,376 @@
         ],
         "cubism.editor-model.texture-pixels.read": [
           "structure"
+        ]
+      }
+    },
+    {
+      "field": "capabilityConditions",
+      "versions": "5.3.05",
+      "value": {
+        "cubism.editor-history.move": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-history.read": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-history.semantic-read": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.animation-eval": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.animation-playback": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.animation-scene-edit": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.animation-timeline.read": [
+          "structure"
+        ],
+        "cubism.editor-model.animation-timeline.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.animation.read": [
+          "structure"
+        ],
+        "cubism.editor-model.art-mesh-clip-mask.read": [
+          "structure"
+        ],
+        "cubism.editor-model.art-mesh.evaluated-read": [
+          "structure"
+        ],
+        "cubism.editor-model.art-mesh.inspector-write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.art-mesh.morph-authoring": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.art-mesh.parameter-bindings.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.art-mesh.parameter-interpolation.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.art-mesh.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.auto-yure.read": [
+          "structure"
+        ],
+        "cubism.editor-model.clip-mask.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.default-keyform-lock.read": [
+          "structure"
+        ],
+        "cubism.editor-model.default-keyform-lock.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.deformer-inspector.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.edit-level.read": [
+          "structure"
+        ],
+        "cubism.editor-model.edit-level.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.edit.deformer.add-rotation-deformer": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.deformer.add-warp-deformer": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.deformer.edit-rotation-deformer": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.deformer.edit-warp-deformer": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.deformer.get-deformer-structure": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-key.add-parameter-key": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-key.delete-parameter-key": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-key.get-objects-by-parameter-keys": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-key.get-parameter-keys": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-key.move-parameter-key": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.add-parameter": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.add-parameter-group": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.delete-parameter": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.delete-parameter-group": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.edit-parameter": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.edit-parameter-group": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.get-parameter-structure": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.move-parameter": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.parameter-structure.move-parameter-group": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.add-part": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.delete-object": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.edit-art-mesh": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.edit-glue": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.edit-part": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.get-object": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.get-part-structure": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.part-object.move-object-on-parts-palette": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.selection.add-selected-objects": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.selection.clear-selected-objects": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.selection.get-selected-objects": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.session.edit-begin": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.session.edit-end": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.session.edit-send-log": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.session.edit-send-progress": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.session.get-is-edit-approval": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.edit.session.notify-undo-cancel": [
+          "hook:native-edit-begin"
+        ],
+        "cubism.editor-model.glue-inspector.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.moc-export.display-info": [
+          "structure"
+        ],
+        "cubism.editor-model.moc-export.read": [
+          "structure"
+        ],
+        "cubism.editor-model.model-instance.read": [
+          "structure"
+        ],
+        "cubism.editor-model.model-name.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.model-profile.read": [
+          "structure"
+        ],
+        "cubism.editor-model.morph-target.read": [
+          "structure"
+        ],
+        "cubism.editor-model.morph-target.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.native-control-appearance.read": [
+          "hook:control-appearance"
+        ],
+        "cubism.editor-model.native-control-appearance.write": [
+          "hook:control-appearance"
+        ],
+        "cubism.editor-model.object-hierarchy.apply-deformer-to-children": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.object-hierarchy.art-mesh.create": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.object-hierarchy.edit": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.object-hierarchy.rename": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.objects.read": [
+          "structure"
+        ],
+        "cubism.editor-model.parameter-bindings.invert": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.parameter-bindings.read": [
+          "structure"
+        ],
+        "cubism.editor-model.parameter-bindings.transfer": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.parameter-combined.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.parameter-definition.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.parameter-groups.read": [
+          "structure"
+        ],
+        "cubism.editor-model.parameter-structure.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-basic-settings.read": [
+          "structure"
+        ],
+        "cubism.editor-model.part-basic-settings.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-inspector.id-write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-inspector.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-name.read": [
+          "structure"
+        ],
+        "cubism.editor-model.part-name.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-opacity.read": [
+          "structure"
+        ],
+        "cubism.editor-model.part-opacity.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-structure.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.part-tree.read": [
+          "structure"
+        ],
+        "cubism.editor-model.physics.read": [
+          "hook:physics-editor"
+        ],
+        "cubism.editor-model.psd.raw-image.export": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.psd.raw-image.replace": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.psd.snapshot.read": [
+          "structure"
+        ],
+        "cubism.editor-model.read": [
+          "structure"
+        ],
+        "cubism.editor-model.render.read": [
+          "structure"
+        ],
+        "cubism.editor-model.rotation-deformer.parameter-bindings.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.rotation-deformer.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.selection.read": [
+          "structure"
+        ],
+        "cubism.editor-model.source-triangulation.read": [
+          "structure"
+        ],
+        "cubism.editor-model.statistics.read": [
+          "structure"
+        ],
+        "cubism.editor-model.texture-pixels.read": [
+          "structure"
+        ],
+        "cubism.editor-model.texture.read": [
+          "structure"
+        ],
+        "cubism.editor-model.texture.register-bind": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.texture.write": [
+          "structure"
+        ],
+        "cubism.editor-model.undo.revert": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.warp-deformer.parameter-bindings.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.warp-deformer.write": [
+          "declaredGeneration"
+        ],
+        "cubism.editor-model.warp-mirror": [
+          "hook:warp-alt-mirror"
+        ],
+        "cubism.editor-model.write": [
+          "declaredGeneration"
+        ],
+        "cubism.integration.edit-api-bridge.dispatch": [
+          "hook:edit-api-dispatch"
+        ],
+        "cubism.integration.external-app-settings.edit-toggle": [
+          "hook:edit-toggle"
+        ],
+        "cubism.mesh-tool.session": [
+          "hook:mesh-tool-session"
+        ],
+        "cubism.modeling-tool.selection-brush": [
+          "hook:mesh-tool-session",
+          "hook:modeling-tool-lifecycle"
+        ],
+        "cubism.texture-atlas.auto-layout-hook": [
+          "hook:texture-atlas"
+        ],
+        "cubism.texture-atlas.data-model-hook": [
+          "hook:texture-atlas"
+        ],
+        "cubism.texture-atlas.dialog-injection": [
+          "hook:texture-atlas"
+        ],
+        "cubism.texture-atlas.layout.write": [
+          "hook:texture-atlas"
+        ],
+        "cubism.texture-atlas.native-layout-invocation": [
+          "hook:texture-atlas"
+        ],
+        "ui.object-context-menu.contribute": [
+          "hook:object-context-menu"
         ]
       }
     },
@@ -49500,6 +49997,96 @@
           "id": "cubism.mapping.v5_3_05.official_export.texture_images"
         }
       ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.official-export.exported-model",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/dE",
+        "memberName": "d",
+        "descriptor": "()Lcom/live2d/cubism/doc/model/CModelSource;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.05",
+      "mappingId": [
+        {
+          "versions": "5.3.05",
+          "id": "cubism.mapping.v5_3_05.official_export.exported_model"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.official-export.display-info-create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CDisplayInfoJsonParser",
+        "memberName": "<init>",
+        "descriptor": "()V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.05",
+      "mappingId": [
+        {
+          "versions": "5.3.05",
+          "id": "cubism.mapping.v5_3_05.official_export.display_info_create"
+        }
+      ]
+    },
+    {
+      "base": {
+        "alias": "cubism.editor-model.official-export.display-info-format",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/cubism/doc/model/exporter/CDisplayInfoJsonParser",
+        "memberName": "a",
+        "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;ZZ)Ljava/lang/String;",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.3.05",
+      "mappingId": [
+        {
+          "versions": "5.3.05",
+          "id": "cubism.mapping.v5_3_05.official_export.display_info_format"
+        }
+      ]
     }
   ],
   "selectorOrder": [
@@ -64114,7 +64701,10 @@
         1233,
         1234,
         1235,
-        1236
+        1236,
+        1242,
+        1243,
+        1244
       ]
     }
   ],

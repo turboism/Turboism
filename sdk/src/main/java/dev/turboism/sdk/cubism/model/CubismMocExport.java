@@ -4,23 +4,45 @@ import dev.turboism.sdk.CubismEditor;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Owned result from the official Editor exporter. Texture order is the MOC texture-index order.
  * No host objects or filesystem destinations escape through this value. Callers choose how to
  * persist the bytes and encode the texture pixels using their own authorized file access.
- * This value does not include model3.json, physics, motions or display metadata.
+ * The optional display information contains the official .cdi3.json text.
  */
 @CubismEditor(from = "5.3.00")
-public record CubismMocExport(byte[] moc3, List<CubismExportTexture> textures, CubismMocExportSettings settings) {
+public record CubismMocExport(
+        byte[] moc3,
+        List<CubismExportTexture> textures,
+        CubismMocExportSettings settings,
+        Optional<String> displayInfoJson) {
     public static final int MAX_MOC_BYTES = 256 * 1024 * 1024;
     public static final int MAX_TEXTURES = 32;
     /** Up to two unscaled 4096-square pages (128 MiB of owned ARGB pixels). */
     public static final long MAX_TOTAL_TEXTURE_PIXELS = 33_554_432L;
 
+    public static final int MAX_DISPLAY_INFO_CHARS = 16 * 1024 * 1024;
+
+    /** Creates a result for export settings that request only MOC3 and textures. */
+    public CubismMocExport(
+            final byte[] moc3, final List<CubismExportTexture> textures, final CubismMocExportSettings settings) {
+        this(moc3, textures, settings, Optional.empty());
+    }
+
     public CubismMocExport {
         Objects.requireNonNull(moc3, "moc3");
         Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(displayInfoJson, "displayInfoJson");
+        if (displayInfoJson.isPresent() != settings.includeArtMeshDisplayInfo()) {
+            throw new IllegalArgumentException("Display information must match the export settings.");
+        }
+        displayInfoJson.ifPresent(json -> {
+            if (json.length() > MAX_DISPLAY_INFO_CHARS || json.isBlank()) {
+                throw new IllegalArgumentException("Official export must contain bounded display information.");
+            }
+        });
         if (moc3.length < 64
                 || moc3.length > MAX_MOC_BYTES
                 || moc3[0] != 'M'
@@ -55,12 +77,13 @@ public record CubismMocExport(byte[] moc3, List<CubismExportTexture> textures, C
         return other instanceof CubismMocExport export
                 && Arrays.equals(moc3, export.moc3)
                 && textures.equals(export.textures)
-                && settings.equals(export.settings);
+                && settings.equals(export.settings)
+                && displayInfoJson.equals(export.displayInfoJson);
     }
 
     @Override
     public int hashCode() {
-        return 31 * (31 * Arrays.hashCode(moc3) + textures.hashCode()) + settings.hashCode();
+        return Objects.hash(Arrays.hashCode(moc3), textures, settings, displayInfoJson);
     }
 
     @Override

@@ -12,7 +12,30 @@ public record CubismMocExportSettings(
         boolean includeSketchParts,
         boolean includeInvisibleMeshes,
         boolean includeInvisibleAliases,
-        boolean extendEdgeColors) {
+        boolean extendEdgeColors,
+        boolean includeArtMeshDisplayInfo) {
+    /** Creates export settings with the original MOC3 and texture output. */
+    public CubismMocExportSettings(
+            final float originX,
+            final float originY,
+            final float pixelsPerUnit,
+            final boolean includeInvisibleParts,
+            final boolean includeSketchParts,
+            final boolean includeInvisibleMeshes,
+            final boolean includeInvisibleAliases,
+            final boolean extendEdgeColors) {
+        this(
+                originX,
+                originY,
+                pixelsPerUnit,
+                includeInvisibleParts,
+                includeSketchParts,
+                includeInvisibleMeshes,
+                includeInvisibleAliases,
+                extendEdgeColors,
+                false);
+    }
+
     public CubismMocExportSettings {
         if (!Float.isFinite(originX)
                 || !Float.isFinite(originY)

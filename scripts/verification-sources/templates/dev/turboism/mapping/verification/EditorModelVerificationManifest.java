@@ -2661,7 +2661,14 @@ public final class EditorModelVerificationManifest {
                 cubism5_3_01Aliases()
             );
         }
-        if (RECORD_5_3_04.equals(record) || RECORD_5_3_05.equals(record)) {
+        if (RECORD_5_3_05.equals(record)) {
+            return record.toManifest(
+                ADAPTER_SLICE_ID,
+                union(cubism5_3_04Capabilities(), Set.of(EditorMocExportSelectorContract.DISPLAY_INFO_CAPABILITY_ID)),
+                union(cubism5_3_04Aliases(), EditorMocExportSelectorContract.DISPLAY_INFO_ALIASES)
+            );
+        }
+        if (RECORD_5_3_04.equals(record)) {
             return record.toManifest(
                 ADAPTER_SLICE_ID,
                 cubism5_3_04Capabilities(),

@@ -11,6 +11,12 @@ import java.util.Set;
 public final class EditorMocExportSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.editor-model.moc-export.read";
+    public static final String DISPLAY_INFO_CAPABILITY_ID = "cubism.editor-model.moc-export.display-info";
+    public static final String EXPORTED_MODEL_ALIAS = "cubism.editor-model.official-export.exported-model";
+    public static final String DISPLAY_INFO_CREATE_ALIAS = "cubism.editor-model.official-export.display-info-create";
+    public static final String DISPLAY_INFO_FORMAT_ALIAS = "cubism.editor-model.official-export.display-info-format";
+    public static final Set<String> DISPLAY_INFO_ALIASES =
+        Set.of(EXPORTED_MODEL_ALIAS, DISPLAY_INFO_CREATE_ALIAS, DISPLAY_INFO_FORMAT_ALIAS);
 
     /**
      * Reviewed generations that carry the complete official MOC 5.3 export surface.
