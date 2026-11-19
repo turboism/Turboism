@@ -51,7 +51,7 @@ final class OptimizationSettingsContribution {
     private OptimizationSettingsContribution() {}
 
     /**
-     * Creates the preset selector at the top of the Performance tab from the 35 persisted flags.
+     * Creates the preset selector at the top of the Performance tab from the persisted flags.
      *
      * @param i18n the shell localization the preset label and option texts resolve through
      * @param settings the service that reads the persisted flags to derive the initial preset

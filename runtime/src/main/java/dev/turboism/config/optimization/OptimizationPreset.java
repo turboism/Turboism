@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * Named performance optimization profiles derived from the 35 persisted native optimization flags.
+ * Named performance optimization profiles derived from the persisted native optimization flags.
  *
  * <p>Turboism derives profiles dynamically from the boolean switches without adding a separate
  * field to {@code config.json}, preserving full backward compatibility.</p>
@@ -18,9 +18,9 @@ import java.util.function.Predicate;
 public enum OptimizationPreset {
     /** Disables every persisted native optimization. */
     OFF("off", "settings.performance.preset.off"),
-    /** Enables the 31 universal zero-latency, bit-exact optimizations while omitting trade-off flags. */
+    /** Enables universal optimizations and omits workload trade-offs. */
     BALANCED("balanced", "settings.performance.preset.balanced"),
-    /** Enables all 35 persisted native optimizations for maximum heavy-model editing throughput. */
+    /** Enables all persisted native optimizations for maximum heavy-model editing throughput. */
     HEAVY_EDITING("heavy-editing", "settings.performance.preset.heavy-editing"),
     /** Represents any user-edited flag combination that does not match a built-in preset. */
     CUSTOM("custom", "settings.performance.preset.custom");
@@ -74,7 +74,7 @@ public enum OptimizationPreset {
     }
 
     /**
-     * Returns an immutable map of all 35 persisted optimization keys to their prescribed states.
+     * Returns an immutable map of all persisted optimization keys to their prescribed states.
      *
      * @return key-to-boolean map for this preset
      * @throws IllegalStateException when called on {@link #CUSTOM}
@@ -127,7 +127,7 @@ public enum OptimizationPreset {
     /**
      * Derives the active preset from the current state of {@code settings}.
      *
-     * @param settings the settings service to read the 35 persisted flags from
+     * @param settings the settings service to read the persisted flags from
      * @return {@link #OFF}, {@link #BALANCED}, {@link #HEAVY_EDITING}, or {@link #CUSTOM}
      */
     public static OptimizationPreset detect(final OptimizationSettingsService settings) {

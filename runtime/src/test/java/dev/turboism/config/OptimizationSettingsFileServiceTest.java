@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,7 +41,7 @@ class OptimizationSettingsFileServiceTest {
     void everyPersistedKeyRoundTripsInItsDeclaredScope(final Optimization optimization) throws Exception {
         final PerformanceSettingsConfig.Field field = PerformanceSettingsConfig.Field.forKey(optimization.key());
         try (OptimizationSettingsFileService service = new OptimizationSettingsFileService(home)) {
-            assertFalse(service.enabled(optimization.key()), optimization.key() + " defaults off");
+            assertEquals(optimization == OptimizationCatalog.ATLAS_LOADING, service.enabled(optimization.key()));
             service.setEnabled(optimization.key(), true);
             assertTrue(service.enabled(optimization.key()), optimization.key() + " reads back the saved value");
             final JsonNode root = JSON.readTree(home.resolve("config.json").toFile());

@@ -392,12 +392,14 @@ public final class ConfigMergeRegression {
         for (Boolean value : List.of(Boolean.FALSE, Boolean.TRUE)) {
             Map<String, Object> source = validRuntimeConfig();
             source.put("meshTriangulationEdgeIndex", value);
+            source.put("atlasLoading", value);
             ConfigMerge.validateCurrent(source);
             Map<String, Object> merged = ConfigMerge.applyPolicy(
                     source, ConfigMerge.mergeDisabled(source, Set.of(), Set.of(), false));
             ConfigMerge.validateCurrent(merged);
             check("meshTriangulationEdgeIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("meshTriangulationEdgeIndex")));
+            check("atlasLoading " + value + " survives installer upgrade", value.equals(merged.get("atlasLoading")));
         }
 
         List<Map<String, Object>> invalid = new java.util.ArrayList<>();

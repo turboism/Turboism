@@ -2,12 +2,18 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.mesh.TextureAtlasTriangleSetTransformer;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoadingTransformer;
+import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.optimization.OptimizationCatalog;
 
 /** Installs progress feedback before Cubism defines its texture atlas model. */
-final class TextureAtlasLoadingHookContributor implements HookContributor {
+final class TextureAtlasLoadingHookContributor implements ReportedHookContributor {
     private static final String ID = "TURBOISM_TEXTURE_ATLAS_LOADING";
     private static final String POLICY_ID = "cubism.texture-atlas.loading";
+    private static final String INSTALLED = "installed";
+    private static final String NOT_INSTALLED = "not-installed";
+    private static final String PREFERENCE_DISABLED = "preference-disabled";
+    private static final String POLICY_DISABLED = "policy-disabled";
+    private static final String CLOSED = "closed";
 
     @Override
     public String id() {
@@ -26,8 +32,10 @@ final class TextureAtlasLoadingHookContributor implements HookContributor {
 
     @Override
     public boolean admitted(final HookEnvironment environment) {
-        return environment.startupPolicy() != null
+        final boolean allowed = environment.startupPolicy() != null
                 && environment.startupPolicy().hookEnabled(POLICY_ID);
+        if (!allowed) NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, POLICY_DISABLED);
+        return allowed;
     }
 
     @Override
@@ -49,9 +57,17 @@ final class TextureAtlasLoadingHookContributor implements HookContributor {
                         .plan()
                         .choice(OptimizationCatalog.TRIANGULATION_EDGE_INDEX)
                         .enabled();
-        final var transformer = new TextureAtlasLoadingTransformer(indexScopedEdges && !hasGlobalHash);
+        final boolean requested = environment.plan().admitted(OptimizationCatalog.ATLAS_LOADING);
+        final var transformer = new TextureAtlasLoadingTransformer(requested);
         instrumentation.addTransformer(transformer);
-        if (hasGlobalHash) return () -> instrumentation.removeTransformer(transformer);
+        if (!requested || hasGlobalHash) {
+            NativeOptimizationDiagnostics.installed(
+                    ID, requested ? INSTALLED : NOT_INSTALLED, requested ? INSTALLED : PREFERENCE_DISABLED);
+            return () -> {
+                instrumentation.removeTransformer(transformer);
+                NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, CLOSED);
+            };
+        }
         final var triangleSet = new TextureAtlasTriangleSetTransformer(indexScopedEdges);
         try {
             instrumentation.addTransformer(triangleSet);
@@ -59,9 +75,14 @@ final class TextureAtlasLoadingHookContributor implements HookContributor {
             instrumentation.removeTransformer(transformer);
             throw failure;
         }
+        NativeOptimizationDiagnostics.installed(ID, INSTALLED, INSTALLED);
         return () -> {
-            instrumentation.removeTransformer(triangleSet);
-            instrumentation.removeTransformer(transformer);
+            try {
+                instrumentation.removeTransformer(triangleSet);
+                instrumentation.removeTransformer(transformer);
+            } finally {
+                NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, CLOSED);
+            }
         };
     }
 }
