@@ -18,7 +18,8 @@
     "5.3.00",
     "5.3.01",
     "5.3.03",
-    "5.3.04"
+    "5.3.04",
+    "5.3.05"
   ],
   "templates": [
     {
@@ -34,80 +35,80 @@
   "entries": {
     "cubism.ui-bounding-box-overlay.bounding-box.setup-button": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.bounding-box.update": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.button.create": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.button.set-enabled": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.entities.remove": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.entity.children": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.icon-set.create": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.scene.component-objects": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.scene.remove-volatile": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.vector.plus": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.vector.times": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-bounding-box-overlay.writable-image.create": [
       {
-        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
         "template": 0
       }
     ]
   },
   "envelopes": [
     {
-      "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.04",
+      "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
       "value": {
         "cubismVersion": "${version}",
         "format": "turboism.mapping.pack",

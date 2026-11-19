@@ -45,9 +45,9 @@ interface: embedded
 - **插件依赖：** 未声明。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 5.2.00–5.2.03, 5.3.00–5.3.04（更早版本 Cubism 本身无此功能）.
-完整功能（审核版本）：5.2.00–5.2.03, 5.3.00–5.3.04。
-- 网格几何读取 仅 5.2.00–5.3.04（更早版本 Cubism 本身无此功能）
+**Cubism Editor 版本支持（自动生成）：** 5.2.00–5.2.03, 5.3.00–5.3.05（更早版本 Cubism 本身无此功能）.
+完整功能（审核版本）：5.2.00–5.2.03, 5.3.00–5.3.05。
+- 网格几何读取 仅 5.2.00–5.3.05（更早版本 Cubism 本身无此功能）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

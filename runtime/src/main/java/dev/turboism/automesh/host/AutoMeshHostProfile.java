@@ -225,6 +225,11 @@ public record AutoMeshHostProfile(
             MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
             "cubism.mapping.v5_3_04.automesh.");
 
+    public static final AutoMeshHostProfile CUBISM_5_3_05 = reviewedProfile(
+            ReviewedHostArtifacts.CUBISM_5_3_05_VERSION,
+            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
+            "cubism.mapping.v5_3_05.automesh.");
+
     /**
      * Exact artifact-to-profile table. Keying on the reviewed digest keeps a repacked or rebuilt
      * host out instead of transforming whatever happens to carry the funnel method name.
@@ -249,7 +254,8 @@ public record AutoMeshHostProfile(
             Map.entry(ReviewedHostArtifacts.CUBISM_5_3_01, CUBISM_5_3_01),
             Map.entry(ReviewedHostArtifacts.CUBISM_5_3_02, CUBISM_5_3_02),
             Map.entry(ReviewedHostArtifacts.CUBISM_5_3_03, CUBISM_5_3_03),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_04, CUBISM_5_3_04));
+            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_04, CUBISM_5_3_04),
+            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_05, CUBISM_5_3_05));
 
     public AutoMeshHostProfile {
         hostVersion = Requirements.text(hostVersion, "hostVersion");

@@ -15,14 +15,14 @@ import java.util.Objects;
  */
 @CubismEditor({
     "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-    "5.3.03", "5.3.04"
+    "5.3.03", "5.3.04", "5.3.05"
 })
 public record ExportSettingsDecision(Outcome outcome, String messageKey) {
 
     /** The two possible decisions for an embedded-model Export Settings option. */
     @CubismEditor({
         "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-        "5.3.03", "5.3.04"
+        "5.3.03", "5.3.04", "5.3.05"
     })
     public enum Outcome {
         /** Leave the native export unchanged; no message key is carried. */

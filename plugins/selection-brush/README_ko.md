@@ -45,9 +45,9 @@ interface: embedded
 - 埋め込みインターフェースを使用し、他のプラグインへの依存はありません。
 
 <!-- compatibility:begin -->
-**Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).
-전체 기능(검토된 버전): 5.2.00–5.2.03, 5.3.00–5.3.04.
-- 모델링 선택 브러시 에서만 5.2.00–5.3.04（[Cubism 5.3.00에 Deformation brush expand/shrink and circle/square/line brush shapes 추가](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+**Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05, 정확한 버전 21개).
+전체 기능(검토된 버전): 5.2.00–5.2.03, 5.3.00–5.3.05.
+- 모델링 선택 브러시 에서만 5.2.00–5.3.05（[Cubism 5.3.00에 Deformation brush expand/shrink and circle/square/line brush shapes 추가](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 전체 매트릭스: [compatibility matrix](../../compatibility/cubism/plugins_ko.md)
 <!-- compatibility:end -->
 

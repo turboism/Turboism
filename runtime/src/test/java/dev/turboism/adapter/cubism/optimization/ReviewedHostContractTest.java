@@ -40,8 +40,8 @@ class ReviewedHostContractTest {
     private static final int REVIEWED_BUILD = 503020001;
     private static final String UNKNOWN_VERSION = "5.9.99";
     private static final int UNKNOWN_BUILD = 509990001;
-    private static final String ZERO_DAY_VERSION = "5.3.05";
-    private static final int ZERO_DAY_BUILD = 503050001;
+    private static final String ZERO_DAY_VERSION = "5.3.06";
+    private static final int ZERO_DAY_BUILD = 503060001;
     private static final String SHAPED_OWNER = "feature/Shaped";
     private static final String SHAPED_METHOD = "tick";
     private static final String SHAPED_DESCRIPTOR = "(II)I";

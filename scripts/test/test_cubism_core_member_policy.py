@@ -30,7 +30,7 @@ VERSIONS = (
     "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
     "5.1.00", "5.1.01", "5.1.02", "5.1.03",
     "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
+    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05",
 )
 POLICY = ROOT / "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
 
@@ -82,7 +82,7 @@ def main() -> int:
     require(len(classified) == 240, "unique classified member count drifted")
     require(
         validated["summary"]["classifiedRosterSha256"]
-        == "7bbd32a166075706edd11b606082063157544ec1308202ce2bf7633b5759b4d6",
+        == "23316096c640d8099ff8259d18da3e3406e7cb4045f433934dfb8f333cd4a267",
         "classified roster digest drifted",
     )
     require(
@@ -139,7 +139,7 @@ def main() -> int:
         "()Lcom/live2d/sdk/cubism/core/CubismOffscreenRendering;",
     )
     require(
-        offscreen["versions"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"],
+        offscreen["versions"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"],
         "offscreen version coverage drifted",
     )
 
@@ -233,7 +233,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core member policy "
-        "(20 inventories, 240 unique members, 15 rules, roster 7bbd32a1)"
+        "(21 inventories, 240 unique members, 15 rules, roster 23316096)"
     )
     return 0
 

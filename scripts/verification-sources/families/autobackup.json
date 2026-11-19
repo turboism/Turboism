@@ -14,7 +14,8 @@
   "cubism-5.3.01-autobackup.json",
   "cubism-5.3.02-autobackup.json",
   "cubism-5.3.03-autobackup.json",
-  "cubism-5.3.04-autobackup.json"
+  "cubism-5.3.04-autobackup.json",
+  "cubism-5.3.05-autobackup.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/AutoBackupVerificationManifest.java"

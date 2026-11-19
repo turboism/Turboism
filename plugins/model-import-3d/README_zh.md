@@ -63,9 +63,9 @@ interface: embedded
 - **输入格式：** 支持单个 GLB、glTF、OBJ 或包含完整资源的模型 ZIP（上限 16 MiB，最多 64 个关联资源）；若单独选择的模型引用了外部 MTL、buffer 或 PNG/JPEG 贴图，会按引用提示依次选择。
 
 <!-- compatibility:begin -->
-**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04，共 20 个精确版本）.
-完整功能（审核版本）：5.3.00–5.3.04。
-- 部件不透明度写入 仅 5.3.00–5.3.04（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+**Cubism Editor 版本支持（自动生成）：** 全部审核版本（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05，共 21 个精确版本）.
+完整功能（审核版本）：5.3.00–5.3.05。
+- 部件不透明度写入 仅 5.3.00–5.3.05（[Cubism 5.3.00 新增部件离屏绘制（可设部件不透明度与剪贴蒙版）](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 完整矩阵: [compatibility matrix](../../compatibility/cubism/plugins_zh.md)
 <!-- compatibility:end -->
 

@@ -154,6 +154,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-autobackup.json:adapterSliceId}",
         "${record:cubism-5.3.04-autobackup.json:profileId}"
     );
+    private static final Candidate C_AUTOBACKUP_5_3_05 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.3.05-autobackup.json:cubismVersion}",
+        "cubism-5.3.05-autobackup.json",
+        "${record:cubism-5.3.05-autobackup.json:verificationId}",
+        "${record:cubism-5.3.05-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.3.05-autobackup.json:profileId}"
+    );
     private static final Candidate C_CLIPMASK_5_0_00 = new Candidate(
         "clipmask",
         "${record:cubism-5.0.00-clipmask.json:cubismVersion}",
@@ -313,6 +321,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-clipmask.json:verificationId}",
         "${record:cubism-5.3.04-clipmask.json:adapterSliceId}",
         "${record:cubism-5.3.04-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_3_05 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.3.05-clipmask.json:cubismVersion}",
+        "cubism-5.3.05-clipmask.json",
+        "${record:cubism-5.3.05-clipmask.json:verificationId}",
+        "${record:cubism-5.3.05-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.3.05-clipmask.json:profileId}"
     );
     private static final Candidate C_CORE_MODEL_READ_5_0_00 = new Candidate(
         "core-model-read",
@@ -474,6 +490,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-core-model-read.json:adapterSliceId}",
         "${record:cubism-5.3.04-core-model-read.json:profileId}"
     );
+    private static final Candidate C_CORE_MODEL_READ_5_3_05 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.3.05-core-model-read.json:cubismVersion}",
+        "cubism-5.3.05-core-model-read.json",
+        "${record:cubism-5.3.05-core-model-read.json:verificationId}",
+        "${record:cubism-5.3.05-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.3.05-core-model-read.json:profileId}"
+    );
     private static final Candidate C_EDITOR_MODEL_5_0_00 = new Candidate(
         "editor-model",
         "${record:cubism-5.0.00-editor-model.json:cubismVersion}",
@@ -633,6 +657,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-editor-model.json:verificationId}",
         "${record:cubism-5.3.04-editor-model.json:adapterSliceId}",
         "${record:cubism-5.3.04-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_3_05 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.3.05-editor-model.json:cubismVersion}",
+        "cubism-5.3.05-editor-model.json",
+        "${record:cubism-5.3.05-editor-model.json:verificationId}",
+        "${record:cubism-5.3.05-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.3.05-editor-model.json:profileId}"
     );
     private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_00 = new Candidate(
         "performance-render-scene",
@@ -794,6 +826,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-performance-render-scene.json:adapterSliceId}",
         "${record:cubism-5.3.04-performance-render-scene.json:profileId}"
     );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_3_05 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.3.05-performance-render-scene.json:cubismVersion}",
+        "cubism-5.3.05-performance-render-scene.json",
+        "${record:cubism-5.3.05-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.3.05-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.3.05-performance-render-scene.json:profileId}"
+    );
     private static final Candidate C_PROJECT_WORKSPACE_5_0_00 = new Candidate(
         "project-workspace",
         "${record:cubism-5.0.00-project-workspace.json:cubismVersion}",
@@ -953,6 +993,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-project-workspace.json:verificationId}",
         "${record:cubism-5.3.04-project-workspace.json:adapterSliceId}",
         "${record:cubism-5.3.04-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_3_05 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.3.05-project-workspace.json:cubismVersion}",
+        "cubism-5.3.05-project-workspace.json",
+        "${record:cubism-5.3.05-project-workspace.json:verificationId}",
+        "${record:cubism-5.3.05-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.3.05-project-workspace.json:profileId}"
     );
     private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_00 = new Candidate(
         "ui-bounding-box-overlay",
@@ -1114,6 +1162,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-bounding-box-overlay.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-bounding-box-overlay.json:profileId}"
     );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_3_05 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.3.05-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.3.05-ui-bounding-box-overlay.json",
+        "${record:cubism-5.3.05-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.3.05-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.3.05-ui-bounding-box-overlay.json:profileId}"
+    );
     private static final Candidate C_UI_CONTROL_APPEARANCE_5_0_00 = new Candidate(
         "ui-control-appearance",
         "${record:cubism-5.0.00-ui-control-appearance.json:cubismVersion}",
@@ -1273,6 +1329,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-control-appearance.json:verificationId}",
         "${record:cubism-5.3.04-ui-control-appearance.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-control-appearance.json:profileId}"
+    );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_3_05 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.3.05-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.3.05-ui-control-appearance.json",
+        "${record:cubism-5.3.05-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.3.05-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.3.05-ui-control-appearance.json:profileId}"
     );
     private static final Candidate C_UI_EMBEDDED_PANEL_5_0_00 = new Candidate(
         "ui-embedded-panel",
@@ -1434,6 +1498,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-embedded-panel.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-embedded-panel.json:profileId}"
     );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_3_05 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.3.05-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.3.05-ui-embedded-panel.json",
+        "${record:cubism-5.3.05-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.3.05-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.3.05-ui-embedded-panel.json:profileId}"
+    );
     private static final Candidate C_UI_MAIN_TOOLBAR_5_0_00 = new Candidate(
         "ui-main-toolbar",
         "${record:cubism-5.0.00-ui-main-toolbar.json:cubismVersion}",
@@ -1593,6 +1665,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-main-toolbar.json:verificationId}",
         "${record:cubism-5.3.04-ui-main-toolbar.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_3_05 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.3.05-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.3.05-ui-main-toolbar.json",
+        "${record:cubism-5.3.05-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.05-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.3.05-ui-main-toolbar.json:profileId}"
     );
     private static final Candidate C_UI_STATUS_BAR_5_0_00 = new Candidate(
         "ui-status-bar",
@@ -1754,6 +1834,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-status-bar.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-status-bar.json:profileId}"
     );
+    private static final Candidate C_UI_STATUS_BAR_5_3_05 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.3.05-ui-status-bar.json:cubismVersion}",
+        "cubism-5.3.05-ui-status-bar.json",
+        "${record:cubism-5.3.05-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.3.05-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.3.05-ui-status-bar.json:profileId}"
+    );
     private static final Candidate C_UI_TOP_MENU_5_1_00 = new Candidate(
         "ui-top-menu",
         "${record:cubism-5.1.00-ui-top-menu.json:cubismVersion}",
@@ -1857,6 +1945,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-ui-top-menu.json:verificationId}",
         "${record:cubism-5.3.04-ui-top-menu.json:adapterSliceId}",
         "${record:cubism-5.3.04-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_3_05 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.3.05-ui-top-menu.json:cubismVersion}",
+        "cubism-5.3.05-ui-top-menu.json",
+        "${record:cubism-5.3.05-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.3.05-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.3.05-ui-top-menu.json:profileId}"
     );
     private static final Candidate C_WORKSPACE_CONTROL_5_0_00 = new Candidate(
         "workspace-control",
@@ -2018,6 +2114,14 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.04-workspace-control.json:adapterSliceId}",
         "${record:cubism-5.3.04-workspace-control.json:profileId}"
     );
+    private static final Candidate C_WORKSPACE_CONTROL_5_3_05 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.3.05-workspace-control.json:cubismVersion}",
+        "cubism-5.3.05-workspace-control.json",
+        "${record:cubism-5.3.05-workspace-control.json:verificationId}",
+        "${record:cubism-5.3.05-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.3.05-workspace-control.json:profileId}"
+    );
 
     private static final Candidate[] CANDIDATES_AUTOBACKUP = {
         C_AUTOBACKUP_5_1_00,
@@ -2032,7 +2136,8 @@ public final class CubismSliceCatalog {
         C_AUTOBACKUP_5_3_01,
         C_AUTOBACKUP_5_3_02,
         C_AUTOBACKUP_5_3_03,
-        C_AUTOBACKUP_5_3_04
+        C_AUTOBACKUP_5_3_04,
+        C_AUTOBACKUP_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_CLIPMASK = {
@@ -2055,7 +2160,8 @@ public final class CubismSliceCatalog {
         C_CLIPMASK_5_3_01,
         C_CLIPMASK_5_3_02,
         C_CLIPMASK_5_3_03,
-        C_CLIPMASK_5_3_04
+        C_CLIPMASK_5_3_04,
+        C_CLIPMASK_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_CORE_MODEL_READ = {
@@ -2078,7 +2184,8 @@ public final class CubismSliceCatalog {
         C_CORE_MODEL_READ_5_3_01,
         C_CORE_MODEL_READ_5_3_02,
         C_CORE_MODEL_READ_5_3_03,
-        C_CORE_MODEL_READ_5_3_04
+        C_CORE_MODEL_READ_5_3_04,
+        C_CORE_MODEL_READ_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_EDITOR_MODEL = {
@@ -2101,7 +2208,8 @@ public final class CubismSliceCatalog {
         C_EDITOR_MODEL_5_3_01,
         C_EDITOR_MODEL_5_3_02,
         C_EDITOR_MODEL_5_3_03,
-        C_EDITOR_MODEL_5_3_04
+        C_EDITOR_MODEL_5_3_04,
+        C_EDITOR_MODEL_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_PERFORMANCE_RENDER_SCENE = {
@@ -2124,7 +2232,8 @@ public final class CubismSliceCatalog {
         C_PERFORMANCE_RENDER_SCENE_5_3_01,
         C_PERFORMANCE_RENDER_SCENE_5_3_02,
         C_PERFORMANCE_RENDER_SCENE_5_3_03,
-        C_PERFORMANCE_RENDER_SCENE_5_3_04
+        C_PERFORMANCE_RENDER_SCENE_5_3_04,
+        C_PERFORMANCE_RENDER_SCENE_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_PROJECT_WORKSPACE = {
@@ -2147,7 +2256,8 @@ public final class CubismSliceCatalog {
         C_PROJECT_WORKSPACE_5_3_01,
         C_PROJECT_WORKSPACE_5_3_02,
         C_PROJECT_WORKSPACE_5_3_03,
-        C_PROJECT_WORKSPACE_5_3_04
+        C_PROJECT_WORKSPACE_5_3_04,
+        C_PROJECT_WORKSPACE_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_UI_BOUNDING_BOX_OVERLAY = {
@@ -2170,7 +2280,8 @@ public final class CubismSliceCatalog {
         C_UI_BOUNDING_BOX_OVERLAY_5_3_01,
         C_UI_BOUNDING_BOX_OVERLAY_5_3_02,
         C_UI_BOUNDING_BOX_OVERLAY_5_3_03,
-        C_UI_BOUNDING_BOX_OVERLAY_5_3_04
+        C_UI_BOUNDING_BOX_OVERLAY_5_3_04,
+        C_UI_BOUNDING_BOX_OVERLAY_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_UI_CONTROL_APPEARANCE = {
@@ -2193,7 +2304,8 @@ public final class CubismSliceCatalog {
         C_UI_CONTROL_APPEARANCE_5_3_01,
         C_UI_CONTROL_APPEARANCE_5_3_02,
         C_UI_CONTROL_APPEARANCE_5_3_03,
-        C_UI_CONTROL_APPEARANCE_5_3_04
+        C_UI_CONTROL_APPEARANCE_5_3_04,
+        C_UI_CONTROL_APPEARANCE_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_UI_EMBEDDED_PANEL = {
@@ -2216,7 +2328,8 @@ public final class CubismSliceCatalog {
         C_UI_EMBEDDED_PANEL_5_3_01,
         C_UI_EMBEDDED_PANEL_5_3_02,
         C_UI_EMBEDDED_PANEL_5_3_03,
-        C_UI_EMBEDDED_PANEL_5_3_04
+        C_UI_EMBEDDED_PANEL_5_3_04,
+        C_UI_EMBEDDED_PANEL_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_UI_MAIN_TOOLBAR = {
@@ -2239,7 +2352,8 @@ public final class CubismSliceCatalog {
         C_UI_MAIN_TOOLBAR_5_3_01,
         C_UI_MAIN_TOOLBAR_5_3_02,
         C_UI_MAIN_TOOLBAR_5_3_03,
-        C_UI_MAIN_TOOLBAR_5_3_04
+        C_UI_MAIN_TOOLBAR_5_3_04,
+        C_UI_MAIN_TOOLBAR_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_UI_STATUS_BAR = {
@@ -2262,7 +2376,8 @@ public final class CubismSliceCatalog {
         C_UI_STATUS_BAR_5_3_01,
         C_UI_STATUS_BAR_5_3_02,
         C_UI_STATUS_BAR_5_3_03,
-        C_UI_STATUS_BAR_5_3_04
+        C_UI_STATUS_BAR_5_3_04,
+        C_UI_STATUS_BAR_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_UI_TOP_MENU = {
@@ -2278,7 +2393,8 @@ public final class CubismSliceCatalog {
         C_UI_TOP_MENU_5_3_01,
         C_UI_TOP_MENU_5_3_02,
         C_UI_TOP_MENU_5_3_03,
-        C_UI_TOP_MENU_5_3_04
+        C_UI_TOP_MENU_5_3_04,
+        C_UI_TOP_MENU_5_3_05
     };
 
     private static final Candidate[] CANDIDATES_WORKSPACE_CONTROL = {
@@ -2301,7 +2417,8 @@ public final class CubismSliceCatalog {
         C_WORKSPACE_CONTROL_5_3_01,
         C_WORKSPACE_CONTROL_5_3_02,
         C_WORKSPACE_CONTROL_5_3_03,
-        C_WORKSPACE_CONTROL_5_3_04
+        C_WORKSPACE_CONTROL_5_3_04,
+        C_WORKSPACE_CONTROL_5_3_05
     };
 
     private static final Map<String, Candidate[]> BY_SLICE = buildIndex();

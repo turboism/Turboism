@@ -106,7 +106,7 @@ public record ObjectContextMenuHostProfile(List<ContextMenuBindingSpec> bindings
             case "5.3.03" -> Optional.of(profile("U", "b", "c", 11, "aM", "a", 10, "T", 22, 22, 3, 1));
             // Same tuple as 5.3.03 except the menu-building mouse handler moved from
             // aM.a(MouseEvent) to aM.b(MouseEvent); aM.a is a public delegate on 5.3.04.
-            case "5.3.04" -> Optional.of(profile("U", "b", "c", 11, "aM", "b", 10, "T", 22, 22, 3, 1));
+            case "5.3.04", "5.3.05" -> Optional.of(profile("U", "b", "c", 11, "aM", "b", 10, "T", 22, 22, 3, 1));
             default -> Optional.empty();
         };
     }

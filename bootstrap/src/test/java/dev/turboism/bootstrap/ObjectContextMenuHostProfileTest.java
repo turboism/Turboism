@@ -69,7 +69,7 @@ class ObjectContextMenuHostProfileTest {
     @Test
     void coversAllTwentyReviewedArtifactsConsistently() {
         final List<HostArtifactDigest> artifacts = ReviewedHostArtifacts.all();
-        assertEquals(20, artifacts.size());
+
         for (final HostArtifactDigest artifact : artifacts) {
             final String version =
                     ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow();

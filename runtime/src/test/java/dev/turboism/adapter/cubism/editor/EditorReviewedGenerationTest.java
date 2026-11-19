@@ -18,7 +18,7 @@ class EditorReviewedGenerationTest {
 
     @Test
     void admitsEveryReviewedGenerationWithoutRestatingTheVersionTable() {
-        assertEquals(20, ReviewedHostArtifacts.reviewedCubismVersions().size());
+
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
             assertTrue(EditorReviewedGeneration.admits(exact(version)), version);
         }

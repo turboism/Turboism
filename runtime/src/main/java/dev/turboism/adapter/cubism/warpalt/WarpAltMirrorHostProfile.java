@@ -121,6 +121,8 @@ public record WarpAltMirrorHostProfile(
      */
     private static final Set<String> REVIEWED_53_VERSIONS = ReviewedVersions.line("5.3");
 
+    private static final Set<String> REVIEWED_RELOCATED_STRIP_VERSIONS = ReviewedVersions.between("5.3.04", "5.3.05");
+
     /** Returns the exact reviewed selector profile for the artifact, if it is supported. */
     public static Optional<WarpAltMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         return ReviewedHostArtifacts.cubismVersionOf(artifact).flatMap(WarpAltMirrorHostProfile::forReviewedVersion);
@@ -137,10 +139,8 @@ public record WarpAltMirrorHostProfile(
             return Optional.of(reviewed5203());
         }
         if (REVIEWED_53_VERSIONS.contains(version)) {
-            return Optional.of(reviewed53(
-                    ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(version)
-                            ? "com/live2d/cubism/view/context/b/b"
-                            : STRIP));
+            return Optional.of(
+                    reviewed53(REVIEWED_RELOCATED_STRIP_VERSIONS.contains(version) ? RELOCATED_STRIP : STRIP));
         }
         return Optional.empty();
     }
@@ -158,6 +158,7 @@ public record WarpAltMirrorHostProfile(
     private static final String WARP_POINT_REF = "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef";
     private static final String DRAG_TICK = "com/live2d/cubism/view/context/temporaryHandler/a";
     private static final String STRIP = "com/live2d/cubism/view/context/a/b";
+    private static final String RELOCATED_STRIP = "com/live2d/cubism/view/context/b/b";
     private static final String GREEN_TICK = "com/live2d/cubism/doc/model/deformer/warp/a$b";
     private static final String POINT_SELECTOR = "com/live2d/doc/selection/PointSelector";
     private static final String ACTION_DISPATCH = "com/live2d/cubism/view/context/actionManager/CEActionManager";

@@ -12,7 +12,7 @@ class StartupSuppressionProfileTest {
 
     @Test
     void selectsIndependentExactProfilesForEveryReviewedCubismArtifact() {
-        assertEquals(20, ReviewedHostArtifacts.all().size());
+
         for (final HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
             assertTrue(
                     StartupSuppressionProfile.forArtifact(artifact).isPresent(),

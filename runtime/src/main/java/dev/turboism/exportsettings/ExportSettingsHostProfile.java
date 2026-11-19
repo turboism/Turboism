@@ -114,6 +114,9 @@ public record ExportSettingsHostProfile(
     public static final ExportSettingsHostProfile CUBISM_5_3_04 =
             reviewedProfile("5.3.04", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_04.export_settings.");
 
+    public static final ExportSettingsHostProfile CUBISM_5_3_05 = reviewedProfile(
+            ReviewedHostArtifacts.CUBISM_5_3_05_VERSION, WINDOW_PANEL_5_3, "cubism.mapping.v5_3_05.export_settings.");
+
     private static ExportSettingsHostProfile reviewedProfile(
             final String hostVersion, final String windowPanel, final String mappingIdPrefix) {
         return new ExportSettingsHostProfile(
@@ -259,6 +262,9 @@ public record ExportSettingsHostProfile(
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(artifact)) {
             return Optional.of(CUBISM_5_3_04);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_05.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_05);
         }
         return Optional.empty();
     }

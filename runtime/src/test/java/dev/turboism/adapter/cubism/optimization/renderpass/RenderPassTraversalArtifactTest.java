@@ -73,7 +73,8 @@ class RenderPassTraversalArtifactTest {
     private static final String GET_LIST_METHOD = "getList";
     private static final String GET_RENDERER_METHOD = "getRenderer";
     private static final int MAX_WALK_DEPTH = 2;
-    private static final int EXPECTED_REVIEWED_VERSIONS = 20;
+    private static final int EXPECTED_REVIEWED_VERSIONS =
+            ReviewedHostArtifacts.reviewedCubismVersions().size();
     private static final int MAX_TRAVERSE_GET_RENDERER = 2;
     private static final int BENCH_ENTITY_COUNT = 48;
     private static final int WARMUP_FRAMES = 80;
@@ -125,7 +126,7 @@ class RenderPassTraversalArtifactTest {
             }
             checked++;
         }
-        assertEquals(EXPECTED_REVIEWED_VERSIONS, checked, "expected all 20 reviewed artifacts under " + root);
+        assertEquals(EXPECTED_REVIEWED_VERSIONS, checked, "expected every reviewed artifact under " + root);
     }
 
     @Test

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import java.util.List;
@@ -101,7 +102,8 @@ class CorePublicApiProviderFactoryTest {
             observed.put(version, new CoreRuntimeVersion(6, 0, 257));
         }
         observed.put("5.3.04", new CoreRuntimeVersion(6, 0, 513));
-        assertEquals(20, observed.size());
+        observed.put("5.3.05", new CoreRuntimeVersion(6, 0, 513));
+        assertEquals(ReviewedHostArtifacts.reviewedCubismVersions(), observed.keySet());
         observed.forEach((version, tuple) -> assertEquals(
                 tuple,
                 CoreVersionExpectation.reviewedProfile(version).exactVersion(),

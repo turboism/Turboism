@@ -21,7 +21,8 @@
   "cubism-5.3.01-startup-suppression.json",
   "cubism-5.3.02-startup-suppression.json",
   "cubism-5.3.03-startup-suppression.json",
-  "cubism-5.3.04-startup-suppression.json"
+  "cubism-5.3.04-startup-suppression.json",
+  "cubism-5.3.05-startup-suppression.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/StartupSuppressionVerificationManifest.java"

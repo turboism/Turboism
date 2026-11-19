@@ -199,7 +199,9 @@ public class GlGetErrorElisionTransformerTest {
             assertEquals(1, transformer.matches());
             assertEquals(1, transformer.elided());
         }
-        assertEquals(20, GlGetErrorElisionTarget.all().size());
+        assertEquals(
+                ReviewedHostArtifacts.all().size(),
+                GlGetErrorElisionTarget.all().size());
     }
 
     @Test

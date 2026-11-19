@@ -217,6 +217,14 @@ public final class ControlAppearanceVerificationManifest {
                 ReviewedHostArtifacts.CUBISM_5_3_04.sha256()
             );
         }
+        if (ReviewedHostArtifacts.CUBISM_5_3_05.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.3.05-ui-control-appearance.json:verificationId}",
+                ReviewedHostArtifacts.CUBISM_5_3_05_VERSION, "${record:cubism-5.3.05-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_05.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_05.sha256()
+            );
+        }
         throw new IllegalArgumentException("host artifact is not a reviewed Cubism control-appearance artifact");
     }
 

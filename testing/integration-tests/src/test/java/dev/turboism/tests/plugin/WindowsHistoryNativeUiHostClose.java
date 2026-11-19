@@ -364,7 +364,8 @@ final class WindowsHistoryNativeUiHostClose {
                     "5300",
                     "5301",
                     "5303",
-                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+                    "5304",
+                    "5305" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
             case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
             default ->
                 throw new IllegalArgumentException(

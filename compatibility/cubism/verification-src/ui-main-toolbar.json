@@ -1007,7 +1007,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.field.mesh_tool_mode_instance"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.field.mesh_tool_mode_instance"
         },
         {
@@ -1057,7 +1057,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.mesh_tool_mode_tool_panel"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.mesh_tool_mode_tool_panel"
         },
         {
@@ -1107,7 +1107,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.mesh_tool_panel_arrow_button"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.mesh_tool_panel_arrow_button"
         },
         {
@@ -1191,7 +1191,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.class.abstract_button"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.class.abstract_button"
         },
         {
@@ -1241,7 +1241,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_get_j_abstract_button"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_get_j_abstract_button"
         },
         {
@@ -1291,7 +1291,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_set_selected"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_selected"
         },
         {
@@ -1341,7 +1341,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_set_icon"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_icon"
         },
         {
@@ -1391,7 +1391,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_set_pressed_icon"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_pressed_icon"
         },
         {
@@ -1441,7 +1441,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_set_selected_icon"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_selected_icon"
         },
         {
@@ -1491,7 +1491,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_set_disabled_icon"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_disabled_icon"
         },
         {
@@ -1541,7 +1541,7 @@
           "id": "cubism.mapping.v5_1_03.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon"
         },
         {
-          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04",
+          "versions": "5.2.00-5.2.02,5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon"
         },
         {
@@ -2187,6 +2187,9 @@
     },
     "5.3.04": {
       "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.05": {
+      "verifiedAt": "2026-11-19T00:00:00Z"
     }
   }
 }

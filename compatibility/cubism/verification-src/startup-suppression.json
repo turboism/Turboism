@@ -59,7 +59,7 @@
           "id": "cubism.mapping.v5_2_03.startup_suppression.class.app"
         },
         {
-          "versions": "5.3.00-5.3.01,5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.startup_suppression.class.app"
         },
         {
@@ -109,7 +109,7 @@
           "id": "cubism.mapping.v5_2_03.startup_suppression.method.startup"
         },
         {
-          "versions": "5.3.00-5.3.01,5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.startup_suppression.method.startup"
         },
         {
@@ -189,7 +189,7 @@
           "id": "cubism.mapping.v5_2_03.startup_suppression.class.app_ctrl"
         },
         {
-          "versions": "5.3.00-5.3.01,5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.startup_suppression.class.app_ctrl"
         },
         {
@@ -239,7 +239,7 @@
           "id": "cubism.mapping.v5_2_03.startup_suppression.method.update_check"
         },
         {
-          "versions": "5.3.00-5.3.01,5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.startup_suppression.method.update_check"
         },
         {
@@ -315,7 +315,7 @@
           "id": "cubism.mapping.v5_2_03.startup_suppression.method.show_information"
         },
         {
-          "versions": "5.3.00-5.3.01,5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.startup_suppression.method.show_information"
         },
         {
@@ -353,7 +353,7 @@
       "versions": "5.3.00-",
       "mappingId": [
         {
-          "versions": "5.3.00-5.3.01,5.3.04",
+          "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
           "id": "cubism.mapping.v5_3_04.startup_suppression.method.splash_factory"
         },
         {
@@ -505,6 +505,9 @@
     },
     "5.3.04": {
       "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.05": {
+      "verifiedAt": "2026-11-19T00:00:00Z"
     }
   }
 }

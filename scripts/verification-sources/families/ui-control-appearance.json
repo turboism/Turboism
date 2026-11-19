@@ -21,7 +21,8 @@
   "cubism-5.3.01-ui-control-appearance.json",
   "cubism-5.3.02-ui-control-appearance.json",
   "cubism-5.3.03-ui-control-appearance.json",
-  "cubism-5.3.04-ui-control-appearance.json"
+  "cubism-5.3.04-ui-control-appearance.json",
+  "cubism-5.3.05-ui-control-appearance.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/ControlAppearanceVerificationManifest.java"

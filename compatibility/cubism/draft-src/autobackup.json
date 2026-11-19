@@ -13,7 +13,8 @@
     "5.3.01",
     "5.3.02",
     "5.3.03",
-    "5.3.04"
+    "5.3.04",
+    "5.3.05"
   ],
   "templates": [
     {
@@ -44,158 +45,158 @@
   "entries": {
     "cubism.auto-backup.app-controller.class": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.auto-backup.app-controller.get-complete-pack": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.app-controller.instance": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.attach-pack": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.backup-dir": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.complete-pack.class": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.auto-backup.complete-pack.file-contents": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.document-uid.modeling": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.document-uid.scene": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.file-content.class": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.auto-backup.file-content.file": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.file-content.last-auto-backup-time": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.file-content.last-saved-time": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.file-content.modified-after-saving": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.file-content.set-last-auto-backup-time": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.get-interval-minute": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.get-max-mb": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.is-enabled": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.manager.class": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.auto-backup.manager.instance": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.scene-docs": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.set-enabled": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.set-interval-minute": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.set-max-mb": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.auto-backup.update": [
       {
-        "versions": "5.1.00-5.3.04",
+        "versions": "5.1.00-5.3.05",
         "template": 1
       }
     ]
   },
   "envelopes": [
     {
-      "versions": "5.1.00-5.3.04",
+      "versions": "5.1.00-5.3.05",
       "value": {
         "cubismVersion": "${version}",
         "format": "turboism.mapping.pack",

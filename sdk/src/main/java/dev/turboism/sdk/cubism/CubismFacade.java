@@ -104,7 +104,7 @@ public interface CubismFacade {
     /** Returns active-document native Undo history access when installed by Runtime. */
     @dev.turboism.sdk.CubismEditor({
         "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
     })
     default CubismHistory history() {
         return CubismHistory.unavailable();
@@ -148,7 +148,7 @@ public interface CubismFacade {
      */
     @dev.turboism.sdk.CubismEditor({
         "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
     })
     default dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
         return dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
@@ -175,7 +175,7 @@ public interface CubismFacade {
 
     /** Returns read access to the active native texture-atlas editor session. */
     @dev.turboism.sdk.CubismEditor({
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
     })
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
         return dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession.unavailable();

@@ -44,8 +44,8 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 - **Plugin dependencies:** None declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
-Full feature set (reviewed versions): 5.3.00–5.3.04.
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05; 21 exact versions).
+Full feature set (reviewed versions): 5.3.00–5.3.05.
 - External edit-session API (edit()) not on 5.0.00–5.1.01（[Cubism 5.1.00 added External application integration (WebSocket API)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/)）
 - Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 - MCP editor command execution not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）

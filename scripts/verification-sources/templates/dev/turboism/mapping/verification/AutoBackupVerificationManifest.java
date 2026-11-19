@@ -100,10 +100,15 @@ public final class AutoBackupVerificationManifest {
     public static final String ARTIFACT_SHA256_5_3_03 = ReviewedHostArtifacts.CUBISM_5_3_03.sha256();
 
     public static final String VERIFICATION_ID_5_3_04 = "${record:cubism-5.3.04-autobackup.json:verificationId}";
+    public static final String VERIFICATION_ID_5_3_05 = "${record:cubism-5.3.05-autobackup.json:verificationId}";
     public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-autobackup.json:cubismVersion}";
+    public static final String CUBISM_VERSION_5_3_05 = "${record:cubism-5.3.05-autobackup.json:cubismVersion}";
     public static final String PROFILE_ID_5_3_04 = "${record:cubism-5.3.04-autobackup.json:profileId}";
+    public static final String PROFILE_ID_5_3_05 = "${record:cubism-5.3.05-autobackup.json:profileId}";
     public static final long ARTIFACT_SIZE_5_3_04 = ReviewedHostArtifacts.CUBISM_5_3_04.size();
+    public static final long ARTIFACT_SIZE_5_3_05 = ReviewedHostArtifacts.CUBISM_5_3_05.size();
     public static final String ARTIFACT_SHA256_5_3_04 = ReviewedHostArtifacts.CUBISM_5_3_04.sha256();
+    public static final String ARTIFACT_SHA256_5_3_05 = ReviewedHostArtifacts.CUBISM_5_3_05.sha256();
     /**
      * Returns whether this JVM is the exact task-scoped 5.3.03 auto-backup matrix lane.
      *
@@ -213,6 +218,10 @@ public final class AutoBackupVerificationManifest {
         if (artifact.size() == ARTIFACT_SIZE_5_3_04
             && artifact.sha256().equals(ARTIFACT_SHA256_5_3_04)) {
             return manifest5_3_04();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_3_05
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_3_05)) {
+            return manifest5_3_05();
         }
         throw new IllegalArgumentException(
             "host artifact is not the reviewed Cubism auto-backup artifact"
@@ -382,6 +391,18 @@ public final class AutoBackupVerificationManifest {
             PROFILE_ID_5_3_04,
             ARTIFACT_SIZE_5_3_04,
             ARTIFACT_SHA256_5_3_04,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_3_05() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_3_05,
+            CUBISM_VERSION_5_3_05,
+            PROFILE_ID_5_3_05,
+            ARTIFACT_SIZE_5_3_05,
+            ARTIFACT_SHA256_5_3_05,
             ADAPTER_SLICE_ID,
             CAPABILITY_IDS,
             REQUIRED_ALIASES

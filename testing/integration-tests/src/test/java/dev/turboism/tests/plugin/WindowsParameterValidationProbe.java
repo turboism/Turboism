@@ -3478,7 +3478,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     "5301",
                     "5302",
                     "5303",
-                    "5304" -> "g";
+                    "5304",
+                    "5305" -> "g";
             default ->
                 throw new IllegalArgumentException(
                         "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);

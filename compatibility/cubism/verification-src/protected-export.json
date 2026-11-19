@@ -22,7 +22,7 @@
   "fieldRanges": [
     {
       "field": "capabilityConditions",
-      "versions": "5.3.00-5.3.01,5.3.04",
+      "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
       "value": {
         "cubism.protected-export.orchestration": [
           "declaredGeneration"
@@ -8844,7 +8844,7 @@
       }
     },
     {
-      "versions": "5.3.00-5.3.01,5.3.04",
+      "versions": "5.3.00-5.3.01,5.3.04-5.3.05",
       "value": {
         "keyOrder": [
           "format",
@@ -8949,6 +8949,9 @@
     },
     "5.3.04": {
       "verifiedAt": "2026-09-27T00:00:00Z"
+    },
+    "5.3.05": {
+      "verifiedAt": "2026-11-19T00:00:00Z"
     }
   }
 }

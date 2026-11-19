@@ -178,6 +178,16 @@ final class CorePublicApiVerificationManifest {
                 43_708L,
                 "${record:cubism-5.3.04-core-model-read.json:artifact.sha256}"
             )
+        ),
+        Map.entry(
+            "${record:cubism-5.3.05-core-model-read.json:cubismVersion}",
+            manifest(
+                CorePublicApiTrustRoots.verificationId("${record:cubism-5.3.05-core-model-read.json:cubismVersion}"),
+                "${record:cubism-5.3.05-core-model-read.json:cubismVersion}",
+                "${record:cubism-5.3.05-core-model-read.json:cubismVersion}",
+                43_708L,
+                "${record:cubism-5.3.05-core-model-read.json:artifact.sha256}"
+            )
         )
     );
 

@@ -14,7 +14,8 @@
   "cubism-5.3.01-protected-export.json",
   "cubism-5.3.02-protected-export.json",
   "cubism-5.3.03-protected-export.json",
-  "cubism-5.3.04-protected-export.json"
+  "cubism-5.3.04-protected-export.json",
+  "cubism-5.3.05-protected-export.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/ProtectedExportVerificationManifest.java"
@@ -33,7 +34,8 @@
   "cubism-5.3.01-protected-export.json",
   "cubism-5.3.02-protected-export.json",
   "cubism-5.3.03-protected-export.json",
-  "cubism-5.3.04-protected-export.json"
+  "cubism-5.3.04-protected-export.json",
+  "cubism-5.3.05-protected-export.json"
  ],
  "extraLiterals": [],
  "coverageSources": [],

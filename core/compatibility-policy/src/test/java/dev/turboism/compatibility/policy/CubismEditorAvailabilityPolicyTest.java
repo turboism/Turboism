@@ -115,7 +115,12 @@ class CubismEditorAvailabilityPolicyTest {
         final CubismEditorAvailabilityPolicy.Resolution resolution =
                 CubismEditorAvailabilityPolicy.resolve(declarations(OpenFromTarget.class), "open");
 
-        assertEquals(ReviewedReleaseTable.versions().subList(14, 20), resolution.supportedVersions());
+        assertEquals(
+                ReviewedReleaseTable.versions()
+                        .subList(
+                                ReviewedReleaseTable.versions().indexOf("5.2.03"),
+                                ReviewedReleaseTable.versions().size()),
+                resolution.supportedVersions());
         assertTrue(resolution.permits("5.2.03"));
         assertTrue(resolution.permits("5.3.04"));
         assertTrue(resolution.permits("5.9.99"));

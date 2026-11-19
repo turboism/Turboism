@@ -137,6 +137,11 @@
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
       "com/live2d/cubism/view/context/K"
+    ],
+    "5.3.05": [
+      "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
+      "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/K"
     ]
   }
 }

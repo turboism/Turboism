@@ -109,6 +109,17 @@
       "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef",
       "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx"
+    ],
+    "5.3.05": [
+      "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef",
+      "com/live2d/cubism/view/context/temporaryHandler/a",
+      "com/live2d/cubism/view/context/b/b",
+      "com/live2d/cubism/doc/model/deformer/warp/a$b",
+      "com/live2d/doc/selection/PointSelector",
+      "com/live2d/cubism/view/context/actionManager/CEActionManager",
+      "com/live2d/cubism/view/context/CEViewContext",
+      "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRef",
+      "com/live2d/cubism/doc/model/drawable/artMesh/MeshPointRefEx"
     ]
   }
 }

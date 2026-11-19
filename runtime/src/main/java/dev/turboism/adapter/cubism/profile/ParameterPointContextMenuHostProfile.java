@@ -60,7 +60,7 @@ public record ParameterPointContextMenuHostProfile(String owner, String contextD
         }
         return switch (cubismVersion) {
             case "5.3.00", "5.3.01", "5.3.02" -> Optional.of(profile("ab"));
-            case "5.3.03", "5.3.04" -> Optional.of(profile("ac"));
+            case "5.3.03", "5.3.04", "5.3.05" -> Optional.of(profile("ac"));
             default -> Optional.empty();
         };
     }

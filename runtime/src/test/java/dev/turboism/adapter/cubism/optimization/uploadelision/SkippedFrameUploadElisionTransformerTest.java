@@ -476,7 +476,9 @@ public class SkippedFrameUploadElisionTransformerTest {
             assertEquals(1, t.matches());
             assertEquals(2, t.guarded());
         }
-        assertEquals(20, SkippedFrameUploadElisionTarget.all().size());
+        assertEquals(
+                ReviewedHostArtifacts.all().size(),
+                SkippedFrameUploadElisionTarget.all().size());
         assertEquals(
                 "com/live2d/graphics3d/shader/w",
                 SkippedFrameUploadElisionTarget.of(ReviewedHostArtifacts.CUBISM_5_0_00)

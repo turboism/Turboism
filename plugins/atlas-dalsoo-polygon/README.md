@@ -60,9 +60,9 @@ supported hosts (`5.2.00`–`5.3.04`).
 - **Plugin dependencies:** None declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
-Full feature set (reviewed versions): 5.2.00–5.2.03, 5.3.00–5.3.04.
-- Polygon-aware atlas layout only on 5.2.00–5.3.04（earlier Cubism versions lack the feature entirely）
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05; 21 exact versions).
+Full feature set (reviewed versions): 5.2.00–5.2.03, 5.3.00–5.3.05.
+- Polygon-aware atlas layout only on 5.2.00–5.3.05（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

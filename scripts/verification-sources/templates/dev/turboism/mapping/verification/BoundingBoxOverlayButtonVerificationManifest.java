@@ -139,6 +139,11 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
                 ReviewedHostArtifacts.CUBISM_5_3_04_VERSION, artifact.size(), artifact.sha256()
             );
         }
+        if (ReviewedHostArtifacts.CUBISM_5_3_05.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_3_05_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
         // </version-matrix:bb-admission>
         throw new IllegalArgumentException("Unsupported Cubism artifact for overlay buttons");
     }
@@ -165,6 +170,7 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
             case "${record:cubism-5.3.00-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.00-ui-bounding-box-overlay.json:verificationId}";
             case "${record:cubism-5.3.01-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.01-ui-bounding-box-overlay.json:verificationId}";
             case "${record:cubism-5.3.04-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.04-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.3.05-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.05-ui-bounding-box-overlay.json:verificationId}";
             // </version-matrix:bb-vid>
             case "${record:cubism-5.2.03-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.2.03-ui-bounding-box-overlay.json:verificationId}";
             case "${record:cubism-5.3.02-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.02-ui-bounding-box-overlay.json:verificationId}";

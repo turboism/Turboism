@@ -44,7 +44,7 @@ Standard release packages bundle 35 first-party plugins (`parameter-lock` is dis
 | **5.0.00 – 5.0.06** | Partial — missing auto backup, auto sway read, geometry read, integration bridges, custom modeling tools, protected export, top-menu integration, MOC export read, and part-inspector writes; animation/timeline is partial |
 | **5.1.00 – 5.1.03** | Partial — missing geometry read, custom modeling tools, MOC export read, and part-inspector writes; animation/timeline is partial (integration bridges partial before 5.1.02) |
 | **5.2.00 – 5.2.03** | Near-complete — missing only 5.3-only surfaces (alpha composition, part-inspector writes, MOC export read, Core parameter repeat) |
-| **5.3.00 – 5.3.04** | Full support — all verified capabilities available |
+| **5.3.00 – 5.3.05** | Full support — all verified capabilities available |
 
 Unlisted Editor versions and unsupported features are disabled automatically; see the [capability matrix](compatibility/cubism/capabilities.md) for per-API details.
 

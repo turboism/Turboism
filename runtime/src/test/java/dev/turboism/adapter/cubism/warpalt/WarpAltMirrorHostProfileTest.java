@@ -15,7 +15,7 @@ final class WarpAltMirrorHostProfileTest {
         for (final String version : WarpAltMirrorHostProfile.targetClasses().keySet()) {
             final var profile =
                     WarpAltMirrorHostProfile.forReviewedVersion(version).orElseThrow();
-            final String expected = version.equals("5.3.04")
+            final String expected = (version.equals("5.3.04") || version.equals("5.3.05"))
                     ? "com/live2d/cubism/view/context/b/b"
                     : "com/live2d/cubism/view/context/a/b";
             assertEquals(expected, profile.stripOwner(), version);

@@ -18,7 +18,7 @@ public record AtlasTileBboxTarget(String internalName, String className, String 
      * Cubism 5.3.x target: {@code com/live2d/util/f/g}, shared across 5.3.00–5.3.04;
      * the same name also ships in 5.0.00–5.0.02, which never reach this hook.
      */
-    static final AtlasTileBboxTarget CUBISM_53X = new AtlasTileBboxTarget("com/live2d/util/f/g", "5.3.00-5.3.04");
+    static final AtlasTileBboxTarget CUBISM_53X = new AtlasTileBboxTarget("com/live2d/util/f/g", "5.3.00-5.3.05");
 
     /** Cubism 5.2.x target: {@code com/live2d/util/e/g}, shared across 5.2.00–5.2.03. */
     static final AtlasTileBboxTarget CUBISM_5203 = new AtlasTileBboxTarget("com/live2d/util/e/g", "5.2.00-5.2.03");
