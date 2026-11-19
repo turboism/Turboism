@@ -208,7 +208,9 @@ final class KernelRuntimeLauncher {
                 resolved.host().classLoader(),
                 resolution,
                 beforePlugins,
-                afterPlugins);
+                afterPlugins,
+                Optional.ofNullable(
+                        extractContract(home, resolution, CompatibilityResolution.WORKSPACE_CONTROL_SLICE)));
     }
 
     /**

@@ -21,6 +21,8 @@ import java.util.Optional;
  */
 public final class CompatibilityResolution {
 
+    public static final String WORKSPACE_CONTROL_SLICE = "workspace-control";
+
     /** Host admission mode decided from identity plus reviewed artifacts. */
     public enum Mode {
         /** The artifact is byte-identical to a reviewed Cubism build. */

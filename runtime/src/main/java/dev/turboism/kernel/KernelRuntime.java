@@ -246,7 +246,8 @@ public final class KernelRuntime implements AutoCloseable {
                 hostClassLoader,
                 null,
                 runtime -> {},
-                runtime -> {});
+                runtime -> {},
+                Optional.empty());
     }
 
     /**
@@ -358,10 +359,11 @@ public final class KernelRuntime implements AutoCloseable {
                 hostClassLoader,
                 hostResolution,
                 beforePlugins,
-                runtime -> {});
+                runtime -> {},
+                Optional.empty());
     }
 
-    /** Starts an admitted runtime with an optional exact-review protected-export record. */
+    /** Starts an admitted runtime with optional protected-export and workspace-control records. */
     public static KernelRuntime start(
             final Path requestedHome,
             final Path verificationRecord,
@@ -380,7 +382,8 @@ public final class KernelRuntime implements AutoCloseable {
             final ClassLoader hostClassLoader,
             final CompatibilityResolution hostResolution,
             final java.util.function.Consumer<KernelRuntime> beforePlugins,
-            final java.util.function.Consumer<KernelRuntime> afterPlugins)
+            final java.util.function.Consumer<KernelRuntime> afterPlugins,
+            final Optional<Path> workspaceControlVerificationRecord)
             throws IOException {
         return KernelStartupSequence.start(
                 requestedHome,
@@ -400,7 +403,8 @@ public final class KernelRuntime implements AutoCloseable {
                 hostClassLoader,
                 hostResolution,
                 beforePlugins,
-                afterPlugins);
+                afterPlugins,
+                workspaceControlVerificationRecord);
     }
 
     static void requireSafePendingPlugins(
