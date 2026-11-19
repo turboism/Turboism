@@ -51,6 +51,7 @@ public final class PerformanceSettingsConfig {
         TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "false"),
         ATLAS_TILE_BBOX("atlasTileBbox", false, "false"),
         ATLAS_CACHE_REUSE("atlasCacheReuse", false, "false"),
+        ATLAS_LOADING("atlasLoading", false, "true"),
         CUBISM_JVM("cubismJvm", true, "graalvm"),
         GRAAL_VM_PATH("graalVmPath", true, ""),
         REDUCE_AUTO_BACKUP("reduceAutoBackup", false, "false"),

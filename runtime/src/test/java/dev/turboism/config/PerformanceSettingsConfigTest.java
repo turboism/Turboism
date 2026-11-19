@@ -15,10 +15,13 @@ class PerformanceSettingsConfigTest {
     Path home;
 
     @Test
-    void renderingOptimizationsRequireExplicitOptInOnEveryPlatform() {
+    void nativeOptimizationsUseTheirReviewedDefaultsOnBothPlatforms() {
         for (boolean proton : new boolean[] {false, true}) {
             for (Field field : Field.values()) {
-                if (field.nativeOptimization()) assertEquals("false", field.defaultValue(proton), field.key());
+                if (field.nativeOptimization()) {
+                    assertEquals(
+                            Boolean.toString(field == Field.ATLAS_LOADING), field.defaultValue(proton), field.key());
+                }
             }
             assertEquals("true", Field.ZGC.defaultValue(proton));
             assertEquals("graalvm", Field.CUBISM_JVM.defaultValue(proton));
@@ -45,7 +48,7 @@ class PerformanceSettingsConfigTest {
     }
 
     @Test
-    void allFifteenFieldsRoundTripWithoutLosingOtherPreferencesAndReloadOnNextLaunch() {
+    void allFieldsRoundTripWithoutLosingOtherPreferencesAndReloadOnNextLaunch() {
         var repository = new RuntimeConfigRepository(home, ignored -> {});
         for (Field field : Field.values()) {
             String value = field.booleanValue()
@@ -59,7 +62,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(40, Field.values().length);
+        assertEquals(41, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(
@@ -92,7 +95,7 @@ class PerformanceSettingsConfigTest {
                     service.startupReduceAutoBackup(), "editing preferences must not mutate this session's request");
             var statuses = service.performanceStatuses().stream()
                     .collect(Collectors.toMap(CubismJvmSettingsService.PerformanceStatus::key, s -> s));
-            assertEquals(40, statuses.size());
+            assertEquals(Field.values().length, statuses.size());
             var atlas = statuses.get("atlasCacheReuse");
             assertEquals("true", atlas.saved());
             assertEquals("false", atlas.requested());

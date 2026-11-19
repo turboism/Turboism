@@ -542,6 +542,19 @@ public final class OptimizationCatalog {
             "settings.atlas.cache-reuse.tooltip",
             List.of());
 
+    /** Speeds up the native mesh work that prepares texture atlas edit layers. */
+    public static final Optimization ATLAS_LOADING = new Optimization(
+            "atlasLoading",
+            "atlas-loading",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.atlasLoading"),
+            List.of("TURBOISM_TEXTURE_ATLAS_LOADING"),
+            Set.of("cubism.texture-atlas.loading"),
+            Optional.of(new Optimization.Placement("mesh", 107)),
+            "settings.optimization.atlas-loading",
+            "settings.optimization.atlas-loading.tooltip",
+            List.of());
+
     // ---------------------------------------------------------------- diagnostic-only probe hooks
 
     /**
@@ -658,6 +671,7 @@ public final class OptimizationCatalog {
             TRIANGULATION_EDGE_INDEX,
             ATLAS_TILE_BBOX,
             ATLAS_CACHE_REUSE,
+            ATLAS_LOADING,
             CANVAS_COMPOSITE_ELISION,
             CLIP_MASK_PROBE,
             GL_GET_ERROR_ELISION,

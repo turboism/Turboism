@@ -1668,7 +1668,7 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
-    /** Synchronizes the optimization preset dropdown with the 35 native optimization checkboxes. */
+    /** Synchronizes the optimization preset dropdown with the native optimization checkboxes. */
     private static final class OptimizationPresetCoordinator {
         private JComboBox<SettingsControl.Option> presetCombo;
         private String[] presetAccepted;

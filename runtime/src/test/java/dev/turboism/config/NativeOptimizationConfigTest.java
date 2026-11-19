@@ -54,6 +54,21 @@ class NativeOptimizationConfigTest {
     }
 
     @Test
+    void upgradingConfigWithoutAtlasLoadingEnablesItUntilAnExplicitOptOut() {
+        final var repository = new RuntimeConfigRepository(home, ignored -> {});
+        repository.update(root -> root.put("reduceAutoBackup", true));
+        final var service = new OptimizationSettingsFileService(repository);
+        final var atlas = OptimizationCatalog.ATLAS_LOADING;
+        assertTrue(service.enabled(atlas.key()));
+        assertTrue(
+                NativeOptimizationConfig.load(home, ignored -> {}).choice(atlas).enabled());
+        service.setEnabled(atlas.key(), false);
+        final var choice = NativeOptimizationConfig.load(home, ignored -> {}).choice(atlas);
+        assertFalse(choice.enabled());
+        assertEquals("global-config", choice.source());
+    }
+
+    @Test
     void globalChoicesAreCapturedTogetherAndReReadOnNextLaunch() {
         var repository = new RuntimeConfigRepository(home, ignored -> {});
         repository.update(root -> {

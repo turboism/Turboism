@@ -39,22 +39,22 @@ final class OptimizationPresetTest {
     Path home;
 
     @Test
-    void balancedEnablesTheThirtyOneUniversalOptimizationsAndLeavesFourTradeOffsOff() {
+    void balancedEnablesTheThirtyTwoUniversalOptimizationsAndLeavesFourTradeOffsOff() {
         final Map<String, Boolean> balanced = OptimizationPreset.BALANCED.flags();
-        assertEquals(35, balanced.size());
+        assertEquals(36, balanced.size());
         assertEquals(
-                31, balanced.values().stream().filter(Boolean::booleanValue).count());
+                32, balanced.values().stream().filter(Boolean::booleanValue).count());
         for (final Optimization optimization : OptimizationCatalog.persisted()) {
             final boolean expected = !TRADE_OFF_KEYS.contains(optimization.key());
             assertEquals(expected, balanced.get(optimization.key()), optimization.key());
         }
 
         final Map<String, Boolean> off = OptimizationPreset.OFF.flags();
-        assertEquals(35, off.size());
+        assertEquals(36, off.size());
         assertTrue(off.values().stream().noneMatch(Boolean::booleanValue));
 
         final Map<String, Boolean> heavy = OptimizationPreset.HEAVY_EDITING.flags();
-        assertEquals(35, heavy.size());
+        assertEquals(36, heavy.size());
         assertTrue(heavy.values().stream().allMatch(Boolean::booleanValue));
     }
 
@@ -94,7 +94,7 @@ final class OptimizationPresetTest {
     @Test
     void appliesPresetsThroughFileServiceWithoutSchemaChanges() throws Exception {
         try (OptimizationSettingsFileService service = new OptimizationSettingsFileService(home)) {
-            assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(service));
+            assertEquals(OptimizationPreset.CUSTOM, OptimizationPreset.detect(service));
 
             OptimizationPreset.BALANCED.apply(service);
             assertEquals(OptimizationPreset.BALANCED, OptimizationPreset.detect(service));

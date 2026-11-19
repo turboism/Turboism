@@ -1146,10 +1146,10 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(35, boxes.size());
+                assertEquals(36, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
-                // 1. Selecting BALANCED updates all 35 checkboxes immediately without persisting yet.
+                // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
                 selectOption(combo, OptimizationPreset.BALANCED.configValue());
                 for (final Optimization optimization : OptimizationCatalog.persisted()) {
                     final JCheckBox box = findCheckBoxByName(boxes, optimization.contributionId());
@@ -1246,6 +1246,10 @@ class DeclarativeSettingsRendererTest {
                     final JScrollPane scroll =
                             assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
                     final JPanel form = (JPanel) scroll.getViewport().getView();
+                    final JCheckBox atlasLoading =
+                            findCheckBoxByName(checkboxes(form), OptimizationCatalog.ATLAS_LOADING.contributionId());
+                    assertTrue(atlasLoading.isSelected(), "missing preference enables the atlas optimization");
+                    atlasLoading.doClick();
                     final JPanel topSection = findCollapsibleSection(form);
                     assertTrue(topSection != null, "top collapsible section must render");
                     assertTrue(
@@ -1284,6 +1288,10 @@ class DeclarativeSettingsRendererTest {
             final var persistedRoot = new RuntimeConfigRepository(home, ignored -> {}).read();
             final PerformanceSettingsConfig reloaded = PerformanceSettingsConfig.load(home, ignored -> {});
             final NativeOptimizationConfig nativeReloaded = NativeOptimizationConfig.load(home, ignored -> {});
+            final String atlasKey = OptimizationCatalog.ATLAS_LOADING.key();
+            assertEquals(Boolean.FALSE, persistedRoot.path(atlasKey).booleanValue());
+            assertTrue(persistedRoot.path(atlasKey).isBoolean());
+            assertFalse(nativeReloaded.choice(OptimizationCatalog.ATLAS_LOADING).enabled());
             for (final Optimization optimization : hotpath) {
                 assertTrue(
                         persistedRoot.path("launcher").path(optimization.key()).asBoolean(false),
