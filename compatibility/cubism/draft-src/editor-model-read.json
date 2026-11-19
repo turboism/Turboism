@@ -4919,9 +4919,27 @@
         "template": 8
       }
     ],
+    "cubism.editor-model.official-export.display-info-create": [
+      {
+        "versions": "5.3.05",
+        "template": 63
+      }
+    ],
+    "cubism.editor-model.official-export.display-info-format": [
+      {
+        "versions": "5.3.05",
+        "template": 63
+      }
+    ],
     "cubism.editor-model.official-export.export": [
       {
         "versions": "5.3.00-5.3.01,5.3.03-5.3.05",
+        "template": 63
+      }
+    ],
+    "cubism.editor-model.official-export.exported-model": [
+      {
+        "versions": "5.3.05",
         "template": 63
       }
     ],

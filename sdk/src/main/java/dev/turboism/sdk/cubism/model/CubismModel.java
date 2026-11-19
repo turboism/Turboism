@@ -155,6 +155,10 @@ public interface CubismModel {
      * The model must already have a valid atlas. The exporter works on its own copy;
      * it does not save files or add an Undo entry to the current document.
      * All settings are explicit and the returned data is bounded and owned by the caller.
+     * The ArtMesh display information option requires a verified Cubism 5.3.05 host or later.
+     * Encode the returned display information as UTF-8 to save it as a .cdi3.json file.
+     *
+     * @throws UnsupportedOperationException if the host cannot provide the requested output
      */
     @CubismEditor(from = "5.3.00")
     default CubismMocExport exportMoc(final CubismMocExportSettings settings) {

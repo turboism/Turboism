@@ -5,6 +5,7 @@ import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.method;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.type;
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.selector.EditorMocExportSelectorContract;
@@ -19,6 +20,9 @@ class EditorMocExportAccessTest {
     private static final String P = "cubism.editor-model.official-export.";
     private static final CubismMocExportSettings SETTINGS =
             new CubismMocExportSettings(512, 256, 100, true, false, true, false, true);
+    private static final CubismMocExportSettings DISPLAY_INFO_SETTINGS =
+            new CubismMocExportSettings(512, 256, 100, true, false, true, false, true, true);
+    private static final String DISPLAY_INFO = "{\"Version\":1,\"ArtMeshes\":[{\"Id\":\"Mesh1\",\"Name\":\"Mesh\"}]}";
 
     @Test
     void copiesOfficialBytesAndTexturesWithEverySettingExplicitOnEdt() {
@@ -33,6 +37,25 @@ class EditorMocExportAccessTest {
         source.result.images.get(0).raster.setRGB(0, 0, 0);
         assertEquals('M', export.moc3()[0]);
         assertEquals(0xff102030, export.textures().get(0).argb()[0]);
+        assertTrue(export.displayInfoJson().isEmpty());
+    }
+
+    @Test
+    void formatsArtMeshDisplayInfoFromTheExportedModel() {
+        Source source = new Source();
+        var export = access(EditorModelVerificationManifest.CUBISM_VERSION_5_3_05, true, false)
+                .exportMoc("model", source, source.current, DISPLAY_INFO_SETTINGS);
+        assertEquals(Optional.of(DISPLAY_INFO), export.displayInfoJson());
+    }
+
+    @Test
+    void rejectsDisplayInfoOnAnOlderHostBeforeExport() {
+        Source source = new Source();
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> access(EditorModelVerificationManifest.CUBISM_VERSION_5_3_04, true, false)
+                        .exportMoc("model", source, source.current, DISPLAY_INFO_SETTINGS));
+        assertEquals(0, source.calls);
     }
 
     @Test
@@ -173,12 +196,16 @@ class EditorMocExportAccessTest {
     }
 
     private static EditorMocExportAccess access(String version, boolean authorized, boolean stale) {
+        Set<String> capabilities = new HashSet<>();
+        capabilities.add(
+                authorized ? EditorMocExportSelectorContract.CAPABILITY_ID : "cubism.editor-model.model-instance.read");
+        if (EditorModelVerificationManifest.CUBISM_VERSION_5_3_05.equals(version)) {
+            capabilities.add(EditorMocExportSelectorContract.DISPLAY_INFO_CAPABILITY_ID);
+        }
         var resolver = TestVerifiedResolvers.create(
                 version,
                 EditorMocExportSelectorContract.ADAPTER_SLICE_ID,
-                authorized
-                        ? Set.of(EditorMocExportSelectorContract.CAPABILITY_ID)
-                        : Set.of("cubism.editor-model.model-instance.read"),
+                capabilities,
                 selectors(),
                 Source.class.getClassLoader());
         return new EditorMocExportAccess(resolver, (identity, model) -> {
@@ -207,6 +234,21 @@ class EditorMocExportAccessTest {
         }
         out.add(method(P + "moc-bytes", Result.class, "bytes", "()Ljava/util/List;"));
         out.add(method(P + "texture-images", Result.class, "images", "()Ljava/util/List;"));
+        out.add(method(
+                EditorMocExportSelectorContract.EXPORTED_MODEL_ALIAS,
+                Result.class,
+                "exportedModel",
+                "()" + type(Result.class)));
+        out.add(StaticSelector.constructor(
+                EditorMocExportSelectorContract.DISPLAY_INFO_CREATE_ALIAS,
+                internal(DisplayInfoFormatter.class),
+                "()V",
+                1));
+        out.add(method(
+                EditorMocExportSelectorContract.DISPLAY_INFO_FORMAT_ALIAS,
+                DisplayInfoFormatter.class,
+                "format",
+                "(" + type(Result.class) + "ZZ)Ljava/lang/String;"));
         out.add(method(
                 "cubism.editor-model.model-source.current-instance", Source.class, "current", "()Ljava/lang/Object;"));
         out.add(method(
@@ -317,6 +359,20 @@ class EditorMocExportAccessTest {
 
         public List<Image> images() {
             return images;
+        }
+
+        public Result exportedModel() {
+            return this;
+        }
+    }
+
+    public static final class DisplayInfoFormatter {
+        public String format(Result exportedModel, boolean includeArtMeshes, boolean prettyPrint) {
+            assertTrue(SwingUtilities.isEventDispatchThread());
+            assertNotNull(exportedModel);
+            assertTrue(includeArtMeshes);
+            assertTrue(prettyPrint);
+            return DISPLAY_INFO;
         }
     }
 

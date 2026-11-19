@@ -25,7 +25,7 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 | Integration bridges | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Mesh tool session | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Mesh toolbar contribution | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Other model surfaces | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Other model surfaces | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ |
 | Model instance read | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Modeling custom tools | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Object hierarchy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -57,6 +57,7 @@ Legend: ✓ every capability in the group admitted · ◐ partially admitted · 
 - `cubism.geometry.read` (Mesh geometry read): no verified record 5.0.00–5.1.03
 - `cubism.integration.edit-api-bridge.dispatch`: no verified record 5.0.00–5.1.01
 - `cubism.integration.external-app-settings.edit-toggle` (External-app editing toggle): no verified record 5.0.00–5.0.06
+- `cubism.editor-model.moc-export.display-info`: no verified record 5.0.00–5.3.04
 - `cubism.editor-model.moc-export.read`: no verified record 5.0.00–5.2.03
 - `cubism.modeling-tool.selection-brush` (Modeling selection brush): no verified record 5.0.00–5.1.03
 - `cubism.editor-model.part-inspector.write` (Part inspector writes): no verified record 5.0.00–5.2.03

@@ -11,6 +11,7 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Official exporter boundary. No native objects or borrowed texture arrays escape. */
 final class EditorMocExportAccess {
@@ -18,6 +19,8 @@ final class EditorMocExportAccess {
     private static final String CURRENT = "cubism.editor-model.model-source.current-instance";
     private static final String MANAGER = "cubism.texture-atlas.model-source.texture-manager";
     private static final String ATLASES = "cubism.texture-atlas.texture-manager.atlases";
+    private static final boolean INCLUDE_ART_MESH_INFO = true;
+    private static final boolean PRETTY_PRINT_DISPLAY_INFO = true;
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
@@ -39,8 +42,36 @@ final class EditorMocExportAccess {
             throw new UnsupportedOperationException("Official MOC 5.3 export is unavailable on Cubism "
                     + resolver.cubismVersion() + "; the host exporter has no MOC 5.3 format.");
         }
+        if (settings.includeArtMeshDisplayInfo()
+                && !resolver.authorizesFeature(
+                        EditorMocExportSelectorContract.ADAPTER_SLICE_ID,
+                        EditorMocExportSelectorContract.DISPLAY_INFO_CAPABILITY_ID,
+                        EditorMocExportSelectorContract.DISPLAY_INFO_ALIASES)) {
+            throw new UnsupportedOperationException(
+                    "Official ArtMesh display information export is unavailable on Cubism " + resolver.cubismVersion()
+                            + ".");
+        }
         return EditorHostThread.dispatch(
                 "Cubism official MOC export", () -> exportOnEdt(identity, source, model, settings));
+    }
+
+    private Optional<String> displayInfo(final Object result, final CubismMocExportSettings settings) {
+        if (!settings.includeArtMeshDisplayInfo()) {
+            return Optional.empty();
+        }
+        // The exporter copy supplies the IDs and names that match the exported MOC.
+        final Object exportedModel = resolver.invoke(EditorMocExportSelectorContract.EXPORTED_MODEL_ALIAS, result);
+        final Object formatter = resolver.construct(EditorMocExportSelectorContract.DISPLAY_INFO_CREATE_ALIAS);
+        final Object value = resolver.invoke(
+                EditorMocExportSelectorContract.DISPLAY_INFO_FORMAT_ALIAS,
+                formatter,
+                exportedModel,
+                INCLUDE_ART_MESH_INFO,
+                PRETTY_PRINT_DISPLAY_INFO);
+        if (!(value instanceof String json)) {
+            throw new IllegalStateException("Official exporter returned no display information.");
+        }
+        return Optional.of(json);
     }
 
     private CubismMocExport exportOnEdt(
@@ -163,7 +194,7 @@ final class EditorMocExportAccess {
             // offscreen render. Copy pixels; never flush or modify that native cache.
             textures.add(new CubismExportTexture(width, height, raster.getRGB(0, 0, width, height, null, 0, width)));
         }
-        return new CubismMocExport(moc, textures, settings);
+        return new CubismMocExport(moc, textures, settings, displayInfo(result, settings));
     }
 
     private static int dimension(final Object value) {
