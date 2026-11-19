@@ -59,6 +59,7 @@ final class KernelStartupSequence {
      * @param hostResolution admission decision, or null for the legacy exact path
      * @param beforePlugins trusted bootstrap work that must finish before plugin code runs
      * @param afterPlugins work that runs once every plugin has loaded
+     * @param workspaceControlVerificationRecord optional record that admits workspace control
      * @return the started runtime
      * @throws IOException if runtime files cannot be prepared
      */
@@ -80,13 +81,15 @@ final class KernelStartupSequence {
             final ClassLoader hostClassLoader,
             final CompatibilityResolution hostResolution,
             final java.util.function.Consumer<KernelRuntime> beforePlugins,
-            final java.util.function.Consumer<KernelRuntime> afterPlugins)
+            final java.util.function.Consumer<KernelRuntime> afterPlugins,
+            final Optional<Path> workspaceControlVerificationRecord)
             throws IOException {
         Objects.requireNonNull(beforePlugins, "beforePlugins");
         Objects.requireNonNull(afterPlugins, "afterPlugins");
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
         Objects.requireNonNull(protectedExportVerificationRecord, "protectedExportVerificationRecord");
+        Objects.requireNonNull(workspaceControlVerificationRecord, "workspaceControlVerificationRecord");
         final Path normalizedHostArtifact = Objects.requireNonNull(hostArtifact, "hostArtifact")
                 .toAbsolutePath()
                 .normalize();
@@ -218,6 +221,17 @@ final class KernelStartupSequence {
                         verifiedHostClassLoader,
                         hostResolution,
                         "ui-bounding-box-overlay"));
+            }
+            if (workspaceControlVerificationRecord.isPresent()) {
+                evidence = evidence.addingWorkspaceControl(KernelHostAdmission.editorSlice(
+                        workspaceControlVerificationRecord
+                                .orElseThrow()
+                                .toAbsolutePath()
+                                .normalize(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader,
+                        hostResolution,
+                        CompatibilityResolution.WORKSPACE_CONTROL_SLICE));
             }
             final HostVerificationEvidence evidenceWithCore = evidence;
             final HostVerificationEvidence evidenceWithStatus = statusBarVerificationRecord

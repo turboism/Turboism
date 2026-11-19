@@ -156,10 +156,13 @@ class ReleaseDetailsTests(unittest.TestCase):
             '5.0.00','5.0.01','5.0.02','5.0.03','5.0.04','5.0.05','5.0.06',
             '5.1.00','5.1.01','5.1.02','5.1.03',
             '5.2.00','5.2.01','5.2.02','5.2.03',
-            '5.3.00','5.3.01','5.3.02','5.3.03','5.3.04',
+            '5.3.00','5.3.01','5.3.02','5.3.03','5.3.04','5.3.05',
         ]
         self.assertEqual(payload['cubismEditor']['versions'], expected_versions)
-        self.assertEqual(payload['cubismEditor']['ranges'], [{'from': '5.0.00', 'to': '5.3.04'}])
+        self.assertEqual(
+            payload['cubismEditor']['ranges'],
+            [{'from': expected_versions[0], 'to': expected_versions[-1]}],
+        )
 
     def test_compatibility_ranges_follow_reviewed_order_and_reject_invalid_inputs(self):
         m=self.module()
