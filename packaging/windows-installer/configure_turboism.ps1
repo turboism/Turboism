@@ -11,6 +11,8 @@ param(
     [switch]$DisableShortcuts,
     [switch]$InitializeSelection,
     [switch]$RefreshReceipt,
+    [switch]$SkipReceipt,
+    [switch]$ResetUpdateState,
     [switch]$MigrateConfig,
     [switch]$ApplyInstallerSelection,
     [switch]$InitializeReceipt,
@@ -139,7 +141,7 @@ function Write-InstallerLog {
 
 function Write-ConfiguratorFailure {
     param([System.Management.Automation.ErrorRecord]$Failure)
-    $mode = if ($IntegrateBat) { "IntegrateBat" } elseif ($DisableBat) { "DisableBat" } elseif ($Cleanup) { "Cleanup" } elseif ($RetirePlugins) { "RetirePlugins" } elseif ($InitializeSelection) { "InitializeSelection" } elseif ($EnableShortcuts) { "EnableShortcuts" } else { "DisableShortcuts" }
+    $mode = if ($IntegrateBat) { "IntegrateBat" } elseif ($DisableBat) { "DisableBat" } elseif ($Cleanup) { "Cleanup" } elseif ($RetirePlugins) { "RetirePlugins" } elseif ($ResetUpdateState) { "ResetUpdateState" } elseif ($InitializeSelection) { "InitializeSelection" } elseif ($EnableShortcuts) { "EnableShortcuts" } else { "DisableShortcuts" }
     Write-InstallerLog "CONFIGURATOR_FAILED" ("mode={0} elevated={1} pid={2} type={3} error={4} file={5} line={6} stack={7}" -f
         $mode, [bool]$Elevated, $PID, $Failure.Exception.GetType().FullName,
         $Failure.Exception.Message, $Failure.InvocationInfo.ScriptName,
@@ -1234,7 +1236,7 @@ if ($hasInstallerSnapshot -ne $hasInstallerSnapshotHash -or
 }
 
 if (@(@(
-    $Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts,
+    $Cleanup, $RetirePlugins, $ResetUpdateState, $IntegrateBat, $DisableBat, $EnableShortcuts,
     $DisableShortcuts, $InitializeSelection, $MigrateConfig, $ApplyInstallerSelection, $InitializeReceipt
 ) | Where-Object { $_ }).Count -gt 1) {
     Write-Error "Configurator operation switches are mutually exclusive"
@@ -1242,6 +1244,14 @@ if (@(@(
 }
 if ($RefreshReceipt -and -not $InitializeSelection) {
     Write-Error "RefreshReceipt requires InitializeSelection"
+    exit 1
+}
+if ($SkipReceipt -and -not $InitializeSelection) {
+    Write-Error "SkipReceipt requires InitializeSelection"
+    exit 1
+}
+if ($RefreshReceipt -and $SkipReceipt) {
+    Write-Error "RefreshReceipt and SkipReceipt are mutually exclusive"
     exit 1
 }
 if (-not $ApplyInstallerSelection -and (
@@ -1305,6 +1315,17 @@ if ($RetirePlugins) {
         exit 1
     }
 }
+if ($ResetUpdateState) {
+    try {
+        Clear-TurboismFrameworkUpdateState -TurboismHome $turboismHome
+        Write-InstallerLog "UPDATE_STATE_RESET"
+        exit 0
+    }
+    catch {
+        Write-ConfiguratorFailure $_
+        exit 1
+    }
+}
 if ($InitializeReceipt) {
     try {
         $bootstrapScript = Join-Path $scriptDir "bootstrap-receipt.ps1"
@@ -1341,35 +1362,37 @@ if ($InitializeSelection) {
         Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $state.BatIntegrations -LaunchMode $state.LaunchMode
         Write-Host "TURBOISM_CUBISM_SELECTION selected=$(@($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count)"
 
-        # Initialize receipt if bootstrap documents are present
-        $bootstrapScript = Join-Path $scriptDir "bootstrap-receipt.ps1"
-        if (-not (Test-Path -LiteralPath $bootstrapScript -PathType Leaf)) {
-            $bootstrapScript = Join-Path $turboismHome "bootstrap-receipt.ps1"
-        }
-        if (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) {
-            $bArgs = @{
-                HomePath = $turboismHome
-                PassThru = $true
+        # Initialize receipt when signed bootstrap documents belong to this package.
+        if (-not $SkipReceipt) {
+            $bootstrapScript = Join-Path $scriptDir "bootstrap-receipt.ps1"
+            if (-not (Test-Path -LiteralPath $bootstrapScript -PathType Leaf)) {
+                $bootstrapScript = Join-Path $turboismHome "bootstrap-receipt.ps1"
             }
-            if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
-                $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
-            }
-            if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
-                $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
-            }
-            if ($RefreshReceipt) {
-                $bArgs["RefreshExisting"] = $true
-            }
-            $receiptOutput = @(& $bootstrapScript @bArgs)
-            $receiptResult = if ($receiptOutput.Count -eq 0) { $null } else { $receiptOutput[$receiptOutput.Count - 1] }
-            $receiptSuccess = $null -ne $receiptResult -and [bool]$receiptResult.Success
-            if (-not $receiptSuccess) {
-                $receiptExitCode = if ($null -ne $receiptResult -and $null -ne $receiptResult.ExitCode) { [int]$receiptResult.ExitCode } elseif ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 }
-                $receiptDetail = if ($null -ne $receiptResult -and -not [string]::IsNullOrWhiteSpace($receiptResult.Output)) { ($receiptResult.Output -replace '[\r\n]+', ' ').Trim() } else { "" }
-                Write-InstallerLog "BOOTSTRAP_RECEIPT_FAILED" ("exitCode={0} detail={1}" -f $receiptExitCode, $receiptDetail)
-                $errorDetail = if ([string]::IsNullOrWhiteSpace($receiptDetail)) { "" } else { ": $receiptDetail" }
-                Write-Error "Bootstrap receipt initialization failed with exit code $receiptExitCode$errorDetail"
-                exit $receiptExitCode
+            if (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) {
+                $bArgs = @{
+                    HomePath = $turboismHome
+                    PassThru = $true
+                }
+                if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshot)) {
+                    $bArgs["DiscoverySnapshot"] = $InstallerDiscoverySnapshot
+                }
+                if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoverySnapshotSha256)) {
+                    $bArgs["DiscoverySnapshotSha256"] = $InstallerDiscoverySnapshotSha256
+                }
+                if ($RefreshReceipt) {
+                    $bArgs["RefreshExisting"] = $true
+                }
+                $receiptOutput = @(& $bootstrapScript @bArgs)
+                $receiptResult = if ($receiptOutput.Count -eq 0) { $null } else { $receiptOutput[$receiptOutput.Count - 1] }
+                $receiptSuccess = $null -ne $receiptResult -and [bool]$receiptResult.Success
+                if (-not $receiptSuccess) {
+                    $receiptExitCode = if ($null -ne $receiptResult -and $null -ne $receiptResult.ExitCode) { [int]$receiptResult.ExitCode } elseif ($LASTEXITCODE -ne 0) { [int]$LASTEXITCODE } else { 1 }
+                    $receiptDetail = if ($null -ne $receiptResult -and -not [string]::IsNullOrWhiteSpace($receiptResult.Output)) { ($receiptResult.Output -replace '[\r\n]+', ' ').Trim() } else { "" }
+                    Write-InstallerLog "BOOTSTRAP_RECEIPT_FAILED" ("exitCode={0} detail={1}" -f $receiptExitCode, $receiptDetail)
+                    $errorDetail = if ([string]::IsNullOrWhiteSpace($receiptDetail)) { "" } else { ": $receiptDetail" }
+                    Write-Error "Bootstrap receipt initialization failed with exit code $receiptExitCode$errorDetail"
+                    exit $receiptExitCode
+                }
             }
         }
         exit 0

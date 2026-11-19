@@ -1572,6 +1572,12 @@ FunctionEnd
 
 !define CUBISM_DISCOVERY_HANDOFF '-InstallerDiscoverySnapshot "$CubismDiscoveryResult.json" -InstallerDiscoverySnapshotSha256 "$CubismDiscoverySnapshotHash"'
 
+!ifdef BOOTSTRAP_RECEIPT_DIR
+  !define INITIALIZE_RECEIPT_SWITCH "-RefreshReceipt"
+!else
+  !define INITIALIZE_RECEIPT_SWITCH "-SkipReceipt"
+!endif
+
 ; Final configuration runs from a Section, never from the .onInstSuccess callback.
 ; That callback runs on the UI thread, so a blocking wait freezes the wizard into
 ; "Not Responding" and ShellExecuteEx cannot finish the elevation launch. A Section
@@ -1584,7 +1590,7 @@ Function RunFinalConfiguration
     Goto InstallerConfigurationDone
   ${EndIf}
   StrCpy $InstallerConfigurationOperation "InitializeSelection"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection -RefreshReceipt ${CUBISM_DISCOVERY_HANDOFF}'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection ${INITIALIZE_RECEIPT_SWITCH} ${CUBISM_DISCOVERY_HANDOFF}'
   Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)" /SD IDOK
@@ -1741,6 +1747,14 @@ Section "-核心文件" SecCore
   FileOpen $0 "$INSTDIR\installed-build.json" w
   FileWrite $0 '{"schemaVersion":1,"variant":"full","version":"${VER}"}$\r$\n'
   FileClose $0
+
+  ; Purge stale bootstrap manifests and update journals before laying down this package's receipts.
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -ResetUpdateState'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+    Abort
+  ${EndIf}
 
 !ifdef BOOTSTRAP_RECEIPT_DIR
   SetOutPath "$INSTDIR\bootstrap"
