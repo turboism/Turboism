@@ -249,6 +249,9 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                     readEntry(jar, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
             final byte[] patched = TriangulationAngleGuardPatcher.patch(original);
             assertEquals(structure(original, "d"), structure(patched, "d"));
+            final byte[] atlas = TriangulationAngleGuardPatcher.patchForAtlas(original);
+            assertEquals(structure(original, "d"), structure(atlas, "d"));
+            assertThrows(IllegalArgumentException.class, () -> TriangulationAngleGuardPatcher.patchForAtlas(atlas));
             final List<String> calls = new ArrayList<>();
             new ClassReader(patched)
                     .accept(

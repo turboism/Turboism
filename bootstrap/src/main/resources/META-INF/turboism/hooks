@@ -22,6 +22,8 @@ dev.turboism.bootstrap.MeshToolSessionHookContributor
 dev.turboism.bootstrap.ModelingToolHookContributor
 dev.turboism.bootstrap.WarpAltMirrorHookContributor
 dev.turboism.bootstrap.MeshTriangulationHashHookContributor
+# The scoped atlas transformer checks native TriangleList bytes before the general edge weave.
+dev.turboism.bootstrap.TextureAtlasLoadingHookContributor
 dev.turboism.bootstrap.TriangulationEdgeIndexHookContributor
 dev.turboism.bootstrap.AtlasTileBboxHookContributor
 dev.turboism.bootstrap.AtlasCacheReuseHookContributor

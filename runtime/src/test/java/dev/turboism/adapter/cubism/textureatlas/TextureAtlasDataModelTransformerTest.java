@@ -1,9 +1,15 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.EventQueue;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -45,6 +51,45 @@ class TextureAtlasDataModelTransformerTest {
         } finally {
             capture.close();
         }
+    }
+
+    @Test
+    void atlasLoadingClearsItsScopeWhenNativeInitializationFails() throws Exception {
+        final var initializer = MethodHandles.lookup()
+                .findStatic(
+                        TextureAtlasDataModelTransformerTest.class,
+                        "failWhileLoading",
+                        MethodType.methodType(void.class, Object.class));
+        final var failure = new IllegalStateException("Native initialization failed");
+        EventQueue.invokeAndWait(() -> {
+            assertSame(
+                    failure,
+                    assertThrows(IllegalStateException.class, () -> TextureAtlasLoading.run(failure, initializer)));
+            assertFalse(TextureAtlasLoading.isInitializing());
+        });
+    }
+
+    private static void failWhileLoading(final Object failure) {
+        assertTrue(TextureAtlasLoading.isInitializing());
+        TextureAtlasLoading.layerReady();
+        throw (IllegalStateException) failure;
+    }
+
+    @Test
+    void nativeSolverKeepsItsCallerThreadOutsideAtlasLoading() throws Throwable {
+        final var solver = new AtomicReference<Thread>();
+        final var nativeSolve = MethodHandles.lookup()
+                .findStatic(
+                        TextureAtlasDataModelTransformerTest.class,
+                        "recordSolveThread",
+                        MethodType.methodType(void.class, AtomicReference.class, Object.class));
+        assertFalse(TextureAtlasParallelMeshes.capture(solver, null, nativeSolve));
+        assertSame(solver, TextureAtlasParallelMeshes.solve(solver, null, null, nativeSolve));
+        assertSame(Thread.currentThread(), solver.get());
+    }
+
+    private static void recordSolveThread(final AtomicReference<Thread> solver, final Object progress) {
+        solver.set(Thread.currentThread());
     }
 
     private static byte[] fixtureClass() {
