@@ -19,7 +19,8 @@ class PerformanceSettingsConfigTest {
         for (boolean proton : new boolean[] {false, true}) {
             for (Field field : Field.values()) {
                 if (field.nativeOptimization()) {
-                    assertEquals(Boolean.toString(field == Field.ATLAS_LOADING), field.defaultValue(proton), field.key());
+                    assertEquals(
+                            Boolean.toString(field == Field.ATLAS_LOADING), field.defaultValue(proton), field.key());
                 }
             }
             assertEquals("true", Field.ZGC.defaultValue(proton));
