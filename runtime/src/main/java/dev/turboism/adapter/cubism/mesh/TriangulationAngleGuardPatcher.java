@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoading;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -16,10 +17,22 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
     private static final String ANGLE = "(L" + V + ";L" + V + ";)F";
     private static final String BRIDGE = "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge";
     private static final String HELPER = "dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard";
+    private static final String ATLAS_BRIDGE = Type.getInternalName(TextureAtlasLoading.class);
+    private static final String ATLAS_ACTIVE = "isInitializing";
+    private static final String BOOLEAN_METHOD = "()Z";
 
     private TriangulationAngleGuardPatcher() {}
 
     static byte[] patch(final byte[] bytes) {
+        return patch(bytes, false);
+    }
+
+    /** Uses the atlas initialization scope to preserve the native angle path in other tools. */
+    static byte[] patchForAtlas(final byte[] bytes) {
+        return patch(bytes, true);
+    }
+
+    private static byte[] patch(final byte[] bytes, final boolean atlasOnly) {
         final ClassReader reader = new ClassReader(bytes);
         require(reader.getClassName().equals(H), "unreviewed native d owner");
         final int[] maxLocals = {-1};
@@ -35,6 +48,16 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
                         if (!name.equals("d") || !descriptor.equals("()V")) return null;
                         require(access == (ACC_PUBLIC | ACC_FINAL), "native d access");
                         return new MethodVisitor(ASM9) {
+                            @Override
+                            public void visitMethodInsn(
+                                    final int opcode,
+                                    final String owner,
+                                    final String name,
+                                    final String descriptor,
+                                    final boolean isInterface) {
+                                require(!owner.equals(ATLAS_BRIDGE), "native d already uses the atlas bridge");
+                            }
+
                             @Override
                             public void visitTryCatchBlock(
                                     final Label start, final Label end, final Label handler, final String type) {
@@ -67,7 +90,9 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
                             final String signature,
                             final String[] exceptions) {
                         final MethodVisitor output = super.visitMethod(access, name, descriptor, signature, exceptions);
-                        return name.equals("d") && descriptor.equals("()V") ? new Guard(output, maxLocals[0]) : output;
+                        return name.equals("d") && descriptor.equals("()V")
+                                ? new Guard(output, maxLocals[0], atlasOnly)
+                                : output;
                     }
                 },
                 ClassReader.EXPAND_FRAMES);
@@ -75,29 +100,37 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
     }
 
     private static final class Guard extends MethodVisitor {
-        private final int ready, misses, lease, failure;
+        private final int ready, misses, activation, failure;
+        private final boolean atlasOnly;
         private final Label start = new Label(), end = new Label(), done = new Label(), failed = new Label();
         private final Label bypass = new Label();
         private Label nativeRejected;
         private int angles;
         private boolean findRejection, warmAfterStore;
 
-        Guard(final MethodVisitor output, final int locals) {
+        Guard(final MethodVisitor output, final int locals, final boolean atlasOnly) {
             super(ASM9, output);
+            this.atlasOnly = atlasOnly;
             ready = locals;
             misses = locals + 1;
-            lease = locals + 2;
+            activation = locals + 2;
             failure = locals + 3;
         }
 
         @Override
         public void visitCode() {
             super.visitCode();
-            super.visitLdcInsn(Type.getObjectType(H));
-            super.visitMethodInsn(INVOKESTATIC, BRIDGE, "enter", "(Ljava/lang/Class;)Ljava/lang/AutoCloseable;", false);
-            super.visitVarInsn(ASTORE, lease);
-            super.visitTryCatchBlock(start, end, failed, "java/lang/Throwable");
-            super.visitLabel(start);
+            if (atlasOnly) {
+                super.visitMethodInsn(INVOKESTATIC, ATLAS_BRIDGE, ATLAS_ACTIVE, BOOLEAN_METHOD, false);
+                super.visitVarInsn(ISTORE, activation);
+            } else {
+                super.visitLdcInsn(Type.getObjectType(H));
+                super.visitMethodInsn(
+                        INVOKESTATIC, BRIDGE, "enter", "(Ljava/lang/Class;)Ljava/lang/AutoCloseable;", false);
+                super.visitVarInsn(ASTORE, activation);
+                super.visitTryCatchBlock(start, end, failed, "java/lang/Throwable");
+                super.visitLabel(start);
+            }
             constant(ICONST_0, ready);
             constant(ICONST_0, misses);
         }
@@ -112,8 +145,8 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
 
         private void guard() {
             final Label nativeCall = new Label(), reject = new Label();
-            super.visitVarInsn(ALOAD, lease);
-            super.visitJumpInsn(IFNULL, nativeCall);
+            super.visitVarInsn(atlasOnly ? ILOAD : ALOAD, activation);
+            super.visitJumpInsn(atlasOnly ? IFEQ : IFNULL, nativeCall);
             super.visitVarInsn(ILOAD, ready);
             super.visitJumpInsn(IFLE, nativeCall);
             getter(11, "getX");
@@ -180,7 +213,7 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
 
         @Override
         public void visitInsn(final int opcode) {
-            if (opcode == RETURN) super.visitJumpInsn(GOTO, done);
+            if (opcode == RETURN && !atlasOnly) super.visitJumpInsn(GOTO, done);
             else super.visitInsn(opcode);
         }
 
@@ -192,15 +225,17 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
             // The native rejection target is a backward loop label, already visited.
             super.visitLabel(bypass);
             super.visitJumpInsn(GOTO, nativeRejected);
-            super.visitLabel(end);
-            super.visitLabel(done);
-            leave();
-            super.visitInsn(RETURN);
-            super.visitLabel(failed);
-            super.visitVarInsn(ASTORE, failure);
-            leave();
-            super.visitVarInsn(ALOAD, failure);
-            super.visitInsn(ATHROW);
+            if (!atlasOnly) {
+                super.visitLabel(end);
+                super.visitLabel(done);
+                leave();
+                super.visitInsn(RETURN);
+                super.visitLabel(failed);
+                super.visitVarInsn(ASTORE, failure);
+                leave();
+                super.visitVarInsn(ALOAD, failure);
+                super.visitInsn(ATHROW);
+            }
             super.visitMaxs(0, 0);
         }
 
@@ -215,7 +250,7 @@ final class TriangulationAngleGuardPatcher implements Opcodes {
         }
 
         private void leave() {
-            super.visitVarInsn(ALOAD, lease);
+            super.visitVarInsn(ALOAD, activation);
             super.visitMethodInsn(INVOKESTATIC, BRIDGE, "leave", "(Ljava/lang/AutoCloseable;)V", false);
         }
     }

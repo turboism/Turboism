@@ -23,6 +23,28 @@ import org.junit.jupiter.api.Test;
 final class TriangulationEdgeIndexTest {
 
     @Test
+    void atlasSetPreservesNativeMembershipAndOrderThroughTheEdgeIndex() {
+        final var triangles = new TextureAtlasTriangleSet(value -> java.util.Arrays.hashCode(((Tri) value).coords));
+        final float[] firstCoordinates = {10, 20, 30};
+        final float[] secondCoordinates = {40, 50, 60};
+        final Tri first = new Tri(1, 2, 3, firstCoordinates);
+        final Tri sameGeometry = new Tri(7, 8, 9, firstCoordinates.clone());
+        final Tri second = new Tri(1, 2, 4, secondCoordinates);
+
+        assertTrue(TextureAtlasTriangleSet.add(triangles, first, first.ia, first.ib, first.ic));
+        assertFalse(TextureAtlasTriangleSet.add(
+                triangles, sameGeometry, sameGeometry.ia, sameGeometry.ib, sameGeometry.ic));
+        assertTrue(TextureAtlasTriangleSet.add(triangles, second, second.ia, second.ib, second.ic));
+        final Iterator<Object> order = triangles.iterator();
+        assertSame(first, order.next());
+        assertSame(second, order.next());
+        assertTrue(TextureAtlasTriangleSet.remove(triangles, sameGeometry));
+        assertSame(second, triangles.iterator().next());
+        TextureAtlasTriangleSet.clear(triangles);
+        assertTrue(triangles.isEmpty());
+    }
+
+    @Test
     void localBuilderMembershipPreservesUndirectedPairsThroughGrowth() {
         final TriangulationBuilderEdges state = TriangulationBuilderEdges.create();
         final java.util.Set<List<Integer>> expected = new java.util.HashSet<>();

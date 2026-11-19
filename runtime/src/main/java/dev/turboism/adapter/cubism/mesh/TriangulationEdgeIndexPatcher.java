@@ -68,6 +68,16 @@ public final class TriangulationEdgeIndexPatcher {
     private static final String A_J_DESC = "(L" + EDGE + ";)Ljava/util/List;";
     private static final String POINT_DESC = "L" + POINT + ";";
 
+    private final String bridge;
+
+    public TriangulationEdgeIndexPatcher() {
+        this(BRIDGE);
+    }
+
+    TriangulationEdgeIndexPatcher(final String bridge) {
+        this.bridge = bridge;
+    }
+
     /** Thrown when the class is not exactly the reviewed shape; the caller keeps the original. */
     public static final class NotApplicable extends RuntimeException {
         private static final long serialVersionUID = 1L;
@@ -329,7 +339,7 @@ public final class TriangulationEdgeIndexPatcher {
                                                 emitVertexIndices(this, 1);
                                                 super.visitMethodInsn(
                                                         Opcodes.INVOKESTATIC,
-                                                        BRIDGE,
+                                                        bridge,
                                                         "add",
                                                         "(Ljava/util/LinkedHashSet;" + OBJ + "III)Z",
                                                         false);
@@ -354,7 +364,7 @@ public final class TriangulationEdgeIndexPatcher {
                                                     && ("(" + OBJ + ")Z").equals(d)) {
                                                 super.visitMethodInsn(
                                                         Opcodes.INVOKESTATIC,
-                                                        BRIDGE,
+                                                        bridge,
                                                         "remove",
                                                         "(Ljava/util/LinkedHashSet;" + OBJ + ")Z",
                                                         false);
@@ -379,7 +389,7 @@ public final class TriangulationEdgeIndexPatcher {
                                                     && ("(" + OBJ + ")Z").equals(d)) {
                                                 super.visitMethodInsn(
                                                         Opcodes.INVOKESTATIC,
-                                                        BRIDGE,
+                                                        bridge,
                                                         "contains",
                                                         "(Ljava/util/LinkedHashSet;" + OBJ + ")Z",
                                                         false);
@@ -404,7 +414,7 @@ public final class TriangulationEdgeIndexPatcher {
                                                     && "()V".equals(d)) {
                                                 super.visitMethodInsn(
                                                         Opcodes.INVOKESTATIC,
-                                                        BRIDGE,
+                                                        bridge,
                                                         "clear",
                                                         "(Ljava/util/LinkedHashSet;)V",
                                                         false);
@@ -553,7 +563,7 @@ public final class TriangulationEdgeIndexPatcher {
      * Emits the {@code tryQuery} dispatch: empty stack pushes the probe result, a null falls
      * through to the untouched original body, a non-null returns the snapshot list.
      */
-    private static void injectTryQuery(final MethodVisitor mv) {
+    private void injectTryQuery(final MethodVisitor mv) {
         final Label original = new Label();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitFieldInsn(Opcodes.GETFIELD, OWNER, SET_FIELD, SET_DESC);
@@ -564,7 +574,7 @@ public final class TriangulationEdgeIndexPatcher {
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, EDGE, "b", "()" + POINT_DESC, false);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, POINT, "getIndex", "()I", false);
         mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, BRIDGE, "tryQuery", "(Ljava/util/LinkedHashSet;II)Ljava/util/List;", false);
+                Opcodes.INVOKESTATIC, bridge, "tryQuery", "(Ljava/util/LinkedHashSet;II)Ljava/util/List;", false);
         mv.visitInsn(Opcodes.DUP);
         mv.visitJumpInsn(Opcodes.IFNULL, original);
         mv.visitInsn(Opcodes.ARETURN);
