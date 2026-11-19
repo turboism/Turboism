@@ -28,6 +28,7 @@ final class ReviewedVersions {
             5.3.02
             5.3.03
             5.3.04
+            5.3.05
             """.lines().toList();
 
     /** @return reviewed releases starting at the exact reviewed boundary */

@@ -47,10 +47,6 @@
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
     },
     {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/warpalt/WarpAltMirrorHostProfile.java: The reviewed 5.3.04 JAR moves the canvas toolbar from context/a/b to context/b/b; the former owner is now a TimerTask. WarpAltMirrorReviewedArtifactsTest checks the exact mount/layout selectors and button surfaces against every reviewed JAR, while the complete 5.3.x admission set remains unchanged."
-    },
-    {
       "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
       "evidence": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },

@@ -389,6 +389,13 @@
         "path": "/metadata/inventoryRef",
         "value": "compatibility/cubism/verification/cubism-5.3.04-project-workspace.json"
       }
+    ],
+    "5.3.05": [
+      {
+        "op": "replace",
+        "path": "/metadata/inventoryRef",
+        "value": "compatibility/cubism/verification/cubism-5.3.05-project-workspace.json"
+      }
     ]
   }
 }

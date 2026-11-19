@@ -44,9 +44,9 @@ interface: swing
 - **依存関係:** なし。
 
 <!-- compatibility:begin -->
-**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04、20 個の正確なバージョン）.
-全機能（審査済みバージョン）：5.3.00–5.3.04。
-- パーツ不透明度書き込み のみ 5.3.00–5.3.04（[Cubism 5.3.00 でPart offscreen drawing (part opacity and clipping masks)を追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05、21 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.3.00–5.3.05。
+- パーツ不透明度書き込み のみ 5.3.00–5.3.05（[Cubism 5.3.00 でPart offscreen drawing (part opacity and clipping masks)を追加](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 - トップメニュー統合 対象外 5.0.00–5.0.06（それ以前の Cubism バージョンには機能自体がない）
 完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
 <!-- compatibility:end -->

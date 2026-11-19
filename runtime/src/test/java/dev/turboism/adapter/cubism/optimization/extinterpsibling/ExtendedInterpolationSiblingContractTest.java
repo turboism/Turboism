@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 final class ExtendedInterpolationSiblingContractTest {
 
-    private static final int EXPECTED_TOTAL_TARGETS = 20;
+    private static final int EXPECTED_TOTAL_TARGETS = 21;
     private static final int EXPECTED_METHOD_DEPENDENCIES = 9;
     private static final int SYNTHETIC_SIZE_BYTES = 1024;
     private static final int SHA256_HEX_LENGTH = 64;
@@ -24,7 +24,7 @@ final class ExtendedInterpolationSiblingContractTest {
             new HostArtifactDigest(SYNTHETIC_SIZE_BYTES, "0".repeat(SHA256_HEX_LENGTH));
 
     @Test
-    void targetsCoverAllTwentyReviewedReleasesAndRefuseUnreviewedDigest() {
+    void targetsCoverAllReviewedReleasesAndRefuseUnreviewedDigest() {
         final List<ExtendedInterpolationSiblingTarget> targets = ExtendedInterpolationSiblingTarget.all();
         assertEquals(EXPECTED_TOTAL_TARGETS, targets.size());
         assertTrue(ExtendedInterpolationSiblingTarget.of(UNREVIEWED_DIGEST).isEmpty());

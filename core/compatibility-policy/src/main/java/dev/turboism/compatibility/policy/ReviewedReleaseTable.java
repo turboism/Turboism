@@ -31,7 +31,8 @@ public final class ReviewedReleaseTable {
             new Release("5.3.01", 503010000, 6, 0, 257, true),
             new Release("5.3.02", 503020001, 6, 0, 257, true),
             new Release("5.3.03", 503030001, 6, 0, 257, true),
-            new Release("5.3.04", 503040001, 6, 0, 513, true));
+            new Release("5.3.04", 503040001, 6, 0, 513, true),
+            new Release("5.3.05", 503050001, 6, 0, 513, true));
 
     /** @return all reviewed releases in table order */
     public static List<Release> all() {

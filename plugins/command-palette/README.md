@@ -46,8 +46,8 @@ Opens a Ctrl+K launcher over the Editor's supported menu commands and other plug
 - **Plugin dependencies:** None declared.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04（earlier Cubism versions lack the feature entirely）.
-Full feature set (reviewed versions): 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04.
+**Cubism Editor version support (generated):** 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05（earlier Cubism versions lack the feature entirely）.
+Full feature set (reviewed versions): 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05.
 - Top menu integration not on 5.0.00–5.0.06（earlier Cubism versions lack the feature entirely）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->

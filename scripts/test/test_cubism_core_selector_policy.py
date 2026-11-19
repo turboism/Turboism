@@ -66,7 +66,7 @@ ALL_VERSIONS = [pack.name.removeprefix("cubism-").removesuffix("-core-model-read
 def main() -> int:
     policy = load_json(POLICY)
     packs = load_packs(ALL_PACKS)
-    require(len(packs) == 20, "the Core matrix must cover all twenty reviewed versions")
+    require(len(packs) == 21, "the Core matrix must cover all reviewed versions")
     record_policy, record_roster = validate_policy(policy, load_records(ROOT / "build/generated/verification"))
     validated, roster = validate_policy(policy, packs)
     require(render_java(record_policy, record_roster) == render_java(validated, roster),
@@ -75,7 +75,7 @@ def main() -> int:
     require(len(roster) == 83, "selector count drifted")
     require(
         validated["summary"]["selectorRosterSha256"]
-        == "f9c50859eba16158f16510b15c9d012a2c61b2b55af612125317c8f8d1750edb",
+        == "debfe4c4d77d776a5ada74f7036a78d7d91acfa4ec61daaaea4063162f18ad8c",
         "selector roster digest drifted",
     )
     require(
@@ -92,14 +92,14 @@ def main() -> int:
     repeat = selector(roster, "PARAMETERS_GET_REPEATS")
     require(
         repeat["alias"] == "cubism.core.parameters.repeats"
-        and repeat["profiles"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"]
+        and repeat["profiles"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"]
         and repeat["descriptor"] == "()[Z",
         "5.3-only repeat selector drifted",
     )
     render_orders = selector(roster, "MODEL_GET_RENDER_ORDERS")
     require(
         render_orders["alias"] == "cubism.core.model.get-render-orders"
-        and render_orders["profiles"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"]
+        and render_orders["profiles"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"]
         and render_orders["descriptor"] == "()[I",
         "5.3-only model render-order selector drifted",
     )
@@ -196,7 +196,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core selector policy "
-        "(83 selectors, 20 profiles, roster f9c50859)"
+        "(83 selectors, 21 profiles, roster debfe4c4)"
     )
     return 0
 

@@ -20,7 +20,8 @@
     "5.3.01",
     "5.3.02",
     "5.3.03",
-    "5.3.04"
+    "5.3.04",
+    "5.3.05"
   ],
   "templates": [
     {
@@ -51,170 +52,170 @@
   "entries": {
     "cubism.ui-canvas-hint.app-controller.current-view-context": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-canvas-hint.position.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-canvas-hint.position.create": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-canvas-hint.view-context.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-canvas-hint.view-context.show-hint": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-canvas-hint.view-context.show-hint-with-action": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.app-controller.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.app-controller.instance": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.app-controller.main-frame": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.container.add": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.container.children": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.container.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.container.remove": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.frame.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.frame.content-pane": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.label.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.label.create": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.label.set-text": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.label.text": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.main-frame-controller.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.main-frame-controller.frame": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.memory-viewer.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.widget.class": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 0
       }
     ],
     "cubism.ui-status-bar.widget.repaint": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.widget.revalidate": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.widget.set-name": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ],
     "cubism.ui-status-bar.widget.set-tooltip": [
       {
-        "versions": "5.0.00-5.3.04",
+        "versions": "5.0.00-5.3.05",
         "template": 1
       }
     ]
   },
   "envelopes": [
     {
-      "versions": "5.0.00-5.3.04",
+      "versions": "5.0.00-5.3.05",
       "value": {
         "cubismVersion": "${version}",
         "format": "turboism.mapping.pack",

@@ -32,6 +32,7 @@ class CoreVersionExpectationTest {
             expected.put(version, new CoreRuntimeVersion(6, 0, 257));
         }
         expected.put("5.3.04", new CoreRuntimeVersion(6, 0, 513));
+        expected.put("5.3.05", new CoreRuntimeVersion(6, 0, 513));
 
         assertEquals(
                 ReviewedHostArtifacts.reviewedCubismVersions(),
@@ -61,7 +62,7 @@ class CoreVersionExpectationTest {
     void unknownOrPartialVersionIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> CoreVersionExpectation.reviewedProfile("5.4"));
         assertThrows(IllegalArgumentException.class, () -> CoreVersionExpectation.reviewedProfile("5.3"));
-        assertThrows(IllegalArgumentException.class, () -> CoreVersionExpectation.reviewedProfile("5.3.05"));
+        assertThrows(IllegalArgumentException.class, () -> CoreVersionExpectation.reviewedProfile("5.3.06"));
         assertThrows(IllegalArgumentException.class, () -> CoreVersionExpectation.reviewedProfile(""));
         assertThrows(NullPointerException.class, () -> CoreVersionExpectation.reviewedProfile(null));
     }

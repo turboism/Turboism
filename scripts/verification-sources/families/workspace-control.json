@@ -21,7 +21,8 @@
   "cubism-5.3.01-workspace-control.json",
   "cubism-5.3.02-workspace-control.json",
   "cubism-5.3.03-workspace-control.json",
-  "cubism-5.3.04-workspace-control.json"
+  "cubism-5.3.04-workspace-control.json",
+  "cubism-5.3.05-workspace-control.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/WorkspaceControlVerificationManifest.java"

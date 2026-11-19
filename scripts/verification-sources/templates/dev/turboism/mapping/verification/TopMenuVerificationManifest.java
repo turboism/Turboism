@@ -37,6 +37,7 @@ public final class TopMenuVerificationManifest {
     public static final String CUBISM_VERSION_5_3_03 = "${record:cubism-5.3.03-ui-top-menu.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.3.04 artifact. */
     public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-ui-top-menu.json:cubismVersion}";
+    public static final String CUBISM_VERSION_5_3_05 = "${record:cubism-5.3.05-ui-top-menu.json:cubismVersion}";
 
     /** Reviewed record admitted for exact Cubism 5.1.00. */
     public static final ReviewedSliceRecord RECORD_5_1_00 = new ReviewedSliceRecord(
@@ -129,6 +130,12 @@ public final class TopMenuVerificationManifest {
         CUBISM_VERSION_5_3_04,
         "${record:cubism-5.3.04-ui-top-menu.json:profileId}"
     );
+    public static final ReviewedSliceRecord RECORD_5_3_05 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_05,
+        "${record:cubism-5.3.05-ui-top-menu.json:verificationId}",
+        CUBISM_VERSION_5_3_05,
+        "${record:cubism-5.3.05-ui-top-menu.json:profileId}"
+    );
     private static final List<ReviewedSliceRecord> RECORDS = List.of(
         RECORD_5_1_00,
         RECORD_5_1_01,
@@ -142,7 +149,8 @@ public final class TopMenuVerificationManifest {
         RECORD_5_3_01,
         RECORD_5_3_02,
         RECORD_5_3_03,
-        RECORD_5_3_04
+        RECORD_5_3_04,
+        RECORD_5_3_05
     );
 
 

@@ -492,6 +492,35 @@
       "com/live2d/doc/selection/d",
       "com/live2d/graphics/splineCurve/CSplineCurvePoint",
       "com/live2d/graphics3d/type/GVector2"
+    ],
+    "5.3.05": [
+      "com/live2d/cubism/doc/ACEditMode",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/cubism/doc/model/CModel",
+      "com/live2d/cubism/doc/model/CModelSource",
+      "com/live2d/cubism/doc/model/az",
+      "com/live2d/cubism/doc/model/deformer/ACDeformer",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm",
+      "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerSource",
+      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/ACDrawable",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artPath/CArtPathForm",
+      "com/live2d/cubism/doc/model/drawable/artPath/CArtPathPoint",
+      "com/live2d/cubism/doc/model/param/CParameter",
+      "com/live2d/cubism/doc/model/param/CParameterSet",
+      "com/live2d/cubism/doc/modeling/CModelingDocument",
+      "com/live2d/cubism/view/ay",
+      "com/live2d/cubism/view/context/CEViewContext",
+      "com/live2d/cubism/view/context/bM",
+      "com/live2d/doc/selection/d",
+      "com/live2d/graphics/splineCurve/CSplineCurvePoint",
+      "com/live2d/graphics3d/type/GVector2"
     ]
   }
 }

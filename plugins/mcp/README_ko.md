@@ -42,8 +42,8 @@ interface: swing
 - **プラグイン依存関係:** 宣言されていません。
 
 <!-- compatibility:begin -->
-**Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).
-전체 기능(검토된 버전): 5.3.00–5.3.04.
+**Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05, 정확한 버전 21개).
+전체 기능(검토된 버전): 5.3.00–5.3.05.
 - 외부 편집 세션 API(edit()) 제외 5.0.00–5.1.01（[Cubism 5.1.00에 External application integration (WebSocket API) 추가](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/)）
 - 상단 메뉴 통합 제외 5.0.00–5.0.06（이전 Cubism 버전에는 기능 자체가 없음）
 - MCP Editor 명령 실행 제외 5.0.00–5.0.06（이전 Cubism 버전에는 기능 자체가 없음）

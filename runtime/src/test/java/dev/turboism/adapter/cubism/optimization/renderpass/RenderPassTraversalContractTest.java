@@ -15,13 +15,13 @@ import org.junit.jupiter.api.Test;
  */
 final class RenderPassTraversalContractTest {
 
-    private static final int EXPECTED_TOTAL_TARGETS = 20;
+    private static final int EXPECTED_TOTAL_TARGETS = 21;
     private static final int EXPECTED_PRE_53_TARGETS = 15;
-    private static final int EXPECTED_53_TARGETS = 5;
+    private static final int EXPECTED_53_TARGETS = 6;
     private static final HostArtifactDigest UNREVIEWED_DIGEST = new HostArtifactDigest(1024, "0".repeat(64));
 
     @Test
-    void targetsCoverAllTwentyReviewedReleasesWithVersionRoutedDescriptors() {
+    void targetsCoverAllReviewedReleasesWithVersionRoutedDescriptors() {
         final List<RenderPassTraversalTarget> targets = RenderPassTraversalTarget.all();
         assertEquals(EXPECTED_TOTAL_TARGETS, targets.size());
         assertTrue(RenderPassTraversalTarget.of(UNREVIEWED_DIGEST).isEmpty());

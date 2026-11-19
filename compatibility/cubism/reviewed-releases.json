@@ -320,6 +320,22 @@
       },
       "fullRuntime": true,
       "hostLabel": "Live2D Cubism 5.3.04"
+    },
+    {
+      "version": "5.3.05",
+      "build": 503050001,
+      "artifact": {
+        "name": "Live2D_Cubism.jar",
+        "size": 42216843,
+        "sha256": "8017d699d5fb77c5c6716bbb91c5c1d6945407416ca486ea6cf5f0a07056834b"
+      },
+      "core": {
+        "major": 6,
+        "minor": 0,
+        "patch": 513
+      },
+      "fullRuntime": true,
+      "hostLabel": "Live2D Cubism 5.3.05"
     }
   ]
 }

@@ -174,6 +174,14 @@ public final class WorkspaceControlVerificationManifest {
                 "${record:cubism-5.3.04-workspace-control.json:adapterSliceId}"
             );
         }
+        if (ReviewedHostArtifacts.CUBISM_5_3_05.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.3.05-workspace-control.json:verificationId}",
+                ReviewedHostArtifacts.CUBISM_5_3_05_VERSION, "${record:cubism-5.3.05-workspace-control.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_05.size(), artifact.sha256(),
+                "${record:cubism-5.3.05-workspace-control.json:adapterSliceId}"
+            );
+        }
         throw new IllegalArgumentException("host artifact is not a reviewed Cubism workspace-control artifact");
     }
 

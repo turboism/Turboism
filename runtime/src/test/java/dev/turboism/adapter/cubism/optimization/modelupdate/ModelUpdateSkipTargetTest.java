@@ -13,7 +13,8 @@ public class ModelUpdateSkipTargetTest {
 
     @Test
     void everyReviewedArtifactHasExactlyOneTarget() {
-        assertEquals(20, ModelUpdateSkipTarget.all().size());
+        assertEquals(
+                ReviewedHostArtifacts.all().size(), ModelUpdateSkipTarget.all().size());
         for (ModelUpdateSkipTarget target : ModelUpdateSkipTarget.all()) {
             assertSame(target, ModelUpdateSkipTarget.of(target.digest()).orElseThrow());
         }

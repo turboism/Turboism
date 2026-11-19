@@ -14,7 +14,8 @@
   "cubism-5.3.01-ui-top-menu.json",
   "cubism-5.3.02-ui-top-menu.json",
   "cubism-5.3.03-ui-top-menu.json",
-  "cubism-5.3.04-ui-top-menu.json"
+  "cubism-5.3.04-ui-top-menu.json",
+  "cubism-5.3.05-ui-top-menu.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/TopMenuVerificationManifest.java"

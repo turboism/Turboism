@@ -186,7 +186,7 @@ public final class OffCanvasBackgroundHostAccess implements Consumer<Color> {
             Map.entry(ReviewedVersions.between("5.2.00", "5.2.02"), "bO"),
             Map.entry(ReviewedVersions.between("5.2.03", "5.3.02"), "bR"),
             Map.entry(ReviewedVersions.between("5.3.03", "5.3.03"), "bS"),
-            Map.entry(ReviewedVersions.between("5.3.04", "5.3.04"), "bT"));
+            Map.entry(ReviewedVersions.between("5.3.04", "5.3.05"), "bT"));
 
     private static String appearanceClass(final String version) {
         final String owner = APPEARANCE_CLASSES.entrySet().stream()

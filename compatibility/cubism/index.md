@@ -8,7 +8,7 @@ This directory contains the public, reproducible contracts required to build and
 - `mapping-packs/draft/baseline/` — one retained observation/legacy pack per family. Record-derived literals appear as `${artifactSha256}`, `${verificationId}`, `${selectorCount}` and similar tokens.
 - `mapping-packs/draft/overrides/` — one override table per family. It names the baseline version and lists ordered JSON-pointer replacements for every other version.
 - `build/generated/draft/mapping-packs/` — the expanded per-version packs. `materializeDraftContracts` combines retained evidence with `draft-src/` annotations and materialized records.
-- `build/generated/draft/profiles/` — generated exact-version mapping-pack catalogues for 5.0.00, 5.0.01, 5.0.02, 5.0.03, 5.0.04, 5.0.05, 5.0.06, 5.1.00, 5.1.01, 5.1.02, 5.1.03, 5.2.00, 5.2.01, 5.2.02, 5.2.03, 5.3.00, 5.3.01, 5.3.02, 5.3.03, and 5.3.04.
+- `build/generated/draft/profiles/` — generated exact-version mapping-pack catalogues for 5.0.00, 5.0.01, 5.0.02, 5.0.03, 5.0.04, 5.0.05, 5.0.06, 5.1.00, 5.1.01, 5.1.02, 5.1.03, 5.2.00, 5.2.01, 5.2.02, 5.2.03, 5.3.00, 5.3.01, 5.3.02, 5.3.03, 5.3.04, and 5.3.05.
 - `build/generated/compatibility/cubism/compatibility-matrix.json` — the generated
   machine-readable matrix. It is a build product, not a tracked fact: the
   generator materializes it from the same reviewed sources, and the committed

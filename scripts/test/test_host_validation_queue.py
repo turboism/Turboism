@@ -819,7 +819,7 @@ class PreparedStoreTest(unittest.TestCase):
             argv[argv.index("--version") + 1] = version
             with self.subTest(version=version):
                 self.prepared.capture(request, self.source, "mcp:" + version)
-        for version in ("5305", "5400", "5.3", ""):
+        for version in ("5306", "5400", "5.3", ""):
             request = self.mcp_request()
             argv = request["argv"]
             argv[argv.index("--version") + 1] = version

@@ -15,7 +15,7 @@ public record AtlasCacheReuseTarget(String internalName, String className, Strin
 
     /** Reviewed target: the atlas class shared by every reviewed build. */
     static final AtlasCacheReuseTarget CUBISM_52_53 = new AtlasCacheReuseTarget(
-            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "5.2.00-5.3.04");
+            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "5.2.00-5.3.05");
 
     /** Reviewed target: the 5.1.x atlas class. */
     static final AtlasCacheReuseTarget CUBISM_51 = new AtlasCacheReuseTarget(

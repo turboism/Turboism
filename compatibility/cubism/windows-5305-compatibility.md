@@ -1,9 +1,11 @@
 # Windows Cubism Editor 5.3.05
 
-Windows build `503050001` uses structural compatibility admission.
-The runtime report identifies the host as `5.3.05` with identity state `COMPATIBLE`.
-Turboism keeps the base host connection available when the editor UI hook cannot provide status bar or embedded panel capabilities.
+The official Windows build `503050001` uses exact release admission.
+Static verification passed for 1,842 selectors across 15 Editor and Core records.
+The Core JAR matches 5.3.04 byte for byte and uses the same Core version tuple.
 
-The Core JAR matches 5.3.04 byte for byte.
-The menu, workspace control, and render-scene slices still have ambiguous mappings.
-The Turboism adapter for native MOC export remains unavailable because five selectors changed.
+The native MOC export record binds the constructor, settings setter, export method, and two result accessors to their new owners.
+The 5.3.04 record keeps its original bindings.
+
+On Linux with Proton Experimental and Xvfb, the official launcher completed the host connection and plugin loading.
+The runtime report showed version `5.3.05` and identity state `MATCHED`.

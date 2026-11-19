@@ -8,45 +8,45 @@
 
 범례: ✓ 그룹 내 모든 capability 허용 · ◐ 부분 허용 · ✗ 해당 버전에서 불허. 허용 = 정적 검증 레코드가 그 버전에서 capability를 인정하고, 이를 축소하는 선택자 계약/클래스 핀도 그 버전을 인정함.
 
-| capability 그룹 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 애니메이션과 타임라인 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 아트메시 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 자동 흔들림 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 자동 백업 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 클리핑 마스크 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Cubism Core | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 디포머 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 편집 레벨 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 편집 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 에디터 UI 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 지오메트리 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 편집 기록 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 메시 도구 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 메시 도구 모음 기여 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 모델 인스턴스 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 오브젝트 계층 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파라미터와 바인딩 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파라미터 키 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파라미터 구조 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파트와 인스펙터 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 파트/오브젝트 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 성능 통계 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 물리 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 플러그인 UI 표면 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 프로젝트 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 보호된 내보내기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| PSD 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 선택 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 시작 억제 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 텍스처와 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 텍스처 아틀라스 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 실행 취소 복귀 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 워프 디포머 미러 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 워크스페이스 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| capability 그룹 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 | 5.3.05 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 애니메이션과 타임라인 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 아트메시 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 자동 흔들림 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 자동 백업 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 클리핑 마스크 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Cubism Core | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 디포머 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 편집 레벨 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 편집 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 에디터 UI 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 지오메트리 읽기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 편집 기록 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 통합 브리지 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 메시 도구 세션 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 메시 도구 모음 기여 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 기타 모델 표면 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 모델 인스턴스 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 모델링 사용자 도구 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 오브젝트 계층 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파라미터와 바인딩 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파라미터 키 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파라미터 구조 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파트와 인스펙터 | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 파트/오브젝트 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 성능 통계 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 물리 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 플러그인 UI 표면 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 프로젝트 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 보호된 내보내기 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| PSD 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 선택 편집 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 시작 억제 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 텍스처와 원본 이미지 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 텍스처 아틀라스 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 실행 취소 복귀 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 워프 디포머 미러 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 워크스페이스 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 - `cubism.editor-model.animation-eval`: 검증된 레코드 없음 5.0.00–5.1.03
 - `cubism.editor-model.animation-timeline.write`: 검증된 레코드 없음 5.0.00–5.1.03
@@ -69,87 +69,87 @@
 
 | API | 종류 | 버전 |
 |---|---|---|
-| `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupNow()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#registerSyncTarget()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#settings()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#statuses()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#updateSettings()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.command.EditorCommandService` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.CancelSource` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.DeformerOps` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditAlphaBlend` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditArtMeshData#EditArtMeshData()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditCancelledException` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditColorBlend` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditDeformerAttachMode` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditGlueData#EditGlueData()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditLabelColor#EditLabelColor()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditLabelColorType` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditObjectData` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditObjectKind` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditObjectNode#EditObjectNode()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditObjectSnapshot#EditObjectSnapshot()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditParameterGroupNode#EditParameterGroupNode()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditParameterKeyCondition#EditParameterKeyCondition()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditParameterNode#EditParameterNode()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditParameterStructureEntry` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditPartData#EditPartData()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditRectangle#EditRectangle()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditRotationDeformerData#EditRotationDeformerData()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSession` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionCloseOutcome` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionCloseResult#EditSessionCloseResult()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionException` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionOpenResult#EditSessionOpenResult()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionOptions#EditSessionOptions()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionService` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditSessionState` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditUnavailableException` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.EditWarpDeformerData#EditWarpDeformerData()` | method | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.ParameterKeyOps` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.ParameterStructureOps` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.PartObjectOps` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.edit.SelectionOps` | type | 5.1.02–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ExportSettingsContribution#ExportSettingsContribution()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ExportSettingsContributionService` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ExportSettingsContributionService.Unavailable` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportCensus#ProtectedExportCensus()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportContribution#ProtectedExportContribution()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportPlan#ProtectedExportPlan()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportPlan#Target()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult#Admitted()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult#Rejected()` | method | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.04 |
-| `dev.turboism.sdk.cubism.model.YureDeformConfig` | type | 5.1.00–5.3.04 |
-| `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.modeling.ModelingToolRegistry` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.ui.HostViewPanel` | type | 5.2.00–5.3.04 |
-| `dev.turboism.sdk.ui.HostViewPanelHandle` | type | 5.2.00–5.3.04 |
+| `dev.turboism.sdk.cubism.CubismFacade#edit()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasEditorSession()` | method | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.cubism.CubismFacade#textureAtlasPolygonLayouts()` | method | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#artifacts()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupAfterSave()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#backupNow()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#registerSyncTarget()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#settings()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#statuses()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.backup.EditorAutoBackupService#updateSettings()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.command.EditorCommandService` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.CancelSource` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.DeformerOps` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditAlphaBlend` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditArtMeshData#EditArtMeshData()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditCancelledException` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditColorBlend` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditDeformerAttachMode` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditGlueData#EditGlueData()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditLabelColor#EditLabelColor()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditLabelColorType` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditObjectData` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditObjectKind` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditObjectNode#EditObjectNode()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditObjectSnapshot#EditObjectSnapshot()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditParameterGroupNode#EditParameterGroupNode()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditParameterKeyCondition#EditParameterKeyCondition()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditParameterNode#EditParameterNode()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditParameterStructureEntry` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditPartData#EditPartData()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditRectangle#EditRectangle()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditRotationDeformerData#EditRotationDeformerData()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSession` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionCloseOutcome` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionCloseResult#EditSessionCloseResult()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionException` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionOpenResult#EditSessionOpenResult()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionOptions#EditSessionOptions()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionService` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditSessionState` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditUnavailableException` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.EditWarpDeformerData#EditWarpDeformerData()` | method | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.ParameterKeyOps` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.ParameterStructureOps` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.PartObjectOps` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.edit.SelectionOps` | type | 5.1.02–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ExportSettingsContribution#ExportSettingsContribution()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ExportSettingsContributionService` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ExportSettingsContributionService.Unavailable` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ExportSettingsDecision#ExportSettingsDecision()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.Outcome` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportCensus#ProtectedExportCensus()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportContribution#ProtectedExportContribution()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlan#ProtectedExportPlan()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlan#Target()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult#Admitted()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.export.ProtectedExportPlanResult#Rejected()` | method | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.AlphaComposition` | type | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.AutoYure` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.AutoYureBinding` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.AutoYureConfig` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.CubismExportTexture#CubismExportTexture()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.CubismMocExport#CubismMocExport()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.CubismMocExportSettings#CubismMocExportSettings()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.CubismModel#exportMoc()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.Drawable#setAlphaComposition()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.Part#alphaComposition()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.Part#maskIds()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.Part#setAlphaComposition()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.Part#setMaskIds()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.Part#setOpacity()` | method | 5.3.00–5.3.05 |
+| `dev.turboism.sdk.cubism.model.YureDeformConfig` | type | 5.1.00–5.3.05 |
+| `dev.turboism.sdk.cubism.modeling.ModelingBrush` | type | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.cubism.modeling.ModelingToolContext` | type | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.cubism.modeling.ModelingToolRegistry` | type | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession` | type | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService` | type | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.ui.HostViewPanel` | type | 5.2.00–5.3.05 |
+| `dev.turboism.sdk.ui.HostViewPanelHandle` | type | 5.2.00–5.3.05 |
 
 ## 일부 버전에서만 사용 가능한 Editor 명령
 
@@ -157,48 +157,48 @@
 
 | 명령 | 열거형 | 버전 | 성격 | 공식 도입 버전 |
 |---|---|---|---|---|
-| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.04 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.04 | 실제 경계 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
-| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.04 | 실제 경계 | [5.3.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | 실제 경계 | — |
-| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.04 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.04 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.04 | 실제 경계 | [5.0.05](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
-| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.04 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.04 | 실제 경계 | [5.1.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.04 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
-| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.04 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
-| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
-| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.04 | 실제 경계 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
-| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.04 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `ADJUST_BOUNDING_BOX_ANGLE` | EditorCommand | 5.2.03–5.3.05 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `DELETE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `ENABLE_PLAYBACK_CACHE` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `EXPAND_WARPDEFORMER` | EditorCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `HIDE_OR_RESTORE_PALETTE` | EditorCommand | 5.0.03–5.3.05 | 실제 경계 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
+| `MESH_EDIT_RESET` | EditorCommand | 5.3.02–5.3.05 | 실제 경계 | [5.3.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `OPEN_FAQ_PAGE` | EditorCommand | 5.0.00–5.2.03 | 실제 경계 / 미확인 | — |
+| `PARAM_CONTROLLER_CONVERT_TO_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CONTROLLER_LINE_PARAM_CTRL_REVERSE_DIRECTION` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CONTROLLER_PREVIEW_BAKE` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CONTROLLER_SPLIT_LINE_PARAM_CTRL` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PART_PALETTE_CMD_CHANGE_VISIBLE_GUIDE_IMAGE` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SELECT_CHILD_ELEMENTS_OF_DEFORMER` | EditorCommand | 5.2.03–5.3.05 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SELECT_OBJECT_BY_CURRENT_KEY_VALUE` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SETTING_GUIDES_MODELING_ADD_CENTER` | EditorCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_ARTMESH_POINT` | EditorCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `SHOW_DEFAULT_ZOOM` | EditorCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_FULL_SCENE` | EditorCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_HOME_DIALOG` | EditorCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `SHOW_PARAM_CONTROLLER_TARGET_TRACKING` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SHOW_PARAM_CTRL_MARKER` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SHOW_POPUP_HOVERING_OBJECT` | EditorCommand | 5.2.03–5.3.05 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SWITCH_HIGHTLIGHT_CONFLICT_POLYGON` | EditorCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SWITCH_LOOP_EDITING_SUPPORT` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `SYNC_PARAMETERS_ACROSS_TABS` | EditorCommand | 5.0.05–5.3.05 | 실제 경계 | [5.0.05](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
+| `UPDATE_DEFORMER_ORIGINAL_SHAPE` | EditorCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `AUTO_CREATE_DEFORMERS` | EditorParameterizedCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `CHANGE_ALL_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.05 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `CHANGE_MESH_DRAW_ORDER` | EditorParameterizedCommand | 5.2.03–5.3.05 | 실제 경계 | [5.2.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `CREATE_YURE` | EditorParameterizedCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `DISPLAY_MULTI_PASTE_SHAPE_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `EXTERNAL_APP_SETTING` | EditorParameterizedCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `FADE_SETTING` | EditorParameterizedCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `OPEN_PARAMETER_GROUP_SETTING` | EditorParameterizedCommand | 5.1.02–5.3.05 | 실제 경계 | [5.1.02](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `PARAM_CONTROLLER_DISPLAY_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `PARAM_CTRL_CALC_ORDER_SETTING_DIALOG` | EditorParameterizedCommand | 5.2.00–5.3.05 | 실제 경계 | [5.2.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-2/) |
+| `REFLECT_FADE` | EditorParameterizedCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.3.00–5.3.05 | 실제 경계 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `SHOW_ROTATE3D_SETTING_DIALOG` | EditorParameterizedCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
+| `SHOW_SHOW_LABEL_COPY_DIALOG` | EditorParameterizedCommand | 5.0.00–5.2.03 | 실제 경계 / 미확인 | [5.3.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/) |
+| `IMPORT_SCENE_FROM_ANIMATION` | EditorFileCommand | 5.0.03–5.3.05 | 실제 경계 | [5.0.03](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates5/) |
+| `EXPORT_AS_TEMPLATE` | EditorFileCommand | 5.1.00–5.3.05 | 실제 경계 | [5.1.00](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history5-1/) |
 
 ## 확인된 버전 경계
 
@@ -299,28 +299,28 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 
 | 소스 | 심볼 | 버전 |
 |---|---|---|
-| target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`incremental-update.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`matrix-scratch.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`mesh-interpolation.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`mesh-mirror.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`mesh-triangulation-hash.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`model-update-skip.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`reinit-pair-elision.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`shader-uniform.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`startup-suppression.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`texture-upload-preparation.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`uniform-location-lifecycle.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`warp-alt-mirror.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| target-classes/`warp-position-projection.json` | `TargetClassTable` | 5.0.00–5.3.04 |
-| `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/extinterpsibling/ExtendedInterpolationSiblingTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/hittest/MeshHitTestTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/paramrow/ParameterRowRepaintTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.04 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.04 |
+| target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`incremental-update.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`matrix-scratch.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`mesh-interpolation.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`mesh-mirror.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`mesh-triangulation-hash.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`model-update-skip.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`reinit-pair-elision.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`shader-uniform.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`startup-suppression.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`texture-upload-preparation.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`uniform-location-lifecycle.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`warp-alt-mirror.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`warp-position-projection.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/extinterpsibling/ExtendedInterpolationSiblingTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/hittest/MeshHitTestTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/paramrow/ParameterRowRepaintTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 
 ## 버전 단조성 원칙
 
@@ -334,75 +334,75 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 
 `validation/cubism-version-matrix/campaign-jobs.json`의 태스크×버전별 최신 FINAL 결과를 capability 영역별로 집계. ✓ 통과 · ◇ 확인된 경계(CAPABILITY_BOUNDARY/ADMISSION_STATIC) · ? 미확인(인프라 재시도, 드리프트, 부적합, 불명 또는 미분류).
 
-| 태스크 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `about-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
-| `acp` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `animation` |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `artmesh-mirror-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
-| `atlas-image-observe` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
-| `atlas-image-shadow` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `atlas-polygon` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `autobackup` |  |  |  |  |  |  |  | ◇ | ◇ | ✓ | ◇ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
-| `boundingbox-warp-mirror` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `boundingbox-warp-mirror-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
-| `clipmask` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
-| `core` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `cursor-coalesce` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `edit-protocol` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ✓ | ✓ |
-| `edit-session` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
-| `editor-ui` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
-| `external-psd-edit-pipeline` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `external-psd-fixture-preparation` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `glcanvas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `guard-5302` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `incremental-update` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |
-| `integration` | ◇ |  | ◇ |  |  |  | ◇ | ◇ |  |  | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ |
-| `media-perf` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
-| `mesh-edit` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
-| `model-import-3d` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `model-import-3d-n2` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `model-import-3d-user-entry` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ? |  |
-| `model-update-skip` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |
-| `modeling-tool` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `native-resource` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `official-core` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `official-viewer` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `parameter` | ✓ | ✓ | ◇ | ◇ | ◇ | ◇ | ◇ | ✓ | ◇ | ◇ | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `performance` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |  | ◇ | ◇ | ✓ |  | ◇ | ✓ | ✓ | ✓ |
-| `performance-settings` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |
-| `plugin-management-direct-jar-restart` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `plugin-management-direct-jar-stage` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `plugin-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  |
-| `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  |
-| `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ✓ | ✓ |  | ✓ | ✓ | ✓ |
-| `psd` |  |  |  |  |  |  |  |  |  |  |  | ◇ |  |  | ✓ | ◇ | ✓ | ◇ | ◇ | ✓ |
-| `review056` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
-| `selection-brush-coordinate-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
-| `selection-brush-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
-| `selection-brush-round-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
-| `selection-edit` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
-| `semantic-history-native-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
-| `semantic-history-primary` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |
-| `separate-save-path` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ? | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
-| `session-standard` | ? |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  | ◇ |
-| `settings-edge-index` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `settings-page` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `startup` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |
-| `texture` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `texture-atlas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ? |  |
-| `texture-relations-smoke` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `tlprod-5203-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |  |  |
-| `tlprod-5203-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |
-| `tlprod-5302-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `tlprod-5302-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
-| `tlprod-5303-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `tlprod-5303-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `turbo-mesh` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `update-check` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |
-| `vertex-upload-skip` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |
-| `warp-deformer` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `warp-deformer-alt-symmetry` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `warp-glue` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ✓ |  |
-| `warp-point-link` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |
-| `workspace` | ◇ | ◇ | ◇ | ◇ | ◇ | ✓ | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 태스크 | 5.0.00 | 5.0.01 | 5.0.02 | 5.0.03 | 5.0.04 | 5.0.05 | 5.0.06 | 5.1.00 | 5.1.01 | 5.1.02 | 5.1.03 | 5.2.00 | 5.2.01 | 5.2.02 | 5.2.03 | 5.3.00 | 5.3.01 | 5.3.02 | 5.3.03 | 5.3.04 | 5.3.05 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `about-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
+| `acp` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `animation` |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `artmesh-mirror-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
+| `atlas-image-observe` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
+| `atlas-image-shadow` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `atlas-polygon` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `autobackup` |  |  |  |  |  |  |  | ◇ | ◇ | ✓ | ◇ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |  |
+| `boundingbox-warp-mirror` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `boundingbox-warp-mirror-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
+| `clipmask` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |  |
+| `core` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `cursor-coalesce` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
+| `edit-protocol` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ✓ | ✓ |  |
+| `edit-session` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |  |
+| `editor-ui` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |  |
+| `external-psd-edit-pipeline` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `external-psd-fixture-preparation` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `glcanvas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
+| `guard-5302` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `incremental-update` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |  |
+| `integration` | ◇ |  | ◇ |  |  |  | ◇ | ◇ |  |  | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ✓ | ✓ |  |
+| `media-perf` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
+| `mesh-edit` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |  |
+| `model-import-3d` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `model-import-3d-n2` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `model-import-3d-user-entry` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ? |  |  |
+| `model-update-skip` |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ |  |
+| `modeling-tool` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `native-resource` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `official-core` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `official-viewer` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `parameter` | ✓ | ✓ | ◇ | ◇ | ◇ | ◇ | ◇ | ✓ | ◇ | ◇ | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `performance` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |  | ◇ | ◇ | ✓ |  | ◇ | ✓ | ✓ | ✓ |  |
+| `performance-settings` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |
+| `plugin-management-direct-jar-restart` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `plugin-management-direct-jar-stage` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `plugin-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  |  |
+| `project-workspace` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ |  |  |  |
+| `protected-export` |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  | ✓ | ✓ |  | ✓ | ✓ | ✓ |  |
+| `psd` |  |  |  |  |  |  |  |  |  |  |  | ◇ |  |  | ✓ | ◇ | ✓ | ◇ | ◇ | ✓ |  |
+| `review056` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |  |
+| `selection-brush-coordinate-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |  |
+| `selection-brush-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |  |
+| `selection-brush-round-manual` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |  |
+| `selection-edit` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |  |
+| `semantic-history-native-ui` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |
+| `semantic-history-primary` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  | ? | ? |  |  |
+| `separate-save-path` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ? | ? | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |  |
+| `session-standard` | ? |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  | ◇ |  |
+| `settings-edge-index` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
+| `settings-page` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `startup` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ |  |
+| `texture` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `texture-atlas` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ? |  |  |
+| `texture-relations-smoke` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `tlprod-5203-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |  |  |  |
+| `tlprod-5203-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ? |  |  |  |  |  |  |
+| `tlprod-5302-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `tlprod-5302-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |
+| `tlprod-5303-off` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
+| `tlprod-5303-on` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
+| `turbo-mesh` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `update-check` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ◇ | ◇ | ✓ | ✓ | ◇ | ✓ | ✓ | ✓ |  |
+| `vertex-upload-skip` |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  |
+| `warp-deformer` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `warp-deformer-alt-symmetry` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `warp-glue` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ? | ✓ |  |  |
+| `warp-point-link` |  |  |  |  |  |  |  |  |  |  |  |  |  |  | ✓ |  |  | ✓ | ✓ |  |  |
+| `workspace` | ◇ | ◇ | ◇ | ◇ | ◇ | ✓ | ◇ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |

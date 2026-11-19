@@ -154,6 +154,7 @@ public final class EditorModelVerificationManifest {
     public static final String CUBISM_VERSION_5_3_01 = "${record:cubism-5.3.01-editor-model.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.3.04 artifact. */
     public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-editor-model.json:cubismVersion}";
+    public static final String CUBISM_VERSION_5_3_05 = "${record:cubism-5.3.05-editor-model.json:cubismVersion}";
     /** Reviewed Editor-model record admitted for exact Cubism 5.0.00. */
     public static final ReviewedSliceRecord RECORD_5_0_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_0_00,
@@ -273,6 +274,12 @@ public final class EditorModelVerificationManifest {
         CUBISM_VERSION_5_3_04,
         "${record:cubism-5.3.04-editor-model.json:profileId}"
     );
+    public static final ReviewedSliceRecord RECORD_5_3_05 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_05,
+        "${record:cubism-5.3.05-editor-model.json:verificationId}",
+        CUBISM_VERSION_5_3_05,
+        "${record:cubism-5.3.05-editor-model.json:profileId}"
+    );
     // </version-matrix:em-consts>
 
     private static final List<ReviewedSliceRecord> RECORDS = List.of(
@@ -295,7 +302,8 @@ public final class EditorModelVerificationManifest {
         RECORD_5_3_01,
         RECORD_5_3_02,
         RECORD_5_3_03,
-        RECORD_5_3_04
+        RECORD_5_3_04,
+        RECORD_5_3_05
     );
 
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-editor-model.json:adapterSliceId}";
@@ -2653,7 +2661,7 @@ public final class EditorModelVerificationManifest {
                 cubism5_3_01Aliases()
             );
         }
-        if (RECORD_5_3_04.equals(record)) {
+        if (RECORD_5_3_04.equals(record) || RECORD_5_3_05.equals(record)) {
             return record.toManifest(
                 ADAPTER_SLICE_ID,
                 cubism5_3_04Capabilities(),

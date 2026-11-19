@@ -74,6 +74,9 @@ public final class ReviewedHostArtifacts {
     /** Cubism Editor version string reported for {@link #CUBISM_5_3_04}. */
     public static final String CUBISM_5_3_04_VERSION = "5.3.04";
 
+    /** Cubism Editor version string reported for {@link #CUBISM_5_3_05}. */
+    public static final String CUBISM_5_3_05_VERSION = "5.3.05";
+
     /** Exact reviewed Cubism Editor 5.0.00 application artifact. */
     public static final HostArtifactDigest CUBISM_5_0_00 =
             new HostArtifactDigest(36_091_669L, "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd");
@@ -154,6 +157,10 @@ public final class ReviewedHostArtifacts {
     public static final HostArtifactDigest CUBISM_5_3_04 =
             new HostArtifactDigest(42_203_164L, "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d");
 
+    /** Exact reviewed Cubism Editor 5.3.05 application artifact. */
+    public static final HostArtifactDigest CUBISM_5_3_05 =
+            new HostArtifactDigest(42_216_843L, "8017d699d5fb77c5c6716bbb91c5c1d6945407416ca486ea6cf5f0a07056834b");
+
     /**
      * Bundled JOGL dependency examined for the opt-in 5.3.03 uniform-location hook.
      * This is not an Editor artifact and is deliberately excluded from {@link #all()}.
@@ -181,7 +188,8 @@ public final class ReviewedHostArtifacts {
             CUBISM_5_3_01_VERSION,
             CUBISM_5_3_02_VERSION,
             CUBISM_5_3_03_VERSION,
-            CUBISM_5_3_04_VERSION);
+            CUBISM_5_3_04_VERSION,
+            CUBISM_5_3_05_VERSION);
 
     /**
      * Returns every reviewed artifact, oldest supported Cubism version first.
@@ -209,7 +217,8 @@ public final class ReviewedHostArtifacts {
                 CUBISM_5_3_01,
                 CUBISM_5_3_02,
                 CUBISM_5_3_03,
-                CUBISM_5_3_04);
+                CUBISM_5_3_04,
+                CUBISM_5_3_05);
     }
 
     /**
@@ -280,6 +289,9 @@ public final class ReviewedHostArtifacts {
         }
         if (CUBISM_5_3_04.equals(artifact)) {
             return Optional.of(CUBISM_5_3_04_VERSION);
+        }
+        if (CUBISM_5_3_05.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_05_VERSION);
         }
         return Optional.empty();
     }

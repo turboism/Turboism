@@ -29,6 +29,9 @@
     ],
     "5.3.04": [
       "com/live2d/graphics3d/shader/A"
+    ],
+    "5.3.05": [
+      "com/live2d/graphics3d/shader/A"
     ]
   }
 }

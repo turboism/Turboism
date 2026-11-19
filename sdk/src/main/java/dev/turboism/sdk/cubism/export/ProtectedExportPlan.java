@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
  */
 @CubismEditor({
     "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-    "5.3.03", "5.3.04"
+    "5.3.03", "5.3.04", "5.3.05"
 })
 public record ProtectedExportPlan(
         List<String> deformerOrderLeafToRoot,
@@ -72,7 +72,7 @@ public record ProtectedExportPlan(
     /** One censused identity's planned protected name and private ID token. */
     @CubismEditor({
         "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-        "5.3.03", "5.3.04"
+        "5.3.03", "5.3.04", "5.3.05"
     })
     public record Target(String name, String idToken) {
         public Target {

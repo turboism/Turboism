@@ -92,6 +92,7 @@ public final class ProtectedExportVerificationManifest {
     public static final String CUBISM_VERSION_5_3_01 = "${record:cubism-5.3.01-protected-export.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.3.04 artifact. */
     public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-protected-export.json:cubismVersion}";
+    public static final String CUBISM_VERSION_5_3_05 = "${record:cubism-5.3.05-protected-export.json:cubismVersion}";
     /** Reviewed protected-export record admitted for exact Cubism 5.1.00. */
     public static final ReviewedSliceRecord RECORD_5_1_00 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_1_00,
@@ -162,6 +163,12 @@ public final class ProtectedExportVerificationManifest {
         CUBISM_VERSION_5_3_04,
         "${record:cubism-5.3.04-protected-export.json:profileId}"
     );
+    public static final ReviewedSliceRecord RECORD_5_3_05 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_05,
+        "${record:cubism-5.3.05-protected-export.json:verificationId}",
+        CUBISM_VERSION_5_3_05,
+        "${record:cubism-5.3.05-protected-export.json:profileId}"
+    );
     // </version-matrix:pe-consts>
 
     private static final List<ReviewedSliceRecord> RECORDS = List.of(
@@ -177,7 +184,8 @@ public final class ProtectedExportVerificationManifest {
         RECORD_5_3_01,
         RECORD_5_3_02,
         RECORD_5_3_03,
-        RECORD_5_3_04
+        RECORD_5_3_04,
+        RECORD_5_3_05
     );
 
     /**
@@ -472,7 +480,7 @@ public final class ProtectedExportVerificationManifest {
         if (RECORD_5_3_01.equals(record)) {
             return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
         }
-        if (RECORD_5_3_04.equals(record)) {
+        if (RECORD_5_3_04.equals(record) || RECORD_5_3_05.equals(record)) {
             return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
         }
         // </version-matrix:pe-arms>

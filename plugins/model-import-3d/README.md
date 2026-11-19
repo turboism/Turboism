@@ -85,9 +85,9 @@ entrypoint. The current primitive real-host results are for 5.3.04; the same vis
 corpus has not been rerun on every admitted version.
 
 <!-- compatibility:begin -->
-**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04; 20 exact versions).
-Full feature set (reviewed versions): 5.3.00–5.3.04.
-- Part opacity writes only on 5.3.00–5.3.04（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+**Cubism Editor version support (generated):** all reviewed versions (5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05; 21 exact versions).
+Full feature set (reviewed versions): 5.3.00–5.3.05.
+- Part opacity writes only on 5.3.00–5.3.05（[Cubism 5.3.00 added Part offscreen drawing (part opacity and clipping masks)](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 <!-- compatibility:end -->
 

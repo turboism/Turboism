@@ -19,7 +19,7 @@ class CubismNativeIconResolverTest {
     Path temporary;
 
     @Test
-    void catalogHasExactlyTheReviewed120VariantsAndNineArtifacts() {
+    void catalogHasExactlyTheReviewed120VariantsAndTenArtifacts() {
         assertEquals(120, CubismNativeIconCatalog.resources().size());
         for (var entry : CubismNativeIconCatalog.resources().entrySet()) {
             final NativeIconVariant key = entry.getKey();
@@ -61,7 +61,7 @@ class CubismNativeIconResolverTest {
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_3_04,
                 CubismNativeIconCatalog.artifact("5.3.04").orElseThrow());
         assertEquals(
-                9L,
+                10L,
                 dev.turboism.mapping.verification.ReviewedHostArtifacts.reviewedCubismVersions().stream()
                         .filter(version ->
                                 CubismNativeIconCatalog.artifact(version).isPresent())

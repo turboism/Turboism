@@ -182,7 +182,8 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, PerformanceProbeTargets.cubism5302());
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)
-                || ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)) {
+                || ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)
+                || ReviewedHostArtifacts.CUBISM_5_3_05_VERSION.equals(cubismVersion)) {
             return new ProbeProfile(cubismVersion, PerformanceProbeTargets.cubism5303());
         }
         throw new IllegalArgumentException(

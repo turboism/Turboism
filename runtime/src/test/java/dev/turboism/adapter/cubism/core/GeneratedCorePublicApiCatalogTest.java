@@ -26,7 +26,7 @@ class GeneratedCorePublicApiCatalogTest {
                 237L,
                 members.stream().filter(member -> member.supports("5.3.02")).count());
         assertEquals(
-                "7bbd32a166075706edd11b606082063157544ec1308202ce2bf7633b5759b4d6",
+                "23316096c640d8099ff8259d18da3e3406e7cb4045f433934dfb8f333cd4a267",
                 GeneratedCorePublicApiCatalog.CLASSIFIED_ROSTER_SHA256);
 
         final HashSet<String> identities = new HashSet<>();

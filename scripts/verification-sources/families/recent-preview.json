@@ -41,7 +41,9 @@
   "cubism-5.3.03-project-workspace.json",
   "cubism-5.3.03-ui-embedded-panel.json",
   "cubism-5.3.04-project-workspace.json",
-  "cubism-5.3.04-ui-embedded-panel.json"
+  "cubism-5.3.04-ui-embedded-panel.json",
+  "cubism-5.3.05-project-workspace.json",
+  "cubism-5.3.05-ui-embedded-panel.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/RecentPreviewVerificationManifest.java"

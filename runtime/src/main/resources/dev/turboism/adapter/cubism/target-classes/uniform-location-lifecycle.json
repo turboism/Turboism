@@ -59,6 +59,12 @@
       "com/live2d/graphics3d/a",
       "com/live2d/graphics3d/shader/A",
       "com/live2d/graphics3d/shader/GShader"
+    ],
+    "5.3.05": [
+      "com/live2d/cubism/view/gl/SGFramework/g",
+      "com/live2d/graphics3d/a",
+      "com/live2d/graphics3d/shader/A",
+      "com/live2d/graphics3d/shader/GShader"
     ]
   }
 }

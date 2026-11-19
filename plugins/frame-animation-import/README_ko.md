@@ -44,9 +44,9 @@ interface: swing
 - **依存関係:** なし。
 
 <!-- compatibility:begin -->
-**Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.04, 정확한 버전 20개).
-전체 기능(검토된 버전): 5.3.00–5.3.04.
-- 파트 불투명도 쓰기 에서만 5.3.00–5.3.04（[Cubism 5.3.00에 Part offscreen drawing (part opacity and clipping masks) 추가](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
+**Cubism Editor 버전 지원(자동 생성):** 검토된 모든 버전(5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05, 정확한 버전 21개).
+전체 기능(검토된 버전): 5.3.00–5.3.05.
+- 파트 불투명도 쓰기 에서만 5.3.00–5.3.05（[Cubism 5.3.00에 Part offscreen drawing (part opacity and clipping masks) 추가](https://docs.live2d.com/zh-CHS/cubism-editor-manual/updates-history/)）
 - 상단 메뉴 통합 제외 5.0.00–5.0.06（이전 Cubism 버전에는 기능 자체가 없음）
 전체 매트릭스: [compatibility matrix](../../compatibility/cubism/plugins_ko.md)
 <!-- compatibility:end -->
