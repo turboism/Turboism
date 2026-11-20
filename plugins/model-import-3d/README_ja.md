@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.68.4
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ interface: embedded
 静的な不透明 GLB、glTF、OBJ/MTL、およびモデル ZIP パッケージをネイティブ Cubism メッシュとしてインポートします（PNG/JPEG ベースカラーテクスチャ、XYZ 全周回転、有界ジオメトリ最適化に対応）。
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.4` |
+| バージョン | `0.68.5` |
 | プラグイン ID | `dev.turboism.plugin.model-import-3d` |
 | カテゴリ | `workflow` |
 | タグ | 3d, glb, gltf, obj, import |
