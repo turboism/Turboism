@@ -6,7 +6,7 @@
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.1` |
+| 版本 | `0.68.3` |
 | 插件 ID | `dev.turboism.plugin.project-work-time` |
 | 分类 | `workflow` |
 | 标签 | time, project, status-bar |

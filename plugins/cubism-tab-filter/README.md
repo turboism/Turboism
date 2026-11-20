@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.cubism-tab-filter
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Adds keyword filter boxes to Cubism's Parameter, Deformer, Scene, and Log palett
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.cubism-tab-filter` |
 | Category | `workflow` |
 | Tags | tab-filter, workspace |
@@ -97,6 +97,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Rows do not change | Clear and re-enter the keyword, then inspect the log for palette-filter attachment warnings. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

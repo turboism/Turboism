@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.physics-editor",
   "name": "Physics Settings Enhancer",
-  "version": "0.68.0",
+  "version": "0.68.3",
   "description": "Adds Physics Settings group select-all, reopen retention and preview GIF recording with a plugin-owned control strip and export dialog.",
   "entrypoints": [
     "dev.turboism.plugin.physicseditor.PhysicsEditorPlugin"

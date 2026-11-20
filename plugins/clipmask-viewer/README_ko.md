@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.clipmask-viewer
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ interface: swing
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.68.1` |
+| 버전 | `0.68.5` |
 | 플러그인 ID | `dev.turboism.plugin.clipmask-viewer` |
 | 카테고리 | `analysis` |
 | 태그 | clip-mask, viewer, graph |

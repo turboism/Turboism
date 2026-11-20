@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
-version: 0.68.0
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -21,7 +21,7 @@ ArtMesh editing has its own [ArtMesh Mirror](../artmesh-mirror/README.md) entry.
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.4` |
 | Plugin ID | `dev.turboism.plugin.warp-deformer-alt-symmetry` |
 | Category | `modeling` |
 | Tags | deformer, warp, editing, symmetry |
@@ -127,6 +127,10 @@ takes effect immediately and does not change mirror editing behavior.
 | Hint does not appear | Check that the canvas-hint permission is granted and the host exposes the native hint surface. |
 
 ## Changelog
+
+### 0.68.4
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

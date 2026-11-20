@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-dalsoo
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -25,7 +25,7 @@ supported hosts (`5.2.00`–`5.3.04`).
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas-dalsoo` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, polygon, auto-layout |
@@ -212,6 +212,11 @@ No telemetry is sent by this plugin.
 | Layout is not applied | Check the Turboism log for validation failure; plans are rejected atomically. |
 
 ## Changelog
+
+### 0.68.3
+
+- Preserve per-image participation, angle, scale, and position constraints during atlas layout.
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

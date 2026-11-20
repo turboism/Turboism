@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.selection-brush
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ The official Selection Brush contributes tools for ordinary modeling and mesh ed
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.selection-brush` |
 | Category | `modeling` |
 | Tags | mesh, selection, brush |
@@ -102,6 +102,10 @@ The plugin has Preview status and is included in official release packages. Its 
 | Radius change takes effect later | Radius is locked when the stroke starts; the new value applies to the next stroke. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

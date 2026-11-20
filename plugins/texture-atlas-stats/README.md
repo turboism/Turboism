@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-stats
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Shows total and current-texture model-image counts in Cubism's native texture-at
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas-stats` |
 | Category | `analysis` |
 | Tags | texture-atlas, metrics, inspection |
@@ -103,6 +103,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Unavailable text appears | Check the Turboism log for texture-atlas session read failure. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

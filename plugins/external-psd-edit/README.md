@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.external-psd-edit
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Right-click ArtMeshes to edit their complete raw PSD in the configured or system
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.external-psd-edit` |
 | Category | `modeling` |
 | Tags | psd, texture, external-edit |
@@ -136,6 +136,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log with t
 | Nothing opened after confirming | Export can fail closed when permissions are revoked or the native export reports the raw image unavailable. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

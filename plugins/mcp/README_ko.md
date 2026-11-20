@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.68.2
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ interface: swing
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.68.2` |
+| 버전 | `0.68.5` |
 | 플러그인 ID | `dev.turboism.plugin.mcp` |
 | 公開カタログ | 11 ツール · 15 リソース · 2 テンプレート · 8 プロンプト |
 | Cubism 필요 여부 | 예 |

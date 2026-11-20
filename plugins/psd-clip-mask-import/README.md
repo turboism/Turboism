@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.psd-clip-mask-import
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments af
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.psd-clip-mask-import` |
 | Category | `workflow` |
 | Tags | psd, import, clip-mask |
@@ -118,6 +118,10 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 | Import fails safely | Check the localized status summary and the plugin log; confirm the required PSD, clip-mask, dialog, write/Undo, and status services are present. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

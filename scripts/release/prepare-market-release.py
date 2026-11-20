@@ -731,30 +731,6 @@ def validate_published_dependencies(descriptors: dict[str, dict]) -> None:
                 )
 
 
-def resolve_next_plugin_version(
-    catalog_releases: list[dict],
-    tracked_version: str,
-) -> str:
-    """Compute the next MAJOR.MINOR.PATCH version for a changed plugin.
-
-    Plugin versions are independent of the framework version: the tracked
-    plugin.json version is the floor, and a changed plugin advances from the
-    highest cataloged release by one patch.
-    """
-    tracked = parse_strict_version(tracked_version)
-    if not catalog_releases:
-        return ".".join(map(str, tracked))
-    catalog_versions = []
-    for release in catalog_releases:
-        if not isinstance(release, dict) or not isinstance(release.get("version"), str):
-            raise MarketError("catalog release entry is missing a valid version string")
-        catalog_versions.append(parse_strict_version(release["version"]))
-    highest = max(catalog_versions)
-    if tracked > highest:
-        return ".".join(map(str, tracked))
-    return f"{highest[0]}.{highest[1]}.{highest[2] + 1}"
-
-
 def rewrite_descriptor_version(tracked_raw: bytes, new_version: str) -> bytes:
     """Replace only the top-level 'version' string in tracked_raw, preserving formatting."""
     parse_strict_version(new_version)
@@ -884,6 +860,8 @@ def jar_matches_catalog_release(
         raise MarketError(f"catalog release@{version} lacks sha256 or descriptorSha256")
     rewritten_desc = rewrite_descriptor_version(tracked_raw, version)
     if sha256(rewritten_desc) == expected_desc_sha:
+        if rewritten_desc == tracked_raw and sha256(jar_bytes) == expected_jar_sha:
+            return True
         rewritten_jar = rewrite_jar_version(jar_bytes, rewritten_desc)
         if sha256(rewritten_jar) == expected_jar_sha:
             return True
@@ -893,6 +871,60 @@ def jar_matches_catalog_release(
         if catalog_jar_bytes is not None:
             return jar_content_digest(catalog_jar_bytes) == candidate_digest
     return False
+
+
+def catalog_plugins(catalog_doc: dict) -> dict[str, dict]:
+    by_id = {}
+    for plugin in catalog_doc.get("plugins", []):
+        if not isinstance(plugin, dict) or not isinstance(plugin.get("id"), str):
+            raise MarketError("catalog contains a malformed plugin entry")
+        if plugin["id"] in by_id:
+            raise MarketError(f"catalog contains duplicate plugin id {plugin['id']!r}")
+        by_id[plugin["id"]] = plugin
+    return by_id
+
+
+def requires_catalog_release(
+    descriptor: dict, raw: bytes, data: bytes, catalog_plugin: dict, artifact_loader,
+    *, target_channel: str | None = None,
+) -> bool:
+    """Require a committed version advance before shipping changed plugin content."""
+    plugin_id = descriptor["id"]
+    version = descriptor["version"]
+    releases = catalog_plugin.get("releases", [])
+    if not isinstance(releases, list):
+        raise MarketError(f"catalog plugin {plugin_id!r} releases must be an array")
+    if not releases:
+        return True
+    if any(not isinstance(release, dict) for release in releases):
+        raise MarketError(f"catalog plugin {plugin_id!r} has a malformed release")
+    latest = max(releases, key=lambda release: parse_strict_version(release.get("version")))
+    latest_version = latest["version"]
+    if parse_strict_version(version) > parse_strict_version(latest_version):
+        return True
+    if version != latest_version:
+        raise MarketError(f"{plugin_id}: committed version {version} is older than catalog version {latest_version}")
+    if not jar_matches_catalog_release(data, raw, latest, artifact_loader):
+        raise MarketError(f"{plugin_id}: commit a version above {latest_version} for the changed plugin content")
+    if target_channel is not None and is_channel_promotion(latest.get("channel", ""), target_channel):
+        raise MarketError(f"{plugin_id}: commit a version above {latest_version} for the channel promotion")
+    return False
+
+
+def verify_bundled_versions(repo_root: Path, plugin_dir: Path, catalog: str, catalog_sig: str | None) -> int:
+    """Check bundled JAR identities against source and the signed Plugin Directory."""
+    catalog_doc, artifact_loader = load_catalog(catalog, catalog_sig)
+    by_id = catalog_plugins(catalog_doc)
+    jars = sorted(plugin_dir.glob("*.jar"))
+    if not jars:
+        raise MarketError(f"{plugin_dir}: no bundled plugin JARs")
+    for jar in jars:
+        descriptor, raw = load_descriptor(repo_root, jar.stem)
+        data = jar.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            verify_descriptor_against_tracked(archive.read(DESCRIPTOR_ENTRY), raw, str(jar))
+        requires_catalog_release(descriptor, raw, data, by_id.get(descriptor["id"], {}), artifact_loader)
+    return len(jars)
 
 
 def _verify_ed25519_signature(catalog_bytes: bytes, sig_bytes: bytes) -> None:
@@ -1215,15 +1247,9 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
         raise MarketError("--output is required when the selection is non-empty")
     catalog_by_id: dict[str, dict] = {}
     artifact_loader = None
-    auto_bump = catalog is not None
     if catalog is not None:
         catalog_doc, artifact_loader = load_catalog(catalog, catalog_sig)
-        for plugin in catalog_doc.get("plugins", []):
-            if not isinstance(plugin, dict) or not isinstance(plugin.get("id"), str):
-                raise MarketError("catalog contains a malformed plugin entry")
-            if plugin["id"] in catalog_by_id:
-                raise MarketError(f"catalog contains duplicate plugin id {plugin['id']!r}")
-            catalog_by_id[plugin["id"]] = plugin
+        catalog_by_id = catalog_plugins(catalog_doc)
     verify_withheld_dependencies(
         manifest_path, prepared, approved, catalog_by_id if catalog is not None else None)
 
@@ -1248,40 +1274,12 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
             data = jar.read_bytes()
             if len(data) > MAX_JAR_BYTES:
                 raise MarketError(f"{jar}: JAR exceeds {MAX_JAR_BYTES} bytes")
-            if auto_bump:
-                catalog_plugin = catalog_by_id.get(descriptor["id"])
-                releases = (
-                    catalog_plugin.get("releases", [])
-                    if isinstance(catalog_plugin, dict)
-                    else []
-                )
-                if not isinstance(releases, list):
-                    raise MarketError(f"catalog plugin {descriptor['id']!r} releases must be an array")
-                if releases:
-                    latest_release = max(
-                        releases,
-                        key=lambda rel: parse_strict_version(rel.get("version", "")),
-                    )
-                    if jar_matches_catalog_release(data, tracked_raw, latest_release, artifact_loader):
-                        # Identical content already carries the target channel: nothing to publish.
-                        # A weaker channel would withdraw the release, so it is also skipped.
-                        if not is_channel_promotion(
-                                latest_release.get("channel", ""), entry["channel"]):
-                            descriptor["version"] = latest_release["version"]
-                            published_descriptors[descriptor["id"]] = descriptor
-                            continue
-                        # Catalog versions must be unique and strictly ascending, so a promotion
-                        # needs a new version that differs from the carried one only by channel.
-                target_version = resolve_next_plugin_version(
-                    releases,
-                    descriptor["version"],
-                )
-                new_descriptor_raw = rewrite_descriptor_version(tracked_raw, target_version)
-                data = rewrite_jar_version(data, new_descriptor_raw)
-                if len(data) > MAX_JAR_BYTES:
-                    raise MarketError(f"{jar}: JAR exceeds {MAX_JAR_BYTES} bytes")
-                descriptor["version"] = target_version
-                descriptor_sha256 = sha256(new_descriptor_raw)
+            if catalog is not None and not requires_catalog_release(
+                descriptor, tracked_raw, data, catalog_by_id.get(descriptor["id"], {}),
+                artifact_loader, target_channel=entry["channel"],
+            ):
+                published_descriptors[descriptor["id"]] = descriptor
+                continue
             item = {
                 **item,
                 "entry": entry,
@@ -1343,14 +1341,16 @@ def parse_args(argv):
                         help="exact 40-hex source commit SHA (required unless the "
                              "selection is empty)")
     parser.add_argument("--catalog",
-                        help="optional catalog v2 path or HTTPS URL for content-addressed "
-                             "auto-bump and unchanged-plugin skipping")
+                        help="catalog v2 path or HTTPS URL for version and content verification")
     parser.add_argument("--catalog-sig",
                         help="optional detached catalog signature path or HTTPS URL")
     parser.add_argument("--release-channel",
                         help="optional release channel (stable, beta, preview, nightly); "
                              "beta maps to catalog channel preview and nightly is skipped")
-    parser.add_argument("--plan", action="store_true",
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--verify-bundled", type=Path,
+                           help="check the staged plugin directory against source and the catalog")
+    operation.add_argument("--plan", action="store_true",
                         help="validate manifest and source descriptors/i18n only; "
                              "print selected=N and exit before any build or staging")
     return parser.parse_args(argv)
@@ -1360,6 +1360,12 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     manifest = args.manifest if args.manifest is not None else (args.repo_root / "packaging/market-plugins.json")
     try:
+        if args.verify_bundled is not None:
+            if args.catalog is None:
+                raise MarketError("--verify-bundled requires --catalog")
+            count = verify_bundled_versions(args.repo_root, args.verify_bundled, args.catalog, args.catalog_sig)
+            print(f"verified={count}")
+            return 0
         if args.plan:
             count = plan(args.repo_root, manifest, release_channel=args.release_channel)
         else:
@@ -1367,7 +1373,7 @@ def main(argv=None) -> int:
                           args.source_revision, catalog=args.catalog,
                           catalog_sig=args.catalog_sig,
                           release_channel=args.release_channel)
-    except (MarketError, OSError) as failure:
+    except (MarketError, OSError, KeyError, zipfile.BadZipFile) as failure:
         print(f"error: {failure}", file=sys.stderr)
         return 1
     print(f"selected={count}")

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.selection-brush
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Turboism 官方插件，在普通建模模式和网格编辑模式提供选区�
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.0` |
+| 版本 | `0.68.3` |
 | 插件 ID | `dev.turboism.plugin.selection-brush` |
 | 分类 | `modeling` |
 | 标签 | mesh, selection, brush |

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -27,7 +27,7 @@ GIF 내보내기에는 로컬 **Gifsicle** 설치가 필요합니다. `gifsicle`
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.0` |
+| 버전 | `0.68.3` |
 | 플러그인 ID | `dev.turboism.plugin.physics-editor` |
 | カテゴリー | `modeling` |
 | 태그 | physics, editing, simulation |

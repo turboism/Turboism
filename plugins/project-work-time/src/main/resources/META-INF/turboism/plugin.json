@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.project-work-time",
   "name": "Project Work Time",
-  "version": "0.68.1",
+  "version": "0.68.3",
   "description": "Shows Editor session time and the active project's cumulative work time in the Cubism status bar.",
   "entrypoints": [
     "dev.turboism.plugin.projectworktime.ProjectWorkTimePlugin"

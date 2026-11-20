@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.clipmask-viewer
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Inspects clip-mask relationships, duplicates, order conflicts, and related ArtMe
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.1` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.clipmask-viewer` |
 | Category | `analysis` |
 | Tags | clip-mask, viewer, graph |
@@ -110,6 +110,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Window does not open | Check for a headless environment or an unavailable clip-mask read capability in the log. |
 
 ## Changelog
+
+### 0.68.5
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.1
 

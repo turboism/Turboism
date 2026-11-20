@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Captures bounded thumbnails and shows them in Cubism's Recent Files hover popup.
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.1` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.recent-preview` |
 | Category | `workflow` |
 | Tags | recent-files, preview, navigation |
@@ -136,6 +136,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Cache grows | Clear this plugin's cache through Turboism's storage management or remove the plugin cache while Turboism is stopped. |
 
 ## Changelog
+
+### 0.68.5
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.1
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Cubism のテクスチャアトラスワークフローに MaxRects-BSSF 自動�
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.68.0` |
+| バージョン | `0.68.3` |
 | プラグイン ID | `dev.turboism.plugin.texture-atlas` |
 | カテゴリ | `modeling` |
 | タグ | texture-atlas, packing, auto-layout |

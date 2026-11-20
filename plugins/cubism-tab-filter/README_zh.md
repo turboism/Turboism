@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.cubism-tab-filter
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: none
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.0` |
+| 版本 | `0.68.3` |
 | 插件 ID | `dev.turboism.plugin.cubism-tab-filter` |
 | 类别 | `workflow` |
 | 标签 | tab-filter, workspace |

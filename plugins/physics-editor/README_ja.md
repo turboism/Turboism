@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -28,7 +28,7 @@ GIF の書き出しには **Gifsicle** のローカルインストールが必�
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.0` |
+| バージョン | `0.68.3` |
 | プラグイン ID | `dev.turboism.plugin.physics-editor` |
 | カテゴリー | `modeling` |
 | タグ | physics, editing, simulation |

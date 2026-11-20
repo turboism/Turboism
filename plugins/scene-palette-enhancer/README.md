@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.scene-palette-enhancer
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Adds natural sorting and persistent manual row ordering to Cubism's Scene palett
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.scene-palette-enhancer` |
 | Category | `appearance` |
 | Tags | scene, palette, enhancement |
@@ -102,6 +102,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | New rows appear at the end | This is expected when a stored manual order is merged with newly created scene items. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Adds a MaxRects-BSSF automatic layout algorithm to Cubism's texture-atlas workfl
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, auto-layout |
@@ -223,6 +223,10 @@ Offline follow-up: parallel requests below 32 items try serial packing first and
 | Layout is not applied | Check the Turboism log for packing or validation failure and verify that a texture-atlas session is active. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

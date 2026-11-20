@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.external-psd-edit
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ ArtMesh を右クリックして完全な原画 PSD を設定したエディタ�
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.0` |
+| バージョン | `0.68.3` |
 | プラグイン ID | `dev.turboism.plugin.external-psd-edit` |
 | カテゴリ | `modeling` |
 | タグ | psd, texture, external-edit |

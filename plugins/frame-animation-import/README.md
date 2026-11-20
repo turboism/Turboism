@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.frame-animation-import
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Imports sequence frame animations from sprite sheets or image lists and automati
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.frame-animation-import` |
 | Category | `modeling` |
 | Tags | animation, frame-animation, sprite-sheet, parameter |
@@ -117,6 +117,10 @@ Plugin lifecycle and diagnostic records appear in Turboism's local session log w
 | Import is aborted | Check the status notification and runtime log for validation details. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

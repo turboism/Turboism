@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-deformer-alt-symmetry
-version: 0.68.0
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Cubism ネイティブのバウンディングボックスにおける Alt 対�
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.0` |
+| バージョン | `0.68.4` |
 | プラグイン ID | `dev.turboism.plugin.warp-deformer-alt-symmetry` |
 | カテゴリ | `modeling` |
 | タグ | deformer, warp, editing, symmetry |

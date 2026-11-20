@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.artmesh-mirror
-version: 0.68.1
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: none
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.1` |
+| バージョン | `0.68.4` |
 | プラグイン ID | `dev.turboism.plugin.artmesh-mirror` |
 | カテゴリ | `modeling` |
 | タグ | mesh, artmesh, editing, symmetry |

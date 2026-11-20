@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.68.2
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.2` |
+| 版本 | `0.68.5` |
 | 插件 ID | `dev.turboism.plugin.mcp` |
 | 公开目录 | 80 个工具 · 15 个资源 · 2 个模板 · 8 个提示词 |
 | 需要 Cubism | 是 |

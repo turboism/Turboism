@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.physics-editor
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -28,7 +28,7 @@ GIF export requires **Gifsicle** installed locally: make `gifsicle` available on
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.physics-editor` |
 | Category | `modeling` |
 | Tags | physics, editing, simulation |
@@ -127,6 +127,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Header displays a minus/dash | The indeterminate state indicates that some groups are enabled and others are disabled. Clicking the checkbox will enable all groups. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

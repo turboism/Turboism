@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Displays live Cubism CPU and JVM memory (Heap and Non-Heap) statistics.
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.1` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.perf-stats` |
 | Category | `performance` |
 | Tags | metrics, diagnostics |
@@ -105,6 +105,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | CPU label disappears | Check status-notification availability and whether the plugin was disabled or reloaded. |
 
 ## Changelog
+
+### 0.68.5
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.1
 
