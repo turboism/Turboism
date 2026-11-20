@@ -28,7 +28,7 @@
     },
     {
       "path": "scripts/preview/run-atlas-image-shadow-host-validation.sh",
-      "evidence": "scripts/preview/run-atlas-image-shadow-host-validation.sh: Version-specific whole-artifact identities and fixed installation paths select reviewed validation profiles for 5.2.03, 5.3.02, and 5.3.03. External probes retain frozen input contracts; internal configurations use explicit Boolean preferences.",
+      "evidence": "scripts/preview/run-atlas-image-shadow-host-validation.sh: Fixed installation paths and version branches select reviewed validation profiles for 5.2.03, 5.3.02, and 5.3.03; JAR and fixture digests resolve dynamically via turboism_reviewed_jar_sha256 and turboism_fixture_sha256. External probes retain frozen input contracts; internal configurations use explicit Boolean preferences.",
       "versions": [
         "5.2.03",
         "5.3.02",
