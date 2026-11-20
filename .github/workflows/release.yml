@@ -197,41 +197,12 @@ jobs:
             FRAMEWORK_UPDATES_ENABLED=false python3 scripts/release/prepare-framework-client.py --output-dir "$resource_dir"
           fi
 
-      - name: Validate store eligibility policy
-        if: needs.preflight.outputs.channel != 'nightly'
-        id: policy
-        run: |
-          OUTPUT="$(python3 scripts/release/prepare-market-release.py \
-            --repo-root "$GITHUB_WORKSPACE" \
-            --manifest packaging/market-plugins.json \
-            --release-channel "${{ needs.preflight.outputs.channel }}" \
-            --plan)"
-          ELIGIBLE="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
-          echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
-
       - name: Run release verification
         run: |
           xvfb-run -a -s '-screen 0 1920x1080x24' ./gradlew --no-daemon checkRelease \
             -PinstallerVersion="${{ steps.version.outputs.version }}" \
             -PturboismRelease=true \
             --console=plain
-
-      - name: Stage all eligible plugin candidates
-        if: needs.preflight.outputs.channel != 'nightly' && steps.policy.outputs.eligible != '0'
-        id: market
-        run: |
-          WORKTREE_ID="$(bash scripts/dev/worktree-id.sh)"
-          OUTPUT="$(python3 scripts/release/prepare-market-release.py \
-            --repo-root "$GITHUB_WORKSPACE" \
-            --manifest packaging/market-plugins.json \
-            --build-root "build/worktree/$WORKTREE_ID" \
-            --output build/market-release \
-            --source-revision "${{ github.sha }}" \
-            --catalog https://plugin.turboism.dev/api/v2/catalog.json \
-            --release-channel "${{ needs.preflight.outputs.channel }}")"
-          printf '%s\n' "$OUTPUT"
-          STAGED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
-          echo "staged=${STAGED:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Assemble release archives and Windows installer
         # Pre-signing candidates skip NSIS here because sign-framework-update rebuilds the installer
@@ -277,10 +248,6 @@ jobs:
           # Local-only tag after all build/payload checks; never push from this job.
           python3 scripts/release/promote-github-release.py candidate-tag \
             --source-root "$GITHUB_WORKSPACE" --source-sha "$GITHUB_SHA"
-          market_args=()
-          if [ "${{ steps.market.outputs.staged || '0' }}" != 0 ]; then
-            market_args=(--market-dir build/market-release)
-          fi
           skip_args=()
           if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ]; then
             skip_args=(--skip-installer)
@@ -288,7 +255,6 @@ jobs:
           python3 scripts/release/turboism-release.py build \
             --require-tag \
             --dist build/windows-installer/dist \
-            "${market_args[@]}" \
             "${skip_args[@]}" \
             --candidate build/release-orchestrator/candidate.json
 
@@ -353,15 +319,6 @@ jobs:
             build/release-orchestrator/build-identity.json
             build/release-orchestrator/framework-artifacts.json
             build/release-orchestrator/release-notes.md
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Upload market publication bundle
-        if: needs.preflight.outputs.channel != 'nightly' && steps.market.outputs.staged != '0' && steps.market.outputs.staged != ''
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/market-release
           retention-days: 7
           if-no-files-found: error
 

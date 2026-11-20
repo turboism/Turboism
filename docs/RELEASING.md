@@ -119,27 +119,10 @@ python3 scripts/release/product.py promote \
   --source <original-source-sha> --submit
 ```
 
-The wrapper dispatches `release-github-only.yml` into the existing
-`production-release` environment. Trusted publisher code separately checks the
-exact source, successful run, channel, receipt, all file bytes and remote tag
-identity before any remote mutation. For Stable and Beta candidates whose
-`prepare-market-release.py` pass staged changed first-party plugins (via
-content-addressed auto-bump against the live signed v2 catalog at
-`https://plugin.turboism.dev/api/v2/catalog.json`; Nightly never publishes to
-the catalog), promotion publishes plugins **first**:
-
-1. Dispatches `publish-plugin-directory-v2.yml` in
-   `turboism/turboism-plugin-directory` using `PLUGIN_DIRECTORY_DISPATCH_TOKEN`
-   with `source_run_id`, `source_sha`, `artifact_name`, and `request_id`,
-   locates the workflow run by its correlated `run-name`, and watches it to
-   completion.
-2. Polls `scripts/release/verify-plugin-publication.py` with backoff (up to 5
-   minutes) until the signed public catalog exposes the new plugin versions and
-   every GitHub Release JAR matches its planned SHA-256 and descriptor hash,
-   then probes `https://turboism.dev/plugins` with `curl -L`.
-3. Only after plugin publication and verification succeed does it publish the
-   framework GitHub Release without rebuilding. If plugin publication fails,
-   framework promotion stops before any public tag or Release is created.
+The wrapper dispatches `release-github-only.yml` into the
+`production-release` environment. The publisher checks the candidate source,
+run, channel, receipt, file bytes and tag before it publishes the framework.
+Plugin Directory publication requires a separate Plugin release candidate.
 
 Stable remains a final release; Beta is always a prerelease and never GitHub's
 stable latest. The publisher has no channel override: a Beta candidate cannot
@@ -255,7 +238,16 @@ Instead of hardcoding counts here, inspect the authoritative sources directly:
 
 ## Legacy coordinated and independent plugin publication
 
-Existing successful product **push-tag** candidate runs can still be resumed through the protected publishers (the explicit attempt is optional for legacy GitHub-only calls). Plugin-only orchestration remains unchanged. The coordinated route below requires its external service credentials/contracts; it does not accept new manually dispatched product candidates. Do not manually tag a new product to use this legacy route.
+Run `publish-selected-plugins.yml` to build an independent Plugin release candidate.
+The workflow compares each eligible plugin with its latest signed catalog release.
+It stages new or changed plugin content and approved channel promotions.
+Runtime compatibility resources count as plugin content.
+Promote the plugin candidate by its run ID, attempt, and source SHA.
+The publisher dispatches the Plugin Directory workflow and verifies the signed catalog and published JARs.
+
+The protected publisher also accepts successful legacy product **push-tag** candidates.
+Legacy GitHub-only calls can omit the attempt.
+The legacy coordinated route requires its external service credentials and rejects manually dispatched product candidates.
 
 The legacy orchestrator is planned by one public command and published by protected CI. The planner distinguishes four outcomes:
 

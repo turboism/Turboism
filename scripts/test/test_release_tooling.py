@@ -215,7 +215,7 @@ class ReleaseWorkflowTest(unittest.TestCase):
             r".*?build/windows-installer/staging",
         )
 
-    def test_product_candidate_is_read_only_dispatch_and_can_build_plugins_too(self):
+    def test_product_candidate_is_read_only_and_does_not_stage_market_plugins(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", workflow)
         self.assertNotRegex(workflow, r"(?m)^  push:")
@@ -227,15 +227,17 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertNotIn("gh release create", workflow)
         self.assertLess(workflow.index("Verify checksums and release metadata"),
                         workflow.index("promote-github-release.py candidate-tag"))
-        self.assertIn("Validate store eligibility policy", workflow)
-        self.assertIn("Stage all eligible plugin candidates", workflow)
-        self.assertIn("Upload market publication bundle", workflow)
-        self.assertIn("--market-dir build/market-release", workflow)
-        self.assertIn("needs.preflight.outputs.channel != 'nightly'", workflow)
-        self.assertIn("--catalog https://plugin.turboism.dev/api/v2/catalog.json", workflow)
+        self.assertNotIn("prepare-market-release.py", workflow)
+        self.assertNotIn("--market-dir", workflow)
+        self.assertNotIn("turboism-market-release-", workflow)
 
     def test_protected_publisher_correlates_and_verifies_provider(self):
         publisher = (ROOT / ".github/workflows/release-github-only.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "if: startsWith(steps.source.outputs.artifact_name, 'turboism-plugin-candidate-')\n"
+            "        id: market",
+            publisher,
+        )
         self.assertIn("publish-plugin-directory-v2.yml", publisher)
         self.assertIn("expected exactly one live Plugin Directory run", publisher)
         self.assertIn('select(.status != "completed" or .conclusion == "success")', publisher)

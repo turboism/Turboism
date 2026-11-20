@@ -125,7 +125,8 @@ jobs:
             --confirmation "$CONFIRMATION" --source-root release-source \
             --bundle-root build/github-release-fallback/candidate
 
-      - name: Download and verify market publication bundle if present
+      - name: Download and verify the independent plugin publication bundle
+        if: startsWith(steps.source.outputs.artifact_name, 'turboism-plugin-candidate-')
         id: market
         env:
           GH_TOKEN: ${{ github.token }}
@@ -251,10 +252,7 @@ jobs:
           echo "Plugin Directory website https://turboism.dev/plugins did not respond before timeout"
           exit 1
 
-      # Framework self-update feed admission. Runs after the plugin-directory proof and before the
-      # final promotion, so a failed admission leaves no publicly promoted release behind. It reuses
-      # the already downloaded candidate bundle and trusted tooling: no second resolve, no download,
-      # no rebuild. Stable and Beta only; Nightly deliberately keeps the full-package path.
+      # Admit the verified framework package before publishing its GitHub Release.
       - name: Reject a candidate without signed framework documents
         if: inputs.framework_publish != 'none'
         id: framework
