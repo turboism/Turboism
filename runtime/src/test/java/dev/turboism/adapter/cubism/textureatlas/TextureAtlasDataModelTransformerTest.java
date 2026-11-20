@@ -105,8 +105,8 @@ class TextureAtlasDataModelTransformerTest {
         final byte[] valid = taeDataModelBytes(1, false);
         final byte[] patched = new TextureAtlasLoadingTransformer(true).transform(null, model, null, null, valid);
         assertNotNull(patched);
-        assertTrue(
-                methodCalls(patched).stream().anyMatch(call -> call.contains("TextureAtlasParallelMeshes.preload(")));
+        assertTrue(methodCalls(patched).stream()
+                .anyMatch(call -> call.contains("TextureAtlasLoading.resolveDrawableGroups(")));
 
         assertNotNull(new TextureAtlasLoadingTransformer(false)
                 .transform(null, model, null, null, taeDataModelBytes(0, false)));
@@ -125,8 +125,9 @@ class TextureAtlasDataModelTransformerTest {
         assertEquals(progress, TextureAtlasMeshSolverTransformer.progressType(valid));
         final byte[] patched = TextureAtlasMeshSolverTransformer.transform(valid);
         assertNotNull(patched);
-        assertTrue(
-                methodCalls(patched).stream().anyMatch(call -> call.contains("TextureAtlasParallelMeshes.capture(")));
+        final List<String> calls = methodCalls(patched);
+        assertTrue(calls.stream().anyMatch(call -> call.contains("TextureAtlasMeshFastOps.extractOutlines(")));
+        assertTrue(calls.stream().anyMatch(call -> call.contains("TextureAtlasMeshFastOps.mergeTrianglesAfterClear(")));
 
         assertNull(TextureAtlasMeshSolverTransformer.progressType(meshOpsBytes(progress, true)));
         assertNull(TextureAtlasMeshSolverTransformer.transform(meshOpsBytes(progress, true)));
@@ -222,22 +223,37 @@ class TextureAtlasDataModelTransformerTest {
     private static byte[] meshOpsBytes(final String progress, final boolean duplicateOverload) {
         final String owner = TextureAtlasMeshSolverTransformer.MESH_OPS;
         final String mesh = TextureAtlasMeshSolverTransformer.MESH;
-        final String solver = TextureAtlasMeshSolverTransformer.TRIANGULATION + "a";
         final String applyDesc = "(L" + mesh + ";Ljava/util/List;ZL" + progress + ";)V";
-        final String solveDesc = "(L" + progress + ";)V";
+        final String outlinesDesc = "(L" + mesh + ";)Ljava/util/List;";
+        final String addEdgeDesc = "(L" + mesh + ";II)V";
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, owner, null, "java/lang/Object", null);
+
+        final MethodVisitor outlines =
+                writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "b", outlinesDesc, null, null);
+        outlines.visitCode();
+        outlines.visitInsn(Opcodes.ACONST_NULL);
+        outlines.visitInsn(Opcodes.ARETURN);
+        outlines.visitMaxs(1, 2);
+        outlines.visitEnd();
 
         final MethodVisitor apply =
                 writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "a", applyDesc, null, null);
         apply.visitCode();
         apply.visitInsn(Opcodes.ACONST_NULL);
-        apply.visitVarInsn(Opcodes.ASTORE, 5);
-        apply.visitVarInsn(Opcodes.ALOAD, 5);
+        apply.visitVarInsn(Opcodes.ASTORE, 6);
+        apply.visitVarInsn(Opcodes.ALOAD, 1);
+        apply.visitMethodInsn(Opcodes.INVOKEVIRTUAL, mesh, "clearAutoTriangulation", "()V", false);
+        for (int i = 0; i < 3; i++) {
+            apply.visitVarInsn(Opcodes.ALOAD, 1);
+            apply.visitInsn(Opcodes.ICONST_0);
+            apply.visitInsn(Opcodes.ICONST_1);
+            apply.visitMethodInsn(Opcodes.INVOKESTATIC, mesh, "addEdgeIfNotExists$default", addEdgeDesc, false);
+        }
         apply.visitVarInsn(Opcodes.ALOAD, 4);
-        apply.visitMethodInsn(Opcodes.INVOKEVIRTUAL, solver, "a", solveDesc, false);
+        apply.visitMethodInsn(Opcodes.INVOKEINTERFACE, progress, "d", "()V", true);
         apply.visitInsn(Opcodes.RETURN);
-        apply.visitMaxs(2, 6);
+        apply.visitMaxs(3, 7);
         apply.visitEnd();
 
         if (duplicateOverload) {

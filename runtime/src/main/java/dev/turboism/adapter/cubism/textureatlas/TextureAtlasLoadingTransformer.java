@@ -89,7 +89,7 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
                     && wrappedSites == 1
                     && initializer != null
                     && initializer.equals(constructorTarget)
-                    && (!parallel || (preloadSites >= 1 && initializer.equals(preloadMethod)));
+                    && (!parallel || (preloadSites == 1 && initializer.equals(preloadMethod)));
         }
 
         @Override
