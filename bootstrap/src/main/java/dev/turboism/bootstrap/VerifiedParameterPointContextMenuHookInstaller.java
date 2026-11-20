@@ -1,25 +1,15 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.context.ParameterPointContextMenuNativeMethodTransformer;
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Reversible exact-version Q-menu show hooks. */
 final class VerifiedParameterPointContextMenuHookInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final String owner;
-    private final String contextDescriptor;
-    private final ClassLoader loader;
-    private final LoadedClassIndex loadedClasses;
-    private final List<ClassFileTransformer> transformers = new ArrayList<>();
-    private final AtomicBoolean installed = new AtomicBoolean();
+    private final HookInstallSession session;
 
     VerifiedParameterPointContextMenuHookInstaller(
             final Instrumentation instrumentation,
@@ -39,55 +29,30 @@ final class VerifiedParameterPointContextMenuHookInstaller implements AutoClosea
             final String contextDescriptor,
             final ClassLoader loader,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.owner = Objects.requireNonNull(owner, "owner");
-        this.contextDescriptor = Objects.requireNonNull(contextDescriptor, "contextDescriptor");
-        this.loader = Objects.requireNonNull(loader, "loader");
-        this.loadedClasses = loadedClasses;
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(contextDescriptor, "contextDescriptor");
+        Objects.requireNonNull(loader, "loader");
+        this.session = HookInstallSession.builder(instrumentation, loader, Set.of(owner.replace('/', '.')))
+                .loadedClasses(loadedClasses)
+                .transformerFactory(() -> List.of(
+                        new ParameterPointContextMenuNativeMethodTransformer(
+                                owner, "a", "(" + contextDescriptor + "II)V", "i", loader),
+                        new ParameterPointContextMenuNativeMethodTransformer(
+                                owner, "b", "(" + contextDescriptor + "II)V", "h", loader)))
+                .restorePolicy(HookInstallSession.RestorePolicy.ALWAYS)
+                .retransformUnavailableMessage("Parameter-point context-menu retransformation is unavailable")
+                .installFailureMessage("Verified parameter-point context-menu hook installation failed")
+                .restoreFailureMessage("Verified parameter-point context-menu hook restoration failed")
+                .build();
     }
 
     void install() {
-        if (!installed.compareAndSet(false, true)) return;
-        try {
-            if (!instrumentation.isRetransformClassesSupported()) {
-                throw new IllegalStateException("Parameter-point context-menu retransformation is unavailable");
-            }
-            transformers.add(new ParameterPointContextMenuNativeMethodTransformer(
-                    owner, "a", "(" + contextDescriptor + "II)V", "i", loader));
-            transformers.add(new ParameterPointContextMenuNativeMethodTransformer(
-                    owner, "b", "(" + contextDescriptor + "II)V", "h", loader));
-            transformers.forEach(value -> instrumentation.addTransformer(value, true));
-            retransformOwner();
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw new IllegalStateException("Verified parameter-point context-menu hook installation failed", failure);
-        }
+        session.installWrapped();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        for (int index = transformers.size() - 1; index >= 0; index--) {
-            instrumentation.removeTransformer(transformers.get(index));
-        }
-        transformers.clear();
-        try {
-            // Restoration must observe classes defined after the install snapshot, so it enumerates
-            // again instead of reusing the phase snapshot.
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, owner.replace('/', '.'), loader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("Verified parameter-point context-menu hook restoration failed", failure);
-        }
-    }
-
-    private void retransformOwner() throws Exception {
-        VerifiedHookInstallerSupport.retransformIfLoaded(
-                instrumentation, loadedClasses(), Set.of(owner.replace('/', '.')), loader);
-    }
-
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 }

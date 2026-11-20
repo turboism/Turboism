@@ -3,12 +3,11 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryHostProfile;
 import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryNativeMethodTransformer;
 import dev.turboism.adapter.cubism.filechooser.NativeFileChooserHistoryBridge;
-import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Installs the verified file-chooser history transformer: before/after bridge
@@ -17,13 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final ClassLoader hostClassLoader;
-    private final FileChooserHistoryNativeMethodTransformer transformer;
-    private final NativeFileChooserHistoryBridge bridge;
-    private final String targetClassName;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean(false);
+    private final HookInstallSession session;
 
     VerifiedFileChooserHistoryHookInstaller(
             final Instrumentation instrumentation,
@@ -43,52 +36,37 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
             final FileChooserHistoryHostProfile profile,
             final FileChooserHistoryService service,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.loadedClasses = loadedClasses;
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final FileChooserHistoryHostProfile reviewed = Objects.requireNonNull(profile, "profile");
-        this.transformer = new FileChooserHistoryNativeMethodTransformer(
+        final FileChooserHistoryNativeMethodTransformer transformer = new FileChooserHistoryNativeMethodTransformer(
                 reviewed.fileChooserClassInternalName(), reviewed.saveDialogMethods(), hostClassLoader);
-        this.bridge = new NativeFileChooserHistoryBridge(Objects.requireNonNull(service, "service"), reviewed);
-        this.targetClassName = reviewed.fileChooserClassInternalName().replace('/', '.');
+        final NativeFileChooserHistoryBridge bridge =
+                new NativeFileChooserHistoryBridge(Objects.requireNonNull(service, "service"), reviewed);
+        this.session = HookInstallSession.builder(
+                        instrumentation,
+                        hostClassLoader,
+                        Set.of(reviewed.fileChooserClassInternalName().replace('/', '.')))
+                .loadedClasses(loadedClasses)
+                .transformer(transformer)
+                .bridge(
+                        () -> NativeFileChooserHistoryBridge.install(bridge),
+                        () -> NativeFileChooserHistoryBridge.uninstall(bridge))
+                .retransformOnInstall((inst, loaded, targets, loader) -> {
+                    final int retransformed =
+                            VerifiedHookInstallerSupport.retransformIfLoaded(inst, loaded, targets, loader);
+                    RuntimeDiagnostics.debug(
+                            "file-chooser", "Installed verified file-chooser hooks; retransformed=" + retransformed);
+                })
+                .build();
     }
 
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) {
-            return;
-        }
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        NativeFileChooserHistoryBridge.install(bridge);
-        instrumentation.addTransformer(transformer, true);
-        try {
-            final int retransformed = VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation, loadedClasses(), Set.of(targetClassName), hostClassLoader);
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                    "file-chooser", "Installed verified file-chooser hooks; retransformed=" + retransformed);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw failure;
-        }
+        session.install();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) {
-            return;
-        }
-        instrumentation.removeTransformer(transformer);
-        NativeFileChooserHistoryBridge.uninstall(bridge);
-    }
-
-    /**
-     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
-     *     own outside a phase pass
-     */
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 }

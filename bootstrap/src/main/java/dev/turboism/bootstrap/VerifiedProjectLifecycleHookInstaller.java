@@ -5,25 +5,19 @@ import dev.turboism.adapter.cubism.lifecycle.NativeProjectLifecycleBridge;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfile;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleNativeMethodTransformer;
-import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /** Installs exact model/animation file and editor-exit lifecycle transformers. */
 final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final ClassLoader hostClassLoader;
-    private final ProjectLifecycleNativeMethodTransformer transformer;
-    private final NativeProjectLifecycleBridge bridge;
-    private final Set<String> targetClassNames;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean(false);
+    private final HookInstallSession session;
 
     VerifiedProjectLifecycleHookInstaller(
             final Instrumentation instrumentation,
@@ -45,74 +39,60 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
             final ProjectFileLifecycleCoordinator projectFiles,
             final EditorLifecycleCoordinator editor,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.loadedClasses = loadedClasses;
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final ProjectLifecycleHostProfile reviewed = Objects.requireNonNull(profile, "profile");
-        this.transformer = new ProjectLifecycleNativeMethodTransformer(reviewed.bindings(), hostClassLoader);
-        this.bridge = new NativeProjectLifecycleBridge(
+        final ProjectLifecycleNativeMethodTransformer transformer =
+                new ProjectLifecycleNativeMethodTransformer(reviewed.bindings(), hostClassLoader);
+        final NativeProjectLifecycleBridge bridge = new NativeProjectLifecycleBridge(
                 Objects.requireNonNull(projectFiles, "projectFiles"),
                 Objects.requireNonNull(editor, "editor"),
                 reviewed.hostVersion());
-        this.targetClassNames = reviewed.bindings().stream()
+        final Set<String> targetClassNames = reviewed.bindings().stream()
                 .map(binding -> binding.ownerInternalName().replace('/', '.'))
                 .collect(Collectors.toUnmodifiableSet());
+        this.session = HookInstallSession.builder(instrumentation, hostClassLoader, targetClassNames)
+                .loadedClasses(loadedClasses)
+                .transformer(transformer)
+                .bridge(
+                        () -> NativeProjectLifecycleBridge.install(bridge),
+                        () -> NativeProjectLifecycleBridge.uninstall(bridge))
+                .retransformOnInstall((inst, loadedIndex, targets, loader) -> {
+                    final Set<String> seenLoaded = new HashSet<>();
+                    final List<Class<?>> retransformTargets = new ArrayList<>();
+                    for (final Class<?> loaded : loadedIndex.select(loader, type -> true)) {
+                        if (targetClassNames.contains(loaded.getName())) {
+                            seenLoaded.add(loaded.getName());
+                            if (inst.isModifiableClass(loaded)) {
+                                retransformTargets.add(loaded);
+                            } else {
+                                RuntimeDiagnostics.warn(
+                                        "lifecycle",
+                                        "Lifecycle retransform skipped for " + loaded.getName()
+                                                + " loaderMatch=" + (loaded.getClassLoader() == loader)
+                                                + " modifiable=" + inst.isModifiableClass(loaded));
+                            }
+                        }
+                    }
+                    final int retransformed = VerifiedHookInstallerSupport.retransformAll(inst, retransformTargets);
+                    RuntimeDiagnostics.info(
+                            "lifecycle",
+                            "Installed verified lifecycle hooks; retransformed=" + retransformed
+                                    + " targets=" + targetClassNames
+                                    + " notYetLoaded="
+                                    + targetClassNames.stream()
+                                            .filter(name -> !seenLoaded.contains(name))
+                                            .collect(Collectors.toUnmodifiableSet()));
+                })
+                .build();
     }
 
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) return;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        NativeProjectLifecycleBridge.install(bridge);
-        instrumentation.addTransformer(transformer, true);
-        try {
-            final var loadedIndex = loadedClasses();
-            final Set<String> seenLoaded = new java.util.HashSet<>();
-            final List<Class<?>> retransformTargets = new ArrayList<>();
-            for (Class<?> loaded : loadedIndex.select(hostClassLoader, type -> true)) {
-                if (targetClassNames.contains(loaded.getName())) {
-                    seenLoaded.add(loaded.getName());
-                    if (instrumentation.isModifiableClass(loaded)) {
-                        retransformTargets.add(loaded);
-                    } else {
-                        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                                "lifecycle",
-                                "Lifecycle retransform skipped for " + loaded.getName()
-                                        + " loaderMatch=" + (loaded.getClassLoader() == hostClassLoader)
-                                        + " modifiable=" + instrumentation.isModifiableClass(loaded));
-                    }
-                }
-            }
-            final int retransformed = VerifiedHookInstallerSupport.retransformAll(instrumentation, retransformTargets);
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                    "lifecycle",
-                    "Installed verified lifecycle hooks; retransformed=" + retransformed
-                            + " targets=" + targetClassNames
-                            + " notYetLoaded="
-                            + targetClassNames.stream()
-                                    .filter(name -> !seenLoaded.contains(name))
-                                    .collect(Collectors.toUnmodifiableSet()));
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw failure;
-        }
+        session.install();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        instrumentation.removeTransformer(transformer);
-        NativeProjectLifecycleBridge.uninstall(bridge);
-    }
-
-    /**
-     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
-     *     own outside a phase pass
-     */
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 }

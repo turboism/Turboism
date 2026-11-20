@@ -1,13 +1,12 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ProtectedExportChooserProfile;
 import dev.turboism.exportsettings.ProtectedExportChooserRedirectTransformer;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Set;
 
 /**
  * Thin, reversible installer for the protected-export chooser-redirect transformer.
@@ -21,12 +20,7 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
     /** Exact Cubism releases whose reviewed artifacts carry a chooser-redirect profile. */
     static final java.util.Set<String> SUPPORTED_CUBISM_VERSIONS = ReviewedVersions.since("5.1.00");
 
-    private final Instrumentation instrumentation;
-    private final String targetClassName;
-    private final ClassLoader hostClassLoader;
-    private final ProtectedExportChooserRedirectTransformer transformer;
-    private final AtomicBoolean installed = new AtomicBoolean();
-    private boolean transformerRemoved;
+    private final HookInstallSession session;
 
     VerifiedProtectedExportHookInstaller(
             final Instrumentation instrumentation,
@@ -36,11 +30,11 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
             final StaticSelector gatedContinuation,
             final StaticSelector gatedChooser,
             final ClassLoader hostClassLoader) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.targetClassName = requireExactExporterShape(
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        final String targetClassName = requireExactExporterShape(
                 exporterOwner, moc3Continuation, moc3Chooser, gatedContinuation, gatedChooser);
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.transformer = new ProtectedExportChooserRedirectTransformer(
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        final ProtectedExportChooserRedirectTransformer transformer = new ProtectedExportChooserRedirectTransformer(
                 exporterOwner.ownerInternalName(),
                 moc3Continuation.memberName(),
                 moc3Continuation.descriptor(),
@@ -51,6 +45,10 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
                 gatedChooser.memberName(),
                 gatedChooser.descriptor(),
                 hostClassLoader);
+        this.session = HookInstallSession.builder(instrumentation, hostClassLoader, Set.of(targetClassName))
+                .transformer(transformer)
+                .restorePolicy(HookInstallSession.RestorePolicy.BEST_EFFORT_AFTER_BRIDGE_UNINSTALL)
+                .build();
     }
 
     /**
@@ -121,46 +119,11 @@ final class VerifiedProtectedExportHookInstaller implements AutoCloseable {
      * @return {@code true} only when the exporter bytes carry the redirect seam afterwards
      */
     boolean install() {
-        if (!installed.compareAndSet(false, true)) {
-            return true;
-        }
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            return false;
-        }
-        try {
-            instrumentation.addTransformer(transformer, true);
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
-            return true;
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            try {
-                close();
-            } catch (Throwable ignored) {
-                FatalErrors.rethrowIfFatal(ignored);
-                // Preserve the install failure; cleanup failure is secondary.
-            }
-            installed.set(false);
-            return false;
-        }
+        return session.installQuietly();
     }
 
     @Override
-    public synchronized void close() {
-        if (!installed.get()) {
-            return;
-        }
-        if (!transformerRemoved) {
-            instrumentation.removeTransformer(transformer);
-            transformerRemoved = true;
-        }
-        try {
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // Restoration failure leaves transformed bytes; callers treat close as best-effort
-            // and the armed-session gate refuses orchestration without a live seam anyway.
-        }
-        installed.set(false);
+    public void close() {
+        session.close();
     }
 }

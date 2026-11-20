@@ -3,14 +3,12 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.lifecycle.NativeParameterLifecycleBridge;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterNativeMethodTransformer;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs and owns the exact native parameter lifecycle transformer. */
 final class VerifiedParameterHookInstaller implements AutoCloseable {
@@ -19,13 +17,7 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
     static final String PARAMETER_SOURCE_ID_ALIAS = "cubism.editor-model.parameter-source.id";
     static final String PARAMETER_ID_VALUE_ALIAS = "cubism.editor-model.id.value";
 
-    private final Instrumentation instrumentation;
-    private final String targetClassName;
-    private final ClassLoader hostClassLoader;
-    private final ParameterNativeMethodTransformer transformer;
-    private final NativeParameterLifecycleBridge bridge;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean(false);
+    private final HookInstallSession session;
 
     VerifiedParameterHookInstaller(
             final Instrumentation instrumentation,
@@ -51,11 +43,9 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
             final ParameterLifecycleCoordinator coordinator,
             final CubismModelAccess modelAccess,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.targetClassName = selector.ownerInternalName().replace('/', '.');
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.loadedClasses = loadedClasses;
-        this.transformer = new ParameterNativeMethodTransformer(
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        final ParameterNativeMethodTransformer transformer = new ParameterNativeMethodTransformer(
                 selector.ownerInternalName(),
                 selector.memberName(),
                 selector.descriptor(),
@@ -66,7 +56,17 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
                 idValue.ownerInternalName(),
                 idValue.memberName(),
                 idValue.descriptor());
-        this.bridge = new NativeParameterLifecycleBridge(coordinator, modelAccess);
+        final NativeParameterLifecycleBridge bridge = new NativeParameterLifecycleBridge(coordinator, modelAccess);
+        this.session = HookInstallSession.builder(
+                        instrumentation,
+                        hostClassLoader,
+                        Set.of(selector.ownerInternalName().replace('/', '.')))
+                .loadedClasses(loadedClasses)
+                .transformer(transformer)
+                .bridge(
+                        () -> NativeParameterLifecycleBridge.install(bridge),
+                        () -> NativeParameterLifecycleBridge.uninstall(bridge))
+                .build();
     }
 
     static VerifiedParameterHookInstaller fromVerifiedResolver(
@@ -106,35 +106,11 @@ final class VerifiedParameterHookInstaller implements AutoCloseable {
     }
 
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) {
-            return;
-        }
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        NativeParameterLifecycleBridge.install(bridge);
-        instrumentation.addTransformer(transformer, true);
-        try {
-            VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation, loadedClasses(), Set.of(targetClassName), hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw failure;
-        }
+        session.install();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) {
-            return;
-        }
-        instrumentation.removeTransformer(transformer);
-        NativeParameterLifecycleBridge.uninstall(bridge);
-    }
-
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 }

@@ -6,20 +6,14 @@ import dev.turboism.adapter.cubism.modeling.NativeModelingToolBridge;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Owns the exact-artifact, premain-only mesh-tool session lifecycle hook and its bridge binding.
+ * Owns the exact-artifact, premain-only modeling-tool lifecycle hook and its bridge binding.
  *
- * <p>Registration and binding are one atomic step, in this order: the bridge is installed first so
- * transformed bytecode can never execute unbound, then the transformer is registered, and finally
- * every already-loaded exact owner is retransformed so a host that loaded its native tool class
- * before this hook still receives the lifecycle callbacks. Teardown is the mirror image: the
- * transformer is removed, the loaded owners are retransformed back to their original bytecode, and
- * the bridge is revoked last.</p>
+ * <p>Registration and binding share {@link PremainLifecycleHookSession}: the bridge installs first
+ * so transformed bytecode never runs unbound, the transformer registers and retransforms already-loaded
+ * owners, and teardown removes the transformer, restores original bytecode, and unbinds the bridge.</p>
  */
 final class VerifiedModelingToolHookInstaller implements AutoCloseable {
     static final String TARGET_ALREADY_LOADED_TWICE = "MODELING_TOOL_TARGET_DUPLICATE";
@@ -28,18 +22,18 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
     static final String TARGET_ENUMERATION_FAILED = "MODELING_TOOL_OWNER_ENUMERATION_FAILED";
     static final String TRANSFORM_DELTA_MISMATCH = "MODELING_TOOL_TRANSFORM_DELTA_MISMATCH";
 
-    private final Instrumentation instrumentation;
-    private final AttachmentMode attachmentMode;
-    private final ClassLoader hostClassLoader;
-    private final ModelingToolHostProfile profile;
-    private final Runnable bindBridge;
-    private final Runnable unbindBridge;
+    private static final PremainLifecycleHookSession.Labels LABELS = new PremainLifecycleHookSession.Labels(
+            "Modeling-tool",
+            "native tool",
+            NativeModelingToolBridge.class,
+            TARGET_ALREADY_LOADED_TWICE,
+            TARGET_LOADER_MISMATCH,
+            TARGET_UNMODIFIABLE,
+            TARGET_ENUMERATION_FAILED,
+            TRANSFORM_DELTA_MISMATCH);
+
     private final ModelingToolLifecycleTransformer transformer;
-    private final LoadedClassIndex loadedClasses;
-    private boolean restorePending;
-    private boolean installed;
-    private boolean transformerAdded;
-    private boolean bridgeInstalled;
+    private final PremainLifecycleHookSession session;
 
     VerifiedModelingToolHookInstaller(
             final Instrumentation instrumentation,
@@ -73,18 +67,23 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
             final Runnable bindBridge,
             final Runnable unbindBridge,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.attachmentMode = Objects.requireNonNull(attachmentMode, "attachmentMode");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.profile = Objects.requireNonNull(profile, "profile");
-        this.bindBridge = Objects.requireNonNull(bindBridge, "bindBridge");
-        this.unbindBridge = Objects.requireNonNull(unbindBridge, "unbindBridge");
-        this.loadedClasses = loadedClasses;
         this.transformer = new ModelingToolLifecycleTransformer(
-                profile,
-                hostClassLoader,
+                Objects.requireNonNull(profile, "profile"),
+                Objects.requireNonNull(hostClassLoader, "hostClassLoader"),
                 Objects.requireNonNull(expectedArtifact, "expectedArtifact"),
                 message -> dev.turboism.runtime.log.RuntimeDiagnostics.debug("modeling-tool", message));
+        this.session = new PremainLifecycleHookSession(
+                instrumentation,
+                attachmentMode,
+                hostClassLoader,
+                transformer,
+                transformer.targetClassNames(),
+                transformer::resetTransformedCount,
+                transformer::transformedCount,
+                bindBridge,
+                unbindBridge,
+                loadedClasses,
+                LABELS);
     }
 
     /** Returns the exact reviewed owner internal name this hook targets. */
@@ -92,56 +91,9 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
         return transformer.targetClassName();
     }
 
-    /**
-     * Installs the bridge and transformer, then retransforms every already-loaded exact owner.
-     *
-     * <p>An exact owner that is already loaded is expected, not a failure: Cubism loads its
-     * native tool class during its own startup, so retransformation is the only way to observe the
-     * lifecycle of a host that got there first.</p>
-     */
-    synchronized void install() {
-        if (installed) return;
-        if (transformerAdded || restorePending || bridgeInstalled) {
-            throw new IllegalStateException("Modeling-tool cleanup must finish before reinstalling.");
-        }
-        if (attachmentMode != AttachmentMode.PREMAIN) {
-            throw new IllegalStateException("Modeling-tool lifecycle hook is premain-only.");
-        }
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("Modeling-tool retransformation is unavailable.");
-        }
-        requireBridgeLinkage();
-        final List<Class<?>> targets = preflight();
-        try {
-            bindBridge.run();
-            bridgeInstalled = true;
-            transformer.resetTransformedCount();
-            instrumentation.addTransformer(transformer, true);
-            transformerAdded = true;
-            for (final Class<?> target : targets) {
-                try {
-                    instrumentation.retransformClasses(target);
-                } catch (Throwable failure) {
-                    dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-                    throw new IllegalStateException("native tool target retransform failed", failure);
-                }
-            }
-            if (transformer.transformedCount() != targets.size()) {
-                throw new IllegalStateException(TRANSFORM_DELTA_MISMATCH + ": expected " + targets.size()
-                        + " transformed owner(s), got " + transformer.transformedCount());
-            }
-            installed = true;
-        } catch (RuntimeException | Error failure) {
-            // @containment-exempt: closeLocked runs cleanup before rethrowing with fatal error prioritized
-            Throwable toThrow = failure;
-            try {
-                closeLocked();
-            } catch (Throwable cleanup) {
-                // @containment-exempt: cleanup failure merged, prioritizing fatal error
-                toThrow = dev.turboism.core.runtime.work.FatalErrors.mergeForCleanup(toThrow, cleanup);
-            }
-            throw dev.turboism.core.runtime.work.FatalErrors.propagate(toThrow);
-        }
+    /** Installs the bridge and transformer, then retransforms every already-loaded exact owner. */
+    void install() {
+        session.install();
     }
 
     /** Returns the latest fail-closed transformation outcome for this hook. */
@@ -150,106 +102,7 @@ final class VerifiedModelingToolHookInstaller implements AutoCloseable {
     }
 
     @Override
-    public synchronized void close() {
-        closeLocked();
-    }
-
-    private void closeLocked() {
-        installed = false;
-        if (transformerAdded) {
-            removeTransformer();
-            transformerAdded = false;
-            restorePending = true;
-        }
-        if (restorePending) {
-            restoreLoadedOwners();
-            restorePending = false;
-        }
-        if (bridgeInstalled) {
-            unbindBridge.run();
-            bridgeInstalled = false;
-        }
-    }
-
-    private List<Class<?>> preflight() {
-        final Class<?>[] loaded;
-        try {
-            loaded = loadedClasses().all();
-        } catch (Throwable failure) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException(TARGET_ENUMERATION_FAILED, failure);
-        }
-        final var targetNames = transformer.targetClassNames().stream()
-                .map(name -> name.replace('/', '.'))
-                .toList();
-        final var seen = new HashSet<String>();
-        final List<Class<?>> exact = new ArrayList<>();
-        for (final Class<?> type : loaded) {
-            if (type == null || !targetNames.contains(type.getName())) continue;
-            final String targetName = type.getName();
-            if (type.getClassLoader() != hostClassLoader) {
-                throw new IllegalStateException(TARGET_LOADER_MISMATCH + ": " + targetName);
-            }
-            if (!instrumentation.isModifiableClass(type)) {
-                throw new IllegalStateException(TARGET_UNMODIFIABLE + ": " + targetName);
-            }
-            if (!seen.add(targetName)) {
-                throw new IllegalStateException(TARGET_ALREADY_LOADED_TWICE + ": " + targetName);
-            }
-            exact.add(type);
-        }
-        return List.copyOf(exact);
-    }
-
-    private void requireBridgeLinkage() {
-        try {
-            if (Class.forName(NativeModelingToolBridge.class.getName(), false, hostClassLoader)
-                    != NativeModelingToolBridge.class) {
-                throw new IllegalStateException("Modeling-tool bridge class identity mismatch.");
-            }
-        } catch (ClassNotFoundException | LinkageError failure) {
-            throw new IllegalStateException("Modeling-tool bridge is not visible to the host loader.", failure);
-        }
-    }
-
-    private void removeTransformer() {
-        final boolean removed;
-        try {
-            removed = instrumentation.removeTransformer(transformer);
-        } catch (Throwable failure) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("native tool transformer removal failed", failure);
-        }
-        if (!removed) throw new IllegalStateException("native tool transformer removal failed");
-    }
-
-    /**
-     * Retransforms the loaded owners after transformer removal so the host keeps its original
-     * bytecode instead of retaining injected lifecycle calls for the rest of the process.
-     */
-    private void restoreLoadedOwners() {
-        try {
-            final List<Class<?>> targets = loadedClasses()
-                    .select(
-                            hostClassLoader,
-                            type -> transformer
-                                    .targetClassNames()
-                                    .contains(type.getName().replace('.', '/')));
-            for (final Class<?> type : targets) {
-                if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException(TARGET_UNMODIFIABLE);
-                instrumentation.retransformClasses(type);
-            }
-        } catch (Throwable failure) {
-            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("native tool bytecode restore failed", failure);
-        }
-    }
-
-    /**
-     * @return the phase snapshot this installer was handed, or a fresh one when it installs on its
-     *     own outside a phase pass
-     */
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+    public void close() {
+        session.close();
     }
 }

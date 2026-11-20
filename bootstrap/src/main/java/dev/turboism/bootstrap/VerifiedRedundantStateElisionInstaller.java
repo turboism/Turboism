@@ -5,9 +5,12 @@ import dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisi
 import dev.turboism.adapter.cubism.optimization.stateelision.RedundantStateElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.jar.JarFile;
 
 /**
@@ -16,7 +19,8 @@ import java.util.jar.JarFile;
  * {@code jogl-all.jar} is digest-attested (the pinned artifact is identical
  * across every reviewed Editor), the {@code GL4bcImpl} class must resolve from
  * the JOGL code source, and its pre-rewrite bytes must match the official
- * class entry. On close the class must hash back to its pre-rewrite SHA-256.
+ * class entry. On close {@link VerifiedInstall} removes the transformer and
+ * retransforms {@code GL4bcImpl} so the JVM restores its original definition.
  *
  * <p>Composition: the transform touches only JOGL; host wrappers and the
  * upload-elision wrappers stay disjoint in bytecode. The uniform lifecycle
@@ -34,105 +38,111 @@ import java.util.jar.JarFile;
  */
 final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final Class<?> entry;
-    private final RedundantStateElisionTransformer transformer;
-    private final RedundantStateElisionBridge bridge;
-    private final Path joglArtifact;
-    private boolean installed, restored, registered;
+    /** The admission row this hook froze: no kill switch of its own, no JVM predicate. */
+    static final Admission ADMISSION = new Admission("TURBOISM_STATE_ELISION", PolicyCheck.SKIP, JvmCheck.ANY);
+
+    /** The one JOGL class target this hook rewrites; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_MATCHES = 1;
+
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    static final int EXPECTED_OWNERS = 1;
+
+    private final InstallContext context;
+    private RedundantStateElisionBridge bridge;
+    private VerifiedInstall<Path> hook;
+    private boolean installed;
 
     VerifiedRedundantStateElisionInstaller(
-            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
-        this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            throw new IllegalStateException("retransform unavailable");
-        }
-        joglArtifact = artifact.toAbsolutePath()
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) {
+        this.context = InstallContext.of(instrumentation, artifact, loader);
+    }
+
+    private WeaveSpec<Path> spec() {
+        return new WeaveSpec<>(
+                ADMISSION,
+                "state elision",
+                VerifiedRedundantStateElisionInstaller::resolve,
+                new WeavePlan<>(VerifiedRedundantStateElisionInstaller::targets, WeavePlan.PostCheck.NONE),
+                (jogl, launch) -> {
+                    bridge = new RedundantStateElisionBridge();
+                    return BridgeLayer.of(bridge::install, bridge::uninstall);
+                },
+                new WeaveEffects<>() {
+                    @Override
+                    public void confirmed(final VerifiedInstall<Path> installedHook) {
+                        final RedundantStateElisionTransformer transformer =
+                                installedHook.targets().get(0).transformer(RedundantStateElisionTransformer.class);
+                        for (final var site : transformer.invalidatorNames().entrySet()) {
+                            bridge.tracker().registerInvalidator(site.getKey(), site.getValue());
+                        }
+                    }
+                });
+    }
+
+    private static Optional<Path> resolve(final Path artifact) throws Exception {
+        final Path jogl = artifact.toAbsolutePath()
                 .getParent()
                 .resolve("jogl/jogl-all.jar")
                 .normalize();
-        if (!ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.cached(joglArtifact))) {
-            throw new IllegalArgumentException("state elision bundled JOGL identity mismatch");
-        }
-        entry = Class.forName(RedundantStateElisionTarget.OWNER.replace('/', '.'), false, loader);
+        return ReviewedHostArtifacts.CUBISM_5_3_03_JOGL.equals(HostArtifactDigest.cached(jogl))
+                ? Optional.of(jogl)
+                : Optional.empty();
+    }
+
+    private static List<WeaveTarget> targets(final Path jogl, final WeaveSource source) throws Exception {
+        final Class<?> entry =
+                Class.forName(RedundantStateElisionTarget.OWNER.replace('/', '.'), false, source.loader());
         VerifiedHookInstallerSupport.attestClassSource(
-                entry,
-                entry.getClassLoader(),
-                joglArtifact,
-                "state elision loader/source mismatch: " + entry.getName());
+                entry, entry.getClassLoader(), jogl, "state elision loader/source mismatch: " + entry.getName());
         final byte[] reference;
-        try (JarFile jar = new JarFile(joglArtifact.toFile())) {
+        try (JarFile jar = new JarFile(jogl.toFile())) {
             reference = VerifiedHookInstallerSupport.readReferenceBytes(
                     jar, entry, "state elision reference class missing");
         }
-        transformer = new RedundantStateElisionTransformer(entry.getClassLoader(), joglArtifact, reference);
-        bridge = new RedundantStateElisionBridge();
+        final RedundantStateElisionTransformer transformer =
+                new RedundantStateElisionTransformer(entry.getClassLoader(), jogl, reference);
+        return List.of(
+                WeaveTarget.single(entry, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     synchronized void install() throws Exception {
         if (installed) return;
-        if (!instrumentation.isModifiableClass(entry)) {
-            throw new IllegalStateException("state elision entry unmodifiable: " + entry.getName());
-        }
-        try {
-            instrumentation.addTransformer(transformer, true);
-            registered = true;
-            instrumentation.retransformClasses(entry);
-            if (transformer.matches() != 1 || transformer.failure() != null) {
-                throw new IllegalStateException(
-                        "state elision entry not admitted: " + entry.getName() + " " + transformer.failure());
+        if (hook == null) {
+            if (!(VerifiedInstall.bind(spec(), context) instanceof VerifiedInstall.Attempt.Installed<Path> bound)) {
+                throw new IllegalArgumentException("state elision bundled JOGL identity mismatch");
             }
-            for (final var site : transformer.invalidatorNames().entrySet()) {
-                bridge.tracker().registerInvalidator(site.getKey(), site.getValue());
-            }
-            bridge.install();
-            installed = true;
-        } catch (Exception | Error failure) {
-            VerifiedHookInstallerSupport.closeOnInstallFailure(failure, this);
-            throw failure;
+            hook = bound.hook();
         }
+        hook.weave();
+        installed = true;
     }
 
     /** Total instrumented methods (tracked + invalidators) of the last rewrite. */
     int sites() {
-        return transformer.sites();
+        return hook.targets()
+                .get(0)
+                .transformer(RedundantStateElisionTransformer.class)
+                .sites();
     }
 
     @Override
     public synchronized void close() {
-        final Map<String, Long> stats = bridge.tracker().snapshot(false);
-        bridge.uninstall();
-        if (restored || (!installed && !registered && !transformer.rewrote())) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                    "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " installed=false");
+        if (hook == null) {
+            RuntimeDiagnostics.info("bootstrap", "TURBOISM_STATE_ELISION closed installed=false");
             return;
         }
-        if (registered) {
-            instrumentation.removeTransformer(transformer);
-            registered = false;
-        }
+        final Map<String, Long> stats = bridge.tracker().snapshot(false);
         try {
-            // A transformer that never rewrote a class has nothing to restore.
-            if (!transformer.rewrote()) {
-                restored = true;
-                installed = false;
-                dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                        "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
-                return;
-            }
-            if (instrumentation.isModifiableClass(entry)) {
-                instrumentation.retransformClasses(entry);
-            }
-            restored = true;
-            installed = false;
-        } catch (Exception failure) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+            hook.close();
+        } catch (RuntimeException | Error failure) {
+            RuntimeDiagnostics.info(
                     "bootstrap",
                     "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=false reason=" + failure);
-            throw new IllegalStateException("state elision restoration failed", failure);
+            throw failure;
         }
-        dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=true");
+        installed = false;
+        RuntimeDiagnostics.info(
+                "bootstrap", "TURBOISM_STATE_ELISION closed " + report(stats) + " restored=" + hook.restored());
     }
 
     /** Per-method elision counters plus invalidation and clear diagnostics. */
@@ -143,6 +153,6 @@ final class VerifiedRedundantStateElisionInstaller implements AutoCloseable {
     }
 
     boolean restored() {
-        return restored;
+        return hook != null && hook.restored();
     }
 }

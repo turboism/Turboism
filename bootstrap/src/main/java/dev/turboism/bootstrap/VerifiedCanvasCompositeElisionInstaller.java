@@ -23,8 +23,8 @@ import java.util.Optional;
  * {@code com/formdev/flatlaf/ui/FlatPanelUI} (FlatLaf JAR beside the host
  * artifact, host class loader, code-source pinned). The JDK caller
  * {@code RepaintManager.paint(...)} is shape-verified as a dependency because
- * the elision relies on its direct-paint fallback. On close both classes are
- * re-captured and must hash back to their pre-rewrite SHA-256.
+ * the elision relies on its direct-paint fallback. On close {@link VerifiedInstall} removes the
+ * transformer and retransforms both classes so the JVM restores their original definitions.
  *
  * <p>Composition: this transform touches java.desktop and flatlaf classes
  * only — disjoint from the host-jar ({@code ui/CWidget}), mesh and shader
@@ -44,7 +44,7 @@ final class VerifiedCanvasCompositeElisionInstaller implements AutoCloseable {
     /** The transformer's matched sites across both rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 2;
 
-    /** The close proof re-captures both rewritten classes; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores both rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 2;
 
     private static final String PAINT_JRT = "/modules/java.desktop/javax/swing/RepaintManager$PaintManager.class";

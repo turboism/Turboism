@@ -20,8 +20,8 @@ import java.util.Optional;
  * default arguments. An unreviewed artifact, a repackaged class or any changed anchor refuses the
  * hook and leaves the official setup path untouched.</p>
  *
- * <p>The protocol itself lives in {@link VerifiedInstall}: the setup owner is retransformed once and
- * re-captured on close, and it must hash back to the bytes the transformer observed.</p>
+ * <p>The protocol itself lives in {@link VerifiedInstall}: on close, it removes the transformer and
+ * retransforms the setup owner so the JVM restores its original definition.</p>
  */
 final class VerifiedExtendedInterpolationSetupInstaller implements AutoCloseable {
 
@@ -33,7 +33,7 @@ final class VerifiedExtendedInterpolationSetupInstaller implements AutoCloseable
     /** The two forced rebuild call sites of {@code setup()}; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = ExtendedInterpolationSetupTarget.EXPECTED_CALL_SITES;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     private final InstallContext context;

@@ -20,8 +20,8 @@ import java.util.Optional;
  * {@code setCursor(Lcom/live2d/type/CCursor;)V}. The bridge reads
  * {@code CWidget.getJComponent()} and {@code CCursor.getJCursor()}; every such
  * dependency body is verified against the official artifact before any rewrite.
- * On close the class is re-captured and must hash back to its pre-rewrite
- * SHA-256.
+ * On close {@link VerifiedInstall} removes the transformer and retransforms the
+ * class so the JVM restores its original definition.
  *
  * <p>Composition: the transform touches only {@code ui/CWidget}; the
  * upload-elision transform targets {@code mesh/a/*}, the glGetError elision
@@ -47,7 +47,7 @@ final class VerifiedInputPathElisionInstaller implements AutoCloseable {
     /** The one rewritten entry method; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     /** Exact production admission: reviewed digest + JVM17 + hook policy. */

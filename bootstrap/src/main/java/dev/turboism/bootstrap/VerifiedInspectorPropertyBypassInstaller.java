@@ -22,9 +22,9 @@ import java.util.jar.JarFile;
  * in the running artifact before it is rewritten; an absent seam, a changed method body or a
  * missing drawable shader entry refuses the whole hook and leaves native behaviour untouched.</p>
  *
- * <p>The protocol itself lives in {@link VerifiedInstall}: the six reviewed setter classes are
- * retransformed in one call and every one of them is re-captured on close, so a weave that does not
- * hash back is reported instead of passing for a complete installation.</p>
+ * <p>The protocol itself lives in {@link VerifiedInstall}: it retransforms the six reviewed setter
+ * classes in one call, and on close removes the transformer and retransforms every owner so a failed
+ * restoration is reported instead of passing as complete.</p>
  */
 final class VerifiedInspectorPropertyBypassInstaller implements AutoCloseable {
 
@@ -39,7 +39,7 @@ final class VerifiedInspectorPropertyBypassInstaller implements AutoCloseable {
      */
     static final int EXPECTED_MATCHES = 6;
 
-    /** The close proof re-captures all six rewritten setters; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores all six rewritten setters; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 6;
 
     private final InstallContext context;

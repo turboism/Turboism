@@ -113,18 +113,12 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     }
 
     /**
-     * FPS counting targets keyed by the declared reviewed generation rather
-     * than the artifact digest. Only reachable for declared-generation-bound
-     * compatibility hosts, whose declared identity already pinned a reviewed
-     * runtime version.
+     * Resolves FPS counting targets for an admitted Cubism version.
+     *
+     * <p>Every reviewed Cubism version shares the same {@code renderScene_exe} target, so this method
+     * delegates directly to {@link PerformanceProbeTargets#cubism5203()}.</p>
      */
     static List<PerformanceProbeMethodTransformer.Target> fpsTargetsForVersion(final String cubismVersion) {
-        if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
-            return renderSceneTargets(PerformanceProbeTargets.cubism5302());
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            return renderSceneTargets(PerformanceProbeTargets.cubism5303());
-        }
         if (ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
             return PerformanceProbeTargets.cubism5203();
         }
@@ -172,13 +166,6 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
      */
     static List<PerformanceProbeMethodTransformer.Target> fpsTargetsFor(final HostArtifactDigest digest) {
         return fpsTargets(digest, java.util.Optional.empty());
-    }
-
-    private static List<PerformanceProbeMethodTransformer.Target> renderSceneTargets(
-            final List<PerformanceProbeMethodTransformer.Target> targets) {
-        return targets.stream()
-                .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
-                .toList();
     }
 
     @Override

@@ -16,7 +16,7 @@ import java.util.Optional;
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's two targets and
  * their dependency-shape proof. Both transforms own one class each, so the routine retransforms both
- * in one call and re-captures both on close.</p>
+ * in one call and restores both on close.</p>
  */
 final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
 
@@ -30,7 +30,7 @@ final class VerifiedSortingInfoCacheInstaller implements AutoCloseable {
     /** Each transformer rewrites exactly one site; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures both rewritten classes; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores both rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 2;
 
     static final WeaveSpec<SortingInfoCacheTarget> SPEC = new WeaveSpec<SortingInfoCacheTarget>(

@@ -118,9 +118,9 @@ final class VerifiedInstall<T> implements AutoCloseable {
      * @param <T> the target/profile type the hook installs with
      * @return the installed handle, or the refusal code for an unadmitted host
      * @throws Exception when the host is admitted but verification, registration, retransformation or a
-     *     post-check fails. On throw every transformer this call registered has been removed and every
-     *     rewritten class re-captured; a cleanup failure is suppressed onto the installation failure
-     *     with fatal JVM conditions prioritized
+     *     post-check fails. On throw {@code close()} removes every transformer this call registered and
+     *     restores every rewritten class to its pre-weave definition; a cleanup failure is suppressed
+     *     onto the installation failure with fatal JVM conditions prioritized
      */
     static <T> Attempt<T> install(final WeaveSpec<T> spec, final InstallContext context) throws Exception {
         final Attempt<T> attempt = bind(spec, context);

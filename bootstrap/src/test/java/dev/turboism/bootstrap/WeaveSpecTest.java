@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Pins the weave every migrated hook declares, one row per hook: the matched-site count the routine
- * must prove, the number of classes its close proof re-captures, and the admission row the hook froze
+ * must prove, the number of classes its close proof restores, and the admission row the hook froze
  * before the migration.
  *
  * <p>The counts are copied from the hand-rolled protocols these hooks used to carry
@@ -99,6 +99,7 @@ class WeaveSpecTest {
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_MATCHES,
                 VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
+        assertEquals(1, VerifiedRedundantStateElisionInstaller.EXPECTED_MATCHES, "TURBOISM_STATE_ELISION");
     }
 
     @Test
@@ -178,6 +179,7 @@ class WeaveSpecTest {
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,
                 VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
+        assertEquals(1, VerifiedRedundantStateElisionInstaller.EXPECTED_OWNERS, "TURBOISM_STATE_ELISION");
     }
 
     @Test
@@ -214,6 +216,7 @@ class WeaveSpecTest {
         assertRow(VerifiedMeshHitTestInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         assertRow(VerifiedRenderPassTraversalInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedExtendedInterpolationSiblingInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
+        assertRow(VerifiedRedundantStateElisionInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -19,59 +18,17 @@ import dev.turboism.ui.appearance.control.PartTreeControlAppearanceProvider;
 import dev.turboism.ui.appearance.control.PartTreeRendererMethodTransformer;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Owns the exact-version control-appearance transformer bundle and bridge cleanup. */
 final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     private static final String PREFIX = "cubism.ui-control-appearance.";
 
-    private final Instrumentation instrumentation;
-    private final ClassLoader hostClassLoader;
-    private final long hostGeneration;
-    private final List<ClassFileTransformer> transformers;
-    private final Set<String> targetClassNames;
-    private final NativeDeformerTreeAppearanceBridge.Selectors deformerTreeSelectors;
-    private final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors;
-    private final NativeParameterAppearanceBridge.Selectors parameterSelectors;
-    private final NativePartTreeAppearanceBridge.Selectors partSelectors;
-    private final PaletteAppearanceCoordinator coordinator;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean();
+    private final HookInstallSession session;
 
-    private VerifiedControlAppearanceHookInstaller(
-            final Instrumentation instrumentation,
-            final ClassLoader hostClassLoader,
-            final long hostGeneration,
-            final List<ClassFileTransformer> transformers,
-            final Set<String> targetClassNames,
-            final NativeDeformerTreeAppearanceBridge.Selectors deformerTreeSelectors,
-            final NativeDeformerControlRowAppearanceBridge.Selectors deformerControlSelectors,
-            final NativeParameterAppearanceBridge.Selectors parameterSelectors,
-            final NativePartTreeAppearanceBridge.Selectors partSelectors,
-            final PaletteAppearanceCoordinator coordinator) {
-        this(
-                instrumentation,
-                hostClassLoader,
-                hostGeneration,
-                transformers,
-                targetClassNames,
-                deformerTreeSelectors,
-                deformerControlSelectors,
-                parameterSelectors,
-                partSelectors,
-                coordinator,
-                null);
-    }
-
-    /**
-     * @param loadedClasses the loaded-class snapshot of this install phase, or {@code null} to
-     *     enumerate the loaded classes on install
-     */
     private VerifiedControlAppearanceHookInstaller(
             final Instrumentation instrumentation,
             final ClassLoader hostClassLoader,
@@ -84,17 +41,41 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             final NativePartTreeAppearanceBridge.Selectors partSelectors,
             final PaletteAppearanceCoordinator coordinator,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.hostGeneration = hostGeneration;
-        this.transformers = List.copyOf(transformers);
-        this.targetClassNames = Set.copyOf(targetClassNames);
-        this.deformerTreeSelectors = Objects.requireNonNull(deformerTreeSelectors, "deformerTreeSelectors");
-        this.deformerControlSelectors = Objects.requireNonNull(deformerControlSelectors, "deformerControlSelectors");
-        this.parameterSelectors = Objects.requireNonNull(parameterSelectors, "parameterSelectors");
-        this.partSelectors = Objects.requireNonNull(partSelectors, "partSelectors");
-        this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
-        this.loadedClasses = loadedClasses;
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        Objects.requireNonNull(deformerTreeSelectors, "deformerTreeSelectors");
+        Objects.requireNonNull(deformerControlSelectors, "deformerControlSelectors");
+        Objects.requireNonNull(parameterSelectors, "parameterSelectors");
+        Objects.requireNonNull(partSelectors, "partSelectors");
+        Objects.requireNonNull(coordinator, "coordinator");
+        this.session = HookInstallSession.builder(instrumentation, hostClassLoader, Set.copyOf(targetClassNames))
+                .loadedClasses(loadedClasses)
+                .transformers(transformers)
+                .bridge(
+                        () -> {
+                            NativeDeformerTreeAppearanceBridge.install(
+                                    hostGeneration,
+                                    deformerTreeSelectors,
+                                    new DeformerTreeControlAppearanceProvider(coordinator));
+                            NativeDeformerControlRowAppearanceBridge.install(
+                                    hostGeneration,
+                                    deformerControlSelectors,
+                                    new DeformerControlRowAppearanceProvider(coordinator));
+                            NativeParameterAppearanceBridge.install(
+                                    parameterSelectors,
+                                    new ParameterControlAppearanceProvider(hostGeneration, coordinator));
+                            NativePartTreeAppearanceBridge.install(
+                                    hostGeneration, partSelectors, new PartTreeControlAppearanceProvider(coordinator));
+                        },
+                        () -> {
+                            NativeParameterAppearanceBridge.uninstall();
+                            NativePartTreeAppearanceBridge.uninstall();
+                            NativeDeformerControlRowAppearanceBridge.uninstall();
+                            NativeDeformerTreeAppearanceBridge.uninstall();
+                        })
+                .restorePolicy(HookInstallSession.RestorePolicy.BEST_EFFORT_AFTER_BRIDGE_UNINSTALL)
+                .useSnapshotOnRestore()
+                .build();
     }
 
     static VerifiedControlAppearanceHookInstaller fromVerifiedResolver(
@@ -263,59 +244,12 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
     }
 
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) return;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        try {
-            NativeDeformerTreeAppearanceBridge.install(
-                    hostGeneration, deformerTreeSelectors, new DeformerTreeControlAppearanceProvider(coordinator));
-            NativeDeformerControlRowAppearanceBridge.install(
-                    hostGeneration, deformerControlSelectors, new DeformerControlRowAppearanceProvider(coordinator));
-            NativeParameterAppearanceBridge.install(
-                    parameterSelectors, new ParameterControlAppearanceProvider(hostGeneration, coordinator));
-            NativePartTreeAppearanceBridge.install(
-                    hostGeneration, partSelectors, new PartTreeControlAppearanceProvider(coordinator));
-            for (ClassFileTransformer transformer : transformers) instrumentation.addTransformer(transformer, true);
-            final List<Class<?>> loadedTargets = loadedTargets();
-            if (!loadedTargets.isEmpty()) instrumentation.retransformClasses(loadedTargets.toArray(Class<?>[]::new));
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw failure;
-        }
+        session.install();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        for (ClassFileTransformer transformer : transformers) instrumentation.removeTransformer(transformer);
-        NativeParameterAppearanceBridge.uninstall();
-        NativePartTreeAppearanceBridge.uninstall();
-        NativeDeformerControlRowAppearanceBridge.uninstall();
-        NativeDeformerTreeAppearanceBridge.uninstall();
-        try {
-            final List<Class<?>> loadedTargets = loadedTargets();
-            if (!loadedTargets.isEmpty()) instrumentation.retransformClasses(loadedTargets.toArray(Class<?>[]::new));
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-            // Styles and callbacks are already revoked; bytecode restoration remains best-effort on shutdown.
-        }
-    }
-
-    private List<Class<?>> loadedTargets() {
-        final List<Class<?>> targets = new ArrayList<>();
-        for (Class<?> loaded : loadedClasses().select(targetClassNames, hostClassLoader)) {
-            if (instrumentation.isModifiableClass(loaded)) {
-                targets.add(loaded);
-            }
-        }
-        return targets;
-    }
-
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 
     private static ParameterRowMethodTransformer.MethodSelector method(final StaticSelector selector) {

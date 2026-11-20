@@ -18,7 +18,8 @@ import java.util.jar.JarFile;
  * <p>The bundled {@code jogl-all.jar} is digest-attested, the backend class must resolve from the
  * JOGL code source, the bridge class must be visible from the same loader (the rewritten
  * {@code INVOKESTATIC} has to link), and the pre-rewrite {@code postGL} shape must equal the
- * official class entry. On close the class must hash back to its pre-rewrite SHA-256.</p>
+ * official class entry. On close {@link VerifiedInstall} removes the transformer and retransforms the
+ * class so the JVM restores its original definition.</p>
  *
  * <p>Composition: no other Turboism transformer touches this JOGL class, so the rewrite sees the
  * official bytes on every retransformation and the shape gate is stable.</p>
@@ -40,7 +41,7 @@ final class VerifiedAsyncReadbackInstaller implements AutoCloseable {
     /** The one {@code postGL} readback site this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     static final WeaveSpec<Path> SPEC = new WeaveSpec<Path>(

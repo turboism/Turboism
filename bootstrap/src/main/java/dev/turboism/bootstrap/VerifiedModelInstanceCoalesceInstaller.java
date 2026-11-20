@@ -21,8 +21,8 @@ import java.util.jar.JarFile;
  * <p>The three rewritten classes are pinned through the existing reviewed
  * model-update class evidence. Every method the state machine invokes or the
  * transformer rewrites is compared against the official artifact bytes before any
- * retransformation is published, and close re-captures each class to prove the
- * original bytes returned.</p>
+ * retransformation is published, and close restores each class to its original JVM
+ * definition.</p>
  */
 final class VerifiedModelInstanceCoalesceInstaller implements AutoCloseable {
 

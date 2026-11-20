@@ -19,10 +19,10 @@ import java.util.Optional;
  * Exact admission, weaving and restoration for the zero-quality-loss clipping-mask
  * deduplication optimization.
  *
- * <p>One reviewed render-system class is rewritten at the three mask-pass call sites, and closing
- * re-captures that class and proves it hashes back to the bytes the transformer observed. The
- * scissor-limited clear sub-mode rides the dedupe weave, so it is reported from {@link WeaveEffects}:
- * only once the weave is proven, and withdrawn before the restoration capture.</p>
+ * <p>One reviewed render-system class is rewritten at the three mask-pass call sites; on close
+ * {@link VerifiedInstall} removes the transformer and retransforms the class so the JVM restores its
+ * original definition. The scissor-limited clear sub-mode rides the dedupe weave, so it is reported
+ * from {@link WeaveEffects}: only once the weave is proven, and withdrawn before restoration.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's own two bridges
  * and the sub-mode decision it owns.</p>
@@ -37,7 +37,7 @@ final class VerifiedClipMaskDeduplicationInstaller implements AutoCloseable {
     /** Mask-pass call sites the one transformer rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 3;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     private final InstallContext context;

@@ -4,15 +4,15 @@ import dev.turboism.automesh.host.AutoMeshFunnelTransformer;
 import dev.turboism.automesh.host.AutoMeshHostProfile;
 import dev.turboism.automesh.host.AutoMeshPanelAttachTransformer;
 import dev.turboism.automesh.host.NativeAutoMeshBridge;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.plugin.Registration;
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -39,15 +39,10 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
     static final String MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS =
             AutoMeshHostProfile.MESH_EDITOR_POPUP_DIALOG_CONSTRUCTOR_ALIAS;
 
-    private final Instrumentation instrumentation;
-    private final List<java.lang.instrument.ClassFileTransformer> transformers;
-    private final Set<String> targetClassNames;
     private final ClassLoader hostClassLoader;
-    private final NativeAutoMeshBridge.Handler bridgeHandler;
     private final Consumer<String> diagnostics;
-    private final AtomicBoolean installed = new AtomicBoolean();
+    private final HookInstallSession session;
     private Registration bridge;
-    private boolean transformersRemoved;
 
     /**
      * Builds the production installer from a reviewed host profile.
@@ -66,20 +61,19 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
             final Consumer<String> diagnostics,
             final ClassLoader hostClassLoader) {
         final AutoMeshHostProfile requested = Objects.requireNonNull(profile, "profile");
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.bridgeHandler = Objects.requireNonNull(handler, "handler");
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        final NativeAutoMeshBridge.Handler bridgeHandler = Objects.requireNonNull(handler, "handler");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         if (!supportsExactCubismVersion(requested.hostVersion())) {
             throw new IllegalArgumentException("auto mesh guard requires exact Cubism " + SUPPORTED_CUBISM_VERSIONS);
         }
-        final List<java.lang.instrument.ClassFileTransformer> registered = new java.util.ArrayList<>();
-        registered.add(transformerFor(requested, requested.modelingFunnelOwner(), requested.modelingFunnel()));
-        registered.add(transformerFor(requested, requested.meshEditorFunnelOwner(), requested.meshEditorFunnel()));
+        final List<ClassFileTransformer> transformers = new ArrayList<>();
+        transformers.add(transformerFor(requested, requested.modelingFunnelOwner(), requested.modelingFunnel()));
+        transformers.add(transformerFor(requested, requested.meshEditorFunnelOwner(), requested.meshEditorFunnel()));
         for (final AutoMeshPanelAttachTransformer.Site site : AutoMeshPanelAttachTransformer.sitesOf(requested)) {
-            registered.add(new AutoMeshPanelAttachTransformer(site, hostClassLoader, diagnostics));
+            transformers.add(new AutoMeshPanelAttachTransformer(site, hostClassLoader, diagnostics));
         }
-        this.transformers = List.copyOf(registered);
         final Set<String> owners = new TreeSet<>();
         for (final AutoMeshFunnelTransformer.Site site : AutoMeshFunnelTransformer.sitesOf(requested)) {
             owners.add(binaryNameOf(site.ownerInternalName()));
@@ -87,7 +81,18 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
         for (final AutoMeshPanelAttachTransformer.Site site : AutoMeshPanelAttachTransformer.sitesOf(requested)) {
             owners.add(binaryNameOf(site.ownerInternalName()));
         }
-        this.targetClassNames = Set.copyOf(owners);
+        this.session = HookInstallSession.builder(instrumentation, hostClassLoader, owners)
+                .transformers(transformers)
+                .bridge(() -> bridge = NativeAutoMeshBridge.install(bridgeHandler, diagnostics), () -> {
+                    if (bridge != null) {
+                        bridge.close();
+                        bridge = null;
+                    }
+                })
+                .restorePolicy(HookInstallSession.RestorePolicy.RETRYABLE_BEFORE_BRIDGE_CLOSE)
+                .installFailureMessage("Verified auto mesh guard installation failed")
+                .restoreFailureMessage("Verified auto mesh guard restoration failed")
+                .build();
     }
 
     static boolean supportsExactCubismVersion(final String version) {
@@ -95,69 +100,17 @@ final class VerifiedAutoMeshHookInstaller implements AutoCloseable {
     }
 
     /**
-     * Installs the bridge and then both transformers.
-     *
-     * <p>Registration happens before the retransformation scan, so a funnel that loads during the
-     * scan is guarded too. Any failure restores the host classes before it propagates.</p>
+     * Installs the bridge and transformers, then retransforms already-loaded funnel and panel owners.
      *
      * @throws Exception when the guard cannot be proven installable
      */
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) {
-            return;
-        }
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        try {
-            bridge = NativeAutoMeshBridge.install(bridgeHandler, diagnostics);
-            for (final java.lang.instrument.ClassFileTransformer transformer : transformers) {
-                instrumentation.addTransformer(transformer, true);
-            }
-            transformersRemoved = false;
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassNames, hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            try {
-                close();
-            } catch (Throwable cleanupFailure) {
-                FatalErrors.rethrowIfFatal(cleanupFailure);
-                failure.addSuppressed(cleanupFailure);
-            }
-            if (failure instanceof Exception exception) {
-                throw exception;
-            }
-            if (failure instanceof Error error) {
-                throw error;
-            }
-            throw new IllegalStateException("Verified auto mesh guard installation failed", failure);
-        }
+        session.install();
     }
 
     @Override
-    public synchronized void close() {
-        if (!installed.get()) {
-            return;
-        }
-        if (!transformersRemoved) {
-            for (final java.lang.instrument.ClassFileTransformer transformer : transformers) {
-                instrumentation.removeTransformer(transformer);
-            }
-            transformersRemoved = true;
-        }
-        try {
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassNames, hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            // Keep the installation live: host bytes must be restored before callbacks disappear.
-            throw new IllegalStateException("Verified auto mesh guard restoration failed", failure);
-        }
-        if (bridge != null) {
-            bridge.close();
-            bridge = null;
-        }
-        installed.set(false);
+    public void close() {
+        session.close();
     }
 
     private AutoMeshFunnelTransformer transformerFor(
