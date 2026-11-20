@@ -97,6 +97,9 @@ dev.turboism.config.TypedConfigDocumentStorePermissionTest.* # requires a POSIX 
 dev.turboism.core.io.DurableFileTest.ownerOnlyRestrictsTheFileBeforeAnyPayloadByteIsWritten() # requires a POSIX filesystem; Windows NTFS skips POSIX mode bit enforcement via assumption.
 dev.turboism.update.FrameworkInstallationReceiptLoaderTest.appliedReceiptIndexAndRollbackBackupStayPrivateUnderWideInheritedAcl() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
 dev.turboism.update.FrameworkInstallationReceiptLoaderTest.receiptIndexRestorePublishesPrivateStateInsteadOfWideCopiedBackup() # non-POSIX (Windows ACL) only; POSIX enforces receipt privacy with owner-only mode bits.
+dev.turboism.update.FrameworkInstallationReceiptLoaderTest.[18] hardlink-file # Requires the Unix link count that Windows NIO does not expose.
+dev.turboism.update.FrameworkInstallationReceiptLoaderTest.[20] hardlink-index # Requires the Unix link count that Windows NIO does not expose.
+dev.turboism.update.FrameworkInstallationReceiptLoaderTest.[22] permissions-file # Requires POSIX mode bits on the installed payload.
 dev.turboism.update.FrameworkUpdateApplierTest.lockedFileOnWindowsRollsBackEverythingElseAndKeepsLockedFileUntouched() # Windows sharing-violation semantics only.
 dev.turboism.update.FrameworkUpdateApplierTest.replacedFileThatBecomesLockedReportsIncompleteRollbackThenRecovers() # Windows sharing-violation semantics only.
 dev.turboism.update.FrameworkUpdateNextLaunchTest.prepareLaunchWhenApplyFailsAndRollsBackReturnsExitRolledBackAndDiscardsTask() # Windows file-lock rollback only (os.name assumption).
