@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.68.4
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ interface: embedded
 将受支持的静态不透明 GLB、glTF、OBJ/MTL 及模型 ZIP 压缩包导入为原生 Cubism 网格，支持 PNG/JPEG 基础色贴图、XYZ 整圈旋转及有界几何优化。
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.4` |
+| 版本 | `0.68.5` |
 | 插件 ID | `dev.turboism.plugin.model-import-3d` |
 | 分类 | `workflow` |
 | 标签 | 3d, glb, gltf, obj, import |

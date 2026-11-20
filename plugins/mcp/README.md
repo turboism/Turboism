@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.68.5
+version: 0.68.6
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.5` |
+| Version | `0.68.6` |
 | Plugin ID | `dev.turboism.plugin.mcp` |
 | Public catalog | 80 tools · 15 resources · 2 templates · 8 prompts |
 | Requires Cubism | Yes |
@@ -372,6 +372,10 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 | Resource returns permission denied | Check the plugin descriptor grant and the specific runtime permission named above. |
 
 ## Changelog
+
+### 0.68.6
+
+- Show the full agent prompt in a three-row field and consolidate SHA-256 handling.
 
 ### 0.68.5
 

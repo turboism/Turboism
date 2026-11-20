@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.model-import-3d
-version: 0.68.4
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Imports supported GLB, glTF, OBJ and model ZIP packages as native Cubism meshes 
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.4` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.model-import-3d` |
 | Category | `workflow` |
 | Tags | 3d, glb, gltf, obj, import |
@@ -137,6 +137,10 @@ Plugin metadata names and descriptions have five language catalogs; the import d
 If the menu is missing, confirm that this development JAR is installed and enabled. If import is rejected, check the canvas size, file size and supported geometry/material limits above. Open the intended target model and start again after switching documents. At 0 / 0, adjust both angle parameters to see the side faces. File-picker cancellation makes no model changes.
 
 ## Changelog
+
+### 0.68.5
+
+- Localize 3D model import messages and consolidate SHA-256 handling.
 
 ### 0.68.4
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.6
+version: 0.68.7
 kind: feature
 status: preview
 delivery: store-candidate
@@ -21,7 +21,7 @@ interface: swing
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.6` |
+| 版本 | `0.68.7` |
 | 插件 ID | `dev.turboism.plugin.acp` |
 | 分类 | `integration` |
 | 标签 | automation, acp, agent |
