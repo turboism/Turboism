@@ -197,6 +197,21 @@ class CubismNativeIconResolverTest {
         }
     }
 
+    @Test
+    void symlinksAreRejectedWithoutFollowingTarget() throws Exception {
+        final Path target = temporary.resolve("target.jar");
+        Files.writeString(target, "not a reviewed host artifact");
+        final Path link = temporary.resolve("symlink.jar");
+        try {
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | java.io.IOException unsupported) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symlinks unsupported on this filesystem");
+        }
+        try (var provider = CubismNativeIconResolver.preloadArtifact("5.2.03", link)) {
+            assertEquals(UiIconAvailability.HOST_UNVERIFIED, provider.availability(normal()));
+        }
+    }
+
     private static NativeIconVariant normal() {
         return new NativeIconVariant(CubismIcon.ART_MESH, NativeIconVariant.Theme.LIGHT, 100, false);
     }

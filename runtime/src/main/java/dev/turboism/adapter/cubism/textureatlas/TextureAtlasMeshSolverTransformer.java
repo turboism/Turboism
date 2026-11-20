@@ -1,7 +1,5 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import dev.turboism.core.io.Sha256;
-import java.util.Map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -18,16 +16,11 @@ final class TextureAtlasMeshSolverTransformer implements Opcodes {
     static final String MESH = MESH_PACKAGE + "GEditableMesh2";
     static final String TRIANGULATION = MESH_PACKAGE + "triangulation/";
     static final String CAPTURE_MARKER = "turboismAtlasCaptureAvailable";
-    private static final String PROGRESS_EARLY = "com/live2d/util/h/a";
-    private static final String PROGRESS_MIDDLE = "com/live2d/util/i/a";
-    private static final String PROGRESS_RECENT = "com/live2d/util/j/a";
-    private static final Map<String, String> PROGRESS_BY_MESH_OPS = Map.of(
-            "53e020a01e3038765b10bc41c7f96ed6d5ec043732c8bddd437def5e6ea0f3f9", PROGRESS_EARLY,
-            "3d62e44f0735d21a27a406b8430919cdee48efcdf9a86e1c898715e13e175c16", PROGRESS_MIDDLE,
-            "4d6a505584d90b5dae639c34c317857daa0eb6dd2813d6244d69aa3fa64708f7", PROGRESS_MIDDLE,
-            "02cbb1ddc8fc51c18276161a4379a4ef476265ea1963f848dc8ecbee1a64500c", PROGRESS_MIDDLE,
-            "feb336198c4a29ba4e44eb2f1bcecbcd0e034558f2037737b3f73fd2e8ccfe49", PROGRESS_RECENT,
-            "671e8cdd67f6f78ff756edf0e910f478f901b58c19fab90ad4a0b6d367ee1aca", PROGRESS_RECENT);
+    static final String PROGRESS_PACKAGE_PREFIX = "com/live2d/util/";
+    private static final Type MESH_TYPE = Type.getObjectType(MESH);
+    private static final Type LIST_TYPE = Type.getObjectType("java/util/List");
+    private static final int APPLY_PARAMETER_COUNT = 4;
+    private static final int PROGRESS_PARAMETER_INDEX = 3;
     private static final String SOLVER = TRIANGULATION + "a";
     private static final String NATIVE_METHOD = "a";
     private static final String BRIDGE = Type.getInternalName(TextureAtlasParallelMeshes.class);
@@ -46,6 +39,7 @@ final class TextureAtlasMeshSolverTransformer implements Opcodes {
     private TextureAtlasMeshSolverTransformer() {}
 
     static byte[] transform(final byte[] bytes) {
+        if (bytes == null) return null;
         final String progress = progressType(bytes);
         if (progress == null) return null;
         final var reader = new ClassReader(bytes);
@@ -56,7 +50,46 @@ final class TextureAtlasMeshSolverTransformer implements Opcodes {
     }
 
     static String progressType(final byte[] bytes) {
-        return PROGRESS_BY_MESH_OPS.get(Sha256.hex(bytes));
+        if (bytes == null) return null;
+        final String[] detected = new String[1];
+        final int[] matches = new int[1];
+        try {
+            final var reader = new ClassReader(bytes);
+            if (!MESH_OPS.equals(reader.getClassName())) return null;
+            reader.accept(
+                    new ClassVisitor(ASM9) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String name,
+                                final String desc,
+                                final String signature,
+                                final String[] errors) {
+                            if ((access & (ACC_PUBLIC | ACC_ABSTRACT | ACC_NATIVE | ACC_STATIC)) != ACC_PUBLIC
+                                    || !NATIVE_METHOD.equals(name)) {
+                                return null;
+                            }
+                            if (!Type.VOID_TYPE.equals(Type.getReturnType(desc))) return null;
+                            final Type[] args = Type.getArgumentTypes(desc);
+                            if (args.length != APPLY_PARAMETER_COUNT
+                                    || !MESH_TYPE.equals(args[0])
+                                    || !LIST_TYPE.equals(args[1])
+                                    || !Type.BOOLEAN_TYPE.equals(args[2])
+                                    || args[PROGRESS_PARAMETER_INDEX].getSort() != Type.OBJECT) {
+                                return null;
+                            }
+                            final String progress = args[PROGRESS_PARAMETER_INDEX].getInternalName();
+                            if (!progress.startsWith(PROGRESS_PACKAGE_PREFIX)) return null;
+                            detected[0] = progress;
+                            matches[0]++;
+                            return null;
+                        }
+                    },
+                    ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (RuntimeException malformed) {
+            return null;
+        }
+        return matches[0] == 1 ? detected[0] : null;
     }
 
     private static final class MeshOpsVisitor extends ClassVisitor {

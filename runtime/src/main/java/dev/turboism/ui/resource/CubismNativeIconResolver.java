@@ -1,13 +1,15 @@
 package dev.turboism.ui.resource;
 
-import dev.turboism.core.io.Sha256;
+import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -93,31 +95,36 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         final var expected = CubismNativeIconCatalog.artifact(Objects.requireNonNull(version, "version"));
         if (expected.isEmpty()) return unverified();
         try {
-            if (!Files.isRegularFile(artifact, LinkOption.NOFOLLOW_LINKS)
-                    || Files.size(artifact) != expected.get().size()
-                    || expected.get().size() > MAX_ARTIFACT_BYTES) return unverified();
-            final byte[] snapshot;
-            try (var stream = Files.newInputStream(artifact)) {
-                snapshot = dev.turboism.sdk.io.BoundedInput.readNBytes(
-                        stream, expected.get().size());
-            }
-            // Decode precisely these measured bytes, never reopen the path after validation.
-            if (snapshot.length != expected.get().size()
-                    || !Sha256.hex(snapshot).equals(expected.get().sha256())) {
+            final long expectedSize = expected.get().size();
+            if (expectedSize > MAX_ARTIFACT_BYTES
+                    || !Files.isRegularFile(artifact, LinkOption.NOFOLLOW_LINKS)
+                    || Files.size(artifact) != expectedSize
+                    || !expected.get().equals(HostArtifactDigest.cached(artifact))) {
                 return unverified();
             }
-            return decodeArchive(snapshot);
+            final CubismNativeIconResolver decoded;
+            try (InputStream stream =
+                    new BufferedInputStream(Files.newInputStream(artifact, LinkOption.NOFOLLOW_LINKS))) {
+                decoded = decodeArchive(stream);
+            }
+            // Reject an artifact swapped on disk between cached attestation and stream read.
+            if (!Files.isRegularFile(artifact, LinkOption.NOFOLLOW_LINKS)
+                    || !expected.get().equals(HostArtifactDigest.cached(artifact))) {
+                decoded.close();
+                return unverified();
+            }
+            return decoded;
         } catch (IOException | RuntimeException failure) {
             return unverified();
         }
     }
 
-    private static CubismNativeIconResolver decodeArchive(final byte[] snapshot) throws IOException {
+    private static CubismNativeIconResolver decodeArchive(final InputStream archive) throws IOException {
         final Map<String, NativeIconVariant> allowed = new HashMap<>();
         CubismNativeIconCatalog.resources().keySet().forEach(key -> allowed.put(key.resourcePath(), key));
         final Map<NativeIconVariant, BufferedImage> prepared = new HashMap<>();
         final Set<String> seen = new HashSet<>();
-        try (var zip = new ZipInputStream(new ByteArrayInputStream(snapshot))) {
+        try (var zip = new ZipInputStream(archive)) {
             for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
                 final NativeIconVariant key = allowed.get(entry.getName());
                 if (key == null) continue;

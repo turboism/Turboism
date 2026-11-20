@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -8,11 +9,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Behaviour tests for the triangulation edge-index weave.
@@ -388,6 +402,287 @@ final class TriangulationEdgeIndexTransformerTest {
         query.visitMaxs(2, 2);
         query.visitEnd();
         writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    @Test
+    void triangleSetTransformerRejectsUnreviewedProtectionDomains(@TempDir final Path temp) throws Exception {
+        final Path fakeJar = temp.resolve("fake.jar");
+        Files.writeString(fakeJar, "not reviewed");
+        final ProtectionDomain unreviewed = new ProtectionDomain(
+                new CodeSource(fakeJar.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
+        final var transformer = new TextureAtlasTriangleSetTransformer(true);
+        assertNull(transformer.transform(
+                getClass().getClassLoader(), LIST.replace('.', '/'), null, null, FIXTURE.get(LIST)));
+        assertNull(transformer.transform(
+                getClass().getClassLoader(), LIST.replace('.', '/'), null, unreviewed, FIXTURE.get(LIST)));
+        assertNull(transformer.transform(
+                getClass().getClassLoader(),
+                TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME,
+                null,
+                unreviewed,
+                angleCallerBytes("com/live2d/util/L")));
+    }
+
+    @Test
+    void triangleSetTransformerPatchesReviewedShapesAndFailsClosedOnDrift() {
+        final String listInternal = TriangulationEdgeIndexFixture.LIST;
+        final var scopedOnly = new TextureAtlasTriangleSetTransformer(false);
+        final var indexed = new TextureAtlasTriangleSetTransformer(true);
+        assertNotNull(scopedOnly.transformReviewed(listInternal, FIXTURE.get(LIST), "5.3.04", ignored -> null));
+        assertNotNull(indexed.transformReviewed(listInternal, FIXTURE.get(LIST), "5.3.04", ignored -> null));
+        assertNull(indexed.transformReviewed(listInternal, badShapeListBytes(), "5.3.04", ignored -> null));
+
+        final Map<String, byte[]> earlyEntries = Map.of(
+                "com/live2d/graphics3d/editableMesh/triangulation/r", geometryBytes(true),
+                "com/live2d/graphics3d/type/GVector2", vectorBytes(true),
+                "com/live2d/util/K", mathBytes("com/live2d/util/K", true));
+        final byte[] earlyCaller = angleCallerBytes("com/live2d/util/K");
+        assertNotNull(indexed.transformReviewed(
+                TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, earlyCaller, "5.1.03", earlyEntries::get));
+
+        final Map<String, byte[]> missingVectorGetter = new HashMap<>(earlyEntries);
+        missingVectorGetter.put("com/live2d/graphics3d/type/GVector2", vectorBytes(false));
+        assertNull(indexed.transformReviewed(
+                TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME,
+                earlyCaller,
+                "5.1.03",
+                missingVectorGetter::get));
+
+        assertNull(indexed.transformReviewed(
+                TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, earlyCaller, "5.3.04", earlyEntries::get));
+    }
+
+    @Test
+    void triangleSetRejectsUnreviewedOwnerAndVerifiesMemberShape() throws Exception {
+        final LinkedHashSet<Object> original = new LinkedHashSet<>();
+        assertSame(original, TextureAtlasTriangleSet.forAtlas(original, TriangulationEdgeIndexTransformerTest.class));
+
+        final Map<String, byte[]> classes = new HashMap<>(FIXTURE);
+        classes.put("com/live2d/graphics3d/type/GVector2".replace('/', '.'), vectorBytes(true));
+        classes.put(POINT, pointWithVectorSuperBytes());
+        classes.put(TRIANGLE, triangleWithFinalGettersBytes());
+        final Loader loader = new Loader(classes, FIXTURE.get(LIST));
+        final Class<?> triangleClass = Class.forName(TRIANGLE, true, loader);
+        final Class<?> pointClass = Class.forName(POINT, true, loader);
+        final Class<?> vectorClass = Class.forName("com.live2d.graphics3d.type.GVector2", true, loader);
+
+        final var cornerHash = TextureAtlasTriangleSet.cornerHash(triangleClass, pointClass, vectorClass)
+                .orElseThrow();
+        final Constructor<?> pointCtor = pointClass.getDeclaredConstructor(float.class, float.class, int.class);
+        final Constructor<?> triCtor = triangleClass.getDeclaredConstructor(pointClass, pointClass, pointClass);
+        final Object a1 = triCtor.newInstance(
+                pointCtor.newInstance(1f, 2f, 1), pointCtor.newInstance(3f, 4f, 2), pointCtor.newInstance(5f, 6f, 3));
+        final Object a2 = triCtor.newInstance(
+                pointCtor.newInstance(1f, 2f, 9), pointCtor.newInstance(3f, 4f, 8), pointCtor.newInstance(5f, 6f, 7));
+        final Object b = triCtor.newInstance(
+                pointCtor.newInstance(9f, 2f, 1), pointCtor.newInstance(3f, 4f, 2), pointCtor.newInstance(5f, 6f, 3));
+        assertEquals(cornerHash.applyAsInt(a1), cornerHash.applyAsInt(a2));
+        assertNotEquals(cornerHash.applyAsInt(a1), cornerHash.applyAsInt(b));
+
+        assertTrue(TextureAtlasTriangleSet.cornerHash(Object.class, pointClass, vectorClass)
+                .isEmpty());
+    }
+
+    private static byte[] angleCallerBytes(final String mathOwner) {
+        final String h = TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME;
+        final String r = "com/live2d/graphics3d/editableMesh/triangulation/r";
+        final String v = "com/live2d/graphics3d/type/GVector2";
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, h, null, "java/lang/Object", null);
+        final MethodVisitor d = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "d", "()V", null, null);
+        d.visitCode();
+        final Label loop = new Label();
+        d.visitLabel(loop);
+        d.visitFieldInsn(Opcodes.GETSTATIC, r, "a", "L" + r + ";");
+        d.visitInsn(Opcodes.ACONST_NULL);
+        d.visitInsn(Opcodes.ACONST_NULL);
+        d.visitMethodInsn(Opcodes.INVOKEVIRTUAL, r, "a", "(L" + v + ";L" + v + ";)F", false);
+        d.visitVarInsn(Opcodes.FSTORE, 13);
+        d.visitVarInsn(Opcodes.FLOAD, 13);
+        d.visitFieldInsn(Opcodes.GETSTATIC, mathOwner, "a", "L" + mathOwner + ";");
+        d.visitMethodInsn(Opcodes.INVOKEVIRTUAL, mathOwner, "f", "()F", false);
+        d.visitInsn(Opcodes.FCMPL);
+        d.visitJumpInsn(Opcodes.IFGT, loop);
+        d.visitInsn(Opcodes.RETURN);
+        d.visitMaxs(3, 14);
+        d.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] geometryBytes(final boolean withSingleton) {
+        final String r = "com/live2d/graphics3d/editableMesh/triangulation/r";
+        final String v = "com/live2d/graphics3d/type/GVector2";
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, r, null, "java/lang/Object", null);
+        if (withSingleton) {
+            writer.visitField(
+                            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "a", "L" + r + ";", null, null)
+                    .visitEnd();
+        }
+        final MethodVisitor angle = writer.visitMethod(
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "a", "(L" + v + ";L" + v + ";)F", null, null);
+        angle.visitCode();
+        angle.visitInsn(Opcodes.FCONST_0);
+        angle.visitInsn(Opcodes.FRETURN);
+        angle.visitMaxs(1, 3);
+        angle.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] vectorBytes(final boolean withGetX) {
+        final String v = "com/live2d/graphics3d/type/GVector2";
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, v, null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_PROTECTED, "x", "F", null, null).visitEnd();
+        writer.visitField(Opcodes.ACC_PROTECTED, "y", "F", null, null).visitEnd();
+        final MethodVisitor ctor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        ctor.visitCode();
+        ctor.visitVarInsn(Opcodes.ALOAD, 0);
+        ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        ctor.visitInsn(Opcodes.RETURN);
+        ctor.visitMaxs(1, 1);
+        ctor.visitEnd();
+        for (final String getter : withGetX ? new String[] {"getX", "getY"} : new String[] {"getY"}) {
+            final MethodVisitor mv =
+                    writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, getter, "()F", null, null);
+            mv.visitCode();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETFIELD, v, "getX".equals(getter) ? "x" : "y", "F");
+            mv.visitInsn(Opcodes.FRETURN);
+            mv.visitMaxs(1, 1);
+            mv.visitEnd();
+        }
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] mathBytes(final String owner, final boolean withThreshold) {
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, owner, null, "java/lang/Object", null);
+        writer.visitField(
+                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "a", "L" + owner + ";", null, null)
+                .visitEnd();
+        writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "i", "F", null, null)
+                .visitEnd();
+        if (withThreshold) {
+            final MethodVisitor mv = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "f", "()F", null, null);
+            mv.visitCode();
+            mv.visitInsn(Opcodes.FCONST_0);
+            mv.visitInsn(Opcodes.FRETURN);
+            mv.visitMaxs(1, 1);
+            mv.visitEnd();
+        }
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] triangleWithFinalGettersBytes() {
+        final ClassWriter writer = new ClassWriter(0);
+        new ClassReader(FIXTURE.get(TRIANGLE))
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9, writer) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                final boolean corner = "a".equals(name) || "b".equals(name) || "c".equals(name);
+                                return super.visitMethod(
+                                        corner && descriptor.startsWith("()") ? access | Opcodes.ACC_FINAL : access,
+                                        name,
+                                        descriptor,
+                                        signature,
+                                        exceptions);
+                            }
+                        },
+                        0);
+        return writer.toByteArray();
+    }
+
+    private static byte[] pointWithVectorSuperBytes() {
+        final ClassWriter writer = new ClassWriter(0);
+        new ClassReader(FIXTURE.get(POINT))
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9, writer) {
+                            @Override
+                            public void visit(
+                                    final int version,
+                                    final int access,
+                                    final String name,
+                                    final String signature,
+                                    final String superName,
+                                    final String[] interfaces) {
+                                super.visit(
+                                        version,
+                                        access,
+                                        name,
+                                        signature,
+                                        "com/live2d/graphics3d/type/GVector2",
+                                        interfaces);
+                            }
+
+                            @Override
+                            public org.objectweb.asm.FieldVisitor visitField(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final Object value) {
+                                if ("x".equals(name) || "y".equals(name)) return null;
+                                return super.visitField(access, name, descriptor, signature, value);
+                            }
+
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if ("getX".equals(name) || "getY".equals(name)) return null;
+                                final int updatedAccess = "getIndex".equals(name) ? access | Opcodes.ACC_FINAL : access;
+                                final var mv =
+                                        super.visitMethod(updatedAccess, name, descriptor, signature, exceptions);
+                                return new MethodVisitor(Opcodes.ASM9, mv) {
+                                    @Override
+                                    public void visitFieldInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String fieldName,
+                                            final String fieldDesc) {
+                                        final String targetOwner =
+                                                POINT.replace('.', '/').equals(owner)
+                                                                && ("x".equals(fieldName) || "y".equals(fieldName))
+                                                        ? "com/live2d/graphics3d/type/GVector2"
+                                                        : owner;
+                                        super.visitFieldInsn(opcode, targetOwner, fieldName, fieldDesc);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String member,
+                                            final String desc,
+                                            final boolean itf) {
+                                        super.visitMethodInsn(
+                                                opcode,
+                                                "<init>".equals(name) && "java/lang/Object".equals(owner)
+                                                        ? "com/live2d/graphics3d/type/GVector2"
+                                                        : owner,
+                                                member,
+                                                desc,
+                                                itf);
+                                    }
+                                };
+                            }
+                        },
+                        0);
         return writer.toByteArray();
     }
 }
