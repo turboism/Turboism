@@ -135,7 +135,9 @@ final class NativeOptimizationPolicy {
     }
 
     static boolean clipMaskScissorClearEnabled(final HookEnvironment environment) {
-        return requested(environment, OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR);
+        final boolean enabled = requested(environment, OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR);
+        dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskScissorBridge.setConfiguredDefault(enabled);
+        return enabled;
     }
 
     static boolean extendedInterpolationIncrementalSetupEnabled(final HookEnvironment environment) {

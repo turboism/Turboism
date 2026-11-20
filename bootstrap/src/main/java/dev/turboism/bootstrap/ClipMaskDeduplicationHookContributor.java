@@ -24,6 +24,7 @@ final class ClipMaskDeduplicationHookContributor extends NativeOptimizationHookC
             debug(environment, id() + " installation=NOT_ADMITTED");
             return refused("preference-disabled");
         }
+        NativeOptimizationPolicy.clipMaskScissorClearEnabled(environment);
         final var host = environment.host().orElseThrow();
         final VerifiedClipMaskDeduplicationInstaller installer = new VerifiedClipMaskDeduplicationInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());

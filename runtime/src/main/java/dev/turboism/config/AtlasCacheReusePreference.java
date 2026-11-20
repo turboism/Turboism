@@ -15,8 +15,8 @@ public final class AtlasCacheReusePreference {
 
     /** Config key holding the preference. */
     public static final String KEY = "atlasCacheReuse";
-    /** Default when nothing is persisted: rendering optimizations require explicit opt-in. */
-    public static final boolean DEFAULT_ENABLED = false;
+    /** Default when nothing is persisted: input-digested cache reuse defaults on. */
+    public static final boolean DEFAULT_ENABLED = true;
 
     private AtlasCacheReusePreference() {}
 

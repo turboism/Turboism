@@ -41,7 +41,7 @@ class OptimizationSettingsFileServiceTest {
     void everyPersistedKeyRoundTripsInItsDeclaredScope(final Optimization optimization) throws Exception {
         final PerformanceSettingsConfig.Field field = PerformanceSettingsConfig.Field.forKey(optimization.key());
         try (OptimizationSettingsFileService service = new OptimizationSettingsFileService(home)) {
-            assertEquals(optimization == OptimizationCatalog.ATLAS_LOADING, service.enabled(optimization.key()));
+            assertEquals(Boolean.parseBoolean(field.defaultValue(false)), service.enabled(optimization.key()));
             service.setEnabled(optimization.key(), true);
             assertTrue(service.enabled(optimization.key()), optimization.key() + " reads back the saved value");
             final JsonNode root = JSON.readTree(home.resolve("config.json").toFile());

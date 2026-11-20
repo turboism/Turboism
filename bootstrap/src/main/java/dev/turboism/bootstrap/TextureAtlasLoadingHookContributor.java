@@ -47,11 +47,6 @@ final class TextureAtlasLoadingHookContributor implements ReportedHookContributo
     public AutoCloseable install(final HookEnvironment environment) {
         final var instrumentation = environment.instrumentation();
         final var policy = environment.startupPolicy();
-        final boolean hasGlobalHash = policy.hookEnabled(MeshTriangulationHashHookContributor.HOOK_POLICY_ID)
-                && environment
-                        .plan()
-                        .choice(OptimizationCatalog.MESH_TRIANGULATION_HASH)
-                        .enabled();
         final boolean indexScopedEdges = policy.hookEnabled(TriangulationEdgeIndexHookContributor.HOOK_POLICY_ID)
                 && !environment
                         .plan()
@@ -60,9 +55,8 @@ final class TextureAtlasLoadingHookContributor implements ReportedHookContributo
         final boolean requested = environment.plan().admitted(OptimizationCatalog.ATLAS_LOADING);
         final var transformer = new TextureAtlasLoadingTransformer(requested);
         instrumentation.addTransformer(transformer);
-        if (!requested || hasGlobalHash) {
-            NativeOptimizationDiagnostics.installed(
-                    ID, requested ? INSTALLED : NOT_INSTALLED, requested ? INSTALLED : PREFERENCE_DISABLED);
+        if (!requested) {
+            NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, PREFERENCE_DISABLED);
             return () -> {
                 instrumentation.removeTransformer(transformer);
                 NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, CLOSED);

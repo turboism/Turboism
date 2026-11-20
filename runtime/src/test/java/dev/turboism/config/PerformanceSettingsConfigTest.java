@@ -14,13 +14,29 @@ class PerformanceSettingsConfigTest {
     @TempDir
     Path home;
 
+    private static final java.util.Set<Field> DEFAULT_ENABLED_NATIVE_FIELDS = java.util.Set.of(
+            Field.MODEL_UPDATE_SKIP,
+            Field.UPLOAD_ELISION,
+            Field.MESH_SETUP_ELISION,
+            Field.CLIP_MASK_DEDUPLICATION,
+            Field.CLIP_MASK_SCISSOR_CLEAR,
+            Field.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
+            Field.MESH_TRIANGULATION_HASH,
+            Field.TRIANGULATION_EDGE_INDEX,
+            Field.ATLAS_TILE_BBOX,
+            Field.ATLAS_CACHE_REUSE,
+            Field.ATLAS_LOADING,
+            Field.TRIANGULATION_SPATIAL_INDEX);
+
     @Test
     void nativeOptimizationsUseTheirReviewedDefaultsOnBothPlatforms() {
         for (boolean proton : new boolean[] {false, true}) {
             for (Field field : Field.values()) {
                 if (field.nativeOptimization()) {
                     assertEquals(
-                            Boolean.toString(field == Field.ATLAS_LOADING), field.defaultValue(proton), field.key());
+                            Boolean.toString(DEFAULT_ENABLED_NATIVE_FIELDS.contains(field)),
+                            field.defaultValue(proton),
+                            field.key());
                 }
             }
             assertEquals("true", Field.ZGC.defaultValue(proton));
@@ -29,15 +45,19 @@ class PerformanceSettingsConfigTest {
     }
 
     @Test
-    void legacyToggleNormalizationCannotImplicitlyEnableRenderingOptimizations() {
-        assertFalse(AtlasTileBboxPreference.DEFAULT_ENABLED);
-        assertFalse(AtlasCacheReusePreference.DEFAULT_ENABLED);
-        assertFalse(MeshTriangulationPreference.DEFAULT_ENABLED);
-        assertFalse(TriangulationEdgeIndexPreference.DEFAULT_ENABLED);
-        assertFalse(AtlasTileBboxPreference.normalize("invalid"));
-        assertFalse(AtlasCacheReusePreference.normalize("invalid"));
-        assertFalse(MeshTriangulationPreference.normalize("invalid"));
-        assertFalse(TriangulationEdgeIndexPreference.normalize("invalid"));
+    void legacyToggleNormalizationMatchesVerifiedAssetLoadDefaults() {
+        assertTrue(AtlasTileBboxPreference.DEFAULT_ENABLED);
+        assertTrue(AtlasCacheReusePreference.DEFAULT_ENABLED);
+        assertTrue(MeshTriangulationPreference.DEFAULT_ENABLED);
+        assertTrue(TriangulationEdgeIndexPreference.DEFAULT_ENABLED);
+        assertTrue(AtlasTileBboxPreference.normalize("invalid"));
+        assertTrue(AtlasCacheReusePreference.normalize("invalid"));
+        assertTrue(MeshTriangulationPreference.normalize("invalid"));
+        assertTrue(TriangulationEdgeIndexPreference.normalize("invalid"));
+        assertFalse(AtlasTileBboxPreference.normalize(false));
+        assertFalse(AtlasCacheReusePreference.normalize(false));
+        assertFalse(MeshTriangulationPreference.normalize(false));
+        assertFalse(TriangulationEdgeIndexPreference.normalize(false));
         assertFalse(dev.turboism.internal.core.OptimizationSettingsService.unavailable()
                 .enabled("atlasCacheReuse"));
         assertFalse(dev.turboism.internal.core.OptimizationSettingsService.unavailable()
@@ -62,7 +82,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(41, Field.values().length);
+        assertEquals(42, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(

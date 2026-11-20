@@ -393,6 +393,7 @@ public final class ConfigMergeRegression {
             Map<String, Object> source = validRuntimeConfig();
             source.put("meshTriangulationEdgeIndex", value);
             source.put("atlasLoading", value);
+            source.put("triangulationSpatialIndex", value);
             ConfigMerge.validateCurrent(source);
             Map<String, Object> merged = ConfigMerge.applyPolicy(
                     source, ConfigMerge.mergeDisabled(source, Set.of(), Set.of(), false));
@@ -400,6 +401,8 @@ public final class ConfigMergeRegression {
             check("meshTriangulationEdgeIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("meshTriangulationEdgeIndex")));
             check("atlasLoading " + value + " survives installer upgrade", value.equals(merged.get("atlasLoading")));
+            check("triangulationSpatialIndex " + value + " survives installer upgrade",
+                    value.equals(merged.get("triangulationSpatialIndex")));
         }
 
         List<Map<String, Object>> invalid = new java.util.ArrayList<>();
@@ -448,6 +451,9 @@ public final class ConfigMergeRegression {
         Map<String, Object> badAtlasBbox = validRuntimeConfig();
         badAtlasBbox.put("atlasTileBbox", "true");
         invalid.add(badAtlasBbox);
+        Map<String, Object> badSpatialIndex = validRuntimeConfig();
+        badSpatialIndex.put("triangulationSpatialIndex", "true");
+        invalid.add(badSpatialIndex);
         Map<String, Object> badTextureAtlas = validRuntimeConfig();
         badTextureAtlas.put("textureAtlas", Map.of("algorithmId", 7L));
         invalid.add(badTextureAtlas);

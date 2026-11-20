@@ -54,18 +54,22 @@ class NativeOptimizationConfigTest {
     }
 
     @Test
-    void upgradingConfigWithoutAtlasLoadingEnablesItUntilAnExplicitOptOut() {
+    void upgradingConfigWithoutAtlasLoadingOrSpatialIndexEnablesBothUntilExplicitOptOut() {
         final var repository = new RuntimeConfigRepository(home, ignored -> {});
         repository.update(root -> root.put("reduceAutoBackup", true));
         final var service = new OptimizationSettingsFileService(repository);
-        final var atlas = OptimizationCatalog.ATLAS_LOADING;
-        assertTrue(service.enabled(atlas.key()));
-        assertTrue(
-                NativeOptimizationConfig.load(home, ignored -> {}).choice(atlas).enabled());
-        service.setEnabled(atlas.key(), false);
-        final var choice = NativeOptimizationConfig.load(home, ignored -> {}).choice(atlas);
-        assertFalse(choice.enabled());
-        assertEquals("global-config", choice.source());
+        for (final var option :
+                java.util.List.of(OptimizationCatalog.ATLAS_LOADING, OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX)) {
+            assertTrue(service.enabled(option.key()));
+            assertTrue(NativeOptimizationConfig.load(home, ignored -> {})
+                    .choice(option)
+                    .enabled());
+            service.setEnabled(option.key(), false);
+            final var choice =
+                    NativeOptimizationConfig.load(home, ignored -> {}).choice(option);
+            assertFalse(choice.enabled());
+            assertEquals("global-config", choice.source());
+        }
     }
 
     @Test

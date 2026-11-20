@@ -14,9 +14,9 @@ class TriangulationEdgeIndexPreferenceTest {
     Path home;
 
     @Test
-    void defaultsToDisabledWhenNothingIsPersisted() {
-        assertFalse(TriangulationEdgeIndexPreference.read(home));
-        assertFalse(TriangulationEdgeIndexPreference.read(null));
+    void defaultsToEnabledWhenNothingIsPersisted() {
+        assertTrue(TriangulationEdgeIndexPreference.read(home));
+        assertTrue(TriangulationEdgeIndexPreference.read(null));
     }
 
     @Test

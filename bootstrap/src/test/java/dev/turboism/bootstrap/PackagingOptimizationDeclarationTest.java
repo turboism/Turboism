@@ -153,24 +153,24 @@ class PackagingOptimizationDeclarationTest {
     }
 
     /**
-     * S5b: an absent root-level {@code meshTriangulationEdgeIndex} keeps the vendor attach
-     * behavior, so the launcher and the agent agree on one default.
+     * An absent root-level {@code meshTriangulationEdgeIndex} defaults on across launcher,
+     * agent preference reader, and settings configuration.
      */
     @Test
-    void launcherDefaultsTheEdgeIndexPreferenceOffLikeTheAgent() throws IOException {
+    void launcherDefaultsTheEdgeIndexPreferenceOnLikeTheAgent() throws IOException {
         final String launcher = read("packaging/windows-installer/cubism-launch-common.ps1");
         final String reader = function(launcher, "Read-CubismMeshTriangulationEdgeIndexPreference");
-        assertFalse(reader.contains("$true"), "the launcher must not default meshTriangulationEdgeIndex on: " + reader);
-        assertTrue(reader.contains("return $false"), "every absent-key branch must default off");
+        assertTrue(reader.contains("$true"), "the launcher must default meshTriangulationEdgeIndex on: " + reader);
+        assertFalse(reader.contains("return $false"), "every absent-key branch must default on");
         assertTrue(
                 launcher.contains("if (Read-CubismMeshTriangulationEdgeIndexPreference -TurboismHome $TurboismHome)"),
                 "the attach-mechanism option must stay tied to the persisted preference");
 
-        assertFalse(
+        assertTrue(
                 TriangulationEdgeIndexPreference.DEFAULT_ENABLED,
-                "the agent's edge-index reader keeps the same fail-closed default");
+                "the agent's edge-index reader keeps the same default-on setting");
         assertEquals(
-                "false",
+                "true",
                 PerformanceSettingsConfig.Field.TRIANGULATION_EDGE_INDEX.defaultValue(false),
                 "the settings page and the launcher must agree on the edge-index default");
     }

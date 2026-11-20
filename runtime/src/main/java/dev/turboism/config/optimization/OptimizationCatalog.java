@@ -555,6 +555,19 @@ public final class OptimizationCatalog {
             "settings.optimization.atlas-loading.tooltip",
             List.of());
 
+    /** Accelerates constrained triangulation checks using thread-safe spatial grids and edge tables. */
+    public static final Optimization TRIANGULATION_SPATIAL_INDEX = new Optimization(
+            "triangulationSpatialIndex",
+            "triangulation-spatial-index",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.triangulationSpatialIndex"),
+            List.of("TURBOISM_TRIANGULATION_SPATIAL_INDEX"),
+            Set.of("cubism.mesh.triangulation-spatial-index"),
+            Optional.of(new Optimization.Placement("mesh", 108)),
+            "settings.optimization.triangulation-spatial-index",
+            "settings.optimization.triangulation-spatial-index.tooltip",
+            List.of());
+
     // ---------------------------------------------------------------- diagnostic-only probe hooks
 
     /**
@@ -672,6 +685,7 @@ public final class OptimizationCatalog {
             ATLAS_TILE_BBOX,
             ATLAS_CACHE_REUSE,
             ATLAS_LOADING,
+            TRIANGULATION_SPATIAL_INDEX,
             CANVAS_COMPOSITE_ELISION,
             CLIP_MASK_PROBE,
             GL_GET_ERROR_ELISION,

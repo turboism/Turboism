@@ -96,13 +96,12 @@ OS about a minute after editing stops, so an idle editor stops reporting the
 post-edit resident set. The two options are emitted as a pair and never for a
 non-ZGC launch.
 
-The performance setting `meshTriangulationEdgeIndex` defaults off, like every
-other native optimization. Managed launches with that setting explicitly enabled
-pass `-XX:+DisableAttachMechanism`, as the guarded lazy-edge optimization
+The performance setting `meshTriangulationEdgeIndex` defaults on, like the other
+verified asset-load optimizations. Managed launches with that setting unset or
+enabled pass `-XX:+DisableAttachMechanism`, as the guarded lazy-edge optimization
 requires exclusive premain definition ownership. Dynamic-attach diagnostics such
-as jcmd/jstack are unavailable for that process. Turn the setting on and restart
-through the managed launcher to claim that ownership; leaving it unset or off
-keeps the JVM's default attach behavior. Other agents or definition
+as jcmd/jstack are unavailable for that process. Turn the setting off and restart
+through the managed launcher to restore the JVM's default attach behavior. Other agents or definition
 sources still cause the optimization to fall back; the launcher does not relax
 runtime admission. Optional persisted BAT integrations delegate to the managed
 launcher on each launch, so the original Cubism shortcuts also read current JVM
