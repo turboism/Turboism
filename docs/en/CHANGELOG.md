@@ -8,11 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.70.2] - 2026-11-20
+
+### Added
+
+- Turboism supports the reviewed Cubism Editor 5.3.05 release.
+- Users can export ArtMesh display information and lock texture atlas scale for individual model images.
+
+### Changed
+
+- Texture Atlas shows loading progress and enables parallel mesh triangulation by default. Users can turn off the loading optimization.
+
 ### Fixed
 
-- Windows installer runs the final launch configuration from an install Section instead of the `.onInstSuccess` callback. That callback blocks the UI thread, so the wizard froze as "Not Responding" and the UAC elevation prompt could not appear. `ShellExecuteExW` now also passes `SEE_MASK_NOASYNC`, and the elevation wait is bounded to 60 seconds with matching localized notices.
-- The Windows uninstaller keep-config option no longer overlaps the installation path box. The option derives its row from the page layout and inherits the wizard font.
-- Windows installer clears stale bootstrap and framework-update state before laying down the new payload, and skips receipt initialization on unsigned builds so overwriting a signed installation no longer fails with exit code 70.
+- Cubism restores workspace controls on reviewed hosts and keeps supported features available when optional adapters are unavailable.
+- Warp deformer mirroring follows native control-point drags. Recent Project Board preserves row height when users cycle layouts.
+- The updater preserves the selected channel. Windows launchers handle Unicode paths and Cubism BAT backup conflicts.
+- The Windows installer lets the UAC prompt appear during final configuration and clears stale framework update state on reinstall.
+- Unsigned installers skip receipt refresh. The Windows uninstaller places the keep-configuration option below the installation path.
 
 ## [0.70.1] - 2026-11-18
 
