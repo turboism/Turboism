@@ -39,13 +39,17 @@ final class McpConnectionWindow {
 
     private static final DateTimeFormatter TIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+    // The prompt wraps onto several lines, so the viewport reserves three text rows plus its border.
+    private static final int PROMPT_ROWS = 3;
+    private static final int PROMPT_COLUMNS = 20;
+    private static final int PROMPT_FIELD_WIDTH = 480;
 
     private final PluginLocalization localization;
     private final PluginLogger logger;
     private final JFrame frame;
     private final JTextField endpoint = new JTextField();
     private final JTextField stdioConfig = new JTextField();
-    private final JTextArea agentPrompt = new JTextArea(3, 20);
+    private final JTextArea agentPrompt = new JTextArea(PROMPT_ROWS, PROMPT_COLUMNS);
     private final HistoryModel history = new HistoryModel();
     private final JTable historyTable;
     private final JButton refresh = new JButton();
@@ -92,6 +96,7 @@ final class McpConnectionWindow {
         frame.setLocationByPlatform(true);
         endpoint.setEditable(false);
         stdioConfig.setEditable(false);
+        agentPrompt.setName("turboism-mcp.agent-prompt");
         agentPrompt.setEditable(false);
         agentPrompt.setLineWrap(true);
         agentPrompt.setWrapStyleWord(true);
@@ -135,11 +140,16 @@ final class McpConnectionWindow {
         constraints.gridx = 0;
         constraints.gridwidth = 1;
         constraints.weightx = 0;
-        credentials.add(new JLabel(localization.text("label.agent-prompt", "Coding-agent prompt")), constraints);
+        credentials.add(new JLabel(localization.text("label.agent-prompt", "Agent prompt")), constraints);
         constraints.gridx = 1;
         constraints.weightx = 1;
         final JScrollPane promptScroll = new JScrollPane(agentPrompt);
-        promptScroll.setPreferredSize(new Dimension(480, 76));
+        promptScroll.setName("turboism-mcp.agent-prompt-scroll");
+        // A scroll pane minimums at one row, so GridBagLayout would squeeze the prompt to a
+        // single line whenever the window is shorter than its preferred height.
+        final Dimension promptSize = new Dimension(PROMPT_FIELD_WIDTH, promptScroll.getPreferredSize().height);
+        promptScroll.setPreferredSize(promptSize);
+        promptScroll.setMinimumSize(promptSize);
         credentials.add(promptScroll, constraints);
         final JButton copyPrompt = new JButton(localization.text("button.copy-agent-prompt", "Copy agent prompt"));
         copyPrompt.addActionListener(ignored -> copy(agentPrompt.getText(), "status.agent-prompt-copied"));
@@ -185,7 +195,7 @@ final class McpConnectionWindow {
         final McpConnectionSnapshot current = snapshot.get();
         endpoint.setText(current.endpoint() == null ? "" : current.endpoint().toString());
         stdioConfig.setText(current.stdioConfig() == null ? "" : current.stdioConfig());
-        agentPrompt.setText(codingAgentPrompt(localization, current));
+        agentPrompt.setText(agentPrompt(localization, current));
         endpoint.setCaretPosition(0);
         stdioConfig.setCaretPosition(0);
         agentPrompt.setCaretPosition(0);
@@ -206,20 +216,20 @@ final class McpConnectionWindow {
         return localization.text(
                 key,
                 switch (key) {
-                    case "status.agent-prompt-copied" -> "MCP coding-agent prompt copied by explicit user action";
+                    case "status.agent-prompt-copied" -> "MCP agent prompt copied by explicit user action";
                     case "status.endpoint-copied" -> "MCP address copied by explicit user action";
                     case "status.stdio-config-copied" -> "MCP stdio client config copied by explicit user action";
                     default -> "MCP connection value copied by explicit user action";
                 });
     }
 
-    static String codingAgentPrompt(final PluginLocalization localization, final McpConnectionSnapshot snapshot) {
+    static String agentPrompt(final PluginLocalization localization, final McpConnectionSnapshot snapshot) {
         final PluginLocalization messages = Objects.requireNonNull(localization, "localization");
         final McpConnectionSnapshot current = Objects.requireNonNull(snapshot, "snapshot");
         final String address =
                 current.endpoint() == null ? "" : current.endpoint().toString();
         final String stdio = current.stdioConfig() == null ? "" : current.stdioConfig();
-        final String key = "prompt.coding-agent";
+        final String key = "prompt.agent";
         if (messages.isAvailable() && messages.contains(key)) {
             final String value = messages.format(key, address, stdio);
             if (value != null && !value.isBlank() && !key.equals(value) && !("⟦" + key + "⟧").equals(value)) {

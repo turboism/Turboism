@@ -38,6 +38,53 @@ final class McpConnectionWindowTest {
         });
     }
 
+    @Test
+    void agentPromptViewportReservesThreeTextRows() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(java.awt.GraphicsEnvironment.isHeadless());
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final var window =
+                    new McpConnectionWindow(localization("unused"), new McpHttpServerTestFixtures.CapturingLogger());
+            try {
+                window.bind(() -> new McpConnectionWindow.McpConnectionSnapshot(
+                        URI.create("http://127.0.0.1:43123/mcp"), STDIO_CONFIG, List.of()));
+                window.showAndFront();
+                final var frame = java.util.Arrays.stream(java.awt.Frame.getFrames())
+                        .filter(value -> value.isVisible() && value.getTitle().equals("window.connection-title"))
+                        .findFirst()
+                        .orElseThrow();
+                final var prompt = findByName(frame, javax.swing.JTextArea.class, "turboism-mcp.agent-prompt");
+                final var scroll = findByName(frame, javax.swing.JScrollPane.class, "turboism-mcp.agent-prompt-scroll");
+                assertEquals(3, prompt.getRows());
+                assertTrue(prompt.getLineWrap());
+                final int threeRows = prompt.getFontMetrics(prompt.getFont()).getHeight() * prompt.getRows()
+                        + scroll.getInsets().top
+                        + scroll.getInsets().bottom;
+                assertEquals(threeRows, scroll.getPreferredSize().height);
+                assertEquals(threeRows, scroll.getMinimumSize().height);
+                // A scroll pane alone minimums at one row, so a shorter parent used to collapse the
+                // prompt into a single narrow line. The three-row floor must survive that shrink.
+                final var credentials = scroll.getParent();
+                credentials.setSize(credentials.getWidth(), credentials.getPreferredSize().height - threeRows / 2);
+                credentials.validate();
+                assertEquals(threeRows, scroll.getHeight());
+            } finally {
+                window.dispose();
+            }
+        });
+    }
+
+    private static <T extends java.awt.Component> T findByName(
+            final java.awt.Container parent, final Class<T> type, final String name) {
+        for (var child : parent.getComponents()) {
+            if (type.isInstance(child) && name.equals(child.getName())) return type.cast(child);
+            if (child instanceof java.awt.Container container) {
+                final var found = findByName(container, type, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
     private static javax.swing.JTable findTable(final java.awt.Container parent) {
         for (var child : parent.getComponents()) {
             if (child instanceof javax.swing.JTable table) return table;
@@ -50,21 +97,21 @@ final class McpConnectionWindowTest {
     }
 
     @Test
-    void codingAgentPromptCarriesEndpointAndStdioConfig() {
+    void agentPromptCarriesEndpointAndStdioConfig() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
                 URI.create("http://127.0.0.1:43123/mcp"), STDIO_CONFIG, List.of());
 
-        final String prompt = McpConnectionWindow.codingAgentPrompt(localization("端点 {0} 配置 {1}"), snapshot);
+        final String prompt = McpConnectionWindow.agentPrompt(localization("端点 {0} 配置 {1}"), snapshot);
 
         assertEquals("端点 http://127.0.0.1:43123/mcp 配置 " + STDIO_CONFIG, prompt);
     }
 
     @Test
-    void codingAgentPromptFallsBackToACompleteEnglishInstruction() {
+    void agentPromptFallsBackToACompleteEnglishInstruction() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
                 URI.create("http://127.0.0.1:43123/mcp"), STDIO_CONFIG, List.of());
 
-        final String prompt = McpConnectionWindow.codingAgentPrompt(localization("⟦prompt.coding-agent⟧"), snapshot);
+        final String prompt = McpConnectionWindow.agentPrompt(localization("⟦prompt.agent⟧"), snapshot);
 
         assertTrue(prompt.startsWith("This is the Turboism MCP server."));
         assertTrue(prompt.contains("http://127.0.0.1:43123/mcp"));

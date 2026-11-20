@@ -17,7 +17,7 @@ label.stdio-config
 menu.connection
 plugin.description
 plugin.name
-prompt.coding-agent
+prompt.agent
 section.connection
 section.history
 status.agent-prompt-copied

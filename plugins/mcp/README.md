@@ -57,7 +57,7 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.
 2. Open **Turboism → MCP Connection**. This window shows the current local address and bounded process-local connection/request history.
-3. Copy the **Stdio client config** line into a local MCP client (recommended), or the HTTP **Address** into a direct-HTTP client. The default is `http://127.0.0.1:43123/mcp`. Stdio clients never see the token; direct-HTTP clients must send `Authorization: Bearer <token>` (contents of `mcp.token` in the plugin state directory) for mutating tool calls and session close.
+3. Copy the **Stdio client config** line into a local MCP client (recommended), the HTTP **Address** into a direct-HTTP client, or the **Agent prompt** into an agent that should configure the client itself. The default is `http://127.0.0.1:43123/mcp`. Stdio clients never see the token; direct-HTTP clients must send `Authorization: Bearer <token>` (contents of `mcp.token` in the plugin state directory) for mutating tool calls and session close.
 4. Keep the window open when diagnosing a client connection; use **Refresh** to load the newest history entries.
 5. Programmatic local consumers may still read the owner-protected `mcp-connection.json` from the per-user plugin state directory.
 6. Complete `initialize`, retain `MCP-Session-Id`, send `notifications/initialized`, and include the negotiated protocol version on later requests.

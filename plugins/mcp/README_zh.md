@@ -56,7 +56,7 @@ interface: swing
 
 1. 通过 Turboism 的官方发布包和**插件管理**安装并启用插件。
 2. 打开 **Turboism → MCP 连接**。该窗口集中显示当前本地地址以及有界的进程内连接/请求历史。
-3. 将 **stdio 客户端配置** 行复制到本地 MCP 客户端（推荐），或将 HTTP **地址** 复制到直连 HTTP 客户端。默认地址为 `http://127.0.0.1:43123/mcp`。stdio 客户端无需感知令牌；直连 HTTP 客户端进行写操作工具调用或关闭会话时，必须携带 `Authorization: Bearer <令牌>`（即插件状态目录中 `mcp.token` 的内容）。
+3. 将 **stdio 客户端配置** 行复制到本地 MCP 客户端（推荐），将 HTTP **地址** 复制到直连 HTTP 客户端，或将 **给智能体的提示词** 复制给需要自行配置客户端的智能体。默认地址为 `http://127.0.0.1:43123/mcp`。stdio 客户端无需感知令牌；直连 HTTP 客户端进行写操作工具调用或关闭会话时，必须携带 `Authorization: Bearer <令牌>`（即插件状态目录中 `mcp.token` 的内容）。
 4. 排查连接时可保持窗口打开，并点击**刷新**读取最新历史记录。
 5. 程序化本地使用者仍可读取每用户插件状态目录中受所有者权限保护的 `mcp-connection.json`。
 6. 完成 `initialize`，保留 `MCP-Session-Id`，发送 `notifications/initialized`，并在后续请求中包含协商后的协议版本。
