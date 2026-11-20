@@ -16,7 +16,7 @@ import java.util.Set;
  * <p>On Cubism 5.0.x–5.2.x the render system lives in {@code com/live2d/graphics3d/rendering/d}
  * and delegates scene traversal through {@code GEntity.traverse(Function2)}. On Cubism 5.3.x it
  * lives in {@code com/live2d/graphics3d/rendering/e} and recurses through
- * {@code e.a(GEntity, boolean, boolean, boolean, ArrayList)}. Across all 20 reviewed versions,
+ * {@code e.a(GEntity, boolean, boolean, boolean, ArrayList)}. Across all reviewed versions,
  * traversal uses {@code Entities.iterator()}, reads {@code GEntity.getRenderer()} repeatedly per
  * entity, iterates sorted renderer lists with {@code Iterator}, and constructs {@code pre draw[i]}
  * and {@code post draw[i]} strings on every mesh draw call.</p>

@@ -35,7 +35,6 @@ final class EditorTextureReplacementDiagnostic {
     static final String ENABLE_PROPERTY = "turboism.validation.editorTextureReplaceDiagnostic";
     static final String ARTIFACT = "editor-texture-psd-replace-diagnostic.txt";
 
-    private static final String SUPPORTED_VERSION = "5.3.02";
     private static final String TEXTURE_MANAGER = "cubism.editor-model.model-source.texture-manager";
     private static final String RAW_IMAGES = "cubism.editor-model.texture-manager.raw-images";
     private static final String ALL_MODEL_IMAGES = "cubism.editor-model.texture-manager.all-model-images";
@@ -710,9 +709,6 @@ final class EditorTextureReplacementDiagnostic {
                 if (resolver == null) return unavailable("resolver-unavailable");
                 if (source == null) return unavailable("source-unavailable");
                 if (model == null) return unavailable("model-unavailable");
-                if (!resolver.isExactCubismVersion(SUPPORTED_VERSION)) {
-                    return unavailable("unsupported-cubism-version");
-                }
                 if (!resolver.authorizesFeature(
                         EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
                         EditorTextureRelationsSelectorContract.CAPABILITY_ID,

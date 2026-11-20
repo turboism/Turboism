@@ -2,7 +2,7 @@
 
 Existing parameter rows may predate runtime hook installation. Constructor retransformation does not replay existing instances, so appearance refresh also captures the current native row hierarchy on the EDT.
 
-The exact Editor-model records and matching mapping packs for all 20 reviewed versions contain these additive selectors. Each was checked against that record's pinned JAR identity with both the Python structural verifier and production Java `StaticVerificationCli`.
+The exact Editor-model records and matching mapping packs for all reviewed versions contain these additive selectors. Each was checked against that record's pinned JAR identity with both the Python structural verifier and production Java `StaticVerificationCli`.
 
 | Alias suffix | Native contract |
 |---|---|

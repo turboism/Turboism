@@ -35,13 +35,8 @@ class AutoMeshHostProfileTest {
 
     @Test
     void theEarlyBuildsPinTheFunnelWithoutUndoGroupOrCallback() {
-        for (final AutoMeshHostProfile profile : List.of(
-                AutoMeshHostProfile.CUBISM_5_0_00,
-                AutoMeshHostProfile.CUBISM_5_0_01,
-                AutoMeshHostProfile.CUBISM_5_0_02,
-                AutoMeshHostProfile.CUBISM_5_0_03,
-                AutoMeshHostProfile.CUBISM_5_0_04,
-                AutoMeshHostProfile.CUBISM_5_0_05)) {
+        for (final String version : List.of("5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05")) {
+            final AutoMeshHostProfile profile = profileOf(version);
             assertEquals(AUTO_MESH_UTIL, profile.modelingFunnelOwner().ownerInternalName());
             assertEquals(MODELING, profile.modelingFunnel().memberName());
             assertEquals(EXTENSIONS_ONLY_DESCRIPTOR, profile.modelingFunnel().descriptor(), profile.hostVersion());
@@ -98,7 +93,7 @@ class AutoMeshHostProfileTest {
         assertEquals(
                 AutoMeshHostProfile.supportedHostVersions().size() * SELECTORS_PER_PROFILE,
                 mappingIds.size(),
-                "20 reviewed builds x " + SELECTORS_PER_PROFILE + " selectors");
+                "reviewed builds x " + SELECTORS_PER_PROFILE + " selectors");
         assertEquals(mappingIds.size(), mappingIds.stream().distinct().count());
     }
 

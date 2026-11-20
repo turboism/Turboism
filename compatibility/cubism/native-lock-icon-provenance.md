@@ -12,7 +12,7 @@ Parts toolbar uses 24x24 icons (`Lock_24x24`), while the row/column entry uses 1
 
 ## Artifact Verification & Hashes
 
-Across all 20 reviewed Cubism versions (`5.0.00` through `5.3.04`), the 20 PNG variants have identical SHA-256 digests and dimensions (16px base logical):
+Across Cubism `5.0.00` through `5.3.04`, the 20 PNG variants have identical SHA-256 digests and dimensions (16px base logical):
 
 ### Light Theme
 - `res/image_light/icons/Lock_16x16_Default.scale-100.png`: `a3bdb4be715e637c187a98321177da6a7e96fb66a6cb8107cd15e84c08bf6275`
@@ -48,7 +48,7 @@ Across all 20 reviewed Cubism versions (`5.0.00` through `5.3.04`), the 20 PNG v
 
 ## Unlocked ring placeholder (2026-10-17)
 
-The same Parts/Deformer checkbox paint branch uses `None_16x16_Default` when unselected, rather than hiding its icon. `CubismIcon.LOCK_PLACEHOLDER` resolves that native ring for unlocked parameter and group rows, continuously visible without hover. Locked rows retain `Lock_16x16_Default`; mixed groups retain the disabled lock. All 20 exact reviewed JARs reference the None resource in their treeTable checkbox and contain identical hashes for the following 20 variants. The catalog and cache now hold 120 variants. No native image bytes are bundled.
+The same Parts/Deformer checkbox paint branch uses `None_16x16_Default` when unselected, rather than hiding its icon. `CubismIcon.LOCK_PLACEHOLDER` resolves that native ring for unlocked parameter and group rows, continuously visible without hover. Locked rows retain `Lock_16x16_Default`; mixed groups retain the disabled lock. All reviewed JARs (`5.0.00`–`5.3.04`) reference the None resource in their treeTable checkbox and contain identical hashes for the following 20 variants. The catalog and cache now hold 120 variants. No native image bytes are bundled.
 
 - `res/image_light/icons/None_16x16_Default.scale-100.png`: `8d23c68e835a7c6cc03c9e3669082d097d66cba16c0191935e2e1dbbdc111fe4`
 - `res/image_light/icons/None_16x16_Default.scale-125.png`: `4ce6a4a643c9d261d62a60b959e8969026674e7095060a8ffc2d3319808e3021`

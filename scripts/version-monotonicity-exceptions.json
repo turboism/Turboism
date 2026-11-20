@@ -27,18 +27,6 @@
     },
     {
       "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04",
-        "5.3.05"
-      ],
-      "reason": "SUPPORTED_VERSION pins a single version.",
-      "evidence": "Property-gated validation diagnostic (turboism.validation.editorTextureReplaceDiagnostic) that was authored and reviewed against the exact 5.3.02 host; it is a diagnostic tool, not a capability admission set."
-    },
-    {
-      "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelRuntimeScope.java",
       "site": "5.3.03",
       "missing": [

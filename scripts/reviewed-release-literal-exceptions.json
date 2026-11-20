@@ -7,14 +7,6 @@
       "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/selector/EditorModelInstanceReadSelectorContract.java: RenderType.ONION_SKIN_FOR_MODELING enum member is absent on these exact jars (verified via javap on every 5.0.x/5.1.x/5.2.x reference); the member first appears on 5.3.00."
     },
     {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ObjectContextMenuHostProfile.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ObjectContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
-    },
-    {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ParameterPointContextMenuHostProfile.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/profile/ParameterPointContextMenuHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
-    },
-    {
       "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
       "evidence": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java: Named arms are fast paths; the fallback admits every reviewed version (see monotonicity exception)."
     },
@@ -25,10 +17,6 @@
     {
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java: Identity switch that passes every admitted version through; the arms exist only for profile-id divergence."
-    },
-    {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java: Property-gated diagnostic authored and reviewed against the exact 5.3.02 host; a tool, not an admission set."
     },
     {
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/filechooser/FileChooserHistoryHostProfile.java",
@@ -45,18 +33,6 @@
     {
       "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxTarget.java",
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
-    },
-    {
-      "path": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java",
-      "evidence": "runtime/src/main/java/dev/turboism/exportsettings/ExportSettingsHostProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
-    },
-    {
-      "path": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java",
-      "evidence": "runtime/src/main/java/dev/turboism/automesh/host/AutoMeshHostProfile.java: Host profile artifact table derived from the reviewed release records; each reviewed digest binds the funnel selectors its exact build declares."
-    },
-    {
-      "path": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java",
-      "evidence": "runtime/src/main/java/dev/turboism/exportsettings/ProtectedExportChooserProfile.java: Host profile version table derived from verification records; profiles bind reviewed versions to their verified shape."
     },
     {
       "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelRuntimeScope.java",
@@ -104,7 +80,7 @@
     },
     {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EmbeddedPanelVerificationManifest.java",
-      "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EmbeddedPanelVerificationManifest.java: ui-embedded-panel records exist for all twenty reviewed generations after 5.0.x propagation; the manifest lists exactly the emitted record set"
+      "evidence": "scripts/verification-sources/templates/dev/turboism/mapping/verification/EmbeddedPanelVerificationManifest.java: ui-embedded-panel records exist for all reviewed generations after 5.0.x propagation; the manifest lists exactly the emitted record set"
     },
     {
       "path": "scripts/verification-sources/templates/dev/turboism/mapping/verification/MainToolbarVerificationManifest.java",

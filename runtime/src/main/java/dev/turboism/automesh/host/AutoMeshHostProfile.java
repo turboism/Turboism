@@ -1,37 +1,33 @@
 package dev.turboism.automesh.host;
 
+import dev.turboism.compatibility.policy.ReviewedReleaseTable;
 import dev.turboism.internal.Requirements;
 import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Exact reviewed Auto Mesh Generate funnel selectors for every supported Cubism artifact.
  *
- * <p>The four funnel members pin the two native entry points the dispatch guard transforms:
- * {@code AutoMeshUtil.updateMeshFromInspector_inModelingMode} and
- * {@code AutoMeshUtil_InMeshEditor.updateMeshFromInspector_inMeshEditorMode}. The guard refuses a
- * host whose funnel does not match its exact tuple, so an unrecognised build is never transformed.
- * The transformer additionally fails closed on any unexpected method cardinality, which keeps a
- * re-reviewed build byte-identical until its tuple is updated.</p>
+ * <p>The four funnel members pin {@code AutoMeshUtil.updateMeshFromInspector_inModelingMode} and
+ * {@code AutoMeshUtil_InMeshEditor.updateMeshFromInspector_inMeshEditorMode}. The guard refuses any
+ * host whose funnel mismatches its tuple, and the transformer fails closed on unexpected method
+ * cardinality.</p>
  *
- * <p>The funnel package and both method names are stable across all 20 reviewed builds. Only the
- * modeling-mode signature grew a tail: 5.0.00 to 5.0.05 take the extension list alone, and 5.0.06
- * onward add the {@code GroupUndo} group and the {@code Function0} completion callback. The
- * mesh-editor funnel is descriptor-identical everywhere. Two tuples therefore cover the whole
- * reviewed set, and each artifact still carries its own mapping identities so a reviewed re-pin
- * stays per release.</p>
+ * <p>The funnel package and both method names stay identical across all reviewed builds. Builds
+ * from 5.0.00 through 5.0.05 pass the extension list only; builds from 5.0.06 onward append
+ * {@code GroupUndo} and {@code Function0}. Each artifact keeps its own mapping identities.</p>
  *
- * <p>The three container constructor selectors anchor the selector row. Every reviewed build
- * declares exactly one public {@code (CECompletePack)V} constructor per container, and that
- * constructor is the only point where the container is reachable before the host shows it. The
- * panel's private property list changes its generic owner between 5.2.03 and 5.3.00, which is why
- * the anchor is the constructor and never a field.</p>
+ * <p>Three container constructor selectors anchor each profile because every reviewed build
+ * declares one public {@code (CECompletePack)V} constructor per container, whereas private panel
+ * fields changed generic ownership between 5.2.03 and 5.3.00.</p>
  */
 public record AutoMeshHostProfile(
         String hostVersion,
@@ -105,157 +101,11 @@ public record AutoMeshHostProfile(
     /** Mesh-editor descriptor of every reviewed build: pack, event and the mesh targets. */
     private static final String MESH_EDITOR_FUNNEL_DESCRIPTOR = "(" + COMPLETE_PACK + EVENT + LIST + ")V";
 
-    /** The exact reviewed 5.0.00 tuple: the funnel predates the undo group and callback tail. */
-    public static final AutoMeshHostProfile CUBISM_5_0_00 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_00_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY,
-            "cubism.mapping.v5_0_00.automesh.");
+    private static final Set<String> EXTENSIONS_ONLY_VERSIONS = ReviewedVersions.between("5.0.00", "5.0.05");
+    private static final Set<String> WITH_UNDO_GROUP_VERSIONS = ReviewedVersions.since("5.0.06");
 
-    /** The exact reviewed 5.0.01 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_0_01 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_01_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY,
-            "cubism.mapping.v5_0_01.automesh.");
-
-    /** The exact reviewed 5.0.02 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_0_02 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_02_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY,
-            "cubism.mapping.v5_0_02.automesh.");
-
-    /** The exact reviewed 5.0.03 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_0_03 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_03_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY,
-            "cubism.mapping.v5_0_03.automesh.");
-
-    /** The exact reviewed 5.0.04 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_0_04 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_04_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY,
-            "cubism.mapping.v5_0_04.automesh.");
-
-    /** The exact reviewed 5.0.05 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_0_05 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_05_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY,
-            "cubism.mapping.v5_0_05.automesh.");
-
-    /** The exact reviewed 5.0.06 tuple: the first build whose funnel takes the undo group. */
-    public static final AutoMeshHostProfile CUBISM_5_0_06 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_0_06_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_0_06.automesh.");
-
-    /** The exact reviewed 5.1.00 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_1_00 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_1_00_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_1_00.automesh.");
-
-    /** The exact reviewed 5.1.01 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_1_01 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_1_01_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_1_01.automesh.");
-
-    /** The exact reviewed 5.1.02 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_1_02 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_1_02_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_1_02.automesh.");
-
-    /** The exact reviewed 5.1.03 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_1_03 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_1_03_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_1_03.automesh.");
-
-    /** The exact reviewed 5.2.00 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_2_00 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_2_00_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_2_00.automesh.");
-
-    /** The exact reviewed 5.2.01 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_2_01 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_2_01_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_2_01.automesh.");
-
-    /** The exact reviewed 5.2.02 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_2_02 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_2_02_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_2_02.automesh.");
-
-    /** The exact reviewed 5.2.03 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_2_03 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_2_03.automesh.");
-
-    /** The exact reviewed 5.3.00 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_3_00 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_00_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_3_00.automesh.");
-
-    /** The exact reviewed 5.3.01 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_3_01 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_01_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_3_01.automesh.");
-
-    /** The exact reviewed 5.3.02 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_3_02 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_3_02.automesh.");
-
-    /** The exact reviewed 5.3.03 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_3_03 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_3_03.automesh.");
-
-    /** The exact reviewed 5.3.04 tuple. */
-    public static final AutoMeshHostProfile CUBISM_5_3_04 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_04_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_3_04.automesh.");
-
-    public static final AutoMeshHostProfile CUBISM_5_3_05 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_05_VERSION,
-            MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP,
-            "cubism.mapping.v5_3_05.automesh.");
-
-    /**
-     * Exact artifact-to-profile table. Keying on the reviewed digest keeps a repacked or rebuilt
-     * host out instead of transforming whatever happens to carry the funnel method name.
-     */
-    private static final Map<HostArtifactDigest, AutoMeshHostProfile> BY_ARTIFACT = Map.ofEntries(
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_00, CUBISM_5_0_00),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_01, CUBISM_5_0_01),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_02, CUBISM_5_0_02),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_03, CUBISM_5_0_03),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_04, CUBISM_5_0_04),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_05, CUBISM_5_0_05),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_0_06, CUBISM_5_0_06),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_00, CUBISM_5_1_00),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_01, CUBISM_5_1_01),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_02, CUBISM_5_1_02),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_1_03, CUBISM_5_1_03),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_00, CUBISM_5_2_00),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_01, CUBISM_5_2_01),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_02, CUBISM_5_2_02),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_2_03, CUBISM_5_2_03),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_00, CUBISM_5_3_00),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_01, CUBISM_5_3_01),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_02, CUBISM_5_3_02),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_03, CUBISM_5_3_03),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_04, CUBISM_5_3_04),
-            Map.entry(ReviewedHostArtifacts.CUBISM_5_3_05, CUBISM_5_3_05));
+    /** Exact artifact-to-profile table derived from {@link ReviewedHostArtifacts#all()}. */
+    private static final Map<HostArtifactDigest, AutoMeshHostProfile> BY_ARTIFACT = buildProfilesByArtifact();
 
     public AutoMeshHostProfile {
         hostVersion = Requirements.text(hostVersion, "hostVersion");
@@ -299,9 +149,7 @@ public record AutoMeshHostProfile(
 
     /** @return the host versions whose reviewed artifacts carry an Auto Mesh funnel profile */
     public static List<String> supportedHostVersions() {
-        return dev.turboism.compatibility.policy.ReviewedReleaseTable.versions().stream()
-                .filter(ReviewedVersions.since("5.0.00")::contains)
-                .toList();
+        return ReviewedReleaseTable.versions();
     }
 
     /**
@@ -314,6 +162,39 @@ public record AutoMeshHostProfile(
     public static Optional<AutoMeshHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         return Optional.ofNullable(BY_ARTIFACT.get(artifact));
+    }
+
+    /**
+     * Resolves the reviewed funnel selectors for a reviewed Cubism version.
+     *
+     * @param hostVersion exact reviewed Cubism version string
+     * @return the matching profile, or empty when the version is not reviewed
+     * @throws NullPointerException if {@code hostVersion} is {@code null}
+     */
+    public static Optional<AutoMeshHostProfile> forReviewedVersion(final String hostVersion) {
+        Objects.requireNonNull(hostVersion, "hostVersion");
+        final String modelingDescriptor;
+        if (EXTENSIONS_ONLY_VERSIONS.contains(hostVersion)) {
+            modelingDescriptor = MODELING_FUNNEL_DESCRIPTOR_EXTENSIONS_ONLY;
+        } else if (WITH_UNDO_GROUP_VERSIONS.contains(hostVersion)) {
+            modelingDescriptor = MODELING_FUNNEL_DESCRIPTOR_WITH_UNDO_GROUP;
+        } else {
+            return Optional.empty();
+        }
+        return Optional.of(reviewedProfile(
+                hostVersion, modelingDescriptor, "cubism.mapping.v" + hostVersion.replace('.', '_') + ".automesh."));
+    }
+
+    private static Map<HostArtifactDigest, AutoMeshHostProfile> buildProfilesByArtifact() {
+        final Map<HostArtifactDigest, AutoMeshHostProfile> profiles = new LinkedHashMap<>();
+        for (final HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
+            final String version = ReviewedHostArtifacts.cubismVersionOf(artifact)
+                    .orElseThrow(() -> new IllegalStateException("Missing Cubism version for reviewed artifact"));
+            final AutoMeshHostProfile profile = forReviewedVersion(version)
+                    .orElseThrow(() -> new IllegalStateException("Unsupported reviewed AutoMesh version: " + version));
+            profiles.put(artifact, profile);
+        }
+        return Map.copyOf(profiles);
     }
 
     private static AutoMeshHostProfile reviewedProfile(

@@ -1,10 +1,12 @@
 package dev.turboism.adapter.cubism.profile;
 
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Exact reviewed object context-menu bindings for one supported Cubism artifact.
@@ -60,6 +62,41 @@ public record ObjectContextMenuHostProfile(List<ContextMenuBindingSpec> bindings
     /** The four bindings a profile declares, one per menu location. */
     private static final int BINDING_COUNT = 4;
 
+    private record GenerationProfile(Set<String> versions, ObjectContextMenuHostProfile profile) {}
+
+    private static final List<GenerationProfile> GENERATION_PROFILES = List.of(
+            new GenerationProfile(
+                    ReviewedVersions.between("5.0.00", "5.0.02"),
+                    profile("S", "a", "b", 6, "am", "a", 7, "O", 15, 22, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.0.03", "5.0.04"),
+                    profile("S", "a", "b", 6, "ap", "a", 7, "O", 15, 22, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.0.05", "5.0.06"),
+                    profile("S", "a", "b", 9, "ap", "a", 7, "O", 18, 22, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.1.00", "5.1.01"),
+                    profile("U", "b", "c", 11, "av", "a", 7, "Q", 19, 22, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.1.02", "5.1.03"),
+                    profile("U", "b", "c", 11, "az", "a", 7, "Q", 19, 22, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.2.00", "5.2.02"),
+                    profile("U", "b", "c", 11, "aL", "a", 7, "Q", 19, 22, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.2.03", "5.2.03"),
+                    profile("U", "b", "c", 11, "aL", "a", 7, "R", 21, 23, 3, 2)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.3.00", "5.3.02"),
+                    profile("U", "b", "c", 11, "aL", "a", 7, "T", 22, 22, 1, 1)),
+            new GenerationProfile(
+                    ReviewedVersions.between("5.3.03", "5.3.03"),
+                    profile("U", "b", "c", 11, "aM", "a", 10, "T", 22, 22, 3, 1)),
+            // Menu-building mouse handler moved from aM.a(MouseEvent) to aM.b(MouseEvent);
+            // aM.a became a public delegate in 5.3.04.
+            new GenerationProfile(
+                    ReviewedVersions.since("5.3.04"), profile("U", "b", "c", 11, "aM", "b", 10, "T", 22, 22, 3, 1)));
+
     public ObjectContextMenuHostProfile {
         bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
         if (bindings.size() != BINDING_COUNT) {
@@ -88,27 +125,12 @@ public record ObjectContextMenuHostProfile(List<ContextMenuBindingSpec> bindings
      */
     public static Optional<ObjectContextMenuHostProfile> forReviewedVersion(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
-        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
-            return Optional.empty();
+        for (final GenerationProfile entry : GENERATION_PROFILES) {
+            if (entry.versions().contains(cubismVersion)) {
+                return Optional.of(entry.profile());
+            }
         }
-        return switch (cubismVersion) {
-            case "5.0.00", "5.0.01", "5.0.02" ->
-                Optional.of(profile("S", "a", "b", 6, "am", "a", 7, "O", 15, 22, 3, 2));
-            case "5.0.03", "5.0.04" -> Optional.of(profile("S", "a", "b", 6, "ap", "a", 7, "O", 15, 22, 3, 2));
-            case "5.0.05", "5.0.06" -> Optional.of(profile("S", "a", "b", 9, "ap", "a", 7, "O", 18, 22, 3, 2));
-            case "5.1.00", "5.1.01" -> Optional.of(profile("U", "b", "c", 11, "av", "a", 7, "Q", 19, 22, 3, 2));
-            case "5.1.02", "5.1.03" -> Optional.of(profile("U", "b", "c", 11, "az", "a", 7, "Q", 19, 22, 3, 2));
-            case "5.2.00", "5.2.01", "5.2.02" ->
-                Optional.of(profile("U", "b", "c", 11, "aL", "a", 7, "Q", 19, 22, 3, 2));
-            case "5.2.03" -> Optional.of(profile("U", "b", "c", 11, "aL", "a", 7, "R", 21, 23, 3, 2));
-            case "5.3.00", "5.3.01", "5.3.02" ->
-                Optional.of(profile("U", "b", "c", 11, "aL", "a", 7, "T", 22, 22, 1, 1));
-            case "5.3.03" -> Optional.of(profile("U", "b", "c", 11, "aM", "a", 10, "T", 22, 22, 3, 1));
-            // Same tuple as 5.3.03 except the menu-building mouse handler moved from
-            // aM.a(MouseEvent) to aM.b(MouseEvent); aM.a is a public delegate on 5.3.04.
-            case "5.3.04", "5.3.05" -> Optional.of(profile("U", "b", "c", 11, "aM", "b", 10, "T", 22, 22, 3, 1));
-            default -> Optional.empty();
-        };
+        return Optional.empty();
     }
 
     /**

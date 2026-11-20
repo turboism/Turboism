@@ -30,7 +30,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Verifies bytecode rewriting across all 20 reviewed Cubism artifacts, fail-closed guards,
+ * Verifies bytecode rewriting across all reviewed Cubism artifacts, fail-closed guards,
  * constant-time sibling lookup, and behavioral parity with skipped unmodified sibling rebuilds.
  */
 class ExtendedInterpolationSiblingArtifactTest {

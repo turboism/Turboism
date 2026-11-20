@@ -23,7 +23,7 @@ Draft packs no longer carry `exactArtifactSha256` or
 host artifact. `mapping-packs/draft/frozen.json` and its `check_frozen` gate are
 deleted: Git history and review govern the retained evidence.
 
-Only trust-boundary digests remain: the 20 host artifact SHA-256 values in
+Only trust-boundary digests remain: the 21 host artifact SHA-256 values in
 `reviewed-releases.json`, the reviewed Core API roster bindings, and the
 dependency, signed-catalog and probe-evidence digests named above.
 
@@ -48,42 +48,3 @@ reviewed host/class bytes and signed plugin metadata retain their checks.
 
 Validation results and any environment/baseline failures are recorded in the
 implementation handoff rather than hidden by disabling repository gates.
-
-## Acceptance evidence (2026-10-21)
-
-- Final full gate, after integration and baseline fixes:
-  `env -u JAVA_TOOL_OPTIONS -u DISPLAY -u WAYLAND_DISPLAY ./gradlew --no-daemon checkCompletedCommit --continue`:
-  BUILD SUCCESSFUL in 10m 10s; 391 tasks (53 executed, 338 up-to-date).
-  Display variables were unset instead of injecting `JAVA_TOOL_OPTIONS`, which
-  adds output to subprocess protocols. The final run passed all repository gates.
-
-- `JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew devCheck spotlessCheck`:
-  BUILD SUCCESSFUL. Runtime admission: 3,895 tests, 56 skipped; integration
-  admission: 23 tests, one skipped; no failures. Headless mode avoids this
-  desktop's blocking `Robot.createScreenCapture` / Screencast portal call.
-- Focused resolver/repository tests: 48 tests, no failures. Probe/evidence Python
-  suites: 9 + 26 tests; queue: 121 tests; memory identity/process cleanup: 12 + 11
-  tests; all passed. Queue multiprocessing requires normal host permissions.
-- Final integration includes the current `main` runtime diagnostic changes.
-  Inherited atlas folder metadata, localized resources and README contracts were
-  reconciled with the compatibility generator and official plugin requirements.
-- Real-host smoke `status-bar:5302`, label `sha256-smoke-fixed`, passed through
-  the supported host-validation queue using the main checkout's environment.
-  Job: `a0465c91-5217-4f5a-bfc5-0350910c8823`;
-  run: `queue-8ca4cca3177b486e8a9897f0b7f726a7`.
-  Result: `PASS`, zero failures, verified host identity, unchanged fixture and
-  model identity, normal exit, safe cleanup, no retained prefix.
-  Evidence: `$VALIDATION_ROOT/status-bar/5302-sha256-smoke-fixed/queue-8ca4cca3177b486e8a9897f0b7f726a7`.
-  The initial smoke exposed a probe-only shutdown lookup using the isolated
-  plugin loader; the probe now explicitly uses the system loader for bootstrap.
-  The corrected probe passed on the rerun. The task's idle worker was stopped.
-
-The three delegated branches and the previously uncommitted phase-one follow-up
-are preserved in the integration branch `ci/simplify-sha256-gates`.
-
-The three dedicated workspaces were successfully archived on 2026-10-21:
-`wks_a3261bfdd8a0565c` (digest-single-source),
-`wks_02a18a39a7105ca4` (hash-trust-clarify), and
-`wks_c386e683950f430a` (draft-pack-hash-hoist).
-Paseo managed their worktree cleanup; their changes remain in the integration
-branch history.
