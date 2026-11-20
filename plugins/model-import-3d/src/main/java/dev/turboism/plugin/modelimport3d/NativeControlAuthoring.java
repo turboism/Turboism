@@ -117,7 +117,14 @@ final class NativeControlAuthoring {
             Optional<ParameterGroupId> parameterGroup,
             String prefix) {
         return prepareHierarchy(
-                model, hierarchy, scene, plan, progress, parameterGroup, prefix, index -> "分区 " + index + " 局部动作");
+                model,
+                hierarchy,
+                scene,
+                plan,
+                progress,
+                parameterGroup,
+                prefix,
+                index -> "Partition " + index + " Local Motion");
     }
 
     static PreparedHierarchy prepareHierarchy(

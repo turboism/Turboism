@@ -1,8 +1,6 @@
 package dev.turboism.plugin.modelimport3d;
 
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 /** Entirely source-derived experimental Warp preparation. Fixed neutral centroid
@@ -81,16 +79,11 @@ final class SurfaceWarpImportCandidate {
                 request.roll(),
                 request.labels());
         var prepared = prepareDecoded(sources, framed, config);
-        try {
-            return new Prepared(
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(frozen)),
-                    prepared.discovery(),
-                    prepared.candidateOrder(),
-                    prepared.authoring());
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
+        return new Prepared(
+                ModelImportDigests.sha256Hex(frozen),
+                prepared.discovery(),
+                prepared.candidateOrder(),
+                prepared.authoring());
     }
 
     static Prepared prepareDecoded(List<GlbSurfaceReader.Surface> sources, SurfaceImport.Request request, Config config)

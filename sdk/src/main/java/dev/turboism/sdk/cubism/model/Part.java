@@ -76,7 +76,7 @@ public interface Part extends PartAppearanceAccess {
      * Returns the ArtMesh IDs this Part clips (Inspector {@code clippingMaskId}
      * entry), in stable host order.
      */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"})
+    @CubismEditor(from = "5.3.00")
     default List<ArtMeshId> maskIds() {
         throw unavailable("Part clipping masks");
     }
@@ -87,7 +87,7 @@ public interface Part extends PartAppearanceAccess {
      *
      * @throws IllegalArgumentException when a referenced ArtMesh is absent from the model
      */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"})
+    @CubismEditor(from = "5.3.00")
     default void setMaskIds(final List<ArtMeshId> ids) {
         throw unavailable("Part clipping-mask editing");
     }
@@ -155,7 +155,7 @@ public interface Part extends PartAppearanceAccess {
      * Returns this Part's alpha-composition mode (Inspector {@code alphaComposition}
      * entry), or {@link AlphaComposition#UNKNOWN} when the backend does not expose it.
      */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"})
+    @CubismEditor(from = "5.3.00")
     default AlphaComposition alphaComposition() {
         return AlphaComposition.UNKNOWN;
     }
@@ -164,7 +164,7 @@ public interface Part extends PartAppearanceAccess {
      * Writes this Part's alpha-composition mode (Inspector {@code alphaComposition}
      * entry) inside the native Undo envelope.
      */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"})
+    @CubismEditor(from = "5.3.00")
     default void setAlphaComposition(final AlphaComposition composition) {
         throw unavailable("Part alpha-composition editing");
     }
@@ -186,7 +186,7 @@ public interface Part extends PartAppearanceAccess {
     int parentIndex();
 
     /** Writes this Part's opacity through the Editor authoring path. */
-    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"})
+    @CubismEditor(from = "5.3.00")
     void setOpacity(float opacity);
 
     private static UnsupportedOperationException unavailable(final String feature) {

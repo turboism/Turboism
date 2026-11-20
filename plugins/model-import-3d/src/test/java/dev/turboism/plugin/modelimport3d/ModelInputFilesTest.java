@@ -233,7 +233,7 @@ class ModelInputFilesTest {
         assertTrue(failure(OBJ, f).getMessage().contains("16 MiB"));
         assertTrue(f.handles.get(0).closed);
         f = new FilesService(new byte[GlbSurfaceReader.MAX_BYTES]);
-        assertTrue(failure(OBJ, f).getMessage().contains("合计"));
+        assertTrue(failure(OBJ, f).getMessage().contains("Total size"));
         assertTrue(f.handles.get(0).closed);
     }
 
@@ -260,11 +260,11 @@ class ModelInputFilesTest {
         var doc = new LinkedHashMap<String, Object>(Map.of(
                 "asset", Map.of("version", "2.0"), "buffers", List.of(Map.of("uri", "mesh.bin", "byteLength", 4))));
         var f = new FilesService(new byte[3]);
-        assertTrue(failure(Json.bytes(doc), f).getMessage().contains("长度"));
+        assertTrue(failure(Json.bytes(doc), f).getMessage().contains("length"));
         assertTrue(f.handles.get(0).closed);
         doc.put("buffers", List.of(Map.of("uri", "https://example.com/buffer.bin", "byteLength", 4)));
         f = new FilesService();
-        assertTrue(failure(Json.bytes(doc), f).getMessage().contains("相对路径"));
+        assertTrue(failure(Json.bytes(doc), f).getMessage().contains("relative path"));
         assertTrue(f.requests.isEmpty());
     }
 
@@ -322,7 +322,7 @@ class ModelInputFilesTest {
         String base = obj.substring(0, obj.lastIndexOf('/') + 1);
         var f = new FilesService();
         f.read = i -> {
-            String ref = f.requests.get(i).title().substring("选择模型引用的资源：".length());
+            String ref = f.requests.get(i).title().substring("Select referenced model resource: ".length());
             byte[] bytes = entries.get(ModelInputNormalizer.packagePath(base, ref));
             assertNotNull(bytes, ref);
             return CompletableFuture.completedFuture(result(bytes, false));

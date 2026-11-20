@@ -3,7 +3,6 @@ package dev.turboism.plugin.mcp;
 import dev.turboism.sdk.cubism.model.AuthorizedImageContent;
 import dev.turboism.sdk.ui.*;
 import java.nio.ByteBuffer;
-import java.security.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -191,8 +190,7 @@ final class McpImageRegistrationDomain implements AutoCloseable {
                 finish(job, "NOT_APPLIED", "INVALID_PNG", null);
                 return;
             }
-            String sha = HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(content.copyBytes()));
+            String sha = McpDigests.sha256Hex(content.copyBytes());
             synchronized (this) {
                 job.fileEvidence = Map.of(
                         "sha256",
@@ -223,8 +221,6 @@ final class McpImageRegistrationDomain implements AutoCloseable {
                         }
                     }));
             finish(job, (String) write.get("outcome"), (String) write.get("code"), write);
-        } catch (NoSuchAlgorithmException failure) {
-            finish(job, "NOT_APPLIED", "HASH_UNAVAILABLE", null);
         } catch (RuntimeException failure) {
             finish(
                     job,

@@ -290,7 +290,8 @@ final class SurfaceWarpAuthoring {
                 if (!preview.positions().equals(input.imageGeometry().positions())
                         || !orientedFaces(preview.triangleIndices())
                                 .equals(orientedFaces(input.imageGeometry().triangleIndices())))
-                    throw new IllegalArgumentException("原生编辑网格预览无法保留模型全部顶点和面。");
+                    throw new IllegalArgumentException(
+                            "Native editable mesh preview could not preserve all model vertices and faces.");
             }
         var part = model.parts().create(p.request.name(), null, -1);
         var warp =

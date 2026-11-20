@@ -5,7 +5,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import javax.imageio.ImageIO;
 
@@ -233,9 +232,7 @@ final class McpRasterValidation {
                 throw fail("INVALID_RETAINED_RESULT");
             byte[] png = Base64.getDecoder().decode(data);
             if (png.length != integer(frame.get("byteLength"), 1, McpRenderDomain.MAX_PNG_BYTES)
-                    || !HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(png))
-                            .equals(frame.get("sha256"))) throw fail("INVALID_RETAINED_RESULT");
+                    || !McpDigests.sha256Hex(png).equals(frame.get("sha256"))) throw fail("INVALID_RETAINED_RESULT");
             // Memory-backed stream; do not create ImageIO disk-cache files.
             try (var stream = new javax.imageio.stream.MemoryCacheImageInputStream(new ByteArrayInputStream(png))) {
                 var readers = ImageIO.getImageReadersByFormatName("png");

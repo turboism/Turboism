@@ -18,6 +18,27 @@ import javax.swing.*;
 
 /** User-mediated static model import using the same bounded engine as the native validation. */
 public final class ModelImportPlugin implements TurboismPlugin {
+    private static final int MAX_PARAMETER_STEM_LENGTH = 20;
+    private static final int REQUEST_SUFFIX_HEX_LENGTH = 12;
+    private static final int STANDARD_CANVAS_PIXELS = 1024;
+    private static final int CANVAS_CENTER_PIXELS = 512;
+    private static final int DEFAULT_CAMERA_SCALE = 200;
+    private static final int FULL_CIRCLE_ANGLE_LIMIT = 180;
+    private static final int DEFAULT_PREVIEW_FIT_PIXELS = 400;
+    private static final int EDITABLE_COST_MAX_IMAGE_SIZE = 512;
+    private static final int EDITABLE_COST_MAX_VERTICES = 1001;
+    private static final int MAX_COMBINED_ERROR_PIXELS = 5;
+    private static final int MAX_EDITABLE_PIXELS = 8192;
+    private static final int MAX_EDITABLE_TRIANGLES = 100_000;
+    private static final int DIALOG_DESCRIPTION_EM_WIDTH = 32;
+    private static final int DIALOG_CONTENT_GAP = 12;
+    private static final int PRESET_ACTION_ORDER = 110;
+    private static final int IMPORT_ACTION_ORDER = 100;
+    private static final int APPEARANCE_CHOICE_FACE_COLORS = 1;
+    private static final int APPEARANCE_CHOICE_CANCEL = 2;
+    private static final int DEFORMER_COUNT_XYZ = 3;
+    private static final int DEFORMER_COUNT_XY = 2;
+
     /**
      * Summary of planned texture atlas pages and dimensions for user confirmation.
      *
@@ -237,7 +258,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         String stem = name.replaceAll("[^A-Za-z0-9_]", "_").replaceAll("_+", "_");
         if (stem.isBlank() || stem.equals("_")) stem = "Model_" + Integer.toUnsignedString(name.hashCode(), 16);
         // Leave room for the import suffix, rotation axis and source-control index.
-        if (stem.length() > 20) stem = stem.substring(0, 20);
+        if (stem.length() > MAX_PARAMETER_STEM_LENGTH) stem = stem.substring(0, MAX_PARAMETER_STEM_LENGTH);
         String prefix = "Param3D_" + stem + "_" + suffix;
         return new SurfaceImport.Request(
                 name,
@@ -314,7 +335,9 @@ public final class ModelImportPlugin implements TurboismPlugin {
             return new PreparedImport(null, null, null, null, NativeModelImport.prepare(bytes, request, () -> false));
         if (request.roll().isPresent()) {
             if (appearance != SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL)
-                throw new LocalizedIllegalArgumentException("error.source-material-required", "XYZ 360° 导入使用源模型材质与贴图。");
+                throw new LocalizedIllegalArgumentException(
+                        "error.source-material-required",
+                        "XYZ 360° import requires source model materials and textures.");
             try {
                 var candidate = SurfaceWarpImportCandidate.prepareFramed(
                         bytes, request, SurfaceWarpImportCandidate.FULL_CIRCLE);
@@ -326,7 +349,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             sources,
                             request.camera().centerX(),
                             request.camera().centerY(),
-                            400);
+                            DEFAULT_PREVIEW_FIT_PIXELS);
                     var framed = new SurfaceImport.Request(
                             request.name(),
                             request.yaw(),
@@ -337,13 +360,15 @@ public final class ModelImportPlugin implements TurboismPlugin {
                             request.maxProjectedVertices(),
                             request.roll(),
                             request.labels());
-                    var choice = SurfaceImportCostPlan.chooseEditable(sources, framed, 512, 1001);
+                    var choice = SurfaceImportCostPlan.chooseEditable(
+                            sources, framed, EDITABLE_COST_MAX_IMAGE_SIZE, EDITABLE_COST_MAX_VERTICES);
                     var optimized = choice.simplified();
-                    var editable = SurfaceWarpImagePlan.compileEditableVertex(choice.geometry(), camera, 1001);
+                    var editable = SurfaceWarpImagePlan.compileEditableVertex(
+                            choice.geometry(), camera, EDITABLE_COST_MAX_VERTICES);
                     var vertices = SurfaceVertexAuthoring.prepareGeometry(
                             framed, editable.geometry(), editable.images(), choice.interpolationAllowance());
                     double combined = vertices.interpolationErrorBoundPixels() + optimized.maximumGeometryErrorPixels();
-                    if (combined > 5)
+                    if (combined > MAX_COMBINED_ERROR_PIXELS)
                         throw new IllegalArgumentException("combined geometry/interpolation bound exceeds 5px");
                     return new PreparedImport(
                             null,
@@ -441,7 +466,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return text("action.preset.label", "从预设导入…");
+                return text("action.preset.label", "Import preset…");
             }
 
             @Override
@@ -452,7 +477,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
         context.disposableScope().register(context.menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "Turboism/" + text("menu.group", "3D 模型") + "/" + text("action.preset.label", "从预设导入…");
+                return "Turboism/" + text("menu.group", "3D Model") + "/"
+                        + text("action.preset.label", "Import preset…");
             }
 
             @Override
@@ -462,7 +488,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
             @Override
             public int order() {
-                return 110;
+                return PRESET_ACTION_ORDER;
             }
         }));
         context.disposableScope().register(context.actions().register(ACTION, new ActionRegistry.Action() {
@@ -473,7 +499,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return text("action.import.label", "导入 3D 模型…");
+                return text("action.import.label", "Import 3D Model…");
             }
 
             @Override
@@ -484,7 +510,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
         context.disposableScope().register(context.menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return "Turboism/" + text("menu.group", "3D 模型") + "/" + text("action.import.label", "导入 3D 模型…");
+                return "Turboism/" + text("menu.group", "3D Model") + "/"
+                        + text("action.import.label", "Import 3D Model…");
             }
 
             @Override
@@ -494,7 +521,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
             @Override
             public int order() {
-                return 100;
+                return IMPORT_ACTION_ORDER;
             }
         }));
     }
@@ -524,12 +551,15 @@ public final class ModelImportPlugin implements TurboismPlugin {
         try {
             var document = context.cubism()
                     .activeDocument()
-                    .orElseThrow(() -> new LocalizedIllegalStateException("error.no-active-document", "请先打开一个模型工程"));
+                    .orElseThrow(() -> new LocalizedIllegalStateException(
+                            "error.no-active-document", "Please open a model project first."));
             var target = context.cubism().model().active();
             SurfacePlacementAuthoring.canvasForm(
                     target.canvas().widthPixels(), target.canvas().heightPixels());
             if (!target.textures().supportsAppendTextureAtlasPages())
-                throw new LocalizedIllegalStateException("error.texture-atlas-unavailable", "当前环境不支持纹理图集功能。");
+                throw new LocalizedIllegalStateException(
+                        "error.texture-atlas-unavailable",
+                        "Texture atlas feature is unavailable in the current environment.");
             if (fromPreset && ui.composesPresetPreview()) {
                 // One window chooses the preset and confirms its preview, so the prepared import is
                 // the one the operator saw and the commit step must not ask again.
@@ -548,14 +578,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 return;
             }
             int choice = fromPreset ? 0 : ui.appearance();
-            if (choice < 0 || choice == 2 || !active(token)) {
+            if (choice < 0 || choice == APPEARANCE_CHOICE_CANCEL || !active(token)) {
                 release(token);
                 return;
             }
-            var appearance = choice == 0
-                    ? SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL
-                    : SurfaceBaseColorPlan.Appearance.FACE_COLORS;
-            String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+            var appearance = choice == APPEARANCE_CHOICE_FACE_COLORS
+                    ? SurfaceBaseColorPlan.Appearance.FACE_COLORS
+                    : SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL;
+            String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, REQUEST_SUFFIX_HEX_LENGTH);
             var request = importRequest(suffix);
             CompletionStage<Optional<PreparedImport>> pendingImport;
             if (fromPreset) {
@@ -580,7 +610,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 var files = context.userFiles();
                 pendingImport = files.request(new UserFileRequest(
                                 "import-model-" + suffix,
-                                text("file.chooser.title", "选择 GLB、glTF、OBJ 或模型 ZIP"),
+                                text("file.chooser.title", "Select GLB, glTF, OBJ, or model ZIP"),
                                 List.of("glb", "gltf", "obj", "zip"),
                                 UserFileMode.READ,
                                 UserFileLifetime.ONE_OPERATION))
@@ -589,7 +619,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                 return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                             if (selected.status() != UserFileRequestStatus.GRANTED)
                                 throw new CompletionException(new LocalizedIllegalStateException(
-                                        "error.file-select", "无法选择文件：{0}", selected.status()));
+                                        "error.file-select", "Could not select file: {0}", selected.status()));
                             if (!active(token)) {
                                 selected.handle().orElseThrow().close();
                                 return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
@@ -609,10 +639,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                             return CompletableFuture.completedFuture(Optional.<PreparedImport>empty());
                                         if (read.truncated())
                                             throw new CompletionException(new LocalizedIllegalArgumentException(
-                                                    "error.character-file-too-large", "GLB 模型文件超过 128 MiB 限制。"));
+                                                    "error.character-file-too-large",
+                                                    "GLB model exceeds the 128 MiB limit."));
                                         byte[] bytes = read.value()
                                                 .orElseThrow(() -> new LocalizedIllegalStateException(
-                                                        "error.file-read", "无法读取所选模型。"));
+                                                        "error.file-read", "Could not read the selected model."));
                                         if (needsNativeSourceImport(bytes)) {
                                             return CompletableFuture.supplyAsync(() -> {
                                                 if (!active(token)) return Optional.<PreparedImport>empty();
@@ -684,12 +715,16 @@ public final class ModelImportPlugin implements TurboismPlugin {
     /** Builds the shared import request; only the unique name suffix differs per run. */
     private SurfaceImport.Request importRequest(String suffix) {
         return new SurfaceImport.Request(
-                text("model.default-name", "3D 模型"),
+                text("model.default-name", "3D Model"),
                 new ParameterId("Param3DYaw" + suffix),
                 new ParameterId("Param3DPitch" + suffix),
-                new SurfaceProjection.Camera(512, 512, 200, new SurfaceProjection.Vertex(0, 0, 0)),
-                180,
-                180,
+                new SurfaceProjection.Camera(
+                        CANVAS_CENTER_PIXELS,
+                        CANVAS_CENTER_PIXELS,
+                        DEFAULT_CAMERA_SCALE,
+                        new SurfaceProjection.Vertex(0, 0, 0)),
+                FULL_CIRCLE_ANGLE_LIMIT,
+                FULL_CIRCLE_ANGLE_LIMIT,
                 SurfaceImportPlan.MAX_PROJECTED_VERTICES,
                 Optional.of(new ParameterId("Param3DRoll" + suffix)),
                 ModelObjectNames.labels(this::text));
@@ -706,7 +741,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
      * @return the confirmed prepared import, or empty when the window closed
      */
     private Optional<PreparedImport> preparePresetInteractively(long token, CubismModel target) {
-        final String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        final String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, REQUEST_SUFFIX_HEX_LENGTH);
         final var request = importRequest(suffix);
         final int existingPages = target.textures().textureAtlases().size();
         return ui.composePresetImport(
@@ -734,7 +769,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
     private AtlasSummary atlasSummary(
             CubismModel target, PreparedImport prepared, String requestName, int existingPages) {
         java.util.function.IntFunction<String> pageNames =
-                pageIndex -> format("atlas.page-name", "{0} 图集 {1}", requestName, existingPages + pageIndex + 1);
+                pageIndex -> format("atlas.page-name", "{0} Atlas {1}", requestName, existingPages + pageIndex + 1);
         final var plan = planAtlas(target, prepared, pageNames);
         return new AtlasSummary(plan.pageCount(), plan.pageWidth(), plan.pageHeight());
     }
@@ -804,7 +839,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
 
         int existingCount = target.textures().textureAtlases().size();
         java.util.function.IntFunction<String> pageNames =
-                pageIdx -> format("atlas.page-name", "{0} 图集 {1}", requestName, existingCount + pageIdx + 1);
+                pageIdx -> format("atlas.page-name", "{0} Atlas {1}", requestName, existingCount + pageIdx + 1);
 
         var atlasPlan = planAtlas(target, prepared, pageNames);
         var atlasSummary = new AtlasSummary(atlasPlan.pageCount(), atlasPlan.pageWidth(), atlasPlan.pageHeight());
@@ -824,11 +859,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
         // the editor looks frozen for the whole write. The pipeline already reports its stages, so
         // surface them, and let the window paint itself because no queued repaint can run.
         final ImportProgress progress = new ImportProgress(
-                text("progress.title", "正在导入 3D 模型"),
-                text("progress.preparing", "正在准备…"),
-                step -> format("progress.step", "正在写入模型（{0}/{1}）", step[0], step[1]),
-                mesh -> format("progress.mesh", "正在创建网格（{0}/{1}）", mesh[0], mesh[1]),
-                text("progress.writing", "正在写入模型…"),
+                text("progress.title", "Importing 3D model"),
+                text("progress.preparing", "Preparing…"),
+                step -> format("progress.step", "Writing the model ({0}/{1})", step[0], step[1]),
+                mesh -> format("progress.mesh", "Creating meshes ({0}/{1})", mesh[0], mesh[1]),
+                text("progress.writing", "Writing the model…"),
                 stageCount(prepared));
         progress.show();
         final dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<Void> result;
@@ -837,8 +872,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions.of("Import 3D " + requestName),
                     () -> {
                         requireTarget(token, documentId, target);
-                        boolean fitCanvas = target.canvas().widthPixels() != 1024
-                                || target.canvas().heightPixels() != 1024;
+                        boolean fitCanvas = target.canvas().widthPixels() != STANDARD_CANVAS_PIXELS
+                                || target.canvas().heightPixels() != STANDARD_CANVAS_PIXELS;
                         var existingDeformers = fitCanvas
                                 ? SurfacePlacementAuthoring.deformerIds(target)
                                 : java.util.Set.<dev.turboism.sdk.cubism.id.DeformerId>of();
@@ -953,9 +988,9 @@ public final class ModelImportPlugin implements TurboismPlugin {
             progress.close();
         }
         if (result.outcome() != AuthoringTransactionOutcome.COMMITTED) {
-            String diag = result.diagnosticId().map(id -> "（" + id + "）").orElse("");
+            String diag = result.diagnosticId().map(id -> " (" + id + ")").orElse("");
             throw new LocalizedIllegalStateException(
-                    "error.transaction-uncommitted", "导入未完成：{0}{1}", result.outcome(), diag);
+                    "error.transaction-uncommitted", "Import incomplete: {0}{1}", result.outcome(), diag);
         }
         ui.message(
                 prepared.character() != null
@@ -968,8 +1003,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                                 .isPresent()
                         ? text(
                                 "success.xyz-rotation",
-                                "导入完成。拖动新增的 X / Y / Z 旋转参数（各 ±180°）即可旋转一整圈。\n整体移动或缩放时，请选择“整体定位”变形器。")
-                        : text("success.yaw-pitch", "导入完成。拖动新增的 Yaw / Pitch 参数即可旋转。"),
+                                "Import complete. Drag the added X / Y / Z rotation parameters (±180° each) to rotate a full circle.\nSelect the \"Overall Positioning\" deformer to move or scale.")
+                        : text(
+                                "success.yaw-pitch",
+                                "Import complete. Drag the added Yaw / Pitch parameters to rotate."),
                 false);
     }
 
@@ -981,7 +1018,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     preview) {
         var p = Objects.requireNonNull(prepared.vertices(), "direct vertex plan required");
         var refined = SurfaceWarpImagePlan.refineEditableVertex(
-                p.geometry(), p.images(), new SurfaceEditableTopologyPlan.Limits(1001, 8192, 100000), preview);
+                p.geometry(),
+                p.images(),
+                new SurfaceEditableTopologyPlan.Limits(
+                        EDITABLE_COST_MAX_VERTICES, MAX_EDITABLE_PIXELS, MAX_EDITABLE_TRIANGLES),
+                preview);
         double geometryError =
                 prepared.optimization() == null ? 0 : prepared.optimization().geometryErrorPixels();
         var vertices = SurfaceVertexAuthoring.prepareGeometry(
@@ -1006,7 +1047,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         .map(d -> d.documentId().equals(documentId))
                         .orElse(false)
                 || !context.cubism().model().active().id().equals(target.id()))
-            throw new LocalizedIllegalStateException("error.target-switched", "目标文档已切换，请重新发起导入。");
+            throw new LocalizedIllegalStateException(
+                    "error.target-switched", "The target document was changed. Please initiate the import again.");
         target.canvas(); // Exercise the retained SDK handle's native generation guard.
     }
 
@@ -1022,7 +1064,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
         } else {
             String raw = failure.getMessage();
             if (raw == null || raw.isBlank() || containsCjk(raw)) {
-                userMessage = text("error.generic-failure", "3D 模型导入失败，请检查文件或重试。");
+                userMessage =
+                        text("error.generic-failure", "3D model import failed. Please check the file or try again.");
             } else {
                 userMessage = raw;
             }
@@ -1066,11 +1109,14 @@ public final class ModelImportPlugin implements TurboismPlugin {
         private boolean confirmDialog(String message) {
             if (previewScene == null) {
                 return JOptionPane.showConfirmDialog(
-                                null, message, text("dialog.confirm.title", "确认导入"), JOptionPane.OK_CANCEL_OPTION)
+                                null,
+                                message,
+                                text("dialog.confirm.title", "Confirm Import"),
+                                JOptionPane.OK_CANCEL_OPTION)
                         == JOptionPane.OK_OPTION;
             }
             try (var preview = new ModelPreviewPanel(previewScene, key -> text(key, key), log)) {
-                var content = new JPanel(new java.awt.BorderLayout(0, 12));
+                var content = new JPanel(new java.awt.BorderLayout(0, DIALOG_CONTENT_GAP));
                 var description = new JTextPane();
                 description.setEditable(false);
                 description.setFocusable(false);
@@ -1081,7 +1127,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 var alignment = new javax.swing.text.SimpleAttributeSet();
                 javax.swing.text.StyleConstants.setAlignment(alignment, javax.swing.text.StyleConstants.ALIGN_CENTER);
                 description.getStyledDocument().setParagraphAttributes(0, message.length(), alignment, false);
-                int width = description.getFontMetrics(description.getFont()).charWidth('m') * 32;
+                int width =
+                        description.getFontMetrics(description.getFont()).charWidth('m') * DIALOG_DESCRIPTION_EM_WIDTH;
                 description.setSize(width, Short.MAX_VALUE);
                 description.setPreferredSize(new java.awt.Dimension(width, description.getPreferredSize().height));
                 content.add(preview, java.awt.BorderLayout.CENTER);
@@ -1089,7 +1136,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                 return JOptionPane.showConfirmDialog(
                                 null,
                                 content,
-                                text("dialog.confirm.title", "确认导入"),
+                                text("dialog.confirm.title", "Confirm Import"),
                                 JOptionPane.OK_CANCEL_OPTION,
                                 JOptionPane.PLAIN_MESSAGE)
                         == JOptionPane.OK_OPTION;
@@ -1122,7 +1169,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         @Override
         public String describePrepared(PreparedImport prepared, AtlasSummary atlas) {
             return prepared.character() == null
-                    ? text("dialog.preset.prepared", "准备完成。")
+                    ? text("dialog.preset.prepared", "Ready to import.")
                     : describeCharacter(prepared.character(), atlas);
         }
 
@@ -1131,14 +1178,18 @@ public final class ModelImportPlugin implements TurboismPlugin {
             return confirmDialog(describeCharacter(p, atlas));
         }
 
-        private String describeCharacter(NativeModelImport.Prepared p, AtlasSummary atlas) {
-            var geometry = p.geometry();
-            String atlasInfo = format(
+        private String atlasInfo(AtlasSummary atlas) {
+            return format(
                     "dialog.confirm.atlas-info",
-                    "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
+                    "Texture atlas: Will create {0} atlas page(s) ({1}×{2}).",
                     atlas.pageCount(),
                     atlas.width(),
                     atlas.height());
+        }
+
+        private String describeCharacter(NativeModelImport.Prepared p, AtlasSummary atlas) {
+            var geometry = p.geometry();
+            String atlasInfo = atlasInfo(atlas);
             long partCount = p.materials().scene().meshes().stream()
                     .filter(m -> m.visible())
                     .map(m -> m.bodyPart().isBlank() ? m.appearanceGroup() : m.bodyPart())
@@ -1146,12 +1197,12 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     .count();
             String sourceControls = format(
                     "dialog.confirm.character-controls",
-                    "源形态与显隐：{0} 个融合参数；{1} 个源部位。",
+                    "Source shapes and visibility: {0} Blend Shape parameters; {1} source parts.",
                     p.controls().controls().size(),
                     partCount);
             return format(
                     "dialog.confirm.character",
-                    "将创建 {0} 个原生网格，保留 {1} 个三角形。\nX / Y 参数各 {2} 个绑定点，Z 参数支持整圈旋转。\n遮挡采用分组排序，复杂交叠可能有偏差。\n{3}\n可用一次撤销撤回本次导入。继续？",
+                    "Will create {0} native meshes, preserving {1} triangles.\nX / Y have {2} binding points each; Z supports full-circle rotation.\nOcclusion uses grouped sorting; complex intersections can show deviations.\n{3}\nThe import can be undone in one step. Continue?",
                     geometry.partitions().size(),
                     geometry.totalTriangles(),
                     geometry.keys().size(),
@@ -1189,8 +1240,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     .toArray(String[]::new);
             Object selected = JOptionPane.showInputDialog(
                     null,
-                    text("dialog.preset.message", "选择基础形状。导入后可替换模型图像来更换贴图；请保持图像尺寸和 UV 布局。"),
-                    text("action.preset.label", "从预设导入…"),
+                    text(
+                            "dialog.preset.message",
+                            "Choose a shape. Replace the model image after importing to change its texture; keep the image dimensions and UV layout."),
+                    text("action.preset.label", "Import preset…"),
                     JOptionPane.QUESTION_MESSAGE,
                     null,
                     labels,
@@ -1205,16 +1258,16 @@ public final class ModelImportPlugin implements TurboismPlugin {
         @Override
         public int appearance() {
             Object[] choices = {
-                text("dialog.appearance.option.source-material", "保留原材质"),
-                text("dialog.appearance.option.face-colors", "按面区分颜色"),
-                text("dialog.appearance.option.cancel", "取消")
+                text("dialog.appearance.option.source-material", "Keep Original Materials"),
+                text("dialog.appearance.option.face-colors", "Distinct Face Colors"),
+                text("dialog.appearance.option.cancel", "Cancel")
             };
             return JOptionPane.showOptionDialog(
                     null,
                     text(
                             "dialog.appearance.message",
-                            "支持不透明静态 GLB、glTF、OBJ 与模型 ZIP。\n选择单独模型后，可按提示补选引用的材质、buffer 和 PNG/JPEG 贴图；也可一起打包为 ZIP。\n仅还原基础颜色；凹凸、光照与透明材质暂不支持。\n两种颜色方式均支持 X / Y / Z 各 ±180° 整圈旋转。\n颜色方式："),
-                    text("dialog.appearance.title", "导入 3D 模型"),
+                            "Select source materials to import large GLB characters in their default skin and morph pose.\nNative meshes use base color, emissive and alpha textures; normal maps and source lighting are not reproduced.\nStatic glTF, OBJ and ZIP packages retain their existing size and material limits.\nBoth color modes support full-circle X / Y / Z rotation (±180° each).\nLarge models can take several minutes and can still fail; keep the document open until the import finishes.\nColor mode:"),
+                    text("dialog.appearance.title", "Import 3D Model"),
                     JOptionPane.DEFAULT_OPTION,
                     JOptionPane.QUESTION_MESSAGE,
                     null,
@@ -1230,17 +1283,10 @@ public final class ModelImportPlugin implements TurboismPlugin {
         @Override
         public boolean confirm(SurfaceImport.Prepared p, AtlasSummary atlas) {
             int faces = p.geometry.patches().size(), keys = p.geometry.keys().size();
-            String atlasInfo = atlas != null
-                    ? format(
-                            "dialog.confirm.atlas-info",
-                            "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
-                            atlas.pageCount(),
-                            atlas.width(),
-                            atlas.height())
-                    : "";
+            String atlasInfo = atlas != null ? atlasInfo(atlas) : "";
             return confirmDialog(format(
                     "dialog.confirm.simple",
-                    "将创建 {0} 个网格，共 {1} 个形态。\n水平 / 垂直参数绑定点：{2} / {3}。\n{4}\n可用一次撤销撤回本次导入。继续？",
+                    "Will create {0} meshes with {1} total keys.\nHorizontal / vertical binding points: {2} / {3}.\n{4}\nCan be undone in a single undo step. Continue?",
                     faces,
                     faces * keys,
                     p.geometry.grid().yawKeys().size(),
@@ -1257,21 +1303,15 @@ public final class ModelImportPlugin implements TurboismPlugin {
         public boolean confirmLayers(SurfaceWarpLayerAuthoring.Prepared layered, AtlasSummary atlas) {
             var p = layered.surface();
             int meshes = p.geometry.meshes().size();
-            String rollNote =
-                    p.request.roll().isPresent() ? text("dialog.confirm.layers.roll-note", " Z 旋转：5 点，三轴各 ±180°。") : "";
-            String atlasInfo = atlas != null
-                    ? format(
-                            "dialog.confirm.atlas-info",
-                            "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
-                            atlas.pageCount(),
-                            atlas.width(),
-                            atlas.height())
+            String rollNote = p.request.roll().isPresent()
+                    ? text("dialog.confirm.layers.roll-note", " Z rotation: 5 points, ±180° on all three axes.")
                     : "";
+            String atlasInfo = atlas != null ? atlasInfo(atlas) : "";
             return confirmDialog(format(
                     "dialog.confirm.layers",
-                    "将创建 {0} 个曲面网格和 {1} 个变形器，保留源模型几何与贴图。\n水平 / 垂直参数绑定点：{2} / {3}。{4}\n遮挡层序采样点：{5} / {6}。\n{7}\n复杂交叠在旋转时仍可能有偏差。可用一次撤销撤回本次导入。继续？",
+                    "Will create {0} curved meshes and {1} deformers, preserving source model geometry and textures.\nHorizontal / vertical binding points: {2} / {3}.{4}\nOcclusion layer sampling points: {5} / {6}.\n{7}\nComplex overlapping might still show deviations during rotation. Can be undone in a single undo step. Continue?",
                     meshes,
-                    (p.request.roll().isPresent() ? 3 : 2),
+                    (p.request.roll().isPresent() ? DEFORMER_COUNT_XYZ : DEFORMER_COUNT_XY),
                     p.yawKeys.size(),
                     p.pitchKeys.size(),
                     rollNote,
@@ -1298,14 +1338,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
         @Override
         public boolean confirmVertices(
                 SurfaceVertexAuthoring.Prepared p, OptimizationSummary optimization, AtlasSummary atlas) {
-            String atlasInfo = atlas != null
-                    ? format(
-                            "dialog.confirm.atlas-info",
-                            "纹理图集：将创建 {0} 张 {1}×{2} 图集。",
-                            atlas.pageCount(),
-                            atlas.width(),
-                            atlas.height())
-                    : "";
+            String atlasInfo = atlas != null ? atlasInfo(atlas) : "";
             if (optimization == null) {
                 int meshes = p.geometry().meshes().size();
                 long triangles = p.geometry().meshes().stream()
@@ -1313,7 +1346,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
                         .sum();
                 return confirmDialog(format(
                         "dialog.confirm.vertices",
-                        "将创建 {0} 个曲面网格，保留原始 {1} 个三角形、UV 和贴图。\n{2}\nX / Y 各 9 个绑定点，使用椭圆插值；Z 旋转：5 点，三轴各 ±180°。\n遮挡采用分组近似，复杂交叠仍可能有少量偏差。\n可用一次撤销撤回本次导入。整体移动或缩放时选择“整体定位”变形器。继续？",
+                        "Will create {0} curved meshes, preserving original {1} triangles, UVs, and textures.\n{2}\n9 binding points each for X / Y using elliptical interpolation; Z rotation: 5 points, ±180° on all three axes.\nOcclusion uses grouped approximation; complex overlapping might still show minor deviations.\nCan be undone in a single undo step. Select the \"Overall Positioning\" deformer to move or scale. Continue?",
                         meshes,
                         triangles,
                         atlasInfo));
@@ -1321,7 +1354,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
             String bound = String.format(Locale.ROOT, "%.2f", optimization.combinedErrorBoundPixels());
             return confirmDialog(format(
                     "dialog.confirm.vertices-optimized",
-                    "将创建 {0} 个曲面网格。\n源模型 {1} 面 → 导入 {2} 面，保留材质边界和 UV 接缝。\n{4}\n曲面几何与参数插值的合计偏差上界：{3} 像素（不含遮挡分组近似）。\nX / Y 各 9 点椭圆插值；Z 5 点；三轴各 ±180°。\n整体移动或缩放时选择“整体定位”变形器。可用一次撤销撤回本次导入。继续？",
+                    "Will create {0} curved meshes.\nSource model: {1} faces -> imported {2} faces, preserving material boundaries and UV seams.\n{4}\nCombined error bound for surface geometry and parameter interpolation: {3} pixels (excluding occlusion grouping approximation).\n9-point elliptical interpolation for X / Y; 5 points for Z; ±180° on all three axes.\nSelect the \"Overall Positioning\" deformer to move or scale. Can be undone in a single undo step. Continue?",
                     p.geometry().meshes().size(),
                     optimization.sourceTriangles(),
                     optimization.outputTriangles(),
@@ -1335,8 +1368,8 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     null,
                     text,
                     error
-                            ? text("dialog.message.error.title", "无法导入 3D 模型")
-                            : text("dialog.message.info.title", "3D 模型"),
+                            ? text("dialog.message.error.title", "Cannot Import 3D Model")
+                            : text("dialog.message.info.title", "3D Model"),
                     error ? JOptionPane.ERROR_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
         }
     }

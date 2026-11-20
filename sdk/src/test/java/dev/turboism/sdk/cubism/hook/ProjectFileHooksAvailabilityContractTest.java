@@ -13,15 +13,12 @@ import org.junit.jupiter.api.Test;
 
 class ProjectFileHooksAvailabilityContractTest {
 
-    private static final String[] REVIEWED_VERSIONS = {
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
-    };
+    private static final String EXPECTED_FROM = "5.0.00";
     private static final Set<String> UNPROVEN_MODEL_CREATE =
             Set.of("beforeCreateModel", "onModelCreated", "afterCreateModel");
 
     @Test
-    void declaresOnlyExactHostProvenProjectFileMethods() {
+    void declaresOnlyHostProvenProjectFileMethods() {
         assertUnrestrictive(ModelFileHooks.class);
         assertUnrestrictive(AnimationFileHooks.class);
         assertUnrestrictive(EditorLifecycleHooks.class);
@@ -33,30 +30,32 @@ class ProjectFileHooksAvailabilityContractTest {
             if (UNPROVEN_MODEL_CREATE.contains(method.getName())) {
                 assertNull(method.getAnnotation(CubismEditor.class), method.getName());
             } else {
-                assertExact53(method);
+                assertFrom50(method);
             }
         }
         for (Method method : AnimationFileHooks.class.getDeclaredMethods()) {
             if (method.isSynthetic()) {
                 continue;
             }
-            assertExact53(method);
+            assertFrom50(method);
         }
         for (Method method : EditorLifecycleHooks.class.getDeclaredMethods()) {
             if (method.isSynthetic()) {
                 continue;
             }
             if (method.getName().equals("beforeEditorExit")) {
-                assertExact53(method);
+                assertFrom50(method);
             } else {
                 assertNull(method.getAnnotation(CubismEditor.class), method.getName());
             }
         }
     }
 
-    private static void assertExact53(final Method method) {
-        assertArrayEquals(
-                REVIEWED_VERSIONS, method.getAnnotation(CubismEditor.class).value(), method.getName());
+    private static void assertFrom50(final Method method) {
+        final CubismEditor declaration = method.getAnnotation(CubismEditor.class);
+        assertNotNull(declaration, method.getName());
+        assertArrayEquals(new String[0], declaration.value(), method.getName());
+        assertEquals(EXPECTED_FROM, declaration.from(), method.getName());
     }
 
     private static void assertUnrestrictive(final Class<?> type) {

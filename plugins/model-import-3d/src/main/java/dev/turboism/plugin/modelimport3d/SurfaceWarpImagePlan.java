@@ -7,11 +7,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -150,13 +147,7 @@ final class SurfaceWarpImagePlan {
                 var texture = SurfaceDerivedTexturePlan.bake(
                         plane, sourcePlan.inputs.get(i).imageGeometry(), source);
                 byte[] png = texture.png();
-                String hash;
-                try {
-                    hash = HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(png));
-                } catch (NoSuchAlgorithmException e) {
-                    throw new IllegalStateException(e);
-                }
+                String hash = ModelImportDigests.sha256Hex(png);
                 Integer image = hashes.get(hash);
                 if (image == null) {
                     image = images.size();

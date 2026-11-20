@@ -15,10 +15,7 @@ import dev.turboism.sdk.plugin.Registration;
  * never implies execution. A selected contribution is resolved by the runtime in a
  * later host-orchestration phase; until then it fails closed.</p>
  */
-@CubismEditor({
-    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-    "5.3.03", "5.3.04", "5.3.05"
-})
+@CubismEditor(from = "5.1.00")
 public interface ExportSettingsContributionService {
 
     /**
@@ -54,10 +51,7 @@ public interface ExportSettingsContributionService {
     }
 
     /** Fail-closed {@link #unavailable()} sentinel: every contribution is refused. */
-    @CubismEditor({
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-        "5.3.03", "5.3.04", "5.3.05"
-    })
+    @CubismEditor(from = "5.1.00")
     enum Unavailable implements ExportSettingsContributionService {
         INSTANCE;
 

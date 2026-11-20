@@ -6,8 +6,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -761,24 +759,13 @@ public record NativeMaterialPlan(ViewerScene scene, List<Integer> meshImageIndic
     }
 
     private static String computeSha256(int width, int height, int[] argb) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            ByteBuffer bb = ByteBuffer.allocate(8 + argb.length * 4);
-            bb.putInt(width);
-            bb.putInt(height);
-            for (int pixel : argb) {
-                bb.putInt(pixel);
-            }
-            byte[] digest = md.digest(bb.array());
-            StringBuilder sb = new StringBuilder(digest.length * 2);
-            for (byte b : digest) {
-                sb.append(Character.forDigit((b >> 4) & 0xF, 16));
-                sb.append(Character.forDigit(b & 0xF, 16));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
+        ByteBuffer bb = ByteBuffer.allocate(8 + argb.length * 4);
+        bb.putInt(width);
+        bb.putInt(height);
+        for (int pixel : argb) {
+            bb.putInt(pixel);
         }
+        return ModelImportDigests.sha256Hex(bb.array());
     }
 
     /** Decodes an sRGB component to linear light. */

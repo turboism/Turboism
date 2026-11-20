@@ -12,18 +12,15 @@ import org.junit.jupiter.api.Test;
 
 final class FileChooserHistoryAvailabilityContractTest {
 
-    private static final String[] REVIEWED_VERSIONS = {
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
-    };
+    private static final String EXPECTED_FROM = "5.0.00";
 
     @Test
-    void independentlyVerifiedHistoryOperationsDeclareExact53Availability() throws Exception {
-        assertExact53(FileChooserHistoryService.class.getMethod("projectRecentDirectory"));
-        assertExact53(FileChooserHistoryService.class.getMethod("exportRecentDirectory"));
-        assertExact53(FileChooserHistoryService.class.getMethod("setProjectRecentDirectory", Path.class));
-        assertExact53(FileChooserHistoryService.class.getMethod("setExportRecentDirectory", Path.class));
-        assertExact53(FileChooserHistoryService.class.getMethod("exportSeparationEnabled"));
+    void independentlyVerifiedHistoryOperationsDeclareFromBoundAvailability() throws Exception {
+        assertFrom50(FileChooserHistoryService.class.getMethod("projectRecentDirectory"));
+        assertFrom50(FileChooserHistoryService.class.getMethod("exportRecentDirectory"));
+        assertFrom50(FileChooserHistoryService.class.getMethod("setProjectRecentDirectory", Path.class));
+        assertFrom50(FileChooserHistoryService.class.getMethod("setExportRecentDirectory", Path.class));
+        assertFrom50(FileChooserHistoryService.class.getMethod("exportSeparationEnabled"));
     }
 
     @Test
@@ -43,8 +40,10 @@ final class FileChooserHistoryAvailabilityContractTest {
         assertEquals(0, declaration.exclude().length);
     }
 
-    private static void assertExact53(final java.lang.reflect.Method method) {
-        assertArrayEquals(
-                REVIEWED_VERSIONS, method.getAnnotation(CubismEditor.class).value());
+    private static void assertFrom50(final java.lang.reflect.Method method) {
+        final CubismEditor declaration = method.getAnnotation(CubismEditor.class);
+        assertNotNull(declaration);
+        assertArrayEquals(new String[0], declaration.value());
+        assertEquals(EXPECTED_FROM, declaration.from());
     }
 }

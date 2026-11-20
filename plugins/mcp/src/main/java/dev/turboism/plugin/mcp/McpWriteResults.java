@@ -4,8 +4,6 @@ import static dev.turboism.plugin.mcp.McpSchemas.*;
 
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.json.Json;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 
 /** Common bounded wire semantics for retained transactional operation results. */
@@ -82,26 +80,8 @@ final class McpWriteResults {
                 McpSchemas.entry("isError", error));
     }
 
-    private static Object canonical(Object v) {
-        if (v instanceof Map<?, ?> m) {
-            var sorted = new TreeMap<String, Object>();
-            m.forEach((k, x) -> sorted.put((String) k, canonical(x)));
-            return sorted;
-        }
-        if (v instanceof List<?> l)
-            return l.stream().map(McpWriteResults::canonical).toList();
-        return v;
-    }
-
     static String digest(Object value) {
-        try {
-            return HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256")
-                            .digest(Json.stringify(Map.of("value", canonical(value)))
-                                    .getBytes(StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return McpDigests.canonicalJsonSha256Hex(value);
     }
 
     static Map<String, Object> schema() {

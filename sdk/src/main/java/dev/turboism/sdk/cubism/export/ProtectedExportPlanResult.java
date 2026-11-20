@@ -11,17 +11,11 @@ import java.util.Objects;
  * census the planner cannot rewrite deterministically; the runtime reports the key and
  * refuses the export.</p>
  */
-@CubismEditor({
-    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-    "5.3.03", "5.3.04", "5.3.05"
-})
+@CubismEditor(from = "5.1.00")
 public sealed interface ProtectedExportPlanResult {
 
     /** The planner's complete plan; the runtime verifies it entry by entry before use. */
-    @CubismEditor({
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-        "5.3.03", "5.3.04", "5.3.05"
-    })
+    @CubismEditor(from = "5.1.00")
     record Admitted(ProtectedExportPlan plan) implements ProtectedExportPlanResult {
         public Admitted {
             plan = Objects.requireNonNull(plan, "plan");
@@ -29,10 +23,7 @@ public sealed interface ProtectedExportPlanResult {
     }
 
     /** The planner refused the census; {@code reasonKey} is a bounded message key. */
-    @CubismEditor({
-        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-        "5.3.03", "5.3.04", "5.3.05"
-    })
+    @CubismEditor(from = "5.1.00")
     record Rejected(String reasonKey) implements ProtectedExportPlanResult {
         private static final int MAX_KEY_LENGTH = 128;
 

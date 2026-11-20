@@ -12,10 +12,7 @@ import dev.turboism.sdk.CubismEditor;
  * plan against the census and refuses the export when any entry disagrees, so a planner
  * can never widen its own authority.</p>
  */
-@CubismEditor({
-    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-    "5.3.03", "5.3.04", "5.3.05"
-})
+@CubismEditor(from = "5.1.00")
 @FunctionalInterface
 public interface ProtectedExportPlanner {
 

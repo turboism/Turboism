@@ -104,13 +104,9 @@ class UnifiedCubismModelApiContractTest {
         final Method method = Deformers.class.getMethod("applyToChildren", Deformer.class);
         assertEquals(void.class, method.getReturnType());
         assertTrue(method.isDefault());
-        assertEquals(
-                List.of(
-                        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01",
-                        "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-                        "5.3.03", "5.3.04", "5.3.05"),
-                List.of(method.getAnnotation(dev.turboism.sdk.CubismEditor.class)
-                        .value()));
+        final dev.turboism.sdk.CubismEditor availability = method.getAnnotation(dev.turboism.sdk.CubismEditor.class);
+        assertEquals(0, availability.value().length);
+        assertEquals("5.0.00", availability.from());
 
         final Deformers stub = new Deformers() {
             @Override

@@ -12,8 +12,6 @@ import java.math.BigDecimal;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -1110,14 +1108,7 @@ final class AcpClient implements AutoCloseable {
     }
 
     private static String toolCallKey(final Object value) {
-        final String toolCallId = display(value);
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is unavailable", impossible);
-        }
-        return java.util.HexFormat.of().formatHex(digest.digest(toolCallId.getBytes(StandardCharsets.UTF_8)));
+        return AcpDigests.sha256Hex(display(value));
     }
 
     private static String bounded(final String text, final int maximum) {

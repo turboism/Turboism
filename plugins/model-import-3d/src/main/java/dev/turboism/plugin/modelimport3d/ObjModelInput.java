@@ -8,6 +8,41 @@ import java.util.*;
 
 /** Static OBJ/MTL to GLB. Polygon/corner identities, materials and UV seams are explicit. */
 final class ObjModelInput {
+    private static final int MIN_POSITION_TOKENS = 4;
+    private static final int HOMOGENEOUS_POSITION_TOKENS = 5;
+    private static final int HOMOGENEOUS_W_INDEX = 4;
+    private static final int MIN_UV_TOKENS = 3;
+    private static final int MAX_UV_TOKENS = 4;
+    private static final int NORMAL_TOKENS = 4;
+    private static final int MIN_FACE_TOKENS = 4;
+    private static final int MAX_FACE_TOKENS = 65;
+    private static final int MAX_CORNER_PARTS = 3;
+    private static final int TRIANGLE_CORNERS = 3;
+
+    private static final int MAX_POSITIONS = 100_000;
+    private static final int MAX_UVS = 100_000;
+    private static final int MAX_NORMALS = 100_000;
+    private static final int MAX_TRIANGLES = 200_000;
+    private static final int MAX_EXPANDED_VERTICES = 100_000;
+    private static final int MAX_MATERIALS = 32;
+    private static final int MAX_MATERIALS_WITH_DEFAULT = MAX_MATERIALS + 1;
+    private static final int KD_TOKENS = 4;
+    private static final int TRANSPARENCY_TOKENS = 2;
+    private static final int MAX_LINE_LENGTH = 16_384;
+
+    private static final int VECTOR_3D_COMPONENTS = 3;
+    private static final int VECTOR_2D_COMPONENTS = 2;
+    private static final int BYTES_PER_FLOAT = 4;
+    private static final int BYTES_PER_INT = 4;
+    private static final int ALIGNMENT_BYTES = 4;
+    private static final int GLTF_COMPONENT_TYPE_FLOAT = 5126;
+    private static final int GLTF_COMPONENT_TYPE_UNSIGNED_INT = 5125;
+    private static final int GLTF_WRAP_CLAMP_TO_EDGE = 33071;
+    private static final int GLTF_FILTER_LINEAR = 9729;
+    private static final double DEGENERATE_NORMAL_EPSILON = 1e-12;
+
+    private ObjModelInput() {}
+
     private record Corner(int position, int uv, int normal, int synthetic) {}
 
     private record Face(List<Corner> corners, String material) {}
@@ -35,29 +70,31 @@ final class ObjModelInput {
             String kind = words[0];
             switch (kind) {
                 case "v" -> {
-                    require(words.length == 4 || words.length == 5, "OBJ v 字段不支持顶点颜色。");
-                    double w = words.length == 5 ? number(words[4]) : 1;
-                    require(w == 1, "OBJ 齐次坐标要求 w=1。");
+                    require(
+                            words.length == MIN_POSITION_TOKENS || words.length == HOMOGENEOUS_POSITION_TOKENS,
+                            "OBJ vertex colors are not supported.");
+                    double w = words.length == HOMOGENEOUS_POSITION_TOKENS ? number(words[HOMOGENEOUS_W_INDEX]) : 1;
+                    require(w == 1, "OBJ homogeneous coordinate requires w=1.");
                     positions.add(new double[] {number(words[1]), number(words[2]), number(words[3])});
-                    require(positions.size() <= 100000, "OBJ 顶点超限。");
+                    require(positions.size() <= MAX_POSITIONS, "OBJ vertex count exceeds limit.");
                 }
                 case "vt" -> {
-                    require(words.length == 3 || words.length == 4, "OBJ vt 字段无效。");
+                    require(words.length == MIN_UV_TOKENS || words.length == MAX_UV_TOKENS, "Invalid OBJ vt record.");
                     double u = number(words[1]), v = number(words[2]);
-                    require(u >= 0 && u <= 1 && v >= 0 && v <= 1, "OBJ 重复 UV 暂不支持。");
-                    if (words.length == 4) require(number(words[3]) == 0, "OBJ 3D UV 暂不支持。");
+                    require(u >= 0 && u <= 1 && v >= 0 && v <= 1, "OBJ wrapped UVs are not supported.");
+                    if (words.length == MAX_UV_TOKENS) require(number(words[3]) == 0, "OBJ 3D UVs are not supported.");
                     uvs.add(new double[] {u, 1 - v});
-                    require(uvs.size() <= 100000, "OBJ UV 超限。");
+                    require(uvs.size() <= MAX_UVS, "OBJ UV count exceeds limit.");
                 }
                 case "vn" -> {
-                    require(words.length == 4, "OBJ vn 字段无效。");
+                    require(words.length == NORMAL_TOKENS, "Invalid OBJ vn record.");
                     double length = Math.hypot(Math.hypot(number(words[1]), number(words[2])), number(words[3]));
-                    require(length > 0, "OBJ 法线退化。");
-                    require(++normals <= 100000, "OBJ 法线超限。");
+                    require(length > 0, "Degenerate OBJ normal.");
+                    require(++normals <= MAX_NORMALS, "OBJ normal count exceeds limit.");
                 }
                 case "mtllib" -> {
                     String name = line.substring(kind.length()).trim();
-                    require(!name.isEmpty(), "OBJ mtllib 缺少文件名。");
+                    require(!name.isEmpty(), "OBJ mtllib lacks a filename.");
                     byte[] mtl = ModelInputNormalizer.packageResource(files, base, name);
                     String resolved = ModelInputNormalizer.packagePath(base, name);
                     int slash = resolved.lastIndexOf('/');
@@ -65,36 +102,38 @@ final class ObjModelInput {
                 }
                 case "usemtl" -> {
                     current = line.substring(kind.length()).trim();
-                    require(!current.isEmpty(), "OBJ 材质名为空。");
+                    require(!current.isEmpty(), "OBJ material name is empty.");
                 }
                 case "f" -> {
-                    require(words.length >= 4 && words.length <= 65, "OBJ 多边形需要 3–64 个角点。");
+                    require(
+                            words.length >= MIN_FACE_TOKENS && words.length <= MAX_FACE_TOKENS,
+                            "OBJ face requires 3 to 64 corners.");
                     var corners = new ArrayList<Corner>();
                     for (int i = 1; i < words.length; i++) {
                         String[] corner = words[i].split("/", -1);
-                        require(corner.length <= 3 && !corner[0].isEmpty(), "OBJ 角点字段无效。");
+                        require(corner.length <= MAX_CORNER_PARTS && !corner[0].isEmpty(), "Invalid OBJ face corner.");
                         int p = index(corner[0], positions.size()),
                                 uv = corner.length > 1 && !corner[1].isEmpty() ? index(corner[1], uvs.size()) : -1,
                                 n = corner.length > 2 && !corner[2].isEmpty() ? index(corner[2], normals) : -1;
                         corners.add(new Corner(p, uv, n, -1));
                     }
-                    require((triangles += corners.size() - 2) <= 200000, "OBJ 三角形超限。");
+                    require((triangles += corners.size() - 2) <= MAX_TRIANGLES, "OBJ triangle count exceeds limit.");
                     faces.add(new Face(List.copyOf(corners), current));
                 }
                 case "o", "g", "s" -> {
                     /* Object/group names and smoothing do not affect static base-color rendering. */
                 }
-                default -> throw new IllegalArgumentException("不支持的 OBJ 字段：" + kind);
+                default -> throw new IllegalArgumentException("Unsupported OBJ directive: " + kind);
             }
         }
-        require(!faces.isEmpty(), "OBJ 没有面。");
+        require(!faces.isEmpty(), "OBJ contains no faces.");
         var groups = new LinkedHashMap<String, List<Face>>();
         for (var face : faces) {
-            require(materials.containsKey(face.material()), "OBJ 使用了未定义材质：" + face.material());
+            require(materials.containsKey(face.material()), "OBJ references undefined material: " + face.material());
             groups.computeIfAbsent(face.material(), ignored -> new ArrayList<>())
                     .add(face);
         }
-        require(groups.size() <= 32, "OBJ 材质数量超限。");
+        require(groups.size() <= MAX_MATERIALS, "OBJ material count exceeds limit.");
         var binary = new ByteArrayOutputStream();
         var views = new ArrayList<Object>();
         var accessors = new ArrayList<Object>();
@@ -113,9 +152,9 @@ final class ObjModelInput {
             int synthetic = 0;
             for (var face : group.getValue())
                 for (int[] triangle : triangulate(face, positions)) {
-                    for (int c = 0; c < 3; c++) {
+                    for (int c = 0; c < TRIANGLE_CORNERS; c++) {
                         var original = face.corners().get(triangle[c]);
-                        require(material.image == null || original.uv() >= 0, "带贴图的 OBJ 面缺少 UV。");
+                        require(material.image == null || original.uv() >= 0, "Textured OBJ face lacks UVs.");
                         var corner = original.uv() >= 0
                                 ? original
                                 : new Corner(original.position(), -1, original.normal(), synthetic++);
@@ -133,9 +172,9 @@ final class ObjModelInput {
                     }
                 }
             totalSlots += slots.size();
-            require(totalSlots <= 100000, "OBJ 角点展开后超过 100,000 顶点。");
-            int positionAccessor = vectors(binary, views, accessors, xyz, 3),
-                    uvAccessor = vectors(binary, views, accessors, uv, 2),
+            require(totalSlots <= MAX_EXPANDED_VERTICES, "Expanded OBJ corners exceed 100,000 vertices.");
+            int positionAccessor = vectors(binary, views, accessors, xyz, VECTOR_3D_COMPONENTS),
+                    uvAccessor = vectors(binary, views, accessors, uv, VECTOR_2D_COMPONENTS),
                     indexAccessor = indices(binary, views, accessors, indices);
             var pbr = new LinkedHashMap<String, Object>();
             pbr.put("baseColorFactor", material.color);
@@ -146,7 +185,9 @@ final class ObjModelInput {
                             ModelTextureNormalizer.png(ModelInputNormalizer.packageResource(files, "", material.image));
                     align(binary);
                     int offset = binary.size();
-                    require((long) binary.size() + png.length <= GlbSurfaceReader.MAX_BYTES, "OBJ 贴图资源展开超限。");
+                    require(
+                            (long) binary.size() + png.length <= GlbSurfaceReader.MAX_BYTES,
+                            "Expanded OBJ texture data exceeds size limit.");
                     binary.writeBytes(png);
                     int view = views.size();
                     views.add(Map.of("buffer", 0, "byteOffset", offset, "byteLength", png.length));
@@ -168,7 +209,7 @@ final class ObjModelInput {
                     "material",
                     materialIndex));
         }
-        require(binary.size() <= GlbSurfaceReader.MAX_BYTES, "OBJ 二进制展开超限。");
+        require(binary.size() <= GlbSurfaceReader.MAX_BYTES, "Expanded OBJ binary exceeds size limit.");
         var doc = new LinkedHashMap<String, Object>();
         doc.put("asset", Map.of("version", "2.0"));
         doc.put("scene", 0);
@@ -189,7 +230,17 @@ final class ObjModelInput {
         if (!images.isEmpty()) {
             doc.put("images", images);
             doc.put("textures", textures);
-            doc.put("samplers", List.of(Map.of("wrapS", 33071, "wrapT", 33071, "magFilter", 9729, "minFilter", 9729)));
+            doc.put(
+                    "samplers",
+                    List.of(Map.of(
+                            "wrapS",
+                            GLTF_WRAP_CLAMP_TO_EDGE,
+                            "wrapT",
+                            GLTF_WRAP_CLAMP_TO_EDGE,
+                            "magFilter",
+                            GLTF_FILTER_LINEAR,
+                            "minFilter",
+                            GLTF_FILTER_LINEAR)));
         }
         return ModelInputNormalizer.gltf(Json.bytes(doc), Map.of(), "");
     }
@@ -202,39 +253,41 @@ final class ObjModelInput {
             String kind = words[0];
             if (kind.equals("newmtl")) {
                 String name = line.substring(kind.length()).trim();
-                require(!name.isEmpty() && !materials.containsKey(name), "MTL 材质名重复或为空。");
-                require(materials.size() < 33, "MTL 材质数量超限。");
+                require(!name.isEmpty() && !materials.containsKey(name), "MTL material name is empty or duplicated.");
+                require(materials.size() < MAX_MATERIALS_WITH_DEFAULT, "MTL material count exceeds limit.");
                 current = new Material(name);
                 materials.put(name, current);
                 continue;
             }
-            require(current != null, "MTL 属性出现在 newmtl 之前。");
+            require(current != null, "MTL attribute precedes newmtl.");
             switch (kind) {
                 case "Kd" -> {
-                    require(words.length == 4, "MTL Kd 无效。");
+                    require(words.length == KD_TOKENS, "Invalid MTL Kd record.");
                     var color = new ArrayList<Double>();
-                    for (int i = 1; i < 4; i++) {
+                    for (int i = 1; i < KD_TOKENS; i++) {
                         double v = number(words[i]);
-                        require(v >= 0 && v <= 1, "MTL Kd 超出基础色范围。");
+                        require(v >= 0 && v <= 1, "MTL Kd value out of range.");
                         color.add(v);
                     }
                     color.add(1d);
                     current.color = List.copyOf(color);
                 }
                 case "d", "Tr" -> {
-                    require(words.length == 2, "MTL 透明度字段无效。");
-                    require(number(words[1]) == (kind.equals("d") ? 1 : 0), "暂不支持透明 MTL 材质。");
+                    require(words.length == TRANSPARENCY_TOKENS, "Invalid MTL transparency record.");
+                    require(
+                            number(words[1]) == (kind.equals("d") ? 1 : 0),
+                            "Transparent MTL materials are not supported.");
                 }
                 case "map_Kd" -> {
                     String name = line.substring(kind.length()).trim();
-                    require(!name.startsWith("-"), "MTL map_Kd 变换选项暂不支持。");
+                    require(!name.startsWith("-"), "MTL map_Kd options are not supported.");
                     ModelInputNormalizer.packageResource(files, base, name);
                     current.image = ModelInputNormalizer.packagePath(base, name);
                 }
                 case "Ka", "Ks", "Ke", "Ns", "Ni", "Tf", "illum", "map_Ka", "map_bump", "bump" -> {
                     /* Cubism imports base color only; UI states lighting/bump are not reproduced. */
                 }
-                default -> throw new IllegalArgumentException("不支持的 MTL 字段：" + kind);
+                default -> throw new IllegalArgumentException("Unsupported MTL directive: " + kind);
             }
         }
     }
@@ -247,11 +300,12 @@ final class ObjModelInput {
             int components) {
         align(binary);
         int offset = binary.size();
-        var b = ByteBuffer.allocate(values.size() * components * 4).order(ByteOrder.LITTLE_ENDIAN);
+        var b = ByteBuffer.allocate(values.size() * components * BYTES_PER_FLOAT)
+                .order(ByteOrder.LITTLE_ENDIAN);
         for (double[] v : values)
             for (double x : v) {
                 float f = (float) x;
-                require(Float.isFinite(f), "OBJ 坐标不能转换为有限 float。");
+                require(Float.isFinite(f), "OBJ coordinate cannot convert to a finite float.");
                 b.putFloat(f);
             }
         binary.writeBytes(b.array());
@@ -262,11 +316,11 @@ final class ObjModelInput {
                 "bufferView",
                 view,
                 "componentType",
-                5126,
+                GLTF_COMPONENT_TYPE_FLOAT,
                 "count",
                 values.size(),
                 "type",
-                components == 3 ? "VEC3" : "VEC2"));
+                components == VECTOR_3D_COMPONENTS ? "VEC3" : "VEC2"));
         return accessor;
     }
 
@@ -274,13 +328,21 @@ final class ObjModelInput {
             ByteArrayOutputStream binary, List<Object> views, List<Object> accessors, List<Integer> values) {
         align(binary);
         int offset = binary.size();
-        var b = ByteBuffer.allocate(values.size() * 4).order(ByteOrder.LITTLE_ENDIAN);
+        var b = ByteBuffer.allocate(values.size() * BYTES_PER_INT).order(ByteOrder.LITTLE_ENDIAN);
         for (int i : values) b.putInt(i);
         binary.writeBytes(b.array());
         int view = views.size();
         views.add(Map.of("buffer", 0, "byteOffset", offset, "byteLength", b.capacity()));
         int accessor = accessors.size();
-        accessors.add(Map.of("bufferView", view, "componentType", 5125, "count", values.size(), "type", "SCALAR"));
+        accessors.add(Map.of(
+                "bufferView",
+                view,
+                "componentType",
+                GLTF_COMPONENT_TYPE_UNSIGNED_INT,
+                "count",
+                values.size(),
+                "type",
+                "SCALAR"));
         return accessor;
     }
 
@@ -288,7 +350,7 @@ final class ObjModelInput {
         int count = face.corners().size();
         var polygon = new ArrayList<double[]>();
         for (var corner : face.corners()) polygon.add(positions.get(corner.position()));
-        double[] normal = new double[3];
+        double[] normal = new double[VECTOR_3D_COMPONENTS];
         for (int i = 0; i < count; i++) {
             var a = polygon.get(i);
             var b = polygon.get((i + 1) % count);
@@ -297,9 +359,9 @@ final class ObjModelInput {
             normal[2] += (a[0] - b[0]) * (a[1] + b[1]);
         }
         int axis = 0;
-        for (int i = 1; i < 3; i++) if (Math.abs(normal[i]) > Math.abs(normal[axis])) axis = i;
-        require(Math.abs(normal[axis]) > 1e-12, "OBJ 多边形退化。");
-        int x = (axis + 1) % 3, y = (axis + 2) % 3;
+        for (int i = 1; i < VECTOR_3D_COMPONENTS; i++) if (Math.abs(normal[i]) > Math.abs(normal[axis])) axis = i;
+        require(Math.abs(normal[axis]) > DEGENERATE_NORMAL_EPSILON, "Degenerate OBJ polygon.");
+        int x = (axis + 1) % VECTOR_3D_COMPONENTS, y = (axis + 2) % VECTOR_3D_COMPONENTS;
         double sign = Math.signum(normal[axis]);
         for (int i = 0; i < count; i++)
             for (int j = i + 1; j < count; j++) {
@@ -319,7 +381,7 @@ final class ObjModelInput {
                                         <= Math.min(Math.max(a[x], b[x]), Math.max(c[x], d[x]))
                                 && Math.max(Math.min(a[y], b[y]), Math.min(c[y], d[y]))
                                         <= Math.min(Math.max(a[y], b[y]), Math.max(c[y], d[y]))),
-                        "OBJ 多边形自交或重叠。");
+                        "OBJ polygon self-intersects or overlaps.");
             }
         boolean convex = true;
         for (int i = 0; i < count; i++)
@@ -332,13 +394,14 @@ final class ObjModelInput {
         }
         var remaining = new ArrayList<Integer>();
         for (int i = 0; i < count; i++) remaining.add(i);
-        while (remaining.size() > 3) {
+        while (remaining.size() > TRIANGLE_CORNERS) {
             boolean found = false;
             for (int at = 0; at < remaining.size(); at++) {
                 int a = remaining.get((at + remaining.size() - 1) % remaining.size()),
                         b = remaining.get(at),
                         c = remaining.get((at + 1) % remaining.size());
-                if (cross(polygon.get(a), polygon.get(b), polygon.get(c), x, y) * sign <= 1e-12) continue;
+                if (cross(polygon.get(a), polygon.get(b), polygon.get(c), x, y) * sign <= DEGENERATE_NORMAL_EPSILON)
+                    continue;
                 boolean inside = false;
                 for (int p : remaining)
                     if (p != a
@@ -356,7 +419,9 @@ final class ObjModelInput {
                 found = true;
                 break;
             }
-            require(found, "OBJ 多边形无法可靠三角化，请检查自交或重复角点。");
+            require(
+                    found,
+                    "OBJ polygon could not be triangulated reliably; check for self-intersection or duplicate corners.");
         }
         result.add(new int[] {remaining.get(0), remaining.get(1), remaining.get(2)});
         return result;
@@ -368,20 +433,20 @@ final class ObjModelInput {
 
     private static int index(String text, int count) {
         int i = Integer.parseInt(text);
-        require(i != 0, "OBJ 索引不能为 0。");
+        require(i != 0, "OBJ index cannot be zero.");
         int result = i > 0 ? i - 1 : count + i;
-        require(result >= 0 && result < count, "OBJ 索引越界。");
+        require(result >= 0 && result < count, "OBJ index out of range.");
         return result;
     }
 
     private static double number(String text) {
         double n = Double.parseDouble(text);
-        require(Double.isFinite(n), "OBJ/MTL 数值必须有限。");
+        require(Double.isFinite(n), "OBJ/MTL number must be finite.");
         return n;
     }
 
     private static List<String> lines(byte[] input) {
-        require(input.length <= GlbSurfaceReader.MAX_BYTES, "OBJ/MTL 文件超限。");
+        require(input.length <= GlbSurfaceReader.MAX_BYTES, "OBJ/MTL file exceeds size limit.");
         String text;
         try {
             text = StandardCharsets.UTF_8
@@ -390,20 +455,20 @@ final class ObjModelInput {
                     .decode(ByteBuffer.wrap(input))
                     .toString();
         } catch (CharacterCodingException e) {
-            throw new IllegalArgumentException("OBJ/MTL 需要 UTF-8 编码。", e);
+            throw new IllegalArgumentException("OBJ/MTL input must be valid UTF-8.", e);
         }
         var result = new ArrayList<String>();
         for (String raw : text.split("\\R")) {
             int comment = raw.indexOf('#');
             String line = (comment < 0 ? raw : raw.substring(0, comment)).trim();
-            require(line.length() <= 16384, "OBJ/MTL 单行超限。");
+            require(line.length() <= MAX_LINE_LENGTH, "OBJ/MTL line exceeds length limit.");
             if (!line.isEmpty()) result.add(line);
         }
         return result;
     }
 
     private static void align(ByteArrayOutputStream b) {
-        while (b.size() % 4 != 0) b.write(0);
+        while (b.size() % ALIGNMENT_BYTES != 0) b.write(0);
     }
 
     private static void require(boolean ok, String message) {

@@ -12,6 +12,7 @@ final class McpDocumentFileDomain {
     static final String OPEN = "turboism.documents.open";
     static final String RESULT = "turboism.documents.file_result";
     static final int MAX_OPERATIONS = 128;
+    private static final List<String> OPEN_ADMITTED_VERSIONS = List.of("5.3.03");
     private final EditorCommandService commands;
     private final McpFileGrantDomain grants;
     private final McpExecutionBridge execution;
@@ -63,14 +64,14 @@ final class McpDocumentFileDomain {
                 false,
                 McpVersionSupport.exact(
                         "cubism.editor-ui.top-menu",
-                        List.of("5.3.03"),
+                        OPEN_ADMITTED_VERSIONS,
                         List.of(
                                 McpVersionSupport.OperationSupport.available(
                                         "authorized_cmo3_open",
                                         McpOperationEffect.EXTERNAL_SIDE_EFFECT,
                                         false,
                                         McpVersionSupport.UndoVerification.NOT_APPLICABLE,
-                                        List.of("5.3.03"),
+                                        OPEN_ADMITTED_VERSIONS,
                                         "Typed READ grant dispatch; no close/reopen, fresh document, or file-content identity proof."))),
                 execution,
                 args -> rawOpen(args));

@@ -246,7 +246,7 @@ class ModelImportPluginTest {
         w.choice = 2;
         w.start();
         assertEquals(
-                List.of("Turboism", "3D 模型", w.action.label()),
+                List.of("Turboism", "3D Model", w.action.label()),
                 List.of(w.menu.menuPath().split("/")));
         assertEquals(w.action.id(), w.menu.actionId());
         assertEquals(2, w.registeredActions);
@@ -262,7 +262,7 @@ class ModelImportPluginTest {
         assertNull(w.error);
         assertNotNull(w.character);
         assertSame(w.character.materials().scene(), w.importPreview);
-        assertEquals("正方形", w.character.geometry().request().name());
+        assertEquals("Square", w.character.geometry().request().name());
         assertEquals(1, w.character.materials().images().size());
         assertEquals(0, w.appearances);
         assertEquals(0, w.reads.get());
@@ -289,7 +289,7 @@ class ModelImportPluginTest {
         w.onPreset = () -> w.document = "other";
         w.start(true);
         w.done();
-        assertTrue(w.error.contains("目标文档"), w.error);
+        assertTrue(w.error.contains("target document"), w.error);
         assertNull(w.character);
     }
 
@@ -300,7 +300,7 @@ class ModelImportPluginTest {
             w.document = null;
             w.start(fromPreset);
             w.done();
-            assertEquals("请先打开一个模型工程", w.error);
+            assertEquals("Please open a model project first.", w.error);
             assertEquals(0, w.appearances);
             assertEquals(0, w.reads.get());
             assertFalse(w.choose.isDone());
@@ -379,7 +379,7 @@ class ModelImportPluginTest {
         edt(() -> w.document = "other");
         w.cube();
         w.done();
-        assertTrue(w.error.contains("目标文档"), w.error);
+        assertTrue(w.error.contains("target document"), w.error);
         assertNull(w.prepared);
     }
 
@@ -462,7 +462,7 @@ class ModelImportPluginTest {
         w.grant();
         w.cube();
         w.done();
-        assertTrue(w.error.contains("目标文档"), w.error);
+        assertTrue(w.error.contains("target document"), w.error);
     }
 
     @Test
@@ -603,7 +603,7 @@ class ModelImportPluginTest {
         w.read.complete(new UserFileReadResult<>(Optional.of(catGlb), Optional.empty(), false));
         w.done();
         assertNotNull(w.vertices);
-        assertTrue(w.error.contains("目标文档"), w.error);
+        assertTrue(w.error.contains("target document"), w.error);
     }
 
     @Test
@@ -617,7 +617,7 @@ class ModelImportPluginTest {
         w.done();
         assertTrue(w.previews > 0);
         assertNull(w.vertices);
-        assertTrue(w.error.contains("目标文档"), w.error);
+        assertTrue(w.error.contains("target document"), w.error);
         assertEquals(0, w.writes.get());
     }
 
@@ -647,7 +647,7 @@ class ModelImportPluginTest {
         w.read.complete(new UserFileReadResult<>(Optional.of(appleGlb), Optional.empty(), false));
         w.done();
         assertNotNull(w.layered, w.error);
-        assertTrue(w.error.contains("目标文档"), w.error);
+        assertTrue(w.error.contains("target document"), w.error);
     }
 
     @Test
