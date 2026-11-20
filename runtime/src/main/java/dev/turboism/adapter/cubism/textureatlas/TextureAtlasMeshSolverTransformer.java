@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import org.objectweb.asm.ClassReader;
@@ -7,14 +9,13 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /**
  * Rewrites {@code editableMesh.b} to extract contours in {@code O(V + E)} and merge post-solve
  * triangle edges in {@code O(E + T)}.
  */
-public final class TextureAtlasMeshSolverTransformer implements ClassFileTransformer, Opcodes {
+public final class TextureAtlasMeshSolverTransformer implements ClassFileTransformer {
 
     static final String MESH_PACKAGE = "com/live2d/graphics3d/editableMesh/";
     static final String MESH_OPS = MESH_PACKAGE + "b";

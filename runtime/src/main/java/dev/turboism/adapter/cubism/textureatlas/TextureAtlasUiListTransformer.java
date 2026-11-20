@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import org.objectweb.asm.ClassReader;
@@ -7,7 +9,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /**
@@ -15,7 +16,7 @@ import org.objectweb.asm.Type;
  * {@code TAE__EditLayer_ModelImage}, {@code TAE_ModelImageList}, {@code graphics3d.type.d},
  * {@code atlasEditor.impl.g}, and {@code doc.model.texture.r}.
  */
-public final class TextureAtlasUiListTransformer implements ClassFileTransformer, Opcodes {
+public final class TextureAtlasUiListTransformer implements ClassFileTransformer {
 
     public static final String EDIT_LAYER_MODEL_IMAGE =
             "com/live2d/cubism/doc/modeling/ui/atlasEditor/impl/TAE__EditLayer_ModelImage";

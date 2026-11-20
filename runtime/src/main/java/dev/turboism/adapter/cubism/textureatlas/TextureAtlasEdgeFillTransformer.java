@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import org.objectweb.asm.ClassReader;
@@ -7,7 +9,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /**
@@ -16,7 +17,7 @@ import org.objectweb.asm.Type;
  * <p>Falls back directly to the native method body whenever the underlying raster buffer is not
  * {@code DataBufferInt}. Transformation is idempotent across chained instrumentation runs.</p>
  */
-public final class TextureAtlasEdgeFillTransformer implements ClassFileTransformer, Opcodes {
+public final class TextureAtlasEdgeFillTransformer implements ClassFileTransformer {
 
     public static final String TARGET = "jp/noids/graphics/h";
     private static final String EDGE_FILL_METHOD = "a";

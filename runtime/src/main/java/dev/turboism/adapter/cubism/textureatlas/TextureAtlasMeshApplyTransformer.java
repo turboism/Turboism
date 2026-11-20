@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import org.objectweb.asm.ClassReader;
@@ -7,7 +9,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /**
@@ -15,7 +16,7 @@ import org.objectweb.asm.Type;
  * without repeating outline extraction or solver construction, and replaces {@code triangulation.g}'s
  * quadratic incidence loop with linear two-pass table construction.
  */
-public final class TextureAtlasMeshApplyTransformer implements ClassFileTransformer, Opcodes {
+public final class TextureAtlasMeshApplyTransformer implements ClassFileTransformer {
 
     public static final String MESH = TextureAtlasMeshSolverTransformer.MESH;
     public static final String MESH_OPS = TextureAtlasMeshSolverTransformer.MESH_OPS;

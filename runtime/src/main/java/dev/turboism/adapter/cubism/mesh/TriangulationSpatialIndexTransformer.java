@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Set;
@@ -8,14 +10,13 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * Fail-closed structural ASM transformer accelerating Cubism triangulation hotspot classes
  * ({@code TriangleList}, {@code k}, {@code h}, and {@code a}) across Cubism 5.0–5.3 without
  * requiring dynamic attach or retransformation.
  */
-public final class TriangulationSpatialIndexTransformer implements ClassFileTransformer, Opcodes {
+public final class TriangulationSpatialIndexTransformer implements ClassFileTransformer {
     private static final String TRIANGULATION_PKG = "com/live2d/graphics3d/editableMesh/triangulation/";
     public static final String TARGET_LIST_INTERNAL_NAME = TRIANGULATION_PKG + "TriangleList";
     public static final String TARGET_EDGE_SET_INTERNAL_NAME = TRIANGULATION_PKG + "k";
