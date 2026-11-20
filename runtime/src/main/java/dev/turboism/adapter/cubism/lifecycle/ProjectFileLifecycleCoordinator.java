@@ -83,6 +83,11 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         completionListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
+    /** Detaches a runtime completion listener when its owner closes. */
+    public void unregisterCompletionListener(final Consumer<ProjectFileOperationResult> listener) {
+        completionListeners.remove(Objects.requireNonNull(listener, "listener"));
+    }
+
     /**
      * Removes every registration owned by the given plugin id and shuts down its callback queue.
      * Runtime completion listeners are unaffected. Unknown ids are ignored.

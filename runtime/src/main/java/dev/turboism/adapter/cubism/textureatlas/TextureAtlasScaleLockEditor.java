@@ -6,7 +6,9 @@ import static dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasNativ
 import static dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_LAYER;
 import static dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_TRANSFORM;
 
+import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.ui.resource.UiResourceService;
@@ -35,6 +37,8 @@ import javax.swing.SwingUtilities;
 /** Adapts the native canvas selection and draws editor-only scale indicators. */
 final class TextureAtlasScaleLockEditor implements AutoCloseable {
     static final String CANVAS_PAINT = "cubism.texture-atlas.scale-lock.canvas-paint";
+    static final String DATA_MODEL_DOCUMENT = "cubism.texture-atlas.data-model.document";
+    static final String MARK_DIRTY = "cubism.editor-model.modeling-document.mark-dirty";
     private static final String CANVAS_VIEW = "cubism.texture-atlas.scale-lock.canvas-page-view";
     private static final String VIEW_PAGE = "cubism.texture-atlas.scale-lock.page-view-state";
     private static final String CANVAS_TRANSFORM = "cubism.texture-atlas.scale-lock.canvas-transform";
@@ -95,10 +99,17 @@ final class TextureAtlasScaleLockEditor implements AutoCloseable {
         messages = ResourceBundle.getBundle(MESSAGES, locale);
     }
 
-    static String modelId(final VerifiedMemberResolver resolver, final Object layer) {
+    static TextureAtlasScaleLocks.Document lockDocument(final VerifiedMemberResolver resolver, final Object layer) {
         final Object data = resolver.invoke(EDIT_LAYER_DATA, layer);
+        return lockDocument(resolver, data, resolver.invoke(DATA_MODEL_DOCUMENT, data));
+    }
+
+    private static TextureAtlasScaleLocks.Document lockDocument(
+            final VerifiedMemberResolver resolver, final Object data, final Object document) {
         final Object source = resolver.invoke(DATA_MODEL_SOURCE, data);
-        return guid(resolver, MODEL_GUID, source);
+        return new TextureAtlasScaleLocks.Document(
+                ProjectContentIdentity.forLifecycleContent(ProjectContentKind.MODEL, document),
+                guid(resolver, MODEL_GUID, source));
     }
 
     static String imageId(final VerifiedMemberResolver resolver, final Object layer) {
@@ -123,7 +134,7 @@ final class TextureAtlasScaleLockEditor implements AutoCloseable {
                     (Object[]) resolver.invoke(CONTAINER_CHILDREN, resolver.invoke(IMPL_CONTAINER, page(canvas)));
             if (refs.length == 0) return;
             final Object firstLayer = resolver.invoke(LAYER_REF_LAYER, refs[0]);
-            final Map<String, Double> scales = locks.snapshot(modelId(resolver, firstLayer));
+            final Map<String, Double> scales = locks.snapshot(lockDocument(resolver, firstLayer));
             if (scales.isEmpty()) return;
             final AffineTransform viewport = (AffineTransform) resolver.invoke(CANVAS_TRANSFORM, canvas);
             final var icon = RuntimeUiResourceService.resolveForPresentation(resources, LOCK_ICON, false);
@@ -171,7 +182,9 @@ final class TextureAtlasScaleLockEditor implements AutoCloseable {
             final Object selector = resolver.invoke(PAGE_SELECTION, page(canvas));
             final Object[] selected = (Object[]) resolver.invoke(SELECTED_LAYERS, selector);
             if (selected.length == 0) return;
-            final String model = modelId(resolver, selected[0]);
+            final Object data = resolver.invoke(EDIT_LAYER_DATA, selected[0]);
+            final Object document = resolver.invoke(DATA_MODEL_DOCUMENT, data);
+            final var model = lockDocument(resolver, data, document);
             final Map<String, Double> existing = locks.snapshot(model);
             final Map<String, Double> additions = new LinkedHashMap<>();
             final Set<String> removals = new java.util.LinkedHashSet<>();
@@ -186,8 +199,10 @@ final class TextureAtlasScaleLockEditor implements AutoCloseable {
                 }
             }
             final JPopupMenu popup = new JPopupMenu();
-            if (!additions.isEmpty()) addCommand(popup, LOCK, () -> update(canvas, model, additions, Set.of()));
-            if (!removals.isEmpty()) addCommand(popup, UNLOCK, () -> update(canvas, model, Map.of(), removals));
+            if (!additions.isEmpty())
+                addCommand(popup, LOCK, () -> update(canvas, document, model, additions, Set.of()));
+            if (!removals.isEmpty())
+                addCommand(popup, UNLOCK, () -> update(canvas, document, model, Map.of(), removals));
             popup.show(canvas, event.getX(), event.getY());
         } catch (RuntimeException failure) {
             report("Cannot open texture atlas scale lock commands.", failure);
@@ -203,12 +218,14 @@ final class TextureAtlasScaleLockEditor implements AutoCloseable {
 
     private void update(
             final JComponent canvas,
-            final String model,
+            final Object document,
+            final TextureAtlasScaleLocks.Document model,
             final Map<String, Double> additions,
             final Set<String> removals) {
         if (closed) return;
         try {
             locks.update(model, additions, removals);
+            resolver.invoke(MARK_DIRTY, document);
             canvas.repaint();
         } catch (RuntimeException failure) {
             report("Cannot update texture atlas scale locks.", failure);
