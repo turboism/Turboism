@@ -23,7 +23,8 @@ The job recorded six passing assertions and preserved the original fixture hash.
 - Use Lock Scale or Unlock Scale on the selected model images in the atlas canvas context menu.
 - Lock the current absolute scale. Keep unlocked images at 100% during layout on a page with locks.
 - Keep scale independent of position and rotation. A scale lock does not pin the image to its previous position.
-- Keep locks in Turboism storage by model GUID and model image GUID. Reopen the model to recover its locks.
+- Apply lock edits to the open document immediately. Write them to Turboism storage after a successful model save.
+- Restore the saved locks by model GUID and image GUID when the model reopens.
 - Paint a gray overlay and a native lock icon in the editor only. Do not include either in exported atlas pixels.
 - Refuse layout with a visible message when the selected algorithm cannot preserve the locks. Do not switch algorithms automatically.
 
@@ -49,4 +50,5 @@ Cubism 5.3.02 `impl.v.a(MouseEvent)` builds a context menu for the texture page 
 4. Repeat with a different supported algorithm. Confirm the same scales and a valid, non-overlapping layout.
 5. Choose an unsupported algorithm. Check for a visible message and confirm the page remains unchanged.
 6. Save and reopen the model. Verify the locks return, and unlock one skirt without changing the other.
-7. Export the texture. Verify that neither the overlay nor the icon appears in the output.
+7. Close the model and discard changes. Reopen it and verify that both saved locks return.
+8. Export the texture. Verify that neither the overlay nor the icon appears in the output.

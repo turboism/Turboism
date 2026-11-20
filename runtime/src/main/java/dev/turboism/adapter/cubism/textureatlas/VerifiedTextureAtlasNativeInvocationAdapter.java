@@ -82,7 +82,7 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         if (scaleLocks == null || items.isEmpty()) return Map.of();
         final Object layer = resolver.invoke(ITEM_EDIT_LAYER, items.get(0));
         final Map<String, Double> modelLocks =
-                scaleLocks.snapshot(TextureAtlasScaleLockEditor.modelId(resolver, layer));
+                scaleLocks.snapshot(TextureAtlasScaleLockEditor.lockDocument(resolver, layer));
         if (modelLocks.isEmpty()) return Map.of();
         final Map<String, Double> result = new LinkedHashMap<>();
         for (int index = 0; index < items.size(); index++) {

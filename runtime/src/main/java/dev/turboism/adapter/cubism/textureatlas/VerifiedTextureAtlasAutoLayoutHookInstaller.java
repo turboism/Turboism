@@ -1,14 +1,17 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.ProjectFileOperationResult;
 import java.lang.instrument.Instrumentation;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 /** Installs and owns the exact native texture-atlas automatic-layout entry transformer. */
 public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCloseable {
@@ -53,6 +56,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     private volatile Class<?> transformedStatisticsClass;
     private final String dialogOwnerName;
     private TextureAtlasScaleLocks scaleLocks;
+    private ProjectFileLifecycleCoordinator scaleLockLifecycle;
+    private Consumer<ProjectFileOperationResult> scaleLockCompletion;
     private TextureAtlasScaleLockEditor scaleLockEditor;
     private TextureAtlasAutoLayoutDialogTransformer scaleLockTransformer;
     private java.util.function.BiConsumer<Object, Object> scaleLockPaint;
@@ -240,21 +245,30 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         return editorUi;
     }
 
-    /** Enables persistent scale locks when the exact canvas contract is available. */
+    /** Enables scale locks that persist with a successful model save. */
     public void configureScaleLocks(
             final java.nio.file.Path home,
             final dev.turboism.sdk.ui.resource.UiResourceService resources,
-            final Locale locale) {
+            final Locale locale,
+            final ProjectFileLifecycleCoordinator projectFiles) {
         if (installed.get()) throw new IllegalStateException("Configure scale locks before installation.");
         if (resolver.isCompatibilityBinding()
                 || !resolver.authorizesFeature(
                         VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                         CAPABILITY_ID,
-                        dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract.SCALE_LOCK_ALIASES)) {
+                        dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract.SCALE_LOCK_ALIASES)
+                || !resolver.authorizesFeature(
+                        VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                        CAPABILITY_ID,
+                        Set.of(
+                                TextureAtlasScaleLockEditor.DATA_MODEL_DOCUMENT,
+                                TextureAtlasScaleLockEditor.MARK_DIRTY))) {
             return;
         }
         final StaticSelector paint = resolver.verifiedSelector(TextureAtlasScaleLockEditor.CANVAS_PAINT);
         scaleLocks = new TextureAtlasScaleLocks(home);
+        scaleLockLifecycle = Objects.requireNonNull(projectFiles, "projectFiles");
+        scaleLockCompletion = scaleLocks::projectFileCompleted;
         final var editor = new TextureAtlasScaleLockEditor(resolver, scaleLocks, resources, locale);
         scaleLockEditor = editor;
         scaleLockTransformer = new TextureAtlasAutoLayoutDialogTransformer(
@@ -316,6 +330,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         }
         try {
             if (scaleLockTransformer != null) {
+                scaleLockLifecycle.registerCompletionListener(scaleLockCompletion);
                 final String owner = resolver.verifiedSelector(TextureAtlasScaleLockEditor.CANVAS_PAINT)
                         .ownerInternalName()
                         .replace('/', '.');
@@ -410,6 +425,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             instrumentation.removeTransformer(statisticsTransformer);
         }
         if (scaleLockTransformer != null) {
+            scaleLockLifecycle.unregisterCompletionListener(scaleLockCompletion);
             instrumentation.removeTransformer(scaleLockTransformer);
             System.getProperties().remove(SCALE_LOCK_PAINT_KEY, scaleLockPaint);
             System.getProperties().remove(TextureAtlasAutoLayoutTransformer.SCALE_LOCK_VETO_KEY, scaleLockVeto);

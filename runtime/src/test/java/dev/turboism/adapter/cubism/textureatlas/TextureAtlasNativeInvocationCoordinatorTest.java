@@ -1,13 +1,20 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static dev.turboism.sdk.cubism.ProjectFileOperationType.CLOSE;
+import static dev.turboism.sdk.cubism.ProjectFileOperationType.SAVE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.ProjectFileOperation;
+import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.PluginPermission;
@@ -27,18 +34,51 @@ import org.junit.jupiter.api.io.TempDir;
 class TextureAtlasNativeInvocationCoordinatorTest {
 
     @Test
-    void reopensScaleLocksByModelAndUnlocksOneImage(@TempDir final Path home) {
+    void persistsScaleLocksOnlyWhenTheirModelSaves(@TempDir final Path home) {
         final var locks = new TextureAtlasScaleLocks(home);
-        locks.update("model-a", Map.of("skirt", 0.8D, "sleeve", 0.9D), Set.of());
-        locks.update("model-b", Map.of("skirt", 1D), Set.of());
+        final var model = new TextureAtlasScaleLocks.Document("document-a", "model-a");
+        final var other = new TextureAtlasScaleLocks.Document("document-b", "model-b");
+        final var reopened = new TextureAtlasScaleLocks.Document("reopened-a", model.modelGuid());
+        final var savedScales = Map.of("skirt", 0.8D, "sleeve", 0.9D);
+        try (var lifecycle = new ProjectFileLifecycleCoordinator()) {
+            lifecycle.registerCompletionListener(locks::projectFileCompleted);
+            locks.update(model, savedScales, Set.of());
+            locks.update(other, Map.of("skirt", 1D), Set.of());
 
-        final var reopened = new TextureAtlasScaleLocks(home);
-        assertEquals(Map.of("skirt", 0.8D, "sleeve", 0.9D), reopened.snapshot("model-a"));
-        reopened.update("model-a", Map.of(), Set.of("skirt"));
+            assertEquals(savedScales, locks.snapshot(model));
+            assertEquals(Map.of(), locks.snapshot(reopened));
+            complete(lifecycle, other, SAVE, true);
+            complete(lifecycle, model, SAVE, false);
+            assertEquals(Map.of(), new TextureAtlasScaleLocks(home).snapshot(reopened));
 
-        final var stored = new TextureAtlasScaleLocks(home);
-        assertEquals(Map.of("sleeve", 0.9D), stored.snapshot("model-a"));
-        assertEquals(Map.of("skirt", 1D), stored.snapshot("model-b"));
+            complete(lifecycle, model, SAVE, true);
+            assertEquals(savedScales, new TextureAtlasScaleLocks(home).snapshot(reopened));
+
+            locks.update(model, Map.of(), Set.of("skirt"));
+            assertEquals(Map.of("sleeve", 0.9D), locks.snapshot(model));
+            complete(lifecycle, model, CLOSE, true);
+            assertEquals(savedScales, locks.snapshot(model));
+            assertEquals(savedScales, new TextureAtlasScaleLocks(home).snapshot(reopened));
+
+            locks.update(reopened, Map.of(), Set.of("skirt"));
+            complete(lifecycle, reopened, SAVE, true);
+            final var stored = new TextureAtlasScaleLocks(home);
+            assertEquals(Map.of("sleeve", 0.9D), stored.snapshot(reopened));
+            assertEquals(Map.of("skirt", 1D), stored.snapshot(other));
+        }
+    }
+
+    private static void complete(
+            final ProjectFileLifecycleCoordinator lifecycle,
+            final TextureAtlasScaleLocks.Document model,
+            final ProjectFileOperationType type,
+            final boolean success) {
+        final var kind = ProjectContentKind.MODEL;
+        final var request = new ProjectFileOperation(
+                kind, type, Optional.of(model.contentId()), model.modelGuid(), Optional.empty());
+        final var content =
+                new ProjectContentSnapshot(model.contentId(), model.modelGuid(), kind, Optional.empty(), List.of());
+        lifecycle.complete(lifecycle.begin(request), content, success, null);
     }
 
     @Test
@@ -47,10 +87,13 @@ class TextureAtlasNativeInvocationCoordinatorTest {
         fixture.first.rect = new Rect(0, 0, 10, 10);
         fixture.receiver.b.scale = 0.5D;
         final var locks = new TextureAtlasScaleLocks(home);
+        final var resolver = resolver();
         locks.update(
-                LayerIdentity.MODEL_GUID, Map.of(fixture.first.layer.image().value(), 0.8D), Set.of());
+                TextureAtlasScaleLockEditor.lockDocument(resolver, fixture.first.layer),
+                Map.of(fixture.first.layer.image().value(), 0.8D),
+                Set.of());
         final var coordinator = new TextureAtlasNativeInvocationCoordinator();
-        coordinator.connect(resolver(), locks);
+        coordinator.connect(resolver, locks);
         final var service = service(new TextureAtlasLayoutCoordinator(), coordinator);
 
         assertTrue(coordinator
@@ -732,6 +775,11 @@ class TextureAtlasNativeInvocationCoordinatorTest {
                         "()L" + layerIdentity + ";"),
                 method(
                         "cubism.texture-atlas.data-model.model-source",
+                        layerIdentity,
+                        "data",
+                        "()L" + layerIdentity + ";"),
+                method(
+                        TextureAtlasScaleLockEditor.DATA_MODEL_DOCUMENT,
                         layerIdentity,
                         "data",
                         "()L" + layerIdentity + ";"),
