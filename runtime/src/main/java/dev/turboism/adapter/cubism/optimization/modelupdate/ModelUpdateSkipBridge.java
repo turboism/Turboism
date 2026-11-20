@@ -9,13 +9,10 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
@@ -75,7 +72,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private static volatile boolean configuredDefault = false;
 
     private final ModelUpdateSkipTarget target;
-    private final Class<?> modelingViewType, modelingDocumentType, editModeType, meshFormType, pathFormType;
+    private final Class<?> modelingViewType, modelingDocumentType, editModeType;
+    private final DrawableFormDigest formDigest;
     private final MethodHandle getParameterSet,
             getLastUpdatedParameterSet,
             getAllDrawables,
@@ -126,16 +124,6 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
             ucRenderCodes,
             getDeformedForm,
             getDrawOrder,
-            meshPositions,
-            pathPositions,
-            pointCurve,
-            pointWidth,
-            pointOpacity,
-            spPoint,
-            spStart,
-            spEnd,
-            vecX,
-            vecY,
             updaterA,
             updaterB;
     private final Object appSettingInstance, formAnimationInstance;
@@ -201,8 +189,8 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         modelingViewType = Class.forName(MV, false, loader);
         modelingDocumentType = Class.forName(DOC, false, loader);
         editModeType = Class.forName(EM, false, loader);
-        meshFormType = Class.forName(MF, false, loader);
-        pathFormType = Class.forName(PF, false, loader);
+        final Class<?> meshFormType = Class.forName(MF, false, loader);
+        final Class<?> pathFormType = Class.forName(PF, false, loader);
         final Map<Dep, MethodHandle> handles = resolve(target, loader);
         getParameterSet = handles.get(dep(CM, "getParameterSet"));
         getLastUpdatedParameterSet = handles.get(dep(CM, "getLastUpdatedParameterSet"));
@@ -257,16 +245,19 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
         ucRenderCodes = target.extendedUpdateContext() ? handles.get(dep(target.updateContext(), "n")) : null;
         getDeformedForm = handles.get(dep(DR, "getDeformedForm"));
         getDrawOrder = handles.get(dep(DR, "getDrawOrder"));
-        meshPositions = handles.get(dep(MF, "getPositions"));
-        pathPositions = handles.get(dep(PF, "getPositions"));
-        pointCurve = handles.get(dep(PP, "getCurvePointPosition"));
-        pointWidth = handles.get(dep(PP, "getWidth"));
-        pointOpacity = handles.get(dep(PP, "getOpacity"));
-        spPoint = handles.get(dep(SP, "getPoint"));
-        spStart = handles.get(dep(SP, "getStartVelocity"));
-        spEnd = handles.get(dep(SP, "getEndVelocity"));
-        vecX = handles.get(dep(GV, "getX"));
-        vecY = handles.get(dep(GV, "getY"));
+        formDigest = new DrawableFormDigest(
+                meshFormType,
+                pathFormType,
+                handles.get(dep(MF, "getPositions")),
+                handles.get(dep(PF, "getPositions")),
+                handles.get(dep(PP, "getCurvePointPosition")),
+                handles.get(dep(PP, "getWidth")),
+                handles.get(dep(PP, "getOpacity")),
+                handles.get(dep(SP, "getPoint")),
+                handles.get(dep(SP, "getStartVelocity")),
+                handles.get(dep(SP, "getEndVelocity")),
+                handles.get(dep(GV, "getX")),
+                handles.get(dep(GV, "getY")));
         updaterA = handles.get(dep(target.owner().replace('/', '.'), "a"));
         updaterB = handles.get(dep(target.owner().replace('/', '.'), "b"));
         appSettingInstance =
@@ -671,87 +662,10 @@ public final class ModelUpdateSkipBridge implements AutoCloseable {
     private byte[] digest(final Object model) throws Throwable {
         final long started = System.nanoTime();
         try {
-            final MessageDigest md = MessageDigest.getInstance("SHA-256");
-            final Object drawables = (Object) getAllDrawables.invokeExact(model);
-            if (!(drawables instanceof List)) throw new IllegalStateException("drawables absent");
-            final ByteBuffer buffer = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN);
-            for (final Object drawable : (List<?>) drawables) {
-                if (drawable == null) throw new IllegalStateException("null drawable");
-                final Object form = (Object) getDeformedForm.invokeExact(drawable);
-                if (form == null) {
-                    putInt(md, buffer, 0);
-                } else if (meshFormType.isInstance(form)) {
-                    final float[] positions = (float[]) (Object) meshPositions.invokeExact(form);
-                    putInt(md, buffer, 1);
-                    if (positions == null) {
-                        putInt(md, buffer, -1);
-                    } else {
-                        putInt(md, buffer, positions.length);
-                        for (final float position : positions) putFloat(md, buffer, position);
-                    }
-                } else if (pathFormType.isInstance(form)) {
-                    final Object points = (Object) pathPositions.invokeExact(form);
-                    putInt(md, buffer, 2);
-                    if (points == null) {
-                        putInt(md, buffer, -1);
-                    } else if (!(points instanceof List)) {
-                        throw new IllegalStateException("path points of unexpected type "
-                                + points.getClass().getName());
-                    } else {
-                        putInt(md, buffer, ((List<?>) points).size());
-                        for (final Object point : (List<?>) points) {
-                            if (point == null) {
-                                putInt(md, buffer, -1);
-                                continue;
-                            }
-                            putInt(md, buffer, 1);
-                            final Object curve = (Object) pointCurve.invokeExact(point);
-                            if (curve == null) {
-                                putInt(md, buffer, -1);
-                            } else {
-                                putVector(md, buffer, (Object) spPoint.invokeExact(curve));
-                                putVector(md, buffer, (Object) spStart.invokeExact(curve));
-                                putVector(md, buffer, (Object) spEnd.invokeExact(curve));
-                            }
-                            putFloat(md, buffer, (float) pointWidth.invokeExact(point));
-                            putFloat(md, buffer, (float) pointOpacity.invokeExact(point));
-                        }
-                    }
-                } else {
-                    throw new IllegalStateException(
-                            "undigestable form " + form.getClass().getName());
-                }
-                putInt(md, buffer, (int) getDrawOrder.invokeExact(drawable));
-            }
-            buffer.flip();
-            md.update(buffer);
-            return md.digest();
+            return formDigest.digestDrawables(model, getAllDrawables, getDeformedForm, null, getDrawOrder);
         } finally {
             digestNanos.add(System.nanoTime() - started);
         }
-    }
-
-    private void putVector(final MessageDigest md, final ByteBuffer buffer, final Object vector) throws Throwable {
-        if (vector == null) {
-            putInt(md, buffer, -1);
-            return;
-        }
-        putInt(md, buffer, 1);
-        putFloat(md, buffer, (float) vecX.invokeExact(vector));
-        putFloat(md, buffer, (float) vecY.invokeExact(vector));
-    }
-
-    private static void putFloat(final MessageDigest md, final ByteBuffer buffer, final float value) {
-        putInt(md, buffer, Float.floatToRawIntBits(value));
-    }
-
-    private static void putInt(final MessageDigest md, final ByteBuffer buffer, final int value) {
-        if (buffer.remaining() < Integer.BYTES) {
-            buffer.flip();
-            md.update(buffer);
-            buffer.clear();
-        }
-        buffer.putInt(value);
     }
 
     private void writeProbe(final Frame frame, final byte[] post, final Throwable failure) {

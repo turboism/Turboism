@@ -1,12 +1,10 @@
 package dev.turboism.adapter.cubism.optimization;
 
+import dev.turboism.core.io.Sha256;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,8 +25,6 @@ public final class ReviewedMethodShape {
 
     /** Session cache bound; one host launch reads a fixed set of reviewed methods. */
     private static final int MAX_CACHED_SHAPES = 512;
-
-    private static final String DIGEST_ALGORITHM = "SHA-256";
 
     /**
      * Shapes already read in this process, keyed by class bytes digest and method identity, so a
@@ -60,7 +56,7 @@ public final class ReviewedMethodShape {
      */
     public static List<String> read(byte[] bytes, String owner, String methodName, String descriptor) {
         Objects.requireNonNull(bytes, "bytes");
-        final ShapeKey key = new ShapeKey(bytesDigest(bytes), owner, methodName, descriptor);
+        final ShapeKey key = new ShapeKey(Sha256.hex(bytes), owner, methodName, descriptor);
         synchronized (SHAPES) {
             if (SHAPES.containsKey(key)) {
                 return SHAPES.get(key);
@@ -71,16 +67,6 @@ public final class ReviewedMethodShape {
             SHAPES.put(key, shape);
         }
         return shape;
-    }
-
-    private static String bytesDigest(final byte[] bytes) {
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance(DIGEST_ALGORITHM);
-        } catch (NoSuchAlgorithmException unavailable) {
-            throw new IllegalStateException(DIGEST_ALGORITHM + " is unavailable", unavailable);
-        }
-        return HexFormat.of().formatHex(digest.digest(bytes));
     }
 
     private static List<String> parse(byte[] bytes, String owner, String methodName, String descriptor) {

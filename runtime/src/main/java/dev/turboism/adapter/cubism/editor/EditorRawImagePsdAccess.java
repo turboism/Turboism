@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Package-private T003/T011 seam for PSD raw-image targeting and native export validation.
+ * Package-private seam for PSD raw-image targeting and native export validation.
  *
  * <p>The ID-based overload resolves the selected raw image from the current model-source texture
  * manager before entering the native save sequence. The low-level bound-source overload is

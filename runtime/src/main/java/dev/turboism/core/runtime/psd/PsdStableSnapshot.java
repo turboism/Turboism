@@ -1,5 +1,6 @@
 package dev.turboism.core.runtime.psd;
 
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -9,8 +10,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Objects;
 
 /**
@@ -80,12 +79,7 @@ final class PsdStableSnapshot {
     }
 
     private static Digest read(final Path path, final FileChannel output, final long limit) throws IOException {
-        final MessageDigest hash;
-        try {
-            hash = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("SHA-256 unavailable", failure);
-        }
+        final MessageDigest hash = Sha256.digest();
         final ByteBuffer buffer = ByteBuffer.allocate(BUFFER_BYTES);
         long total = 0;
         try (FileChannel input = FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
@@ -102,7 +96,7 @@ final class PsdStableSnapshot {
                 buffer.clear();
             }
         }
-        return new Digest(HexFormat.of().formatHex(hash.digest()), total);
+        return new Digest(Sha256.hex(hash), total);
     }
 
     private static BasicFileAttributes inspect(final Path path, final long limit) throws IOException {

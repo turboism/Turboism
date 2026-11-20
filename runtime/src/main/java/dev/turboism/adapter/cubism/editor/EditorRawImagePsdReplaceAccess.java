@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Package-private T015 seam for one explicit native PSD raw-image replace invocation.
+ * Package-private seam for one explicit native PSD raw-image replace invocation.
  *
  * <p>The caller supplies the app controller, modeling document, old layered-image list, already
  * parsed incoming layered image, and a runtime-owned stable stage. Type checks only establish the

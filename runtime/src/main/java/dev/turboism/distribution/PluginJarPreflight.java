@@ -1,12 +1,12 @@
 package dev.turboism.distribution;
 
+import dev.turboism.core.io.Sha256;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -81,7 +81,7 @@ public final class PluginJarPreflight {
     }
 
     private static Digest digest(final Path path) throws Exception {
-        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final MessageDigest digest = Sha256.digest();
         long size = 0;
         try (FileChannel input =
                 FileChannel.open(path, java.nio.file.StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
@@ -94,7 +94,7 @@ public final class PluginJarPreflight {
                 buffer.clear();
             }
         }
-        return new Digest(size, HexFormat.of().formatHex(digest.digest()));
+        return new Digest(size, Sha256.hex(digest));
     }
 
     private record Digest(long size, String sha256) {}

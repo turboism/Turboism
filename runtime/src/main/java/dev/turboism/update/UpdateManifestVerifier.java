@@ -3,6 +3,7 @@ package dev.turboism.update;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
@@ -318,11 +319,7 @@ public final class UpdateManifestVerifier {
     }
 
     private static byte[] sha256Bytes(final byte[] input) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(input);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 algorithm missing from JVM", e);
-        }
+        return Sha256.bytes(input);
     }
 
     private record SignatureEnvelope(

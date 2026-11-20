@@ -1,5 +1,6 @@
 package dev.turboism.ui.table;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.AWTEvent;
@@ -16,10 +17,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowEvent;
 import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -742,14 +740,7 @@ public final class SceneTableHostOperations
             if (identifiers.isEmpty()) return "";
             source = "scenes:" + String.join("\n", identifiers);
         }
-        try {
-            final byte[] digest = MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8));
-            final StringBuilder result = new StringBuilder(64);
-            for (byte part : digest) result.append(String.format("%02x", part));
-            return result.toString();
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return Sha256.hex(source);
     }
 
     private String id(final Object document) {

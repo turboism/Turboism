@@ -849,15 +849,19 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     }
 
     private void requireOfficialUri(final URI uri) throws InstallFailure {
-        final String host = uri.getHost();
-        if (!"https".equalsIgnoreCase(uri.getScheme())
-                || host == null
-                || !DOWNLOAD_HOSTS.contains(host.toLowerCase(Locale.ROOT))
-                || uri.getUserInfo() != null
-                || uri.getFragment() != null) {
+        if (!isOfficialUri(uri)) {
             throw failure(
                     "GRAAL_RUNTIME_DOWNLOAD_URI_REJECTED", "GraalVM download left the approved official HTTPS hosts.");
         }
+    }
+
+    static boolean isOfficialUri(final URI uri) {
+        final String host = uri.getHost();
+        return "https".equalsIgnoreCase(uri.getScheme())
+                && host != null
+                && DOWNLOAD_HOSTS.contains(host.toLowerCase(Locale.ROOT))
+                && uri.getUserInfo() == null
+                && uri.getFragment() == null;
     }
 
     private static String normalizeEntry(final String raw) throws InstallFailure {
@@ -1372,20 +1376,53 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             final String javaRelativePath = platform.path("javaRelativePath").asText("");
             final long archiveBytes = platform.path("archiveBytes").asLong(-1L);
             final String sha256 = platform.path("sha256").asText("");
+            final String rawUrl = platform.path("url").asText("");
             if (archiveName.isBlank()
                     || javaRelativePath.isBlank()
                     || archiveBytes <= 0L
-                    || !sha256.matches("[0-9a-f]{64}")) {
+                    || !sha256.matches("[0-9a-f]{64}")
+                    || rawUrl.isBlank()) {
                 throw new IllegalStateException("bundled managed-graal manifest is malformed for " + id);
             }
-            return new Platform(id, javaRelativePath, archiveName, archiveBytes, sha256);
+            return new Platform(id, javaRelativePath, parseManifestUri(id, rawUrl, archiveName), archiveBytes, sha256);
+        }
+
+        static URI parseManifestUri(final String id, final String rawUrl, final String archiveName) {
+            final URI uri;
+            try {
+                uri = URI.create(rawUrl);
+            } catch (IllegalArgumentException invalid) {
+                throw new IllegalStateException("bundled managed-graal manifest url is invalid for " + id, invalid);
+            }
+            if (!isOfficialUri(uri)
+                    || uri.getRawPath() == null
+                    || !uri.getRawPath().endsWith("/" + archiveName)) {
+                throw new IllegalStateException("bundled managed-graal manifest url is rejected for " + id);
+            }
+            return uri;
         }
 
         private final String id;
         private final String javaRelativePath;
-        private final String archiveName;
+        private final URI downloadUri;
         private final long archiveBytes;
         private final String sha256;
+
+        Platform(
+                final String id,
+                final String javaRelativePath,
+                final URI downloadUri,
+                final long archiveBytes,
+                final String sha256) {
+            this.id = Objects.requireNonNull(id, "id");
+            this.javaRelativePath = Objects.requireNonNull(javaRelativePath, "javaRelativePath");
+            this.downloadUri = Objects.requireNonNull(downloadUri, "downloadUri");
+            if (!isOfficialUri(this.downloadUri)) {
+                throw new IllegalArgumentException("Platform downloadUri must target an official host: " + downloadUri);
+            }
+            this.archiveBytes = archiveBytes;
+            this.sha256 = Objects.requireNonNull(sha256, "sha256");
+        }
 
         Platform(
                 final String id,
@@ -1393,19 +1430,17 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 final String archiveName,
                 final long archiveBytes,
                 final String sha256) {
-            this.id = Objects.requireNonNull(id, "id");
-            this.javaRelativePath = Objects.requireNonNull(javaRelativePath, "javaRelativePath");
-            this.archiveName = Objects.requireNonNull(archiveName, "archiveName");
-            this.archiveBytes = archiveBytes;
-            this.sha256 = Objects.requireNonNull(sha256, "sha256");
+            this(
+                    id,
+                    javaRelativePath,
+                    URI.create("https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-" + GRAAL_VERSION
+                            + "/" + Objects.requireNonNull(archiveName, "archiveName")),
+                    archiveBytes,
+                    sha256);
         }
 
         Manifest manifest() {
-            return new Manifest(
-                    URI.create("https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-" + GRAAL_VERSION
-                            + "/" + archiveName),
-                    archiveBytes,
-                    sha256);
+            return new Manifest(downloadUri, archiveBytes, sha256);
         }
 
         static Platform detect() {

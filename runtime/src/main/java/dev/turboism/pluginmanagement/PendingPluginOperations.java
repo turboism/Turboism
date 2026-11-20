@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.io.PathLocks;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PluginJarPreflight;
 import dev.turboism.distribution.PreparedPluginJar;
@@ -446,16 +447,13 @@ public final class PendingPluginOperations {
     }
 
     private String snapshotOf(final Path file, final byte[] journalBytes) {
-        try {
-            final var digest = java.security.MessageDigest.getInstance("SHA-256");
-            digest.update(home.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            digest.update((byte) 0);
-            digest.update(file.getFileName().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            digest.update((byte) 0);
-            return java.util.HexFormat.of().formatHex(digest.digest(journalBytes));
-        } catch (java.security.NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("PLUGIN_PENDING_SNAPSHOT_FAILED", failure);
-        }
+        final var digest = Sha256.digest();
+        digest.update(home.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        digest.update((byte) 0);
+        digest.update(file.getFileName().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        digest.update((byte) 0);
+        digest.update(journalBytes);
+        return Sha256.hex(digest);
     }
 
     /** Completes an exact install after hot apply or confirmed rollback; retains other pending work. */

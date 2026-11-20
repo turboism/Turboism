@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -7,13 +8,10 @@ import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +32,6 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
     private final VerifiedMemberResolver panelResolver;
     private final Consumer<String> diagnostics;
     private final Map<RecentFileId, Path> paths = new LinkedHashMap<>();
-    /** Lowercase hex encoder for the opaque recent-file id; one instance is thread-safe. */
-    private static final HexFormat HEX = HexFormat.of();
 
     public VerifiedRecentFileListHostOperations(
             final VerifiedMemberResolver projectResolver, final VerifiedMemberResolver panelResolver) {
@@ -166,12 +162,6 @@ public final class VerifiedRecentFileListHostOperations implements RecentFileAda
 
     /** Opaque, cross-session-stable id: lowercase SHA-256 hex of the normalized absolute path. */
     public static RecentFileId idFor(final Path path) {
-        try {
-            final byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(RecentMenuChain.pathKey(path).getBytes(StandardCharsets.UTF_8));
-            return new RecentFileId(HEX.formatHex(digest));
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return new RecentFileId(Sha256.hex(RecentMenuChain.pathKey(path)));
     }
 }

@@ -2,6 +2,7 @@ package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.archive.StrictZipArchive;
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -10,7 +11,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 
@@ -51,11 +51,11 @@ final class PluginArtifactInspector {
     }
 
     private Observation copy(StrictZipArchive.Entry entry, Path snapshot) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        MessageDigest digest = Sha256.digest();
         try (OutputStream file = Files.newOutputStream(snapshot);
-                OutputStream output = new DigestingOutputStream(file, digest)) {
+                OutputStream output = Sha256.digestingOutput(file, digest)) {
             StrictZipArchive.Observation observed = archive.consume(entry, output);
-            return new Observation(observed.size(), HexFormat.of().formatHex(digest.digest()));
+            return new Observation(observed.size(), Sha256.hex(digest));
         }
     }
 
@@ -119,31 +119,4 @@ final class PluginArtifactInspector {
     record Inspected(List<PlannedFile> files, PluginJarInspector.Inspected plugin) {}
 
     private record Observation(long size, String sha256) {}
-
-    private static final class DigestingOutputStream extends OutputStream {
-        private final OutputStream delegate;
-        private final MessageDigest digest;
-
-        private DigestingOutputStream(OutputStream delegate, MessageDigest digest) {
-            this.delegate = delegate;
-            this.digest = digest;
-        }
-
-        @Override
-        public void write(int value) throws IOException {
-            delegate.write(value);
-            digest.update((byte) value);
-        }
-
-        @Override
-        public void write(byte[] bytes, int offset, int length) throws IOException {
-            delegate.write(bytes, offset, length);
-            digest.update(bytes, offset, length);
-        }
-
-        @Override
-        public void close() throws IOException {
-            delegate.close();
-        }
-    }
 }

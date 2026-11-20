@@ -3,6 +3,7 @@ package dev.turboism.update;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.internal.TurboismEndpoints;
 import java.util.Objects;
 import java.util.Set;
 
@@ -19,8 +20,8 @@ public record UpdateIncrementalDiscovery(
         Reference envelope,
         String objectsSha256) {
     public static final String FORMAT = "turboism.incremental-candidate";
-    public static final String ORIGIN = "https://api.turboism.dev";
-    public static final String REPOSITORY = "turboism/Turboism";
+    public static final String ORIGIN = TurboismEndpoints.API_ORIGIN;
+    public static final String REPOSITORY = TurboismEndpoints.GITHUB_REPOSITORY;
 
     public UpdateIncrementalDiscovery {
         if (version == null

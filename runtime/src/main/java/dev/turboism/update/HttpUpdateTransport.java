@@ -2,6 +2,7 @@ package dev.turboism.update;
 
 import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /** Fixed-origin HTTPS transport for the small channel-aware discovery response. */
 public final class HttpUpdateTransport implements UpdateTransport {
-    private static final String ENDPOINT_PREFIX = "https://api.turboism.dev/v1/releases/";
+    private static final String ENDPOINT_PREFIX = TurboismEndpoints.RELEASES_PREFIX;
     public static final URI ENDPOINT = endpointForChannel(UpdateDiscovery.CHANNEL_STABLE);
     public static final Duration REQUEST_DEADLINE = Duration.ofSeconds(15);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);

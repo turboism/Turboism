@@ -1,5 +1,6 @@
 package dev.turboism.shell;
 
+import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CorePluginManagement.OperationResult;
 import dev.turboism.pluginmanagement.PluginCatalog;
@@ -63,7 +64,7 @@ import javax.swing.table.TableRowSorter;
  */
 final class PluginMarketWindow {
 
-    private static final String MARKET_BASE_URL = "https://turboism.dev/plugins/";
+    private static final String MARKET_BASE_URL = TurboismEndpoints.PLUGIN_MARKET_ITEM_PREFIX;
 
     private enum QuickStatusFilter {
         ALL,
