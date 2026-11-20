@@ -89,6 +89,7 @@ final class WindowsHarnessDiscoveryTest {
     @Test
     void explicitRefreshRechecksPreviouslyUnsupportedCandidate() throws Exception {
         assumeFalse(AgentLocator.isWindows());
+        AgentAvailability.invalidate();
         Path candidate = script("refresh", "echo 'pi 0.1.0'\n");
         AgentProfile profile = AgentCatalog.profile("pi").orElseThrow();
         assertFalse(AgentAvailability.available(profile, candidate));
@@ -128,6 +129,30 @@ final class WindowsHarnessDiscoveryTest {
         };
         assertEquals(128 * 1024, AgentAvailability.readProbeOutput(pipe).length());
         assertEquals(0, source.available());
+    }
+
+    @Test
+    void parallelDiscoveryKeepsCatalogOrderAndConfinesProfileFailures() {
+        final List<AgentProfile> profiles = List.of(
+                absentProfile("absent-a"),
+                // A malformed candidate name makes resolution throw; the sweep must survive it.
+                absentProfile("absent/b"),
+                absentProfile("absent-c"));
+        final List<String> diagnostics = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        final Map<String, AgentAvailability.Detection> results =
+                AgentAvailability.discoverAll(profiles, diagnostics::add);
+
+        assertEquals(profiles.stream().map(AgentProfile::id).toList(), List.copyOf(results.keySet()));
+        assertFalse(results.get("absent-a").available());
+        assertEquals(
+                "probe-failed-IllegalArgumentException", results.get("absent/b").reason());
+        assertFalse(results.get("absent-c").available());
+        assertTrue(diagnostics.stream().anyMatch(line -> line.contains("absent-c")));
+    }
+
+    private static AgentProfile absentProfile(final String id) {
+        return new AgentProfile(id, id, List.of("turboism-not-installed-" + id), List.of(), List.of(), "", "");
     }
 
     private Path script(String directory, String body) throws Exception {

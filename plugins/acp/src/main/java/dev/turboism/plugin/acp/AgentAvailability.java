@@ -5,10 +5,19 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /** Read-only discovery, version reporting, and protocol checks for installed harnesses. */
 final class AgentAvailability {
@@ -16,9 +25,28 @@ final class AgentAvailability {
 
     private record Check(long checkedAt, boolean available, String version, String reason) {}
 
+    /** Detection reported for a profile whose executable candidates are all unusable. */
+    static final Detection NOT_INSTALLED = new Detection(null, false, "", "executable-not-found");
+
     private static final Map<Path, Check> CACHE = new ConcurrentHashMap<>();
     private static final java.util.regex.Pattern VERSION =
             java.util.regex.Pattern.compile("\\b\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?\\b");
+    /**
+     * Probe results stay reusable across controller actions. The cache lifetime exceeds one
+     * controller lifetime so reopening the window cannot re-spawn two processes per installed
+     * CLI; only an explicit user Refresh drops the entries.
+     */
+    private static final long CACHE_TTL_NANOS = TimeUnit.MINUTES.toNanos(5);
+    /** Every harness CLI answers a version or help query in seconds; a silent one is not usable. */
+    private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(15);
+
+    private static final long PROBE_TERMINATE_GRACE_MILLIS = 100L;
+    private static final int PROBE_OUTPUT_LIMIT_BYTES = 128 * 1024;
+    private static final int PROBE_READ_BUFFER_BYTES = 8 * 1024;
+    /** Bounded fan-out: each worker blocks on external CLI processes, not on host CPU. */
+    private static final int DISCOVERY_WORKERS = 4;
+
+    private static final String DISCOVERY_THREAD_PREFIX = "turboism-acp-discovery-probe-";
 
     private AgentAvailability() {}
 
@@ -37,10 +65,75 @@ final class AgentAvailability {
 
     private static Check checked(final AgentProfile profile, final Path executable) {
         final Check cached = CACHE.get(executable);
-        if (cached != null && System.nanoTime() - cached.checkedAt() < TimeUnit.SECONDS.toNanos(30)) return cached;
+        if (cached != null && System.nanoTime() - cached.checkedAt() < CACHE_TTL_NANOS) return cached;
         final Check result = check(profile, executable);
         CACHE.put(executable, result);
         return result;
+    }
+
+    /**
+     * Probes the given profiles concurrently and returns detections in the requested order.
+     *
+     * <p>The ordered result keeps the caller's rendering stable regardless of which probe finishes
+     * first. A single failed probe reports an unavailable detection instead of aborting the sweep,
+     * because one broken CLI must not hide the harnesses that do work.</p>
+     */
+    static Map<String, Detection> discoverAll(final List<AgentProfile> profiles, final Consumer<String> diagnostics) {
+        final List<AgentProfile> requested = List.copyOf(Objects.requireNonNull(profiles, "profiles"));
+        Objects.requireNonNull(diagnostics, "diagnostics");
+        if (requested.isEmpty()) return new LinkedHashMap<>();
+        final Map<String, Detection> findings = new ConcurrentHashMap<>();
+        final ExecutorService probes =
+                Executors.newFixedThreadPool(Math.min(DISCOVERY_WORKERS, requested.size()), daemonProbeThreads());
+        try {
+            final List<Future<?>> pending = new ArrayList<>(requested.size());
+            for (AgentProfile profile : requested) {
+                pending.add(probes.submit(() -> {
+                    findings.put(profile.id(), probeIsolated(profile, diagnostics));
+                }));
+            }
+            awaitProbes(pending, diagnostics);
+        } finally {
+            probes.shutdownNow();
+        }
+        final Map<String, Detection> ordered = new LinkedHashMap<>();
+        for (AgentProfile profile : requested) {
+            ordered.putIfAbsent(profile.id(), findings.getOrDefault(profile.id(), NOT_INSTALLED));
+        }
+        return ordered;
+    }
+
+    private static ThreadFactory daemonProbeThreads() {
+        final AtomicInteger threadNumber = new AtomicInteger(1);
+        return runnable -> {
+            final Thread thread = new Thread(runnable, DISCOVERY_THREAD_PREFIX + threadNumber.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
+        };
+    }
+
+    private static void awaitProbes(final List<Future<?>> pending, final Consumer<String> diagnostics) {
+        for (Future<?> probe : pending) {
+            try {
+                probe.get();
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+                pending.forEach(task -> task.cancel(true));
+                return;
+            } catch (ExecutionException failure) {
+                diagnostics.accept("harness detection task failed: " + failure.getCause());
+            }
+        }
+    }
+
+    /** Confines a profile failure to its own detection so the remaining probes still publish. */
+    private static Detection probeIsolated(final AgentProfile profile, final Consumer<String> diagnostics) {
+        try {
+            return discover(profile, diagnostics);
+        } catch (RuntimeException failure) {
+            return new Detection(
+                    null, false, "", "probe-failed-" + failure.getClass().getSimpleName());
+        }
     }
 
     static java.util.Optional<Path> locate(final AgentProfile profile) {
@@ -81,7 +174,7 @@ final class AgentAvailability {
             if (firstFailure == null) firstFailure = detection;
         }
         if (candidates.isEmpty()) diagnostics.accept(profile.id() + " status=executable-not-found");
-        return firstFailure == null ? new Detection(null, false, "", "executable-not-found") : firstFailure;
+        return firstFailure == null ? NOT_INSTALLED : firstFailure;
     }
 
     private static Check result(final boolean available, final String version, final String reason) {
@@ -141,14 +234,15 @@ final class AgentAvailability {
             final var stdout = read(process.stdout());
             final var stderr = read(process.stderr());
             try {
-                final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
-                java.util.concurrent.CompletableFuture.allOf(stdout, stderr).get(15, TimeUnit.SECONDS);
+                final long deadline = System.nanoTime() + PROBE_TIMEOUT.toNanos();
+                java.util.concurrent.CompletableFuture.allOf(stdout, stderr)
+                        .get(PROBE_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
                 if (process.awaitExit(deadline - System.nanoTime()) != 0) {
                     throw new IOException("Harness probe exited unsuccessfully");
                 }
                 return stdout.join() + "\n" + stderr.join();
             } finally {
-                process.terminate(Duration.ofMillis(100));
+                process.terminate(Duration.ofMillis(PROBE_TERMINATE_GRACE_MILLIS));
             }
         }
     }
@@ -165,12 +259,11 @@ final class AgentAvailability {
 
     /** Windows JRE 17 FileInputStream.readNBytes tries to seek on non-seekable process pipes. */
     static String readProbeOutput(final java.io.InputStream input) throws IOException {
-        final int limit = 128 * 1024;
         final var captured = new java.io.ByteArrayOutputStream();
-        final byte[] buffer = new byte[8192];
+        final byte[] buffer = new byte[PROBE_READ_BUFFER_BYTES];
         int count;
         while ((count = input.read(buffer)) != -1) {
-            final int keep = Math.min(count, limit - captured.size());
+            final int keep = Math.min(count, PROBE_OUTPUT_LIMIT_BYTES - captured.size());
             if (keep > 0) captured.write(buffer, 0, keep);
         }
         return captured.toString(StandardCharsets.UTF_8);

@@ -34,6 +34,12 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration CLIENT_START_TIMEOUT = Duration.ofSeconds(25);
+    /**
+     * Backstop only: detection normally finishes in seconds per installed CLI. A first connect
+     * without a persisted agent must not wait forever on a wedged harness executable.
+     */
+    private static final Duration DETECTION_WAIT_TIMEOUT = Duration.ofSeconds(60);
+
     private static final int MAX_PENDING_UI_UPDATES = 256;
     static final int MAX_PENDING_LOAD_EVENTS = 4096;
     static final long MAX_PENDING_LOAD_TEXT_BYTES = 1024L * 1024L;
@@ -49,6 +55,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private final Duration clientStartTimeout;
     private final View view;
     private final ExecutorService serial;
+    private final ExecutorService detection;
     private final Object stateLock = new Object();
     private final Object uiLock = new Object();
     private final ArrayDeque<UiUpdate> pendingUi = new ArrayDeque<>();
@@ -73,6 +80,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             new AtomicReference<>(java.util.Optional.empty());
     private final AtomicBoolean mcpReconnectQueued = new AtomicBoolean();
     private final AtomicBoolean detectionCompleted = new AtomicBoolean();
+    private final AtomicBoolean detectionRequested = new AtomicBoolean();
+    private final AtomicBoolean detectionRefresh = new AtomicBoolean();
+    private final AtomicReference<CompletableFuture<Boolean>> detectionPass = new AtomicReference<>();
 
     AcpChatController(final PluginContext context, final AcpPluginSettings settings, final View view) {
         this(context, settings, view, AcpClient::start);
@@ -105,6 +115,11 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             thread.setDaemon(true);
             return thread;
         });
+        this.detection = Executors.newSingleThreadExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "turboism-acp-detection");
+            thread.setDaemon(true);
+            return thread;
+        });
     }
 
     /** Connects using the persisted or auto-detected agent selection. */
@@ -112,7 +127,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         submit(() -> {
             ui(() -> view.showConnecting(agentLabel(settings.agentId())));
             if (!settings.hasPersistedAgentId()) {
-                ensureDetectionNow();
+                awaitDetectionBeforeConnect();
             }
             connectNow();
         });
@@ -150,32 +165,75 @@ final class AcpChatController implements AutoCloseable, AcpListener {
 
     /** Resolves every catalog profile and reports which executables were found. */
     void detectAgents() {
-        submit(() -> {
-            AgentAvailability.invalidate();
-            detectAgentsNow();
-        });
+        if (closed.get()) return;
+        // An explicit Refresh re-probes even during a sweep. The pending flags coalesce a burst
+        // of clicks into one extra sweep instead of queueing one sweep per click. The refresh flag
+        // is published first so a sweep that consumes the request cannot miss it.
+        detectionRefresh.set(true);
+        detectionRequested.set(true);
+        startDetection();
     }
 
     /** Populates agent detection in the background when startup has not already probed. */
     void detectAgentsIfNeeded() {
-        submit(this::ensureDetectionNow);
+        if (detectionCompleted.get()) return;
+        startDetection();
     }
 
-    private void ensureDetectionNow() {
-        if (!detectionCompleted.get()) {
-            detectAgentsNow();
+    /**
+     * Starts one catalog probe sweep on the detection worker instead of the serial lifecycle
+     * lane. Discovery spawns external processes, so running it inline delayed every user action
+     * queued behind it. A caller that arrives during a sweep joins that sweep.
+     */
+    private CompletableFuture<Boolean> startDetection() {
+        final CompletableFuture<Boolean> pass = new CompletableFuture<>();
+        if (closed.get() || !detectionPass.compareAndSet(null, pass)) {
+            final CompletableFuture<Boolean> running = detectionPass.get();
+            return running != null ? running : CompletableFuture.completedFuture(false);
+        }
+        try {
+            detection.execute(() -> runDetectionPass(pass));
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            detectionPass.compareAndSet(pass, null);
+            pass.complete(false);
+        }
+        return pass;
+    }
+
+    /** Runs sweeps until no Refresh is pending, so the reported results reflect the last request. */
+    private void runDetectionPass(final CompletableFuture<Boolean> pass) {
+        try {
+            while (!closed.get() && sweepRequested()) publishDetection(detectionRefresh.getAndSet(false));
+        } catch (RuntimeException failure) {
+            context.logger().warn("Turboism ACP harness detection failed safely");
+        } finally {
+            detectionRequested.set(false);
+            detectionRefresh.set(false);
+            detectionPass.compareAndSet(pass, null);
+            pass.complete(true);
         }
     }
 
-    private void detectAgentsNow() {
+    /** The first sweep of a controller runs without a Refresh, so an unset flag still counts. */
+    private boolean sweepRequested() {
+        return detectionRequested.getAndSet(false) || !detectionCompleted.get();
+    }
+
+    /**
+     * Probes the catalog and publishes the result. Only a user Refresh drops the probe cache;
+     * a background sweep reuses it so opening a window costs no new harness processes.
+     */
+    private void publishDetection(final boolean refresh) {
+        if (refresh) AgentAvailability.invalidate();
+        final List<AgentProfile> profiles = AgentCatalog.profiles();
+        final Map<String, AgentAvailability.Detection> results = AgentAvailability.discoverAll(
+                profiles, detail -> context.logger().info("Harness detection: " + detail));
         final Map<String, String> detected = new LinkedHashMap<>();
-        final Map<String, AgentAvailability.Detection> results = new LinkedHashMap<>();
         AgentProfile firstAvailable = null;
-        for (AgentProfile profile : AgentCatalog.profiles()) {
-            final AgentAvailability.Detection result = AgentAvailability.discover(
-                    profile, detail -> context.logger().info("Harness detection: " + detail));
-            results.put(profile.id(), result);
-            if (result.available()) {
+        for (AgentProfile profile : profiles) {
+            final AgentAvailability.Detection result =
+                    results.getOrDefault(profile.id(), AgentAvailability.NOT_INSTALLED);
+            if (result.available() && result.executable() != null) {
                 detected.put(profile.id(), result.executable().toString());
                 if (firstAvailable == null) {
                     firstAvailable = profile;
@@ -185,12 +243,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             }
         }
         detectionCompleted.set(true);
-        if (!settings.hasPersistedAgentId()
-                && pendingSettings.get() == null
-                && !view.isUserSelectionDirty()
-                && firstAvailable != null) {
+        if (firstAvailable != null) {
             final String selectedId = firstAvailable.id();
-            if (settings.applyInferredAgentId(selectedId)) {
+            if (inferAgent(selectedId)) {
                 context.logger().info("ACP auto-detection: selected available agent '" + selectedId + "'");
                 ui(() -> view.showAgentSelected(selectedId));
             }
@@ -199,6 +254,31 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             view.showDetectionResults(results);
             view.showDetectedAgents(detected);
         });
+    }
+
+    /**
+     * Applies the detected agent only while the selection is still automatic.
+     *
+     * <p>Detection runs off the lifecycle lane, so every guard is re-read here: a persisted id, an
+     * in-flight settings write, or a user edit on the window all outrank the probe result.</p>
+     */
+    private boolean inferAgent(final String agentId) {
+        if (closed.get() || settings.hasPersistedAgentId() || pendingSettings.get() != null) return false;
+        if (view.isUserSelectionDirty()) return false;
+        return settings.applyInferredAgentId(agentId);
+    }
+
+    /** Blocks the serial lane only until the first detection resolves the inferred agent. */
+    private void awaitDetectionBeforeConnect() {
+        if (detectionCompleted.get()) return;
+        final CompletableFuture<Boolean> pass = startDetection();
+        try {
+            pass.get(DETECTION_WAIT_TIMEOUT.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException failure) {
+            context.logger().warn("Turboism ACP harness detection did not finish before connecting");
+        }
     }
 
     /** Runs the advertised ACP authentication method selected by the user. */
@@ -1649,6 +1729,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             saveSettingsNow(pending.agentId(), pending.customCommand(), pending.initialPrompt());
         }
         if (!closed.compareAndSet(false, true)) return;
+        stopDetection();
         final dev.turboism.sdk.plugin.Registration subscription = mcpSubscription.getAndSet(null);
         if (subscription != null) {
             subscription.close();
@@ -1684,6 +1765,15 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         final Thread cleanup = new Thread(this::disconnectNow, "turboism-acp-controller-close");
         cleanup.setDaemon(true);
         cleanup.start();
+    }
+
+    /** Releases the detection worker and unblocks any connect that still waits on a sweep. */
+    private void stopDetection() {
+        final CompletableFuture<Boolean> running = detectionPass.getAndSet(null);
+        detectionRequested.set(false);
+        detectionRefresh.set(false);
+        detection.shutdownNow();
+        if (running != null) running.complete(false);
     }
 
     private static String agentLabel(final String agentId) {
