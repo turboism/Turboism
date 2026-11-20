@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""config.json 生命周期 + Full/Lite 插件载荷语义的单元验证。
+"""Unit verification of config.json lifecycle and Full/Thin plugin payload semantics.
 
-本脚本镜像 installer.nsi 与 configure_turboism.ps1 的配置策略：
-  - 配置校验、迁移和插件选择提交必须先于任何永久载荷写入；
-  - 全新安装从当前模板创建 config.json，并由插件选择生成 disabledPlugins；
-  - 已有 current v1 仅更新 disabledPlugins，其他有效用户字段保持不变；
-  - 其余可解析的自有文档（旧版/未来 schemaVersion、陌生字段、非法值）容错
-    归一化到 v1：合法已知值携带、其余丢弃，再应用本次插件选择；
-  - 仅当 format 显式声明为其他产品，或文件损坏/超限/不可解析时失败关闭；
-  - Full 安装始终携带全部捆绑插件 JAR；Lite 不写新 JAR 并禁用全部捆绑插件；
-  - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
+This script mirrors the configuration policy of installer.nsi and configure_turboism.ps1:
+  - Config validation, migration, and plugin selection commit precede any permanent payload write;
+  - Fresh installs create config.json from the current template and write disabledPlugins from selection;
+  - Existing current v1 configs update only disabledPlugins while preserving other valid user fields;
+  - Other parseable own documents (legacy/future schemaVersion, unknown fields, invalid values)
+    normalize to v1: valid known values carry over, others are dropped, then selection applies;
+  - Fail closed only when format explicitly names another product or the file is corrupt/oversized/unparseable;
+  - Full installs always carry all bundled plugin JARs; Thin installs write no new JARs and disable all bundled plugins;
+  - Uninstall fail-closed cleanup ordering and exact LICENSE deletion remain unchanged.
 
-packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-33 项目 / 3 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
-id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
-（如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
-verify-installer.py 与 assemble-release.sh 从各 JAR 的
-META-INF/turboism/plugin.json 读取并逐一校验（见 SPEC.md）。
+packaging/release-plugins.txt remains the sole authoritative payload manifest: this script checks
+it as an explicit regression oracle (manifest drift fails), while the synthetic id/module fixtures
+below stay independent because Gradle module names need not match plugin ids (actual ids come from
+META-INF/turboism/plugin.json, checked by verify-installer.py and assemble-release.sh).
 """
 
 import json
@@ -80,22 +78,22 @@ def check(name, cond, detail=""):
 
 
 def load_manifest():
-    """回归 oracle：从唯一权威 release-plugins.txt 校验清单 —— 空行/注释/非插件项/
-    重复/未排序/偏离批准清单/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
-    不用于推导模拟器的插件 id（真实 id 以各 JAR 的 plugin.json 为准）。"""
+    """Regression oracle: verify release-plugins.txt has no blank/comment/non-plugin/duplicate/
+    unsorted entries, matches the approved list, and excludes public-exclusion modules. Returned
+    module names serve the oracle only; plugin ids come from each JAR's plugin.json."""
     raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
     invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
-    check("清单无空行/注释", not invalid, f"found={invalid[:3]}")
+    check("manifest has no blank lines or comments", not invalid, f"found={invalid[:3]}")
     lines = [l.strip() for l in raw if l.strip() and not l.strip().startswith("#")]
     entry = re.compile(r"^:plugins:[a-z0-9-]+$")
     bad = [l for l in lines if not entry.match(l)]
-    check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
-    check("清单无重复", len(set(lines)) == len(lines))
-    check("清单按 ASCII 升序", lines == sorted(lines))
-    check(f"清单与冻结 {len(EXPECTED_PATHS)} 项目一致", lines == EXPECTED_PATHS,
+    check("all manifest entries are plugin paths", not bad, f"bad={bad[:3]}")
+    check("manifest has no duplicates", len(set(lines)) == len(lines))
+    check("manifest is sorted in ASCII ascending order", lines == sorted(lines))
+    check(f"manifest matches frozen {len(EXPECTED_PATHS)} entries", lines == EXPECTED_PATHS,
           f"n={len(lines)}")
     modules = [l[len(":plugins:"):] for l in lines]
-    check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
+    check("public-exclusion modules absent from manifest", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
     return modules
 
@@ -103,7 +101,7 @@ def load_manifest():
 # A standalone synthetic fixture whose three id and module pairs mirror the NSIS config merge and
 # the payload section semantics only. It never derives from the real plugin list, because a Gradle
 # module name is no general convention for a plugin id. The real bundled ids come from
-# verify-installer.py 与 assemble-release.sh 从各 JAR 的 plugin.json 读取校验。
+# verify-installer.py and assemble-release.sh reading each JAR's plugin.json.
 BUNDLED = [
     ("dev.turboism.plugin.alpha", "plugin-alpha"),
     ("dev.turboism.plugin.beta", "plugin-beta"),
@@ -262,11 +260,11 @@ def _string_list_or_none(value):
 
 
 def normalize_v1(doc):
-    """容错归一化：任意可解析的自有文档提升到当前 v1。
+    """Tolerant normalization: promote any parseable own document to current v1.
 
-    已知字段值合法才携带；陌生字段与非法值丢弃而非拒绝；旧版根级
-    cubismJvm/graalVmPath 提升进 launcher（launcher 优先）。仅当 format
-    显式声明为其他产品的字符串时失败关闭。结果仍须通过完整 v1 校验。"""
+    Carry over valid known field values; drop unknown fields and invalid values instead of
+    rejecting; promote legacy root cubismJvm/graalVmPath into launcher (launcher wins). Fail
+    closed only when format explicitly names another product. Result must pass full v1 checks."""
     if not isinstance(doc, dict):
         raise ValueError("runtime config root must be an object")
     if isinstance(doc.get("format"), str) and doc["format"] != "turboism.runtime.config":
@@ -370,7 +368,7 @@ def desired_disabled(doc, mode="full", unchecked=None, bundled_ids=BUNDLED_IDS):
 
 
 def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
-    """镜像前置 SecConfig：校验/迁移后应用选择，仅 disabledPlugins 由安装器更新。"""
+    """Mirror pre-install SecConfig: validate/migrate then apply selection; installer updates only disabledPlugins."""
     current = None
     if existing_text is None:
         document = {
@@ -407,10 +405,9 @@ PRE_NORMALIZE_BACKUP = "config.json.corrupt.bak"
 
 
 def installer_write_config_with_backup(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
-    """镜像 SecConfig 的预归一化备份：仅当归一化覆盖既有 config.json 时保留单份镜像。
-
-    返回 (写出文本, 镜像字节或 None)。current v1 只更新 disabledPlugins，全新安装
-    从模板创建，两者都不产生 config.json.corrupt.bak。"""
+    """Mirror SecConfig pre-normalization backup: keep one snapshot only when normalization overwrites
+    existing config.json. Returns (written text, backup bytes or None); neither current v1
+    updates nor fresh template creation produce config.json.corrupt.bak."""
     output = installer_write_config(mode, unchecked, existing_text, bundled_ids)
     if existing_text is None:
         return output, None
@@ -422,8 +419,8 @@ def installer_write_config_with_backup(mode, unchecked, existing_text, bundled_i
 
 
 def nsis_jars_after(mode, prev_jars):
-    """镜像 NSIS 升级：Full 退休旧官方 JAR 并安装全部当前插件；
-    Thin 安装器不执行退休且不写新 JAR（plugins/ 原样保留）。"""
+    """Mirror NSIS upgrade: Full retires legacy official JARs and installs all current plugins;
+    Thin installer skips retirement and writes no new JARs (plugins/ stays intact)."""
     if mode in ("thin", "lite"):
         return sorted(prev_jars)
     retained = [module for module in prev_jars if module not in RETIRED_MODULES]
@@ -433,7 +430,7 @@ def nsis_jars_after(mode, prev_jars):
 
 
 def uninstall_statements():
-    """按出现顺序返回 Uninstall Section 的非空/非注释语句（行号, 文本）。"""
+    """Return non-empty, non-comment Uninstall Section statements as (line_number, text) in order."""
     lines = INSTALLER_NSI.read_text(encoding="utf-8").splitlines()
     start = next(i for i, l in enumerate(lines) if l.strip() == 'Section "Uninstall"')
     end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == "SectionEnd")
@@ -449,13 +446,13 @@ def find_stmt(texts, pred):
 
 
 def check_nsis_retirement_contract():
-    """NSIS 升级必须与 Java 安装器共同退休四个历史模块/id。"""
+    """NSIS upgrade must retire the four historical modules/ids together with the Java installer."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     common = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
     configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
     call = "-RetirePlugins"
-    check("R1 NSIS 通过身份校验 helper 执行退休", call in text)
-    check("R1 NSIS 从当前 staging 提取退休 helper",
+    check("R1 NSIS invokes retirement through identity-verified helper", call in text)
+    check("R1 NSIS extracts retirement helper from current staging",
           '${STAGING_DIR}/configure_turboism.ps1' in text
           and '${STAGING_DIR}/cubism-launch-common.ps1' in text
           and '$PLUGINSDIR\\Turboism-retire' in text)
@@ -463,12 +460,12 @@ def check_nsis_retirement_contract():
     exec_index = next(i for i, line in enumerate(lines)
                       if "nsExec::ExecToLog" in line and call in line)
     guard = "\n".join(lines[exec_index:exec_index + 7])
-    check("R1 NSIS 退休失败关闭",
+    check("R1 NSIS retirement fails closed",
           "$0 != 0" in guard and "PluginRetireError" in guard and "Abort" in guard)
-    check("R1 配置器公开 RetirePlugins 模式",
+    check("R1 configurator exposes RetirePlugins mode",
           "[switch]$RetirePlugins" in configure
           and "Remove-TurboismRetiredPlugins" in configure)
-    check("R1 退休授权读取嵌入 plugin.json id",
+    check("R1 retirement authorization reads embedded plugin.json id",
           "function Remove-TurboismRetiredPlugins" in common
           and "META-INF/turboism/plugin.json" in common)
 
@@ -478,39 +475,39 @@ def check_nsis_retirement_contract():
     raw = retired_manifest.read_text(encoding="utf-8").splitlines()
     bad = [l for l in raw
            if not re.fullmatch(r"dev\.turboism\.plugin\.[a-z0-9-]+", l.strip())]
-    check("R1b 退休清单每项均为合法插件 id", not bad, f"bad={bad[:3]}")
+    check("R1b every retired manifest entry is a valid plugin id", not bad, f"bad={bad[:3]}")
     entries = [l.strip() for l in raw]
-    check("R1b 退休清单无空行/注释",
+    check("R1b retired manifest has no blank lines or comments",
           len(entries) == len(raw) and all(entries))
-    check("R1b 退休清单无重复且按 ASCII 升序",
+    check("R1b retired manifest has no duplicates and is ASCII sorted",
           len(set(entries)) == len(entries) and entries == sorted(entries))
-    check("R1b 退休清单与冻结回归集一致",
+    check("R1b retired manifest matches frozen regression set",
           sorted(entries) == sorted(RETIRED_IDS), f"n={len(entries)}")
-    check("R1c NSIS staging 目录随脚本携带退休清单",
+    check("R1c NSIS staging carries retired manifest beside scripts",
           'File "/oname=retired-plugins.txt" "${STAGING_DIR}/retired-plugins.txt"' in text
           and 'Delete "$INSTDIR\\retired-plugins.txt"' in text)
     literal = re.compile(r'"(dev\.turboism\.plugin\.[a-z0-9-]+)"\s*,')
-    check("R1c 三处原硬编码站点改为引用清单",
+    check("R1c three former hardcoded sites reference the manifest",
           "Get-TurboismRetiredPluginIds" in common
           and "Get-TurboismRetiredPluginIds" in configure
           and not any(ident in literal.findall(common) + literal.findall(configure)
                       for ident in RETIRED_IDS))
     java_merge = (INSTALLER_NSI.parents[1] / "java-installer" / "listener-src" /
                   "dev" / "turboism" / "installer" / "ConfigMerge.java").read_text(encoding="utf-8")
-    check("R1d ConfigMerge 从打包资源加载退休清单",
+    check("R1d ConfigMerge loads retired manifest from packaged resource",
           '"/turboism/retired-plugins.txt"' in java_merge
           and "loadRetiredPluginIds" in java_merge
           and all(ident not in literal.findall(java_merge)
                   for ident in RETIRED_IDS))
     gradle = (INSTALLER_NSI.parents[1] / "java-installer" /
               "installer.gradle.kts").read_text(encoding="utf-8")
-    check("R1d 退休清单随 listener/regression jar 打包",
+    check("R1d retired manifest is packaged in listener/regression jar",
           '"packaging/retired-plugins.txt"' in gradle
           and 'include("retired-plugins.txt")' in gradle)
     contract = (INSTALLER_NSI.parents[2] / "runtime" / "src" / "main" / "java" /
                 "dev" / "turboism" / "core" / "plugin" /
                 "PluginJarContract.java").read_text(encoding="utf-8")
-    check("R1e 运行时准入边界从同一清单加载",
+    check("R1e runtime admission boundary loads from the same manifest",
           '"/META-INF/turboism/retired-plugins.txt"' in contract
           and "loadRetiredPluginIds" in contract
           and all(ident not in literal.findall(contract)
@@ -522,14 +519,14 @@ def check_config_migration_contract():
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
     generated = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
-    config_start = text.index('Section "-写入配置" SecConfig')
+    config_start = text.index('Section "-WriteConfig" SecConfig')
     config_end = text.index("SectionEnd", config_start)
     section = text[config_start:config_end]
     check("CM1 config commit precedes every permanent payload section",
-          config_start < text.index('Section "-核心文件" SecCore')
+          config_start < text.index('Section "-CoreFiles" SecCore')
           and config_start < text.index('!include "plugin-sections.nsh"')
-          and 'Section "-插件载荷" SecPluginPayload' in generated
-          and 'Section "-托管 GraalVM"' not in text)
+          and 'Section "-PluginPayload" SecPluginPayload' in generated
+          and 'Section "-ManagedGraal"' not in text)
     check("CM2 NSIS uses the current staged helper rather than an installed prior version",
           '$PLUGINSDIR\\Turboism-config\\configure_turboism.ps1' in section
           and '${STAGING_DIR}/configure_turboism.ps1' in section
@@ -589,14 +586,14 @@ def check_config_migration_contract():
 
 
 def ps_function_body(text, name):
-    """返回 PowerShell 顶层 function 的函数体（到下一个顶层 function 为止）。"""
+    """Return the body of a top-level PowerShell function up to the next top-level function."""
     start = text.index("function " + name)
     end = text.find("\nfunction ", start + 1)
     return text[start:] if end == -1 else text[start:end]
 
 
 def check_pre_normalize_backup_contract():
-    """N1: 归一化覆盖前保留单份 config.json.corrupt.bak，current v1 与全新安装不产生镜像。"""
+    """N1: keep one config.json.corrupt.bak before normalization; current v1 and fresh install keep none."""
     configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
     installer_root = INSTALLER_NSI.parents[1] / "java-installer"
     listener_src = installer_root / "listener-src" / "dev" / "turboism" / "installer"
@@ -687,7 +684,7 @@ def check_managed_graal_installer_contract():
           graal_page < install_page < discovery_page
           and install_page < text.index("Page custom LaunchOptionsCreate")
           and text.index("MUI_PAGE_DIRECTORY") < graal_page
-          and 'Section "-托管 GraalVM"' not in text)
+          and 'Section "-ManagedGraal"' not in text)
     graal_create_start = text.index("Function GraalInstallCreate")
     graal_create_end = text.index("FunctionEnd", graal_create_start)
     graal_create = text[graal_create_start:graal_create_end]
@@ -721,7 +718,7 @@ def check_managed_graal_installer_contract():
     # matches the frozen regression set.
     graal_manifest = json.loads((MANIFEST_PATH.parent / "managed-graal.json").read_text(encoding="utf-8"))
     graal_pin = graal_manifest["platforms"]["windows-x64"]
-    check("GI5 托管 Graal 钉值清单内容固定",
+    check("GI5 managed Graal pinned manifest contents match expected values",
           graal_manifest["format"] == "turboism.managed-graal"
           and graal_manifest["schemaVersion"] == 1
           and graal_manifest["graalVersion"] == "25.2.4"
@@ -746,7 +743,7 @@ def check_managed_graal_installer_contract():
         (INSTALLER_NSI.parents[2] / "gradle/libs.versions.toml").read_text(encoding="utf-8"),
         re.MULTILINE,
     )
-    check("GI5b 接口常量/构建脚本版本与清单一致",
+    check("GI5b contract constants and build script versions match manifest",
           ('MANAGED_GRAAL_VERSION = "%s"' % graal_manifest["graalVersion"]) in jvm_settings
           and ('MANAGED_JAVA_VERSION = "%s"' % graal_manifest["javaVersion"]) in jvm_settings
           and "val graalVersion = libs.versions.graal.get()" in graal_build
@@ -916,7 +913,7 @@ def check_configurator_flow_contract():
     # Final configuration must run during installation, not in .onInstSuccess:
     # that callback blocks the UI thread, so the wizard turns "Not Responding"
     # and an elevation prompt has no live owner window to attach to.
-    final_section_start = text.index('Section "-最终配置" SecFinalConfiguration')
+    final_section_start = text.index('Section "-FinalConfiguration" SecFinalConfiguration')
     final_section = text[final_section_start:text.index("SectionEnd", final_section_start)]
     success = text[text.index("Function RunFinalConfiguration"):
                    text.index("FunctionEnd", text.index("Function RunFinalConfiguration"))]
@@ -924,7 +921,7 @@ def check_configurator_flow_contract():
           final_section_start < text.index('Section "Uninstall"')
           and "Call RunFinalConfiguration" in final_section
           and "Function .onInstSuccess" not in text
-          and final_section_start > text.index('Section -"开始菜单与注册" SecStartMenuReg'))
+          and final_section_start > text.index('Section "-StartMenuAndRegistry" SecStartMenuReg'))
     check("CF2 successful installation performs hidden headless initial configuration",
           success.count("nsExec::ExecToLog") == 5
           and "ExecWait" not in success
@@ -958,26 +955,29 @@ def check_configurator_flow_contract():
           and '${For} $pos 0 63' in reader
           and '$CubismDiscoverySnapshotHash == ""' in reader
           and '${FileExists} "$CubismDiscoveryResult.json"' in reader)
-    silent_start = text.index('Section "-静默发现 Cubism"')
+    silent_start = text.index('Section "-SilentDiscovery"')
     silent = text[silent_start:text.index("SectionEnd", silent_start)]
     check("CF2-cache silent installation scans once before permanent configuration",
           'IfSilent 0 SilentDiscoveryDone' in silent
           and 'Call CubismDiscoveryPrepareFiles' in silent
           and 'Call CubismDiscoveryReadResult' in silent
           and silent.count('InstallerDiscoveryOutput') == 1
-          and silent_start < text.index('Section "-写入配置"'))
+          and silent_start < text.index('Section "-WriteConfig"'))
     cached_start = common.index('function Read-CubismInstallerSnapshot')
     cached_reader = common[cached_start:common.index('function Write-CubismInstallerDiscoveryReport', cached_start)]
     check("CF2-cache snapshot import never enumerates drives or launches a version probe",
           all(name not in cached_reader for name in (
               'Get-CubismDiscoveryRoots', 'Get-CubismInstallations', 'Get-CubismVersionFromArtifact'))
-          and 'Get-CubismSha256 $application' in cached_reader
-          and 'Get-CubismSha256 $java' in cached_reader
           and 'Get-ConfiguratorCandidates -State $state' in configure)
-    check("CF2-cache snapshot import never hashes the 14 MB agent on every launch",
+    check("CF2-cache snapshot import never hashes the 14 MB agent or 45 MB host binaries",
           'Get-CubismSha256 $agent' not in cached_reader
+          and 'Get-CubismSha256 $application' not in cached_reader
+          and 'Get-CubismSha256 $java' not in cached_reader
           and 'verifierSha256 =' not in common
-          and "cne 'verifierSha256'" in cached_reader)
+          and 'applicationSha256 =' not in common
+          and 'javaSha256 =' not in common
+          and "cne 'verifierSha256'" in cached_reader
+          and "'applicationSha256', 'javaSha256'" in cached_reader)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
@@ -992,7 +992,7 @@ def check_configurator_flow_contract():
           and "-OwnerHwnd $HWNDPARENT" in text
           and "AllowSetForegroundWindow" in text
           and "-RefreshReceipt" in text)
-    core_start = text.index('Section "-核心文件" SecCore')
+    core_start = text.index('Section "-CoreFiles" SecCore')
     core_section = text[core_start:text.index("SectionEnd", core_start)]
     check("CF2d installer clears stale bootstrap and update state before conditional receipt setup",
           "-ResetUpdateState" in core_section
@@ -1095,8 +1095,8 @@ def check_jar_payload_contract():
     check("PAY4 every permanent core file is checksum-managed",
           all(('"%s"' % name) in core_payload_source for name in permanent_core)
           and 'stage / "graal" / "lib"' in core_payload_source)
-    core_section = text[text.index('Section "-核心文件" SecCore'):
-                        text.index("SectionEnd", text.index('Section "-核心文件" SecCore'))]
+    core_section = text[text.index('Section "-CoreFiles" SecCore'):
+                        text.index("SectionEnd", text.index('Section "-CoreFiles" SecCore'))]
     check("PAY5 core plan precedes conditional extraction and verified copy",
           "payload-core.sha256" in core_section
           and "-PlanOnly" in core_section
@@ -1256,8 +1256,8 @@ def check_launcher_and_shortcut_contract():
     macro_start = text.index("!macro RemoveLegacyStartMenuShortcuts")
     macro_end = text.index("!macroend", macro_start)
     legacy_macro = text[macro_start:macro_end]
-    start_menu = text[text.index('Section -"开始菜单与注册"'):
-                      text.index("SectionEnd", text.index('Section -"开始菜单与注册"'))]
+    start_menu = text[text.index('Section "-StartMenuAndRegistry"'):
+                      text.index("SectionEnd", text.index('Section "-StartMenuAndRegistry"'))]
     uninstall = text[text.index('Section "Uninstall"'):
                      text.index("SectionEnd", text.index('Section "Uninstall"'))]
     check("L5 upgrades and uninstall share all 0.43.0 Start Menu names",
@@ -1549,7 +1549,7 @@ def check_graal_fallback_contract():
 
 
 def check_uninstall_config_option():
-    """卸载确认页的配置保留选项必须属于 MUI 内页且默认保留。"""
+    """Uninstall confirm page keep-config checkbox must belong to the MUI page and default checked."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     show_start = text.index("Function un.ConfirmShow")
     show_end = text.index("FunctionEnd", show_start)
@@ -1617,38 +1617,38 @@ def check_uninstall_config_option():
 
 
 def check_uninstall_postcondition():
-    """卸载失败关闭顺序回归：清理调用/$0 非零守卫 -> 状态文件仍存在则失败关闭
-    -> 之后才允许 DeleteRegKey 与载荷删除（Wine 内置 PowerShell 返回 0 而未执行
-    清理的复现：NSIS 曾仅信任 $0 导致残留）；LICENSE 删除必须使用精确基线名。"""
+    """Uninstall fail-closed order regression: cleanup call/$0 non-zero guard -> fail closed if
+    state file still exists -> only then allow DeleteRegKey and payload deletion; LICENSE
+    deletion must use the exact baseline name."""
     stmts = uninstall_statements()
     texts = [t for _, t in stmts]
     cleanup = find_stmt(texts, lambda t: "nsExec::ExecToLog" in t and "-Cleanup" in t)
-    check("U1 托管清理调用存在", cleanup is not None)
+    check("U1 managed cleanup call exists", cleanup is not None)
     if cleanup is None:
         return
     guard0 = find_stmt(texts, lambda t: t == "${If} $0 != 0")
-    check("U1 清理调用先于 $0 非零守卫", guard0 is not None and guard0 > cleanup)
-    check("U1 $0 守卫失败关闭（ShortcutCleanupFailure + Abort）",
+    check("U1 cleanup precedes $0 non-zero guard", guard0 is not None and guard0 > cleanup)
+    check("U1 $0 guard fails closed (ShortcutCleanupFailure + Abort)",
           guard0 is not None
           and any("ShortcutCleanupFailure" in t for t in texts[guard0:guard0 + 3])
           and "Abort" in texts[guard0:guard0 + 3])
     if guard0 is None:
         return
     state = find_stmt(texts, lambda t: "${FileExists}" in t and "cubism-installations.json" in t)
-    check("U2 状态文件失败关闭守卫存在", state is not None)
+    check("U2 state file fail-closed guard exists", state is not None)
     if state is None:
         return
-    check("U2 状态守卫位于 $0 守卫之后", state > guard0)
-    check("U2 状态守卫失败关闭（ShortcutCleanupFailure + Abort）",
+    check("U2 state guard follows $0 guard", state > guard0)
+    check("U2 state guard fails closed (ShortcutCleanupFailure + Abort)",
           any("ShortcutCleanupFailure" in t for t in texts[state:state + 3])
           and "Abort" in texts[state:state + 3])
     regkey = find_stmt(texts, lambda t: t.startswith("DeleteRegKey"))
     payload = find_stmt(texts, lambda t: t.startswith('Delete "$INSTDIR\\'))
-    check("U3 状态守卫先于 DeleteRegKey", regkey is not None and state < regkey)
-    check("U3 状态守卫先于载荷删除", payload is not None and state < payload)
+    check("U3 state guard precedes DeleteRegKey", regkey is not None and state < regkey)
+    check("U3 state guard precedes payload deletion", payload is not None and state < payload)
     lic_txt = find_stmt(texts, lambda t: t == 'Delete "$INSTDIR\\LICENSE.txt"')
     lic_legacy = find_stmt(texts, lambda t: t == 'Delete "$INSTDIR\\LICENSE"')
-    check("U4 删除精确安装基线名 LICENSE.txt 与旧版 LICENSE 残留",
+    check("U4 delete exact LICENSE.txt and legacy LICENSE leftover",
           lic_txt is not None and lic_legacy is not None and lic_txt < lic_legacy)
 
     # U5: the plugins directory uses an allowlist delete with the same semantics as the IzPack
@@ -1656,12 +1656,12 @@ def check_uninstall_postcondition():
     # un.DeleteInstallerPluginJars names, keeps an unknown file and a third-party JAR, and removes
     # the directory only when it is empty. Restoring RMDir /r is forbidden.
     generated = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
-    check("U5 plugins 目录禁止递归强删",
+    check("U5 plugins directory forbids recursive delete",
           not any('RMDir /r "$INSTDIR\\plugins"' in t for t in texts))
-    check("U5 plugins 白名单调用先于空目录移除",
+    check("U5 plugins allowlist call precedes empty dir removal",
           any("Call un.DeleteInstallerPluginJars" in t for t in texts)
           and any(t == 'RMDir "$INSTDIR\\plugins"' for t in texts))
-    check("U5 生成器输出卸载白名单函数",
+    check("U5 generator emits uninstall allowlist function",
           "Function un.DeleteInstallerPluginJars" in generated
           and all(('Delete "$INSTDIR\\plugins\\%s.jar"' % m) in generated
                   for m in REAL_MODULES)
@@ -1674,19 +1674,19 @@ def main():
     # T1: Full with every plugin selected and no existing config yields the template without disabledPlugins
     out = installer_write_config("full", [], None)
     doc = json.loads(out)
-    check("T1 模板字段", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
+    check("T1 template fields", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
           and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
           and doc["launcher"] == {"cubismJvm": "graalvm"} and doc["useTextIcon"] is False
           and doc["guide"] == {"showOnStartup": True})
-    check("T1 无 disabledPlugins", "disabledPlugins" not in doc)
+    check("T1 no disabledPlugins", "disabledPlugins" not in doc)
 
     # T2: Full with 2 plugins unselected and no existing config writes the list in ascending order
     out = installer_write_config("full", [c, a], None)
     doc = json.loads(out)
-    check("T2 升序", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
-    # T2b: the JSON array shape holds no extra quote around the brackets, quotes each item once, and separates items with ",
+    check("T2 ascending order", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
+    # T2b: the JSON array shape holds no extra quote around the brackets, quotes each item once, and separates items with ","
     expected_fragment = '"disabledPlugins":["' + a + '","' + c + '"]'
-    check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
+    check('T2b JSON array shape (no extra quotes, "," separated)', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
     # T10: the onboarding state must survive an installer upgrade, because a lost state shows the once-only onboarding again.
@@ -1694,14 +1694,14 @@ def main():
                      '"worktreeId":"guide-test","disabledPlugins":[],'
                      '"guide":{"showOnStartup":false}}')
     out = installer_write_config("full", [a], current_guide)
-    check("T10 current v1 更新保留引导状态",
+    check("T10 current v1 update preserves guide state",
           json.loads(out)["guide"] == {"showOnStartup": False})
     legacy_guide = '{"worktreeId":"legacy-guide","guide":{"showOnStartup":false},"future":1}'
     out = installer_write_config("full", [], legacy_guide)
-    check("T10 归一化保留引导状态",
+    check("T10 normalization preserves guide state",
           json.loads(out)["guide"] == {"showOnStartup": False})
     out = installer_write_config("full", [], '{"guide":{"showOnStartup":"no"}}')
-    check("T10 非法引导状态被丢弃", "guide" not in json.loads(out))
+    check("T10 invalid guide state dropped", "guide" not in json.loads(out))
 
     # T3: a Full install applies the current selection: a checked bundled plugin is enabled
     # and an unrelated disabled id survives.
@@ -1710,9 +1710,9 @@ def main():
                            "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG", "useTextIcon": True}, indent=2)
     out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("T3 current schema 勾选的捆绑插件被启用",
+    check("T3 current schema checked bundled plugin enabled",
           doc["disabledPlugins"] == [UNRELATED], str(doc.get("disabledPlugins")))
-    check("T3 current schema 保留其他用户字段",
+    check("T3 current schema preserves other user fields",
           doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"]
           and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
 
@@ -1737,15 +1737,15 @@ def main():
     # T4: a Thin update keeps the existing disabledPlugins and also keeps an unrelated disabled entry and the other fields.
     out = installer_write_config("thin", [], existing)
     doc = json.loads(out)
-    check("T4 Thin 更新保留用户既有 disabledPlugins",
+    check("T4 Thin update preserves existing disabledPlugins",
           doc["disabledPlugins"] == sorted([a, UNRELATED]))
-    check("T4 Thin 更新保留其他用户字段",
+    check("T4 Thin update preserves other user fields",
           doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"])
 
-    # T5: Thin 全新安装不写入 disabledPlugins。
+    # T5: fresh Thin install writes no disabledPlugins.
     out = installer_write_config("thin", [], None)
     doc = json.loads(out)
-    check("T5 fresh thin 无 disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [],
+    check("T5 fresh thin has no disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [],
           str(doc.get("disabledPlugins")))
 
     # T6: a schema-less v0 document migrates to v1, keeps known settings, and applies the selection.
@@ -1754,19 +1754,19 @@ def main():
                          "useTextIcon": True, "cubismJvm": "bundled"})
     out = installer_write_config("full", [], legacy)
     doc = json.loads(out)
-    check("T6 v0 迁移到 current schema",
+    check("T6 v0 migrates to current schema",
           doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1)
-    check("T6 v0 保留用户设置",
+    check("T6 v0 preserves user settings",
           doc["worktreeId"] == "legacy-runtime" and doc["pluginDirs"] == ["custom"]
           and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
-    check("T6 v0 勾选的捆绑插件被启用", doc["disabledPlugins"] == [UNRELATED],
+    check("T6 v0 checked bundled plugin enabled", doc["disabledPlugins"] == [UNRELATED],
           str(doc.get("disabledPlugins")))
-    check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
+    check("T6 v0 JVM field migrated into launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
     # T7: normalization drops an unknown field instead of failing closed.
     out = installer_write_config("full", [], '{"legacyUnknown":true}')
     doc = json.loads(out)
-    check("T7 未知字段被丢弃并归一化为 v1",
+    check("T7 unknown field dropped and normalized to v1",
           "legacyUnknown" not in doc and doc["schemaVersion"] == 1
           and doc["format"] == "turboism.runtime.config")
 
@@ -1775,26 +1775,26 @@ def main():
                                  '{"format":"turboism.runtime.config","schemaVersion":2,'
                                  '"worktreeId":"future-test","futureField":true}')
     doc = json.loads(out)
-    check("T8 future schema 归一化到 v1",
+    check("T8 future schema normalized to v1",
           doc["schemaVersion"] == 1 and "futureField" not in doc
           and doc["worktreeId"] == "future-test")
 
-    for label, schema in (("字符串", '"1"'), ("小数", "1.0")):
+    for label, schema in (("string", '"1"'), ("float", "1.0")):
         out = installer_write_config(
                 "full", [],
                 '{"format":"turboism.runtime.config","schemaVersion":' + schema
                 + ',"worktreeId":"token-test"}')
         doc = json.loads(out)
-        check("T8 schemaVersion " + label + " token 归一化",
+        check("T8 schemaVersion " + label + " token normalized",
               doc["schemaVersion"] == 1 and doc["worktreeId"] == "token-test")
 
     # T8b: only a document that explicitly declares another product format still fails closed.
     try:
         installer_write_config("full", [],
                                '{"format":"other.runtime.config","schemaVersion":1}')
-        check("T8b foreign format 失败关闭", False)
+        check("T8b foreign format fails closed", False)
     except ValueError:
-        check("T8b foreign format 失败关闭", True)
+        check("T8b foreign format fails closed", True)
 
     # T9: a current v1 document normalizes both an unknown field and an illegal known value, so a legal value carries over and the rest is dropped.
     invalid_current = ('{"format":"turboism.runtime.config","schemaVersion":1,'
@@ -1802,16 +1802,16 @@ def main():
                        '"logLevel":"DEBUG"}')
     out = installer_write_config("full", [a], invalid_current)
     doc = json.loads(out)
-    check("T9 current schema 未知字段被丢弃",
+    check("T9 current schema unknown field dropped",
           "futureCurrentField" not in doc
           and doc["worktreeId"] == "current-test" and doc["logLevel"] == "DEBUG"
           and doc["disabledPlugins"] == [a])
     for label, legacy_invalid, field in (
-        ("日志级别", '{"logLevel":"BOGUS"}', "logLevel"),
-        ("安全模式类型", '{"safeMode":"false"}', "safeMode"),
-        ("文字图标类型", '{"useTextIcon":"false"}', "useTextIcon"),
-        ("启动器枚举", '{"cubismJvm":"other"}', "launcher"),
-        ("插件目录类型", '{"pluginDirs":"plugins"}', None),
+        ("logLevel", '{"logLevel":"BOGUS"}', "logLevel"),
+        ("safeMode type", '{"safeMode":"false"}', "safeMode"),
+        ("useTextIcon type", '{"useTextIcon":"false"}', "useTextIcon"),
+        ("launcher enum", '{"cubismJvm":"other"}', "launcher"),
+        ("pluginDirs type", '{"pluginDirs":"plugins"}', None),
     ):
         out = installer_write_config("full", [], legacy_invalid)
         doc = json.loads(out)
@@ -1821,69 +1821,69 @@ def main():
             ok = "launcher" not in doc or "cubismJvm" not in doc.get("launcher", {})
         else:
             ok = field not in doc
-        check("T9 非法" + label + "被丢弃并归一化", ok and doc["schemaVersion"] == 1)
+        check("T9 invalid " + label + " dropped and normalized", ok and doc["schemaVersion"] == 1)
 
     # T9b: a normalization that overwrites an existing config.json keeps one pre-normalization mirror, while a current v1 document and a fresh install produce none.
     out, backup = installer_write_config_with_backup("full", [a], invalid_current)
-    check("T9b 归一化保留归一化前镜像",
+    check("T9b normalization preserves pre-normalize backup",
           backup == invalid_current and "futureCurrentField" not in out)
     out, backup = installer_write_config_with_backup("full", [c], existing)
-    check("T9b current v1 选择更新不产生镜像", backup is None and out != existing)
+    check("T9b current v1 selection update creates no backup", backup is None and out != existing)
     out, backup = installer_write_config_with_backup("full", [], legacy)
-    check("T9b v0 迁移保留归一化前镜像", backup == legacy and json.loads(out)["schemaVersion"] == 1)
+    check("T9b v0 migration preserves pre-normalize backup", backup == legacy and json.loads(out)["schemaVersion"] == 1)
     out, backup = installer_write_config_with_backup("full", [], None)
-    check("T9b 全新安装不产生镜像", backup is None)
+    check("T9b fresh install creates no backup", backup is None)
 
     # ---- Plugin payload inventory simulation of the hidden payload section and the checkbox semantics ----
     # TI1: a fresh partial Full install with {a, c} unselected installs every JAR and writes disabledPlugins=[a,c]
     jars = nsis_jars_after("full", [])
-    check("TI1 Full 安装全部 JAR", jars == BUNDLED_MODULES, str(jars))
+    check("TI1 Full installs all JARs", jars == BUNDLED_MODULES, str(jars))
     out = installer_write_config("full", [a, c], None)
     doc = json.loads(out)
-    check("TI1 disabledPlugins == 未勾选", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
+    check("TI1 disabledPlugins == unchecked", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
 
     # TI2: a later Full update lays every JAR and applies the current selection, so the two
     # previously unchecked bundled plugins become enabled again.
     out = installer_write_config("full", [], out)
     doc = json.loads(out)
     jars = nsis_jars_after("full", jars)
-    check("TI2 更新后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
-    check("TI2 更新启用重新勾选的捆绑插件",
+    check("TI2 updated JAR inventory complete", jars == BUNDLED_MODULES, str(jars))
+    check("TI2 update re-enables checked bundled plugins",
           doc.get("disabledPlugins", []) == [], str(doc.get("disabledPlugins")))
 
     # TI2b: a legacy v0 config also has its checked bundled id enabled.
     existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
     out = installer_write_config("full", [], existing)
     doc = json.loads(out)
-    check("TI2b v0 迁移启用勾选的捆绑插件", doc["disabledPlugins"] == [UNRELATED],
+    check("TI2b v0 migration enables checked bundled plugin", doc["disabledPlugins"] == [UNRELATED],
           str(doc.get("disabledPlugins")))
 
-    # TI3: 全新 Thin → 无插件 JAR；无 disabledPlugins
+    # TI3: fresh Thin -> no plugin JARs; no disabledPlugins
     jars = nsis_jars_after("thin", [])
-    check("TI3 Thin 全新无插件 JAR", jars == [], str(jars))
+    check("TI3 fresh Thin has no plugin JARs", jars == [], str(jars))
     out = installer_write_config("thin", [], None)
     doc = json.loads(out)
-    check("TI3 Thin 全新无 disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [], str(doc.get("disabledPlugins")))
+    check("TI3 fresh Thin has no disabledPlugins", "disabledPlugins" not in doc or doc["disabledPlugins"] == [], str(doc.get("disabledPlugins")))
 
     # TI4: Full to Thin writes no new JAR, keeps the plugins directory unchanged, and keeps the existing disabledPlugins.
     jars = nsis_jars_after("thin", BUNDLED_MODULES)
-    check("TI4 Full→Thin 不写新 JAR（当前旧 JAR 原样留盘）", jars == BUNDLED_MODULES, str(jars))
+    check("TI4 Full->Thin writes no new JARs (existing JARs stay on disk)", jars == BUNDLED_MODULES, str(jars))
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
                            "disabledPlugins": [a]})
     out = installer_write_config("thin", [], existing)
     doc = json.loads(out)
-    check("TI4 Full→Thin 保留用户既有 disabledPlugins", doc["disabledPlugins"] == [a])
+    check("TI4 Full->Thin preserves existing disabledPlugins", doc["disabledPlugins"] == [a])
 
     # TI5: in an NSIS upgrade, a Thin upgrade deletes no plugin, and a Full upgrade retires the historical module and lays down the full set.
     jars = nsis_jars_after("thin", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
-    check("TI5 Thin 升级保留全部既有插件 JAR（包含未知与第三方 JAR）",
+    check("TI5 Thin upgrade keeps all existing plugin JARs (including unknown and third-party JARs)",
           jars == sorted(RETIRED_MODULES + BUNDLED_MODULES + ["third-party"]), str(jars))
     jars = nsis_jars_after("full", RETIRED_MODULES + ["third-party"])
-    check("TI5 Full 升级退休历史 JAR、安装当前全量并保留未知 JAR",
+    check("TI5 Full upgrade retires historical JARs, installs full set, and keeps unknown JARs",
           jars == sorted(BUNDLED_MODULES + ["third-party"]), str(jars))
 
-    # 输出有效性：schemaVersion/format 完整
+    # Output validity: schemaVersion/format intact
     for label, out in [("T3", out)]:
         doc = json.loads(out)
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
@@ -1918,7 +1918,7 @@ def main():
     check_graal_fallback_contract()
     check_uninstall_config_option()
     check_uninstall_postcondition()
-    print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")
+    print("config merge + payload simulation + uninstall postcondition verified: all cases ok")
 
 
 if __name__ == "__main__":

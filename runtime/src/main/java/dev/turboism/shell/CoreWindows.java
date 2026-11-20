@@ -4,6 +4,7 @@ import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.core.net.HttpLinks;
+import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.pluginmanagement.PluginAutoUpdateControl;
@@ -75,17 +76,17 @@ final class CoreWindows implements AutoCloseable {
     private long pluginDetailsRequest;
     private long pluginRefreshRequest;
     /** Fixed first-party download page; the client never opens a URL taken from the feed. */
-    static final String UPDATE_DOWNLOAD_PAGE = "https://turboism.dev/download";
+    static final String UPDATE_DOWNLOAD_PAGE = TurboismEndpoints.DOWNLOAD_PAGE_URL;
     /** Fixed first-party online Plugin Directory page. */
-    static final String PLUGIN_MARKET_PAGE = "https://turboism.dev/plugins";
+    static final String PLUGIN_MARKET_PAGE = TurboismEndpoints.PLUGIN_MARKET_URL;
 
     private static volatile Consumer<String> testUpdateUrlObserver;
     private static volatile Runnable testUpdatesWindowObserver;
     private static volatile Consumer<URI> testSettingsLinkObserver;
-    static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
-    static final String ABOUT_THANKS = "https://thanks.turboism.dev";
-    static final String ABOUT_LICENSE = "https://github.com/turboism/Turboism/blob/main/LICENSE";
-    static final String ABOUT_EULA = "https://github.com/turboism/Turboism/blob/main/EULA.md";
+    static final String ABOUT_HOMEPAGE = TurboismEndpoints.WWW_ORIGIN;
+    static final String ABOUT_THANKS = TurboismEndpoints.THANKS_ORIGIN;
+    static final String ABOUT_LICENSE = TurboismEndpoints.GITHUB_LICENSE_URL;
+    static final String ABOUT_EULA = TurboismEndpoints.GITHUB_EULA_URL;
     private static final int ABOUT_BODY_WIDTH = 360;
     private static final String LINK_COLOR_KEY = "Component.linkColor";
     private static final Color FALLBACK_LINK_COLOR = new Color(0x155dfc);

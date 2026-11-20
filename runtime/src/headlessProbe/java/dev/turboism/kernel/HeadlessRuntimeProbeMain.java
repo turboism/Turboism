@@ -1,9 +1,11 @@
 package dev.turboism.kernel;
 
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.core.FrameworkBuildInfo;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.internal.TurboismEndpoints;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +33,8 @@ public final class HeadlessRuntimeProbeMain {
     private static final String LOADED_MARKER = "dev.turboism.probe.headless-loaded";
     private static final String DENIED_MARKER = "dev.turboism.probe.internal-denied";
     private static final String CONTRACT_PROBE = "dev.turboism.internal.core.CorePluginManagement";
+    private static final String TURBOISM_API_RANGE =
+            "[" + FrameworkBuildInfo.current().apiVersion() + ",)";
 
     private HeadlessRuntimeProbeMain() {}
 
@@ -137,12 +141,12 @@ public final class HeadlessRuntimeProbeMain {
         return """
             {"format":"turboism.plugin.meta","schemaVersion":2,"id":"dev.example.headless",
             "name":"HeadlessFixture","version":"0.1.0","description":"probe",
-            "entrypoints":["dev.example.HeadlessFixture"],"turboismApi":"[0.67.0,)",
-            "authors":[{"name":"Probe"}],"license":"Test","website":"https://turboism.dev",
+            "entrypoints":["dev.example.HeadlessFixture"],"turboismApi":"%s",
+            "authors":[{"name":"Probe"}],"license":"Test","website":"%s",
             "resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
             "dependencies":[],"permissions":[],"capabilities":[],
             "environment":{"requiresCubism":false,"ui":"none"}}
-            """;
+            """.formatted(TURBOISM_API_RANGE, TurboismEndpoints.SITE_ORIGIN);
     }
 
     private static void add(final JarOutputStream output, final String name, final byte[] bytes) throws Exception {

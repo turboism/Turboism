@@ -551,7 +551,7 @@ class SurfaceWarpAuthoringTest {
                 case "deformers" ->
                     proxy(Deformers.class, (method, args) -> switch (method.getName()) {
                         case "createWarp" -> warp();
-                        case "createRotation" -> ((String) args[0]).endsWith(" Z 旋转") ? roll() : placement();
+                        case "createRotation" -> ((String) args[0]).endsWith(" Z Rotation") ? roll() : placement();
                         default -> unexpected(method);
                     });
                 case "drawables" ->

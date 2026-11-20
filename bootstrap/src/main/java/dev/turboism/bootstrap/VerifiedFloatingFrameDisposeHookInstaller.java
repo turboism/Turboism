@@ -1,22 +1,16 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.ui.panel.FloatingFrameDisposeNativeMethodTransformer;
 import java.lang.instrument.Instrumentation;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs the exact palette-frame disposal transformer only for verified selectors. */
 final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final StaticSelector dispose;
-    private final ClassLoader hostClassLoader;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean();
-    private FloatingFrameDisposeNativeMethodTransformer transformer;
+    private final HookInstallSession session;
 
     VerifiedFloatingFrameDisposeHookInstaller(
             final Instrumentation instrumentation, final StaticSelector dispose, final ClassLoader hostClassLoader) {
@@ -32,47 +26,32 @@ final class VerifiedFloatingFrameDisposeHookInstaller implements AutoCloseable {
             final StaticSelector dispose,
             final ClassLoader hostClassLoader,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.dispose = Objects.requireNonNull(dispose, "dispose");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.loadedClasses = loadedClasses;
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(dispose, "dispose");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         if (dispose.kind() != StaticSelector.Kind.METHOD
                 || (dispose.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
             throw new IllegalArgumentException(
                     "Floating-frame dispose selector does not describe an exact instance method");
         }
+        this.session = HookInstallSession.builder(
+                        instrumentation,
+                        hostClassLoader,
+                        Set.of(dispose.ownerInternalName().replace('/', '.')))
+                .loadedClasses(loadedClasses)
+                .transformerFactory(() -> List.of(new FloatingFrameDisposeNativeMethodTransformer(
+                        dispose.ownerInternalName(), dispose.memberName(), dispose.descriptor(), hostClassLoader)))
+                .retransformUnavailableMessage("Floating-frame dispose retransformation is unavailable")
+                .installFailureMessage("Verified floating-frame dispose hook installation failed")
+                .build();
     }
 
     void install() {
-        if (!installed.compareAndSet(false, true)) return;
-        try {
-            transformer = new FloatingFrameDisposeNativeMethodTransformer(
-                    dispose.ownerInternalName(), dispose.memberName(), dispose.descriptor(), hostClassLoader);
-            instrumentation.addTransformer(transformer, true);
-            if (!instrumentation.isRetransformClassesSupported()) {
-                throw new IllegalStateException("Floating-frame dispose retransformation is unavailable");
-            }
-            VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation,
-                    loadedClasses(),
-                    Set.of(dispose.ownerInternalName().replace('/', '.')),
-                    hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw new IllegalStateException("Verified floating-frame dispose hook installation failed", failure);
-        }
+        session.installWrapped();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        final FloatingFrameDisposeNativeMethodTransformer current = transformer;
-        transformer = null;
-        if (current != null) instrumentation.removeTransformer(current);
-    }
-
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 }

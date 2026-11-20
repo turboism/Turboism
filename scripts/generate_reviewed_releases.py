@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_releases
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, load_dependencies, load_releases
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = Path('scripts/reviewed-releases/ReviewedHostArtifacts.java.template')
@@ -30,6 +30,17 @@ RANGE_OUTPUTS = {
 
 def render(root: Path) -> dict[Path, str]:
     releases = load_releases(root / SOURCE_RELATIVE)
+    dependencies = load_dependencies(root / SOURCE_RELATIVE)
+    jogl = dependencies['CUBISM_5_3_03_JOGL']
+    jogl_size = format(jogl.size, ',').replace(',', '_')
+    dependencies_block = (
+        '    /**\n'
+        '     * Bundled JOGL dependency examined for the opt-in 5.3.03 uniform-location hook.\n'
+        '     * This is not an Editor artifact and is deliberately excluded from {@link #all()}.\n'
+        '     */\n'
+        '    public static final HostArtifactDigest CUBISM_5_3_03_JOGL =\n'
+        f'            new HostArtifactDigest({jogl_size}L, "{jogl.sha256}");'
+    )
     symbols = ['CUBISM_' + r['version'].replace('.', '_') for r in releases]
     constants = []
     for r, symbol in zip(releases, symbols):
@@ -43,6 +54,7 @@ def render(root: Path) -> dict[Path, str]:
                          f'            new HostArtifactDigest({size}L, "{a["sha256"]}");')
     replacements = {
         '@@CONSTANTS@@': '\n\n'.join(constants),
+        '@@DEPENDENCIES@@': dependencies_block,
         '@@VERSIONS@@': ',\n'.join('            ' + s + '_VERSION' for s in symbols),
         '@@ARTIFACTS@@': ',\n'.join('                ' + s for s in symbols),
         '@@LOOKUP@@': '\n'.join(f'        if ({s}.equals(artifact)) {{\n'

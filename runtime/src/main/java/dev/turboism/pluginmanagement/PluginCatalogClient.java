@@ -1,5 +1,7 @@
 package dev.turboism.pluginmanagement;
 
+import dev.turboism.core.io.Sha256;
+import dev.turboism.internal.TurboismEndpoints;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,7 +14,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -32,10 +33,10 @@ import java.util.regex.Pattern;
 public final class PluginCatalogClient {
 
     /** Canonical HTTPS endpoint for the complete v2 catalog. */
-    public static final URI CATALOG_URI = URI.create("https://plugin.turboism.dev/api/v2/catalog.json");
+    public static final URI CATALOG_URI = URI.create(TurboismEndpoints.PLUGIN_CATALOG_URL);
 
     /** Canonical HTTPS endpoint for the detached v2 catalog signature envelope. */
-    public static final URI SIGNATURE_URI = URI.create("https://plugin.turboism.dev/api/v2/catalog.json.sig");
+    public static final URI SIGNATURE_URI = URI.create(TurboismEndpoints.PLUGIN_CATALOG_SIGNATURE_URL);
 
     /** Accept header value for the v2 catalog endpoint. */
     public static final String CATALOG_ACCEPT = "application/vnd.turboism.plugin-catalog+json;version=2";
@@ -215,8 +216,8 @@ public final class PluginCatalogClient {
         final String revision = update.release().sourceRevision().orElse("");
         final String slug = update.plugin().slug();
         if (!update.plugin().isOfficial()
-                || !"https://github.com/turboism/Turboism"
-                        .equalsIgnoreCase(update.plugin().repository())
+                || !TurboismEndpoints.GITHUB_REPO_URL.equalsIgnoreCase(
+                        update.plugin().repository())
                 || !revision.matches("[0-9a-f]{40}")
                 || !slug.matches("[a-z0-9][a-z0-9-]*")) return "";
         final String language = locale.getLanguage();
@@ -240,7 +241,7 @@ public final class PluginCatalogClient {
     private RawResponse fetchReadme(final String revision, final String path, final long deadline) throws IOException {
         try {
             final RawResponse raw = fetchBytes(
-                    URI.create("https://raw.githubusercontent.com/turboism/Turboism/" + revision + "/" + path),
+                    URI.create(TurboismEndpoints.GITHUB_RAW_CONTENT_PREFIX + revision + "/" + path),
                     "text/plain",
                     Optional.empty(),
                     262_144,
@@ -252,7 +253,7 @@ public final class PluginCatalogClient {
         }
         // The content API serves the same commit-pinned file when the raw hostname is unreachable.
         return fetchBytes(
-                URI.create("https://api.github.com/repos/turboism/Turboism/contents/" + path + "?ref=" + revision),
+                URI.create(TurboismEndpoints.GITHUB_API_CONTENTS_PREFIX + path + "?ref=" + revision),
                 "application/vnd.github.raw+json",
                 Optional.empty(),
                 262_144,
@@ -395,9 +396,10 @@ public final class PluginCatalogClient {
 
         final long deadlineNanos = deadlineNanos(artifactDeadline);
         if (signedFileName != null) {
-            final URI mirror = URI.create(
-                    "https://api.turboism.dev/v1/plugins/artifacts/" + expectedSha256 + "/" + signedFileName);
-            final URI cdn = URI.create("https://dl.turboism.dev/plugins/" + expectedSha256 + "/" + signedFileName);
+            final URI mirror =
+                    URI.create(TurboismEndpoints.PLUGIN_ARTIFACTS_API_PREFIX + expectedSha256 + "/" + signedFileName);
+            final URI cdn =
+                    URI.create(TurboismEndpoints.PLUGIN_ARTIFACTS_CDN_PREFIX + expectedSha256 + "/" + signedFileName);
             // Reserve most of the total budget for the original source if the mirror is missing or invalid.
             final long mirrorNanos =
                     Math.min(MIRROR_DEADLINE.toNanos(), Math.max(1, remainingNanos(deadlineNanos) / 3));
@@ -669,12 +671,7 @@ public final class PluginCatalogClient {
                     "PLUGIN_ARTIFACT_SIZE_MISMATCH: empty artifact response stream",
                     null);
         }
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
-        }
+        final MessageDigest digest = Sha256.digest();
         long total = 0L;
         final byte[] buffer = new byte[16 * 1024];
         boolean completed = false;

@@ -11,18 +11,18 @@ source "$root/scripts/preview/host-validation-env.sh"
 # `turboism_select_fixture` also assigns `fixture_sha256` from an unrelated .env key, so the
 # reviewed pairs live in their own variables and are re-asserted after every selector call.
 circle100_fixture_name=atlas_mapping_100.cmo3
-circle100_fixture_sha256=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e
+circle100_fixture_sha256="$(turboism_fixture_sha256 "$circle100_fixture_name")"
 fixture_name="$circle100_fixture_name"
 fixture_sha256="$circle100_fixture_sha256"
 # The production-scale fixture lives behind its own key so the Circle100 workflow cannot be
 # switched by accident; the pair is resolve below by run label and always hash-checked.
 heavy_fixture_name=heavy.cmo3
-heavy_fixture_sha256=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c
+heavy_fixture_sha256="$(turboism_fixture_sha256 "$heavy_fixture_name")"
 # Ordinary 5203 scenes keep the opacity pair the mcp wrapper already pins;
 # explicit TLPROD scenes additionally admit the fixed heavy pair. Its canonical name is fixed regardless of the local file's basename, so the
 # driver allowlist sees the same reviewed name on every machine.
 opacity52_fixture_name=part-opacity-fixture-52-final.cmo3
-opacity52_fixture_sha256=331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028
+opacity52_fixture_sha256="$(turboism_fixture_sha256 "$opacity52_fixture_name")"
 runtime_source_binding=target-pd
 
 fail() {
@@ -174,20 +174,18 @@ if [[ "$tri_tlindex_flag" == 1 || -n "$tri_tlindex_leg" || -n "$tri_tlprod_leg" 
 fi
 case "$version" in
   5303)
-    official_jar_sha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166
     # Fixed path inside Runner's isolated 5303 Proton prefix, not a build-host path.
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.3.03\app\lib\Live2D_Cubism.jar'
     ;;
   5302)
-    official_jar_sha256=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.3\app\lib\Live2D_Cubism.jar'
     ;;
   5203)
-    official_jar_sha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd
     runtime_trusted_source_path='C:\Program Files\Live2D Cubism 5.2\app\lib\Live2D_Cubism.jar'
     ;;
   *) fail 'T040 admits only exact host versions 5303, 5302, and 5203' ;;
 esac
+official_jar_sha256="$(turboism_reviewed_jar_sha256 "$version")" || exit 2
 # 5302 has no reviewed profile in this wrapper outside the production TLINDEX rollout
 # legs — every other label family keeps failing closed on it.
 if [[ "$version" == 5302 && -z "$tri_tlprod_leg" ]]; then
@@ -1055,7 +1053,7 @@ if [[ "$version" == 5303 ]]; then
     --jvm-option '-Dturboism.validation.t039.runId={TASK_ID}'
     --jvm-option "-Dturboism.validation.t039.sourceBinding=${values[t039SourceBinding]}"
     --jvm-option "-Dturboism.validation.t039.trustedSourcePaths=${values[t039TrustedSourcePath]}"
-    --jvm-option '-Dturboism.validation.t039.jarSha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166'
+    --jvm-option "-Dturboism.validation.t039.jarSha256=$official_jar_sha256"
     --jvm-option "-Dturboism.validation.t039.classSha256=${values[t039ClassSha256]}"
     --jvm-option "-Dturboism.validation.t039.shapeSha256=${values[t039ShapeSha256]}"
     --jvm-option "-Dturboism.validation.t039.loaderClass=${values[t039LoaderClass]}"

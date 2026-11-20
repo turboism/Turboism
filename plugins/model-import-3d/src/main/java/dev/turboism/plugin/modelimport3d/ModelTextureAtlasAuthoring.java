@@ -39,7 +39,8 @@ final class ModelTextureAtlasAuthoring {
         var textures = model.textures();
         if (!textures.supportsAppendTextureAtlasPages()) {
             throw new ModelImportPlugin.LocalizedIllegalStateException(
-                    "error.texture-atlas-unavailable", "当前环境不支持纹理图集功能。");
+                    "error.texture-atlas-unavailable",
+                    "Texture atlas feature is unavailable in the current environment.");
         }
 
         // Remap placements using textureId -> ModelImageBinding -> ModelImagePlacement
@@ -61,7 +62,9 @@ final class ModelTextureAtlasAuthoring {
             createdIds = textures.appendTextureAtlasPages(appendPlan);
         } catch (Exception failure) {
             throw new ModelImportPlugin.LocalizedIllegalStateException(
-                    "error.atlas-layout-failed", failure, "纹理图集布局应用失败，请检查文件或重试。");
+                    "error.atlas-layout-failed",
+                    failure,
+                    "Failed to apply texture atlas layout. Please check the file or try again.");
         }
 
         if (createdIds == null || createdIds.size() != plan.pageCount()) {

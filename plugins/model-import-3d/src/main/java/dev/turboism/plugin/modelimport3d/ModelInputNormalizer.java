@@ -13,75 +13,110 @@ final class ModelInputNormalizer {
     private ModelInputNormalizer() {}
 
     private static final int LIMIT = GlbSurfaceReader.MAX_BYTES;
+    private static final int MAX_EXTERNAL_RESOURCES = 64;
+    private static final int MAX_ARCHIVE_ENTRIES = 128;
+    private static final int MAX_GLTF_JSON_BYTES = 2 * 1024 * 1024;
+    private static final int MAX_GLTF_BUFFERS = 32;
+    private static final int MAX_GLTF_BUFFER_VIEWS = 4096;
+    private static final int MAX_GLTF_IMAGES = 32;
+    private static final int MAX_PATH_LENGTH = 1024;
+    private static final int ASCII_CONTROL_LIMIT = 32;
+
+    private static final int MAGIC_PREFIX_BYTES = 4;
+    private static final int ALIGNMENT_BYTES = 4;
+    private static final int GLB_MAGIC = 0x46546c67;
+    private static final int GLB_VERSION = 2;
+    private static final int GLB_MIN_BYTES = 28;
+    private static final int GLB_JSON_CHUNK_HEADER_OFFSET = 20;
+    private static final int GLB_CHUNK_HEADER_BYTES = 8;
+    private static final int GLB_JSON_CHUNK_TYPE = 0x4e4f534a;
+    private static final int GLB_BIN_CHUNK_TYPE = 0x004e4942;
+
+    private static final int ZIP_EOCD_SIGNATURE = 0x06054b50;
+    private static final int ZIP_EOCD_MIN_BYTES = 22;
+    private static final int ZIP_EOCD_SEARCH_WINDOW = 65_557;
+    private static final int ZIP_EOCD_DISK_OFFSET = 4;
+    private static final int ZIP_EOCD_CD_DISK_OFFSET = 6;
+    private static final int ZIP_EOCD_DISK_ENTRIES_OFFSET = 8;
+    private static final int ZIP_EOCD_TOTAL_ENTRIES_OFFSET = 10;
+    private static final int ZIP_EOCD_CD_SIZE_OFFSET = 12;
+    private static final int ZIP_EOCD_CD_OFFSET = 16;
+    private static final int ZIP_EOCD_COMMENT_LEN_OFFSET = 20;
+
+    private static final int DATA_URI_SCHEME_PREFIX_LEN = "data:".length();
+    private static final int DATA_URI_BASE64_SUFFIX_LEN = ";base64".length();
 
     static final class MissingResource extends IllegalArgumentException {
         final String key, reference;
 
         MissingResource(String key, String reference) {
-            super("模型缺少资源：" + reference + "。请选择对应文件，或将模型与资源一起打包为 ZIP。");
+            super("Model is missing referenced resource: " + reference + ". Select the file or package it in a ZIP.");
             this.key = key;
             this.reference = reference;
         }
     }
+
     /** Resources are separately granted bytes, not paths to read from the filesystem. */
     static byte[] normalizeSelected(byte[] input, Map<String, byte[]> resources) throws IOException {
-        require(input != null && input.length > 0 && input.length <= LIMIT, "模型输入超过 16 MiB 限制。");
+        require(input != null && input.length > 0 && input.length <= LIMIT, "Model input exceeds the 16 MiB limit.");
         long total = input.length;
-        require(resources.size() <= 64, "外部资源最多允许 64 个文件。");
+        require(resources.size() <= MAX_EXTERNAL_RESOURCES, "External resources exceed the 64-file limit.");
         for (var entry : resources.entrySet()) {
-            require(packagePath("", entry.getKey()).equals(entry.getKey()), "外部资源标识无效。");
-            require(entry.getValue() != null, "外部资源内容为空。");
+            require(packagePath("", entry.getKey()).equals(entry.getKey()), "Invalid external resource identifier.");
+            require(entry.getValue() != null, "External resource content is null.");
             total += entry.getValue().length;
         }
-        require(total <= LIMIT, "模型及外部资源合计超过 16 MiB 限制。");
-        if (input.length >= 4
-                && ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN).getInt() == 0x46546c67)
-            return glb(input, resources, "model/");
-        if (input.length >= 4 && input[0] == 'P' && input[1] == 'K') return archive(input);
-        int at = 0;
-        while (at < input.length && Character.isWhitespace((char) (input[at] & 255))) at++;
-        return at < input.length && input[at] == '{'
-                ? gltf(input, resources, "model/")
-                : ObjModelInput.normalize(input, resources, "model/");
+        require(total <= LIMIT, "Total size of model and external resources exceeds the 16 MiB limit.");
+        return dispatchNormalization(input, resources, "model/");
     }
 
     static byte[] normalize(byte[] input) throws IOException {
-        require(input != null && input.length > 0 && input.length <= LIMIT, "模型输入超过 16 MiB 限制。");
-        if (input.length >= 4
-                && ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN).getInt() == 0x46546c67) return glb(input);
-        if (input.length >= 4 && input[0] == 'P' && input[1] == 'K') return archive(input);
-        int at = 0;
-        while (at < input.length && Character.isWhitespace((char) (input[at] & 255))) at++;
-        return at < input.length && input[at] == '{'
-                ? gltf(input, Map.of(), "")
-                : ObjModelInput.normalize(input, Map.of(), "");
+        require(input != null && input.length > 0 && input.length <= LIMIT, "Model input exceeds the 16 MiB limit.");
+        return dispatchNormalization(input, Map.of(), "");
     }
 
-    @SuppressWarnings("unchecked")
+    private static byte[] dispatchNormalization(byte[] input, Map<String, byte[]> resources, String base)
+            throws IOException {
+        if (input.length >= MAGIC_PREFIX_BYTES
+                && ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN).getInt() == GLB_MAGIC) {
+            return glb(input, resources, base);
+        }
+        if (input.length >= MAGIC_PREFIX_BYTES && input[0] == 'P' && input[1] == 'K') {
+            return archive(input);
+        }
+        int at = 0;
+        while (at < input.length && Character.isWhitespace((char) (input[at] & 0xFF))) at++;
+        return at < input.length && input[at] == '{'
+                ? gltf(input, resources, base)
+                : ObjModelInput.normalize(input, resources, base);
+    }
+
     private static byte[] glb(byte[] input) throws IOException {
         return glb(input, Map.of(), "");
     }
 
     @SuppressWarnings("unchecked")
     private static byte[] glb(byte[] input, Map<String, byte[]> resources, String base) throws IOException {
-        require(input.length >= 28, "GLB 头不完整。");
+        require(input.length >= GLB_MIN_BYTES, "Incomplete GLB header.");
         var bytes = ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN);
-        require(bytes.getInt() == 0x46546c67 && bytes.getInt() == 2 && bytes.getInt() == input.length, "GLB 头或长度无效。");
+        require(
+                bytes.getInt() == GLB_MAGIC && bytes.getInt() == GLB_VERSION && bytes.getInt() == input.length,
+                "Invalid GLB header or length.");
         int length = bytes.getInt();
         require(
-                bytes.getInt() == 0x4e4f534a
+                bytes.getInt() == GLB_JSON_CHUNK_TYPE
                         && length > 0
-                        && length <= 2 * 1024 * 1024
-                        && length % 4 == 0
-                        && length <= bytes.remaining() - 8,
-                "GLB JSON 范围无效。");
+                        && length <= MAX_GLTF_JSON_BYTES
+                        && length % ALIGNMENT_BYTES == 0
+                        && length <= bytes.remaining() - GLB_CHUNK_HEADER_BYTES,
+                "Invalid GLB JSON chunk range.");
         byte[] text = new byte[length];
         bytes.get(text);
         Object value = Json.parseObject(text);
-        require(value instanceof Map<?, ?>, "GLB JSON 必须是对象。");
+        require(value instanceof Map<?, ?>, "GLB JSON root must be an object.");
         var doc = (Map<String, Object>) value;
         int binLength = bytes.getInt();
-        require(bytes.getInt() == 0x004e4942 && binLength == bytes.remaining(), "GLB BIN 范围无效。");
+        require(bytes.getInt() == GLB_BIN_CHUNK_TYPE && binLength == bytes.remaining(), "Invalid GLB BIN chunk range.");
         var images = objects(doc.getOrDefault("images", List.of()), "GLB images");
         boolean convert = images.stream()
                 .anyMatch(image -> "image/jpeg".equals(image.get("mimeType")) || image.containsKey("uri"));
@@ -93,11 +128,11 @@ final class ModelInputNormalizer {
             if ("image/jpeg".equals(image.get("mimeType"))) {
                 if (image.containsKey("uri")) continue;
                 int view = number(image.get("bufferView"));
-                require(view < views.size(), "GLB image bufferView 越界。");
+                require(view < views.size(), "GLB image bufferView index out of range.");
                 var entry = views.get(view);
-                require(number(entry.get("buffer")) == 0, "GLB 贴图需要嵌入 buffer。");
+                require(number(entry.get("buffer")) == 0, "GLB texture must reference embedded buffer 0.");
                 int offset = number(entry.getOrDefault("byteOffset", 0)), size = number(entry.get("byteLength"));
-                require((long) offset + size <= binary.length, "GLB 贴图范围越界。");
+                require((long) offset + size <= binary.length, "GLB texture bufferView range out of bounds.");
                 image.remove("bufferView");
                 image.put(
                         "uri",
@@ -122,34 +157,34 @@ final class ModelInputNormalizer {
         int total = 0, entries = 0;
         try (var zip = new ZipInputStream(new ByteArrayInputStream(input), StandardCharsets.UTF_8)) {
             for (ZipEntry e; (e = zip.getNextEntry()) != null; ) {
-                require(++entries <= 128, "模型包最多允许 128 个条目。");
+                require(++entries <= MAX_ARCHIVE_ENTRIES, "Model archive exceeds the 128-entry limit.");
                 String path = path(e.getName());
                 if (e.isDirectory()) continue;
-                require(!files.containsKey(path), "模型包包含重复路径。");
+                require(!files.containsKey(path), "Model archive contains duplicate paths.");
                 byte[] bytes = zip.readNBytes(LIMIT - total + 1);
                 total += bytes.length;
-                require(total <= LIMIT, "模型包解压后超过 16 MiB 限制。");
+                require(total <= LIMIT, "Uncompressed model archive exceeds the 16 MiB limit.");
                 files.put(path, bytes);
                 zip.closeEntry();
             }
         }
-        require(entries == expected, "ZIP 条目数量不完整。");
+        require(entries == expected, "ZIP entry count does not match central directory.");
         var models = files.keySet().stream()
                 .filter(p -> p.toLowerCase(Locale.ROOT).endsWith(".gltf")
                         || p.toLowerCase(Locale.ROOT).endsWith(".glb")
                         || p.toLowerCase(Locale.ROOT).endsWith(".obj"))
                 .toList();
-        require(models.size() == 1, "模型包必须包含且仅包含一个 GLB、glTF 或 OBJ 模型。");
+        require(models.size() == 1, "Model archive must contain exactly one GLB, glTF, or OBJ model.");
         String model = models.get(0);
         if (model.toLowerCase(Locale.ROOT).endsWith(".glb")) {
             byte[] glb = files.get(model);
             require(
-                    glb.length >= 4
+                    glb.length >= MAGIC_PREFIX_BYTES
                             && ByteBuffer.wrap(glb)
                                             .order(ByteOrder.LITTLE_ENDIAN)
                                             .getInt()
-                                    == 0x46546c67,
-                    "包内 GLB 格式无效。");
+                                    == GLB_MAGIC,
+                    "Invalid GLB format inside archive.");
             return glb(glb);
         }
         int slash = model.lastIndexOf('/');
@@ -161,62 +196,68 @@ final class ModelInputNormalizer {
 
     private static int archiveEntryCount(byte[] input) {
         var b = ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN);
-        for (int end = input.length - 22; end >= Math.max(0, input.length - 65557); end--)
-            if (b.getInt(end) == 0x06054b50) {
-                int comment = Short.toUnsignedInt(b.getShort(end + 20));
-                if (end + 22 + comment != input.length) continue;
-                int entries = Short.toUnsignedInt(b.getShort(end + 10));
+        for (int end = input.length - ZIP_EOCD_MIN_BYTES;
+                end >= Math.max(0, input.length - ZIP_EOCD_SEARCH_WINDOW);
+                end--)
+            if (b.getInt(end) == ZIP_EOCD_SIGNATURE) {
+                int comment = Short.toUnsignedInt(b.getShort(end + ZIP_EOCD_COMMENT_LEN_OFFSET));
+                if (end + ZIP_EOCD_MIN_BYTES + comment != input.length) continue;
+                int entries = Short.toUnsignedInt(b.getShort(end + ZIP_EOCD_TOTAL_ENTRIES_OFFSET));
                 require(
-                        b.getShort(end + 4) == 0
-                                && b.getShort(end + 6) == 0
-                                && Short.toUnsignedInt(b.getShort(end + 8)) == entries,
-                        "不支持多卷 ZIP。");
-                long length = Integer.toUnsignedLong(b.getInt(end + 12)),
-                        offset = Integer.toUnsignedLong(b.getInt(end + 16));
-                require(entries > 0 && entries <= 128 && offset + length == end, "ZIP 目录不完整或超出数量限制。");
+                        b.getShort(end + ZIP_EOCD_DISK_OFFSET) == 0
+                                && b.getShort(end + ZIP_EOCD_CD_DISK_OFFSET) == 0
+                                && Short.toUnsignedInt(b.getShort(end + ZIP_EOCD_DISK_ENTRIES_OFFSET)) == entries,
+                        "Multi-volume ZIP archives are not supported.");
+                long length = Integer.toUnsignedLong(b.getInt(end + ZIP_EOCD_CD_SIZE_OFFSET)),
+                        offset = Integer.toUnsignedLong(b.getInt(end + ZIP_EOCD_CD_OFFSET));
+                require(
+                        entries > 0 && entries <= MAX_ARCHIVE_ENTRIES && offset + length == end,
+                        "ZIP central directory is incomplete or exceeds entry limit.");
                 return entries;
             }
-        throw new IllegalArgumentException("ZIP 文件不完整。");
+        throw new IllegalArgumentException("Incomplete ZIP archive.");
     }
 
     @SuppressWarnings("unchecked")
     static byte[] gltf(byte[] json, Map<String, byte[]> files, String base) throws IOException {
-        require(json.length <= LIMIT, "glTF JSON 超过 16 MiB 限制。");
+        require(json.length <= LIMIT, "glTF JSON exceeds the 16 MiB limit.");
         Object parsed = Json.parseObject(json);
-        require(parsed instanceof Map<?, ?>, "glTF 必须是 JSON 对象。");
+        require(parsed instanceof Map<?, ?>, "glTF root must be a JSON object.");
         var doc = (Map<String, Object>) parsed;
         var buffers = objects(doc.get("buffers"), "glTF buffers");
-        require(!buffers.isEmpty() && buffers.size() <= 32, "glTF buffer 数量超限。");
+        require(!buffers.isEmpty() && buffers.size() <= MAX_GLTF_BUFFERS, "glTF buffer count exceeds limit.");
         var binary = new ByteArrayOutputStream();
         var offsets = new ArrayList<Integer>();
         var lengths = new ArrayList<Integer>();
         for (var buffer : buffers) {
             byte[] data = resource(buffer.get("uri"), files, base);
             int declared = number(buffer.get("byteLength"));
-            require(declared == data.length, "glTF buffer 长度不符。");
+            require(declared == data.length, "glTF buffer length mismatch.");
             align(binary);
             offsets.add(binary.size());
             lengths.add(declared);
             append(binary, data);
         }
         var views = objects(doc.getOrDefault("bufferViews", new ArrayList<>()), "glTF bufferViews");
-        require(views.size() <= 4096, "glTF bufferView 数量超限。");
+        require(views.size() <= MAX_GLTF_BUFFER_VIEWS, "glTF bufferView count exceeds limit.");
         for (var view : views) {
             int buffer = number(view.get("buffer"));
-            require(buffer < offsets.size(), "glTF bufferView buffer 越界。");
+            require(buffer < offsets.size(), "glTF bufferView buffer index out of range.");
             int offset = number(view.getOrDefault("byteOffset", 0)), length = number(view.get("byteLength"));
-            require((long) offset + length <= lengths.get(buffer), "glTF bufferView 范围越界。");
+            require((long) offset + length <= lengths.get(buffer), "glTF bufferView range out of bounds.");
             view.put("buffer", 0);
             view.put("byteOffset", offsets.get(buffer) + offset);
         }
         var images = objects(doc.getOrDefault("images", new ArrayList<>()), "glTF images");
-        require(images.size() <= 32, "glTF image 数量超限。");
+        require(images.size() <= MAX_GLTF_IMAGES, "glTF image count exceeds limit.");
         for (var image : images)
             if (image.containsKey("uri")) {
-                require(!image.containsKey("bufferView"), "glTF image 同时含 URI 和 bufferView。");
+                require(!image.containsKey("bufferView"), "glTF image contains both URI and bufferView.");
                 byte[] encoded = resource(image.remove("uri"), files, base);
                 if (image.containsKey("mimeType"))
-                    require(Set.of("image/png", "image/jpeg").contains(image.get("mimeType")), "贴图 MIME 不支持。");
+                    require(
+                            Set.of("image/png", "image/jpeg").contains(image.get("mimeType")),
+                            "Unsupported texture MIME type.");
                 byte[] png = ModelTextureNormalizer.png(encoded);
                 align(binary);
                 int offset = binary.size();
@@ -228,36 +269,36 @@ final class ModelInputNormalizer {
         doc.put("bufferViews", views);
         doc.put("buffers", List.of(Map.of("byteLength", binary.size())));
         byte[] text = Json.bytes((Map<String, Object>) canonical(doc));
-        require(text.length <= 2 * 1024 * 1024, "规范化 glTF JSON 超限。");
-        int padded = (text.length + 3) & ~3;
+        require(text.length <= MAX_GLTF_JSON_BYTES, "Normalized glTF JSON exceeds size limit.");
+        int padded = (text.length + (ALIGNMENT_BYTES - 1)) & ~(ALIGNMENT_BYTES - 1);
         align(binary);
         byte[] bin = binary.toByteArray();
-        require(28L + padded + bin.length <= LIMIT, "规范化 GLB 超过 16 MiB 限制。");
-        var out = ByteBuffer.allocate(28 + padded + bin.length).order(ByteOrder.LITTLE_ENDIAN);
-        out.putInt(0x46546c67)
-                .putInt(2)
+        require((long) GLB_MIN_BYTES + padded + bin.length <= LIMIT, "Normalized GLB exceeds the 16 MiB limit.");
+        var out = ByteBuffer.allocate(GLB_MIN_BYTES + padded + bin.length).order(ByteOrder.LITTLE_ENDIAN);
+        out.putInt(GLB_MAGIC)
+                .putInt(GLB_VERSION)
                 .putInt(out.capacity())
                 .putInt(padded)
-                .putInt(0x4e4f534a)
+                .putInt(GLB_JSON_CHUNK_TYPE)
                 .put(text);
-        while (out.position() < 20 + padded) out.put((byte) ' ');
-        out.putInt(bin.length).putInt(0x004e4942).put(bin);
+        while (out.position() < GLB_JSON_CHUNK_HEADER_OFFSET + padded) out.put((byte) ' ');
+        out.putInt(bin.length).putInt(GLB_BIN_CHUNK_TYPE).put(bin);
         return out.array();
     }
 
     private static byte[] resource(Object value, Map<String, byte[]> files, String base) {
-        require(value instanceof String, "glTF 资源缺少 URI。");
+        require(value instanceof String, "glTF resource lacks URI.");
         String uri = (String) value;
         if (uri.startsWith("data:")) {
             int comma = uri.indexOf(',');
-            require(comma > 0 && uri.substring(0, comma).endsWith(";base64"), "仅支持 base64 data URI。");
-            String mime = uri.substring(5, comma - 7);
+            require(comma > 0 && uri.substring(0, comma).endsWith(";base64"), "Only base64 data URIs are supported.");
+            String mime = uri.substring(DATA_URI_SCHEME_PREFIX_LEN, comma - DATA_URI_BASE64_SUFFIX_LEN);
             require(
                     Set.of("application/octet-stream", "application/gltf-buffer", "image/png", "image/jpeg")
                             .contains(mime),
-                    "不支持的 data URI MIME。");
+                    "Unsupported data URI MIME type.");
             byte[] data = Base64.getDecoder().decode(uri.substring(comma + 1));
-            require(data.length <= LIMIT, "data URI 超限。");
+            require(data.length <= LIMIT, "Decoded data URI exceeds size limit.");
             return data;
         }
         URI parsed = URI.create(uri);
@@ -266,7 +307,7 @@ final class ModelInputNormalizer {
                         && parsed.getRawAuthority() == null
                         && parsed.getRawQuery() == null
                         && parsed.getRawFragment() == null,
-                "模型资源必须是包内相对路径。");
+                "Model resource must be a relative path inside the package.");
         return packageResource(files, base, parsed.getPath());
     }
 
@@ -281,21 +322,21 @@ final class ModelInputNormalizer {
         require(
                 name != null
                         && !name.isEmpty()
-                        && name.length() <= 1024
+                        && name.length() <= MAX_PATH_LENGTH
                         && !name.startsWith("/")
                         && !name.startsWith("\\")
                         && !name.contains(":"),
-                "模型资源路径无效。");
+                "Invalid model resource path.");
         var parts = new ArrayDeque<String>();
         for (String part : (base + name.replace('\\', '/')).split("/", -1)) {
-            require(part.chars().noneMatch(c -> c < 32), "模型资源路径无效。");
+            require(part.chars().noneMatch(c -> c < ASCII_CONTROL_LIMIT), "Invalid model resource path.");
             if (part.isEmpty() || part.equals(".")) continue;
             if (part.equals("..")) {
-                require(!parts.isEmpty(), "模型资源越出所选 ZIP。");
+                require(!parts.isEmpty(), "Model resource path escapes the selected ZIP.");
                 parts.removeLast();
             } else parts.addLast(part);
         }
-        require(!parts.isEmpty(), "模型资源路径为空。");
+        require(!parts.isEmpty(), "Model resource path is empty.");
         return String.join("/", parts);
     }
 
@@ -303,22 +344,24 @@ final class ModelInputNormalizer {
         require(
                 value != null
                         && !value.isEmpty()
-                        && value.length() <= 1024
+                        && value.length() <= MAX_PATH_LENGTH
                         && !value.startsWith("/")
                         && !value.contains("\\")
                         && !value.contains(":"),
-                "模型包路径无效。");
+                "Invalid model archive path.");
         for (String part : value.split("/", -1))
-            require(!part.equals("..") && !part.equals(".") && part.chars().noneMatch(c -> c < 32), "模型包路径无效。");
+            require(
+                    !part.equals("..") && !part.equals(".") && part.chars().noneMatch(c -> c < ASCII_CONTROL_LIMIT),
+                    "Invalid model archive path.");
         return value;
     }
 
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> objects(Object value, String name) {
-        require(value instanceof List<?>, name + " 必须是数组。");
+        require(value instanceof List<?>, name + " must be an array.");
         var result = new ArrayList<Map<String, Object>>();
         for (Object item : (List<?>) value) {
-            require(item instanceof Map<?, ?>, name + " 条目必须是对象。");
+            require(item instanceof Map<?, ?>, name + " entry must be an object.");
             result.add((Map<String, Object>) item);
         }
         return result;
@@ -328,7 +371,7 @@ final class ModelInputNormalizer {
         if (value instanceof Map<?, ?> map) {
             var sorted = new TreeMap<String, Object>();
             for (var entry : map.entrySet()) {
-                require(entry.getKey() instanceof String, "JSON 对象键必须是字符串。");
+                require(entry.getKey() instanceof String, "JSON object key must be a string.");
                 sorted.put((String) entry.getKey(), canonical(entry.getValue()));
             }
             return sorted;
@@ -339,18 +382,18 @@ final class ModelInputNormalizer {
     }
 
     private static int number(Object value) {
-        require(value instanceof Number, "glTF 整数缺失。");
+        require(value instanceof Number, "Missing glTF integer.");
         double n = ((Number) value).doubleValue();
-        require(Double.isFinite(n) && n >= 0 && n <= LIMIT && n == Math.rint(n), "glTF 整数越界。");
+        require(Double.isFinite(n) && n >= 0 && n <= LIMIT && n == Math.rint(n), "glTF integer out of range.");
         return (int) n;
     }
 
     private static void align(ByteArrayOutputStream b) {
-        while (b.size() % 4 != 0) b.write(0);
+        while (b.size() % ALIGNMENT_BYTES != 0) b.write(0);
     }
 
     private static void append(ByteArrayOutputStream b, byte[] bytes) {
-        require((long) b.size() + bytes.length <= LIMIT, "模型资源总量超限。");
+        require((long) b.size() + bytes.length <= LIMIT, "Total model resource bytes exceed limit.");
         b.writeBytes(bytes);
     }
 

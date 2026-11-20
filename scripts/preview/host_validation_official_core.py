@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import select
 import shutil
 import subprocess
@@ -15,7 +16,8 @@ from host_validation_queue import QueueError, atomic_json, file_digest, tree_inv
 FLAGS={'--name','--version','--bundle-root','--golden-prefix','--host-root','--run-label',
        '--proton-wrapper','--proton-runner','--transport'}
 CORE_SHA='98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4'
-EDITOR_SHA='988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21'
+_REVIEWED_HOST_ARTIFACTS=runpy.run_path(str(Path(__file__).with_name('reviewed_host_artifacts.py')))
+EDITOR_SHA=_REVIEWED_HOST_ARTIFACTS['sha256']('5.3.02')
 
 
 def require(ok,message):

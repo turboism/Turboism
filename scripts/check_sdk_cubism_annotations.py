@@ -18,7 +18,7 @@ A type counts as annotated when:
   does not count: the runtime policy never reads it.
 
 Coverage is declared at type granularity: once a type is annotated, its
-methods are covered ("或其所属类型带"), so the baseline lists types only.
+methods are covered (inherited from their enclosing type), so the baseline lists types only.
 Method-level ``@CubismEditor`` annotations on an otherwise unannotated type
 still leave the type unrestricted and do not satisfy the rule.
 

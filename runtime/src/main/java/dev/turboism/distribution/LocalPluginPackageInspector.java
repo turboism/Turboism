@@ -3,6 +3,7 @@ package dev.turboism.distribution;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.archive.ArchiveStructureException;
 import dev.turboism.core.archive.StrictZipArchive;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.io.IOException;
@@ -13,7 +14,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 
@@ -164,7 +164,7 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
     }
 
     private RawObservation snapshot(Path source, Path target) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        MessageDigest digest = Sha256.digest();
         long size = 0;
         byte[] buffer = new byte[64 * 1024];
         try (InputStream input = access.open(source);
@@ -177,7 +177,7 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
                 output.write(buffer, 0, read);
             }
         }
-        return new RawObservation(HexFormat.of().formatHex(digest.digest()), size);
+        return new RawObservation(Sha256.hex(digest), size);
     }
 
     private void unchanged(Path path, BasicFileAttributes initial) throws Exception {
@@ -214,15 +214,12 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         try (StrictZipArchive archive = StrictZipArchive.open(snapshot, LIMITS, PluginPathPolicy.ARCHIVE)) {
             final StrictZipArchive.Entry entry = archive.entry(planned.archivePath());
             require(entry != null && !entry.directory(), "ARTIFACT_MISSING", planned.archivePath());
-            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (OutputStream output = new DigestingOutputStream(staged.output(), digest)) {
+            final MessageDigest digest = Sha256.digest();
+            try (OutputStream output = Sha256.digestingOutput(staged.output(), digest)) {
                 final StrictZipArchive.Observation observation = archive.consume(entry, output);
                 require(observation.size() == planned.size(), "ARTIFACT_SIZE_MISMATCH", planned.archivePath());
             }
-            require(
-                    HexFormat.of().formatHex(digest.digest()).equals(planned.sha256()),
-                    "ARTIFACT_HASH_MISMATCH",
-                    planned.archivePath());
+            require(Sha256.hex(digest).equals(planned.sha256()), "ARTIFACT_HASH_MISMATCH", planned.archivePath());
             staged.publish();
             return staged.target();
         } catch (Exception failure) {
@@ -248,33 +245,6 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
      *             an unexpected failure
      */
     public record PreparationRejected(String code) implements Preparation {}
-
-    private static final class DigestingOutputStream extends OutputStream {
-        private final OutputStream delegate;
-        private final MessageDigest digest;
-
-        private DigestingOutputStream(final OutputStream delegate, final MessageDigest digest) {
-            this.delegate = delegate;
-            this.digest = digest;
-        }
-
-        @Override
-        public void write(final int value) throws IOException {
-            delegate.write(value);
-            digest.update((byte) value);
-        }
-
-        @Override
-        public void write(final byte[] bytes, final int offset, final int length) throws IOException {
-            delegate.write(bytes, offset, length);
-            digest.update(bytes, offset, length);
-        }
-
-        @Override
-        public void close() throws IOException {
-            delegate.close();
-        }
-    }
 
     private static boolean strictApi(String value) {
         return VersionRange.isValid(value);

@@ -4,41 +4,6 @@
   "exceptions": [
     {
       "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/ui/workspace/WorkspaceControlAdmission.java",
-      "site": "5.2.03,5.3.02,5.3.03",
-      "missing": [
-        "5.3.04",
-        "5.3.05"
-      ],
-      "reason": "The three CUBISM_VERSION_* constants look like an admission set but are only slice-id dispatch keys.",
-      "evidence": "authorizes(resolver) admits every ReviewedHostArtifacts.reviewedCubismVersions() entry; the constants merely pick adapter-slice ids, so no reviewed version is refused."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/core/CorePublicApiProviderFactory.java",
-      "site": "5.2.03,5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04",
-        "5.3.05"
-      ],
-      "reason": "artifactProfile's case arms look like a version set.",
-      "evidence": "The switch is an identity mapping: 'default -> reviewedVersion' passes every admitted version through unchanged; the two case arms exist only as the single place a profile-id divergence would live."
-    },
-    {
-      "kind": "java-file",
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorTextureReplacementDiagnostic.java",
-      "site": "5.3.02",
-      "missing": [
-        "5.3.03",
-        "5.3.04",
-        "5.3.05"
-      ],
-      "reason": "SUPPORTED_VERSION pins a single version.",
-      "evidence": "Property-gated validation diagnostic (turboism.validation.editorTextureReplaceDiagnostic) that was authored and reviewed against the exact 5.3.02 host; it is a diagnostic tool, not a capability admission set."
-    },
-    {
-      "kind": "java-file",
       "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelRuntimeScope.java",
       "site": "5.3.03",
       "missing": [
@@ -47,17 +12,6 @@
       ],
       "reason": "A single-version CUBISM_5_3_03.equals(artifact) guard looks like admission.",
       "evidence": "The guard only selects the optional 5.3.03 validation-candidate runtime scope (admits5303ValidationCandidate); every reviewed artifact still gets a resolver with a null extra scope."
-    },
-    {
-      "kind": "java-file",
-      "path": "bootstrap/src/main/java/dev/turboism/bootstrap/PerformanceFpsHookInstaller.java",
-      "site": "5.3.02,5.3.03",
-      "missing": [
-        "5.3.04",
-        "5.3.05"
-      ],
-      "reason": "fpsTargetsForVersion names 5.3.02/5.3.03 before its fallback.",
-      "evidence": "The final branch admits every ReviewedHostArtifacts.reviewedCubismVersions() entry and returns the generic cubism5203() targets; the two named arms are fast paths, not an admission set."
     },
     {
       "kind": "java-file",

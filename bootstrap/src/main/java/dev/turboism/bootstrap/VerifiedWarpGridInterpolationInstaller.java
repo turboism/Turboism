@@ -24,7 +24,7 @@ final class VerifiedWarpGridInterpolationInstaller implements VerifiedHookInstal
     /** Single rewritten helper method site expected on retransformation. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** Single rewritten helper class owner re-captured during restoration proof. */
+    /** Single rewritten helper class owner restored on close. */
     static final int EXPECTED_OWNERS = 1;
 
     private static final String FEATURE_NAME = "warp grid interpolation";

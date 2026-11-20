@@ -49,13 +49,18 @@ def unique_object(pairs: list) -> dict:
     return result
 
 
-def load_releases(source: Path = DEFAULT_SOURCE) -> list[dict]:
-    """Validate the canonical table; preserve its strictly increasing order."""
+def load_document(source: Path = DEFAULT_SOURCE) -> dict:
+    """Validate the canonical table and optional dependency pins; preserve release order."""
     try:
         document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
     except (OSError, ValueError) as failure:
         raise ValueError(f"reviewed release source unreadable: {source}: {failure}") from failure
-    if not isinstance(document, dict) or set(document) != {"format", "releases"} or document["format"] != "turboism.reviewed-releases/v1":
+    if (
+        not isinstance(document, dict)
+        or not {"format", "releases"} <= set(document)
+        or not set(document) <= {"format", "releases", "dependencies"}
+        or document["format"] != "turboism.reviewed-releases/v1"
+    ):
         raise ValueError("invalid reviewed releases format")
     releases = document["releases"]
     if not isinstance(releases, list) or not releases:
@@ -93,7 +98,39 @@ def load_releases(source: Path = DEFAULT_SOURCE) -> list[dict]:
         label = release["hostLabel"]
         if not isinstance(label, str) or not label.strip() or any(c in label for c in "/\\\r\n") or label in {".", ".."}:
             raise ValueError(f"invalid hostLabel: {version}")
-    return releases
+    if "dependencies" in document:
+        dependencies = document["dependencies"]
+        if not isinstance(dependencies, dict) or not dependencies:
+            raise ValueError("invalid dependencies block")
+        for key, dep in dependencies.items():
+            if not isinstance(key, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", key):
+                raise ValueError(f"invalid dependency key: {key!r}")
+            if not isinstance(dep, dict) or set(dep) != {"name", "size", "sha256"}:
+                raise ValueError(f"invalid dependency fields: {key}")
+            if not isinstance(dep["name"], str) or not dep["name"].strip():
+                raise ValueError(f"invalid dependency name: {key}")
+            if type(dep["size"]) is not int or not 0 < dep["size"] <= 9223372036854775807:
+                raise ValueError(f"invalid dependency size: {key}")
+            if not isinstance(dep["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", dep["sha256"]):
+                raise ValueError(f"invalid dependency sha256: {key}")
+    return document
+
+
+def load_releases(source: Path = DEFAULT_SOURCE) -> list[dict]:
+    """Validate the canonical table; preserve its strictly increasing order."""
+    return load_document(source)["releases"]
+
+
+def load_dependencies(source: Path = DEFAULT_SOURCE) -> dict[str, ReviewedArtifact]:
+    """Return pinned non-Editor dependency digests from reviewed-releases.json."""
+    document = load_document(source)
+    dependencies = document.get("dependencies")
+    if not dependencies or "CUBISM_5_3_03_JOGL" not in dependencies:
+        raise ValueError("missing CUBISM_5_3_03_JOGL dependency pin")
+    return {
+        key: ReviewedArtifact(dep["name"], dep["size"], dep["sha256"])
+        for key, dep in dependencies.items()
+    }
 
 
 def load(source: Path = DEFAULT_SOURCE) -> dict[str, ReviewedArtifact]:

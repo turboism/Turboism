@@ -379,10 +379,10 @@ public class NativeCharacterAuthoringTest {
                                     yield null;
                                 }
                                 case "authoringSnapshot" -> {
-                                    if (keysRef[0] != null && !keysRef[0].isEmpty() && r.name.contains("Z 旋转")) {
+                                    if (keysRef[0] != null && !keysRef[0].isEmpty() && r.name.contains("Z Rotation")) {
                                         ParameterId rollParamId = r.rollAxisId != null
                                                 ? r.rollAxisId
-                                                : new ParameterId(r.name.replace(" Z 旋转", "_Roll"));
+                                                : new ParameterId(r.name.replace(" Z Rotation", "_Roll"));
                                         var axis = new RotationAuthoringSnapshot.Axis(
                                                 "guid-roll", rollParamId, -180, 0, 180, keysRef[0]);
                                         var cells = new ArrayList<RotationAuthoringSnapshot.Cell>();

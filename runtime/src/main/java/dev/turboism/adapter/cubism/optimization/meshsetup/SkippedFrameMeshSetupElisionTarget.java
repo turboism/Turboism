@@ -24,7 +24,7 @@ import org.objectweb.asm.Opcodes;
  * the running official artifact. {@link #hasReviewedSetupShape(List)} admits a
  * body by inspecting its instruction tokens, so an added side effect or a
  * renamed accessor fails admission instead of running behind the elision. The
- * body was identical across all twenty reviewed 5.0.00 to 5.3.04 artifacts.</p>
+ * body was identical across all reviewed artifacts.</p>
  */
 public record SkippedFrameMeshSetupElisionTarget(HostArtifactDigest digest, String version) {
 

@@ -21,12 +21,13 @@ import java.util.Optional;
  * <p>Five host classes are rewritten: the updater singleton (three methods) and the three
  * interpolated-form classes and the common source rebuild entry (one method each).
  * Every dependency the bridge resolves is verified against the official artifact bytecode via {@link ReviewedMethodShape} before
- * installation; any absent, renamed or changed member fails closed. On close every touched
- * class is re-captured and must hash back to its pre-rewrite SHA-256.</p>
+ * installation; any absent, renamed or changed member fails closed. On close
+ * {@link VerifiedInstall} removes the transformer and retransforms every touched class so the JVM
+ * restores its original definition.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}: the one transformer declares one target
  * per rewritten class, so the routine registers it once, retransforms all five classes in one call
- * and re-captures each of them on close. The glue-affecter sub-mode is reported from
+ * and restores each of them on close. The glue-affecter sub-mode is reported from
  * {@link WeaveEffects}, i.e. only once the weave is proven and never after the handle closed.</p>
  */
 final class VerifiedIncrementalUpdateInstaller implements VerifiedHookInstaller {
@@ -39,7 +40,7 @@ final class VerifiedIncrementalUpdateInstaller implements VerifiedHookInstaller 
     /** The transformer's matched sites across all five rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 7;
 
-    /** The close proof re-captures all five rewritten classes; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores all five rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 5;
 
     private static final List<ReviewedHostContract.Candidate<IncrementalUpdateTarget>> CANDIDATES =

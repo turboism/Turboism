@@ -1,29 +1,21 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.profile.ContextMenuBindingSpec;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.ui.context.ObjectContextMenuAppendNativeMethodTransformer;
 import dev.turboism.ui.context.ObjectContextMenuNativeMethodTransformer;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs exact-version object context-menu transformers as one reversible unit. */
 final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
 
-    private final Instrumentation instrumentation;
-    private final List<Binding> bindings;
-    private final ClassLoader hostClassLoader;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean();
-    private final List<ClassFileTransformer> transformers = new ArrayList<>();
+    private final HookInstallSession session;
 
     VerifiedObjectContextMenuHookInstaller(
             final Instrumentation instrumentation, final List<Binding> bindings, final ClassLoader hostClassLoader) {
@@ -39,64 +31,35 @@ final class VerifiedObjectContextMenuHookInstaller implements AutoCloseable {
             final List<Binding> bindings,
             final ClassLoader hostClassLoader,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.loadedClasses = loadedClasses;
-        if (this.bindings.isEmpty()) {
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        final List<Binding> verifiedBindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        if (verifiedBindings.isEmpty()) {
             throw new IllegalArgumentException("object context-menu bindings must not be empty");
         }
+        final Set<String> targetClassNames = new LinkedHashSet<>();
+        for (final Binding binding : verifiedBindings) {
+            targetClassNames.add(binding.operation().ownerInternalName().replace('/', '.'));
+        }
+        this.session = HookInstallSession.builder(instrumentation, hostClassLoader, targetClassNames)
+                .loadedClasses(loadedClasses)
+                .transformerFactory(() -> verifiedBindings.stream()
+                        .map(binding -> binding.transformer(hostClassLoader))
+                        .toList())
+                .restorePolicy(HookInstallSession.RestorePolicy.ALWAYS)
+                .retransformUnavailableMessage("Object context-menu retransformation is unavailable")
+                .installFailureMessage("Verified object context-menu hook installation failed")
+                .restoreFailureMessage("Verified object context-menu hook restoration failed")
+                .build();
     }
 
     void install() {
-        if (!installed.compareAndSet(false, true)) return;
-        try {
-            if (!instrumentation.isRetransformClassesSupported()) {
-                throw new IllegalStateException("Object context-menu retransformation is unavailable");
-            }
-            final Set<String> owners = new LinkedHashSet<>();
-            for (Binding binding : bindings) {
-                final ClassFileTransformer transformer = binding.transformer(hostClassLoader);
-                transformers.add(transformer);
-                instrumentation.addTransformer(transformer, true);
-                owners.add(binding.operation().ownerInternalName());
-            }
-            VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation,
-                    loadedClasses(),
-                    owners.stream().map(owner -> owner.replace('/', '.')).toList(),
-                    hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw new IllegalStateException("Verified object context-menu hook installation failed", failure);
-        }
+        session.installWrapped();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        final Set<String> owners = new LinkedHashSet<>();
-        bindings.forEach(binding -> owners.add(binding.operation().ownerInternalName()));
-        for (int index = transformers.size() - 1; index >= 0; index--) {
-            instrumentation.removeTransformer(transformers.get(index));
-        }
-        transformers.clear();
-        try {
-            // Restoration must observe classes defined after the install snapshot, so it enumerates
-            // again instead of reusing the phase snapshot.
-            VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation,
-                    owners.stream().map(owner -> owner.replace('/', '.')).toList(),
-                    hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("Verified object context-menu hook restoration failed", failure);
-        }
-    }
-
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 
     record Binding(

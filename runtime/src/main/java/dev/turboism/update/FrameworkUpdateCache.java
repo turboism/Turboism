@@ -1,5 +1,6 @@
 package dev.turboism.update;
 
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
@@ -17,11 +18,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 
@@ -286,12 +285,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
     }
 
     static String hash(final Path path, final long limit) throws IOException, InterruptedException {
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        final MessageDigest digest = Sha256.digest();
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
             final byte[] bytes = new byte[32768];
             long total = 0;
@@ -303,7 +297,7 @@ final class FrameworkUpdateCache implements AutoCloseable {
             }
             if (total != limit) throw new IOException("Cache file length changed during hash");
         }
-        return HexFormat.of().formatHex(digest.digest());
+        return Sha256.hex(digest);
     }
 
     /**

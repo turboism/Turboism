@@ -2,12 +2,9 @@ package dev.turboism.plugin.acp;
 
 import dev.turboism.sdk.json.Json;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,13 +18,8 @@ final class LocalSessionIndex {
     LocalSessionIndex(final Path state, final String harness, final AgentLaunchSpec launch) {
         final String identity = harness + "\n" + launch.protocol() + "\n" + Json.stringify(launch.command()) + "\n"
                 + launch.workingDirectory();
-        try {
-            final String digest = java.util.HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8)));
-            file = state.resolve("session-index").resolve(digest + ".json");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        final String digest = AcpDigests.sha256Hex(identity);
+        file = state.resolve("session-index").resolve(digest + ".json");
     }
 
     synchronized List<AcpSessionSummary> sessions() throws IOException {

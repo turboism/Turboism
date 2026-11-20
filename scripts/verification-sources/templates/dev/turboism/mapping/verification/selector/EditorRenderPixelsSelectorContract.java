@@ -27,7 +27,7 @@ public final class EditorRenderPixelsSelectorContract {
      * Reviewed generations whose Editor-model verification record admits
      * {@link #CAPABILITY_ID}.
      *
-     * <p>Every alias below verifies structurally on all twenty reviewed artifacts
+     * <p>Every alias below verifies structurally on all reviewed artifacts
      * with the same owners, members and descriptors; the capability is admitted
      * on all reviewed 5.0.x, 5.1.x, 5.2.x, and 5.3.x generations.</p>
      */

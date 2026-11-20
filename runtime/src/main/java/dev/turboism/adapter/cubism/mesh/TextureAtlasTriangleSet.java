@@ -1,20 +1,24 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoading;
-import dev.turboism.core.io.Sha256;
+import dev.turboism.core.reflect.CodeSources;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.IOException;
 import java.io.Serial;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.ToIntFunction;
 
 /** Preserves native triangle equality and insertion order with coordinate-based hash keys. */
@@ -25,18 +29,12 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
     private static final String TRIANGLE = TriangulationEdgeIndexPatcher.TRIANGLE.replace('/', '.');
     private static final String POINT = TriangulationEdgeIndexPatcher.POINT.replace('/', '.');
     private static final String VECTOR = "com.live2d.graphics3d.type.GVector2";
-    private static final Set<String> TRIANGLE_DIGESTS = Set.of(
-            "1fbcf0dc4cac94a02a943e1032c8e1b350aac9b357ac2590541ba5dd03e3cf47",
-            "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90");
-    private static final Set<String> POINT_DIGESTS =
-            Set.of("7d09c3c00c7fe730e09ccff106749de65821ce21654b86c982c1660e90f59b5c");
-    private static final Set<String> VECTOR_DIGESTS = Set.of(
-            "c6fc13cdbc80d13a2a2eb236d494a0242bd76fb1c03668ba4cfbbcfd940058fe",
-            "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31");
-    private static final String CLASS_SUFFIX = ".class";
     private static final String[] CORNER_GETTERS = {"a", "b", "c"};
+    private static final String INDEX_GETTER = "getIndex";
     private static final String X_GETTER = "getX";
     private static final String Y_GETTER = "getY";
+    private static final String EQUALS_METHOD = "equals";
+    private static final String HASH_CODE_METHOD = "hashCode";
     private static final int AXIS_MULTIPLIER = 31;
     private static final MethodType AXIS_TYPE = MethodType.methodType(float.class, Object.class);
     private static final MethodType CORNER_TYPE = MethodType.methodType(Object.class, Object.class);
@@ -45,26 +43,19 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
         @Override
         protected Optional<CornerHash> computeValue(final Class<?> owner) {
             try {
+                if (owner.getModule().isNamed()) return Optional.empty();
                 final ClassLoader loader = owner.getClassLoader();
+                final Path hostArtifact = CodeSources.pathOf(owner.getProtectionDomain());
+                if (loader == null
+                        || hostArtifact == null
+                        || !ReviewedHostArtifacts.isReviewed(HostArtifactDigest.cached(hostArtifact))) {
+                    return Optional.empty();
+                }
                 final Class<?> triangle = Class.forName(TRIANGLE, false, loader);
                 final Class<?> point = Class.forName(POINT, false, loader);
                 final Class<?> vector = Class.forName(VECTOR, false, loader);
-                if (!matches(triangle, TRIANGLE_DIGESTS)
-                        || !matches(point, POINT_DIGESTS)
-                        || !matches(vector, VECTOR_DIGESTS)) return Optional.empty();
-                final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-                final MethodHandle[] corners = new MethodHandle[CORNER_GETTERS.length];
-                for (int index = 0; index < corners.length; index++) {
-                    corners[index] = lookup.findVirtual(triangle, CORNER_GETTERS[index], MethodType.methodType(point))
-                            .asType(CORNER_TYPE);
-                }
-                return Optional.of(new CornerHash(
-                        triangle,
-                        corners,
-                        lookup.findVirtual(point, X_GETTER, MethodType.methodType(float.class))
-                                .asType(AXIS_TYPE),
-                        lookup.findVirtual(point, Y_GETTER, MethodType.methodType(float.class))
-                                .asType(AXIS_TYPE)));
+                if (!sharesOrigin(loader, hostArtifact, triangle, point, vector)) return Optional.empty();
+                return cornerHash(triangle, point, vector);
             } catch (ReflectiveOperationException | IOException | LinkageError | SecurityException unsupported) {
                 return Optional.empty();
             }
@@ -176,11 +167,72 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
         return new Key(value, hash.applyAsInt(value));
     }
 
-    private static boolean matches(final Class<?> type, final Set<String> digests) throws IOException {
-        final String resource = '/' + type.getName().replace('.', '/') + CLASS_SUFFIX;
-        try (var bytes = type.getResourceAsStream(resource)) {
-            return bytes != null && digests.contains(Sha256.hex(bytes.readAllBytes()));
+    static Optional<CornerHash> cornerHash(final Class<?> triangle, final Class<?> point, final Class<?> vector)
+            throws ReflectiveOperationException {
+        if (!hasReviewedShape(triangle, point, vector)) return Optional.empty();
+        final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+        final MethodHandle[] corners = new MethodHandle[CORNER_GETTERS.length];
+        for (int index = 0; index < corners.length; index++) {
+            corners[index] = lookup.findVirtual(triangle, CORNER_GETTERS[index], MethodType.methodType(point))
+                    .asType(CORNER_TYPE);
         }
+        return Optional.of(new CornerHash(
+                triangle,
+                corners,
+                lookup.findVirtual(point, X_GETTER, MethodType.methodType(float.class))
+                        .asType(AXIS_TYPE),
+                lookup.findVirtual(point, Y_GETTER, MethodType.methodType(float.class))
+                        .asType(AXIS_TYPE)));
+    }
+
+    private static boolean sharesOrigin(final ClassLoader loader, final Path hostArtifact, final Class<?>... types) {
+        for (final Class<?> type : types) {
+            if (type.getClassLoader() != loader
+                    || !hostArtifact.equals(CodeSources.pathOf(type.getProtectionDomain()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean hasReviewedShape(final Class<?> triangle, final Class<?> point, final Class<?> vector)
+            throws ReflectiveOperationException {
+        if (!Modifier.isFinal(triangle.getModifiers())
+                || triangle.getSuperclass() != Object.class
+                || !Modifier.isFinal(point.getModifiers())
+                || point.getSuperclass() != vector) {
+            return false;
+        }
+        for (final String corner : CORNER_GETTERS) {
+            if (triangle.getDeclaredField(corner).getType() != point) return false;
+            final Method getter = triangle.getDeclaredMethod(corner);
+            if (!Modifier.isPublic(getter.getModifiers())
+                    || !Modifier.isFinal(getter.getModifiers())
+                    || getter.getReturnType() != point) {
+                return false;
+            }
+        }
+        if (triangle.getDeclaredMethod(EQUALS_METHOD, Object.class).getReturnType() != boolean.class
+                || triangle.getDeclaredMethod(HASH_CODE_METHOD).getReturnType() != int.class
+                || point.getDeclaredMethod(EQUALS_METHOD, Object.class).getReturnType() != boolean.class
+                || point.getDeclaredMethod(HASH_CODE_METHOD).getReturnType() != int.class) {
+            return false;
+        }
+        final Method indexGetter = point.getDeclaredMethod(INDEX_GETTER);
+        if (!Modifier.isPublic(indexGetter.getModifiers())
+                || !Modifier.isFinal(indexGetter.getModifiers())
+                || indexGetter.getReturnType() != int.class) {
+            return false;
+        }
+        for (final String axis : new String[] {X_GETTER, Y_GETTER}) {
+            final Method getter = vector.getDeclaredMethod(axis);
+            if (!Modifier.isPublic(getter.getModifiers())
+                    || !Modifier.isFinal(getter.getModifiers())
+                    || getter.getReturnType() != float.class) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private record Key(Object value, int hash) {
@@ -195,7 +247,7 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
         }
     }
 
-    private record CornerHash(Class<?> triangle, MethodHandle[] corners, MethodHandle x, MethodHandle y)
+    record CornerHash(Class<?> triangle, MethodHandle[] corners, MethodHandle x, MethodHandle y)
             implements ToIntFunction<Object> {
         @Override
         public int applyAsInt(final Object value) {

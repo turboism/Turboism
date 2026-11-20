@@ -9,8 +9,6 @@ import dev.turboism.sdk.cubism.model.*;
 import dev.turboism.sdk.cubism.transaction.*;
 import dev.turboism.sdk.json.Json;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -95,7 +93,7 @@ final class McpKeyformWriteDomain {
             id = identity(args.get("operationId"), 128);
             String session = McpRequestRegistry.currentSessionId();
             key = new OperationKey(session, id);
-            String fingerprint = digest(args);
+            String fingerprint = McpDigests.canonicalJsonSha256Hex(args);
             synchronized (operations) {
                 var previous = operations.get(key);
                 if (previous != null)
@@ -228,7 +226,7 @@ final class McpKeyformWriteDomain {
                     "operationId",
                     id,
                     "requestHash",
-                    digest(args),
+                    McpDigests.canonicalJsonSha256Hex(args),
                     "state",
                     prepared.context().binding(),
                     "requestedForms",
@@ -417,7 +415,7 @@ final class McpKeyformWriteDomain {
 
     private static String snapshotHash(Object value) {
         if (value instanceof ArtMeshAuthoringSnapshot m)
-            return digest(Map.of(
+            return McpDigests.canonicalJsonSha256Hex(Map.of(
                     "kind",
                     "art_mesh",
                     "objectId",
@@ -427,7 +425,7 @@ final class McpKeyformWriteDomain {
                     "rows",
                     McpAuthoringProjection.mesh(m)));
         if (value instanceof WarpAuthoringSnapshot w)
-            return digest(Map.of(
+            return McpDigests.canonicalJsonSha256Hex(Map.of(
                     "kind",
                     "warp_deformer",
                     "objectId",
@@ -437,7 +435,7 @@ final class McpKeyformWriteDomain {
                     "rows",
                     McpAuthoringProjection.warp(w)));
         if (value instanceof RotationAuthoringSnapshot r)
-            return digest(Map.of(
+            return McpDigests.canonicalJsonSha256Hex(Map.of(
                     "kind",
                     "rotation_deformer",
                     "objectId",
@@ -524,28 +522,6 @@ final class McpKeyformWriteDomain {
                 || value.chars().anyMatch(Character::isISOControl))
             throw new IllegalArgumentException("Invalid identity");
         return value;
-    }
-
-    private static Object canonical(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            var sorted = new TreeMap<String, Object>();
-            map.forEach((k, v) -> sorted.put((String) k, canonical(v)));
-            return sorted;
-        }
-        if (value instanceof List<?> list)
-            return list.stream().map(McpKeyformWriteDomain::canonical).toList();
-        return value;
-    }
-
-    private static String digest(Object value) {
-        try {
-            return HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256")
-                            .digest(Json.stringify(Map.of("value", canonical(value)))
-                                    .getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException(failure);
-        }
     }
 
     private record Prepared(

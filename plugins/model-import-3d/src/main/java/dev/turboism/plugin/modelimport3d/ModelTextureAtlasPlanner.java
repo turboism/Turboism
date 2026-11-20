@@ -82,7 +82,8 @@ final class ModelTextureAtlasPlanner {
         for (var item : uniqueItems) {
             if (item.width() > options.maxAtlasEdge() || item.height() > options.maxAtlasEdge()) {
                 throw new ModelImportPlugin.LocalizedIllegalArgumentException(
-                        "error.atlas-oversized", "模型贴图尺寸超过宿主图集支持的上限。");
+                        "error.atlas-oversized",
+                        "Model texture dimensions exceed the maximum atlas size supported by the host.");
             }
         }
 
@@ -123,7 +124,8 @@ final class ModelTextureAtlasPlanner {
         }
 
         if (candidates.isEmpty()) {
-            throw new ModelImportPlugin.LocalizedIllegalStateException("error.atlas-budget-exceeded", "纹理图集超出内存或页数预算。");
+            throw new ModelImportPlugin.LocalizedIllegalStateException(
+                    "error.atlas-budget-exceeded", "Texture atlas exceeds memory or page budget.");
         }
 
         // Select the most balanced candidate:

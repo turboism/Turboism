@@ -6,6 +6,7 @@ import dev.turboism.core.descriptor.CorePluginDescriptor.CoreAuthor;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CoreEnvironment;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CoreI18n;
 import dev.turboism.core.descriptor.CorePluginDescriptor.CorePermissionRef;
+import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -69,7 +70,7 @@ public final class ShellManifest {
             "[" + FrameworkBuildInfo.current().apiVersion() + ",)",
             List.of(new CoreAuthor("Turboism Contributors", Optional.empty())),
             "Project License",
-            Optional.of("https://turboism.dev"),
+            Optional.of(TurboismEndpoints.SITE_ORIGIN),
             List.of(),
             new CoreI18n("META-INF/turboism/i18n/messages", List.of("en", "ja", "ko", "zh-Hans", "zh-Hant")),
             List.of(),

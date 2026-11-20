@@ -9,9 +9,6 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -276,18 +273,8 @@ final class SurfaceImport {
             ParallelSheetOrderPlan.verifyStoredTransition(sheetOrders, geometry);
         }
         var appearance = SurfaceBaseColorPlan.compile(surfaces, geometry, appearanceMode);
-        try {
-            return new Prepared(
-                    request,
-                    HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(frozen)),
-                    visibility,
-                    geometry,
-                    appearance,
-                    sheetOrders);
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
+        return new Prepared(
+                request, ModelImportDigests.sha256Hex(frozen), visibility, geometry, appearance, sheetOrders);
     }
 
     static AuthoringTransactionResult<Imported> apply(

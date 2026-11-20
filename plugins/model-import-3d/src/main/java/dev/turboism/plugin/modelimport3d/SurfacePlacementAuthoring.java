@@ -25,7 +25,7 @@ final class SurfacePlacementAuthoring {
             x = neutral.originX();
             y = neutral.originY();
         }
-        return wrapAt(model, part, name + " 整体定位", root, x, y);
+        return wrapAt(model, part, name + " " + ModelObjectNames.FALLBACK_PLACEMENT, root, x, y);
     }
 
     private static RotationDeformer wrapAt(CubismModel model, Part part, String name, Deformer root, float x, float y) {

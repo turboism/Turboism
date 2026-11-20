@@ -21,13 +21,13 @@ import java.util.Optional;
  * official artifact; when the upstream uniform-location lifecycle transform
  * is installed, the composed shapes it produces over the same reference bytes
  * are admitted explicitly via a private probe — never by trusting observed
- * chain output. On close each class must hash back to its pre-rewrite
- * SHA-256.
+ * chain output. On close {@link VerifiedInstall} removes the transformer and retransforms each
+ * class so the JVM restores its pre-weave definition.
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}. One transformer declared against two
  * classes is registered once and retransforms both in one call, so the composed shape it accepts
- * covers the whole rewrite set; the close proof then compares each owner against the digest the
- * transformer observed before it rewrote that owner.</p>
+ * covers the whole rewrite set; on close, removing the transformer and retransforming both owners
+ * replays the upstream chain over the original bytes.</p>
  */
 final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
 
@@ -39,7 +39,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
     /** The transformer's matched sites across both rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 2;
 
-    /** The close proof re-captures both rewritten classes; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores both rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 2;
 
     static final WeaveSpec<DeferredGlErrorCheckTarget> SPEC = new WeaveSpec<DeferredGlErrorCheckTarget>(

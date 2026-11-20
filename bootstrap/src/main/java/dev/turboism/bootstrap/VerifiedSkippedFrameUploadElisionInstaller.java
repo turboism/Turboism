@@ -20,7 +20,8 @@ import java.util.Optional;
  * {@code mesh/a/c}, each inside {@code b(GL2ES2,int)}. The bridge reads
  * {@code a.a.i()}, {@code <wrapper>.b()} and {@code shader/A.a(Buffer)}; every
  * such dependency body is verified against the official artifact before any
- * rewrite. On close each class must hash back to its pre-rewrite SHA-256.
+ * rewrite. On close {@link VerifiedInstall} removes each transformer and retransforms
+ * each wrapper so the JVM restores its original definition.
  *
  * <p>Composition: the transform touches only {@code mesh/a/*}; the
  * uniform-location hooks target {@code shader/GShader}, {@code shader/A} and
@@ -30,7 +31,7 @@ import java.util.Optional;
  * under either of those transforms. The two experiments remain disjoint.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}: one target per wrapper, both retransformed
- * in one call and both re-captured on close. The validation mode never consults the startup policy —
+ * in one call and both restored on close. The validation mode never consults the startup policy —
  * the harness owns its gate — while the production mode keeps the kill switch.</p>
  */
 final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable {
@@ -48,7 +49,7 @@ final class VerifiedSkippedFrameUploadElisionInstaller implements AutoCloseable 
     /** Each wrapper transformer rewrites exactly one site; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures both rewritten wrappers; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores both rewritten wrappers; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 2;
 
     private final InstallContext context;

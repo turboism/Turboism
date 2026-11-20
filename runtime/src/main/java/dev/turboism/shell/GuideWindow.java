@@ -1,6 +1,7 @@
 package dev.turboism.shell;
 
 import dev.turboism.core.net.HttpLinks;
+import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -51,8 +52,8 @@ final class GuideWindow {
     /** Tall enough for the longest shipped translation, so no page opens with a scrollbar. */
     static final int CARD_HEIGHT = 510;
 
-    static final String DOCUMENTATION_URL = "https://docs.turboism.dev";
-    static final String ISSUES_URL = "https://github.com/turboism/Turboism/issues";
+    static final String DOCUMENTATION_URL = TurboismEndpoints.DOCS_ORIGIN;
+    static final String ISSUES_URL = TurboismEndpoints.GITHUB_ISSUES_URL;
 
     private static final int CARD_ARC = 18;
     private static final int CARD_PADDING = 24;

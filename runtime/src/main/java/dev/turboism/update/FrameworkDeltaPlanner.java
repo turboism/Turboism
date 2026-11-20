@@ -1,5 +1,6 @@
 package dev.turboism.update;
 
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -8,9 +9,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 
@@ -153,12 +152,7 @@ public final class FrameworkDeltaPlanner {
 
     private static String sha256(final Path path) throws IOException, InterruptedException {
         checkInterrupted();
-        final MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
-        }
+        final MessageDigest digest = Sha256.digest();
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
             final byte[] buffer = new byte[8192];
             long total = 0;
@@ -171,6 +165,6 @@ public final class FrameworkDeltaPlanner {
             }
         }
         checkInterrupted();
-        return HexFormat.of().formatHex(digest.digest());
+        return Sha256.hex(digest);
     }
 }

@@ -2,6 +2,7 @@ package dev.turboism.graal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -45,6 +46,33 @@ final class ManagedGraalRuntimeServiceTest {
 
     @TempDir
     Path home;
+
+    @Test
+    void windowsManifestReadsAndValidatesUrlFromBundledPin() throws Exception {
+        final URI manifestUri =
+                ManagedGraalRuntimeService.Platform.WINDOWS_X64.manifest().uri();
+        assertTrue(ManagedGraalRuntimeService.isOfficialUri(manifestUri));
+        try (var stream =
+                ManagedGraalRuntimeService.class.getResourceAsStream("/META-INF/turboism/managed-graal.json")) {
+            final var root = dev.turboism.runtime.json.RuntimeJson.standard().readTree(stream);
+            final String expectedUrl =
+                    root.path("platforms").path("windows-x64").path("url").asText();
+            assertEquals(expectedUrl, manifestUri.toString());
+        }
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> ManagedGraalRuntimeService.Platform.parseManifestUri(
+                        "windows-x64", "http://github.com/graalvm/a.zip", "a.zip"));
+        assertThrows(
+                IllegalStateException.class,
+                () -> ManagedGraalRuntimeService.Platform.parseManifestUri(
+                        "windows-x64", "https://example.invalid/a.zip", "a.zip"));
+        assertThrows(
+                IllegalStateException.class,
+                () -> ManagedGraalRuntimeService.Platform.parseManifestUri(
+                        "windows-x64", "https://github.com/graalvm/other.zip", "a.zip"));
+    }
 
     @Test
     void windowsAcceptsNullFileKeysAndRevalidatesTheirShape() {

@@ -60,7 +60,7 @@ Do not enable by default until whole-Editor interaction benchmarks support promo
 ## Verification
 
 With `turboism.test.cubismRefDir` set to your local Cubism reference artifact directory (covering
-all 20 reviewed releases `5.0.00`–`5.3.04`) or `TURBOISM_UNIFORM_HOST_JAR` set
+all reviewed releases) or `TURBOISM_UNIFORM_HOST_JAR` set
 explicitly to a reviewed local application JAR:
 
 ```bash

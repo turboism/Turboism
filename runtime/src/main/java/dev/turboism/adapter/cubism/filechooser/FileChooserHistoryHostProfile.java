@@ -15,8 +15,7 @@ import java.util.Optional;
  * ({@code FileChooserHistoryHostAdapter}): the save-dialog methods and the
  * export-context classes used for stack-trace detection. The mapping-pack
  * entry {@code stable.cubism.hook.FileChooser} is DRAFT, so the selectors are
- * pinned here as profile constants; host validation is deferred to a later
- * Lane C slice.
+ * pinned here as profile constants until host validation is enabled.
  */
 public record FileChooserHistoryHostProfile(
         String hostVersion, List<SaveDialogMethod> saveDialogMethods, List<String> exportContextClassNames) {

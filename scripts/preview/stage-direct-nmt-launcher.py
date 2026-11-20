@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """Task-local pre-launch diagnostic: preserve official BAT and append NMT to its direct MAXMEMORY arguments."""
-import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import sys
 
-PROXY_SHA = 'c9b924644749a5e3fc8131443a8ff162278791a7e64e8dd8756625a5a9e2b9e4'
-OFFICIAL_BAT_SHA = '4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b'
-SUFFIX = b'\r\nrem T100 task-local NMT diagnostic; official BAT is unchanged\r\nset MAXMEMORY=-XX:MaxRAMPercentage=100 -XX:NativeMemoryTracking=summary\r\n'
-
-
-def sha(raw):
-    return hashlib.sha256(raw).hexdigest()
+from direct_nmt_launcher_common import (
+    NMT_PROXY_SUFFIX as SUFFIX,
+    OFFICIAL_BAT_SHA,
+    ORIGINAL_PROXY_SHA as PROXY_SHA,
+    sha256_bytes as sha,
+)
 
 
 def stage(task, evidence, prefix, expected_task):

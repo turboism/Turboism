@@ -64,13 +64,13 @@ esac
 
 id="$(bash "$root/scripts/dev/worktree-id.sh")"
 fixture="$root/build/host-validation/025-negative-source/queue-81a9c6c0640c4e39a4012fe5dd486b44/native-seven-layer.psd"
-fixture_sha256="8b760eb0b6ac5839271210aa0efc681f6a02a6537c1ab97d40a3a56879d8f02c"
 fixture_name=native-seven-layer.psd
-target_rgb_sha256="12eca5a1c8d8b9096384c974d52e8f0310c4ad9ac4ea87a072684096cf2b808d"
+fixture_sha256="$(turboism_fixture_sha256 "$fixture_name")" || exit 2
+target_rgb_sha256="$(turboism_fixture_sha256 native-seven-layer-target-rgb)" || exit 2
 if [ "$profile" = f1 ]; then
   fixture="$root/build/host-validation/025-f1-source/native-writer-2048-20/f1-2048-20layers.psd"
-  fixture_sha256="2473baeae7fc8942d8d2e0df72cf4567f57f8e3a9a37a924fc4d01034ababfeb"
   fixture_name=f1-2048-20layers.psd
+  fixture_sha256="$(turboism_fixture_sha256 "$fixture_name")" || exit 2
 fi
 
 [ -f "$fixture" ] || {

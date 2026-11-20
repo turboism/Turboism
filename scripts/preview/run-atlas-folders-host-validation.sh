@@ -15,7 +15,7 @@ folders=("$root/build/worktree/$id/atlas-folder-layout/libs/"*.jar)
 dalsoo=("$root/build/worktree/$id/atlas-dalsoo-polygon/libs/"*.jar)
 [[ ${#maxrects[@]} == 1 && ${#dalsoo[@]} == 1 && ${#folders[@]} == 1 ]] || exit 2
 fixture="${TURBOISM_ATLAS_FOLDERS_FIXTURE:-$root/testing/assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3}"
-fixture_hash=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff
+fixture_hash="$(turboism_fixture_sha256 atlas_mapping_geometry_100.cmo3)" || exit 2
 extra=()
 if [[ "$algorithm" == reopen ]]; then
   fixture="${TURBOISM_ATLAS_FOLDERS_SAVED:?saved model path}"

@@ -1,13 +1,14 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate.incremental;
 
+import dev.turboism.adapter.cubism.optimization.modelupdate.DrawableFormDigest;
 import dev.turboism.adapter.cubism.optimization.modelupdate.incremental.IncrementalUpdateTarget.Dep;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,7 +99,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private static volatile boolean configuredAffecterDefault = false;
 
     private final IncrementalUpdateTarget target;
-    private final Class<?> modelingDocumentType, editModeType, meshFormType, pathFormType;
+    private final Class<?> modelingDocumentType, editModeType;
+    private final DrawableFormDigest formDigest;
     /** Glue affecter type; {@code null} keeps every affecter model on the native path. */
     private final Class<?> glueType;
 
@@ -131,17 +133,7 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
             meshTransform,
             getDeformedForm,
             getAffectedForm,
-            getDrawOrder,
-            meshPositions,
-            pathPositions,
-            pointCurve,
-            pointWidth,
-            pointOpacity,
-            spPoint,
-            spStart,
-            spEnd,
-            vecX,
-            vecY;
+            getDrawOrder;
     private final Object updaterInstance;
     private final AtomicBoolean active = new AtomicBoolean();
     private final LongAdder epochs = new LongAdder(),
@@ -199,8 +191,8 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         this.target = target;
         modelingDocumentType = Class.forName(DOC, false, loader);
         editModeType = Class.forName(EM, false, loader);
-        meshFormType = Class.forName(MF, false, loader);
-        pathFormType = Class.forName(PF, false, loader);
+        final Class<?> meshFormType = Class.forName(MF, false, loader);
+        final Class<?> pathFormType = Class.forName(PF, false, loader);
         final Map<Dep, MethodHandle> handles = resolve(target, loader);
         final String up = target.updater().replace('/', '.');
         getSkipInterpolation = handles.get(dep(up, "b", "()Z"));
@@ -233,16 +225,19 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
         getDeformedForm = handles.get(dep(DR, "getDeformedForm"));
         getAffectedForm = handles.get(dep(DR, "getAffectedForm"));
         getDrawOrder = handles.get(dep(DR, "getDrawOrder"));
-        meshPositions = handles.get(dep(MF, "getPositions"));
-        pathPositions = handles.get(dep(PF, "getPositions"));
-        pointCurve = handles.get(dep(PP, "getCurvePointPosition"));
-        pointWidth = handles.get(dep(PP, "getWidth"));
-        pointOpacity = handles.get(dep(PP, "getOpacity"));
-        spPoint = handles.get(dep(SP, "getPoint"));
-        spStart = handles.get(dep(SP, "getStartVelocity"));
-        spEnd = handles.get(dep(SP, "getEndVelocity"));
-        vecX = handles.get(dep(GV, "getX"));
-        vecY = handles.get(dep(GV, "getY"));
+        formDigest = new DrawableFormDigest(
+                meshFormType,
+                pathFormType,
+                handles.get(dep(MF, "getPositions")),
+                handles.get(dep(PF, "getPositions")),
+                handles.get(dep(PP, "getCurvePointPosition")),
+                handles.get(dep(PP, "getWidth")),
+                handles.get(dep(PP, "getOpacity")),
+                handles.get(dep(SP, "getPoint")),
+                handles.get(dep(SP, "getStartVelocity")),
+                handles.get(dep(SP, "getEndVelocity")),
+                handles.get(dep(GV, "getX")),
+                handles.get(dep(GV, "getY")));
         updaterInstance = Class.forName(up, false, loader).getField("a").get(null);
         glueType = optionalClass(loader, "com.live2d.cubism.doc.model.affecter.glue.CGlue");
     }
@@ -735,18 +730,18 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
      * adjacent epochs: parameter-set version and values plus the document timestamp.
      */
     private byte[] inputsVersion(final Object model, final Object ctx) throws Throwable {
-        final MessageDigest md = MessageDigest.getInstance("SHA-256");
-        final ByteBuffer buffer = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN);
+        final MessageDigest md = Sha256.digest();
+        final ByteBuffer buffer = DrawableFormDigest.newBuffer();
         final Object parameterSet = (Object) getParameterSet.invokeExact(model);
         if (parameterSet == null) {
-            putInt(md, buffer, -1);
+            DrawableFormDigest.putInt(md, buffer, -1);
         } else {
-            putInt(md, buffer, (int) getUpdateVersion.invokeExact(parameterSet));
+            DrawableFormDigest.putInt(md, buffer, (int) getUpdateVersion.invokeExact(parameterSet));
             final Object parameters = (Object) getParameters.invokeExact(parameterSet);
             if (parameters instanceof List) {
-                putInt(md, buffer, ((List<?>) parameters).size());
+                DrawableFormDigest.putInt(md, buffer, ((List<?>) parameters).size());
                 for (final Object parameter : (List<?>) parameters) {
-                    putInt(
+                    DrawableFormDigest.putInt(
                             md,
                             buffer,
                             parameter == null
@@ -754,20 +749,19 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
                                     : Float.floatToRawIntBits((float) paramValue.invokeExact(parameter)));
                 }
             } else {
-                putInt(md, buffer, -2);
+                DrawableFormDigest.putInt(md, buffer, -2);
             }
         }
         Object document = ctx == null ? null : (Object) getDoc.invokeExact(ctx);
         if (!modelingDocumentType.isInstance(document)) document = null;
-        putLong(md, buffer, document == null ? Long.MIN_VALUE : (long) getLastModifiedTime.invokeExact(document));
+        DrawableFormDigest.putLong(
+                md, buffer, document == null ? Long.MIN_VALUE : (long) getLastModifiedTime.invokeExact(document));
         final Object editMode = ctx == null ? null : (Object) getCurrentEditMode.invokeExact(ctx);
         final boolean editing = editMode != null
                 && editModeType.isInstance(editMode)
                 && (boolean) isEditModeEditing.invokeExact(editMode);
-        putInt(md, buffer, editing ? 1 : 0);
-        buffer.flip();
-        md.update(buffer);
-        return md.digest();
+        DrawableFormDigest.putInt(md, buffer, editing ? 1 : 0);
+        return DrawableFormDigest.finish(md, buffer);
     }
 
     /**
@@ -803,98 +797,11 @@ public final class IncrementalUpdateBridge implements AutoCloseable {
     private byte[] digest(final Object model) throws Throwable {
         final long started = System.nanoTime();
         try {
-            final MessageDigest md = MessageDigest.getInstance("SHA-256");
-            final Object drawables = (Object) getAllDrawables.invokeExact(model);
-            if (!(drawables instanceof List)) throw new IllegalStateException("drawables absent");
-            final ByteBuffer buffer = ByteBuffer.allocate(8192).order(ByteOrder.LITTLE_ENDIAN);
-            for (final Object drawable : (List<?>) drawables) {
-                if (drawable == null) throw new IllegalStateException("null drawable");
-                putForm(md, buffer, (Object) getDeformedForm.invokeExact(drawable));
-                // Glue writes into affectedForm, which the deformer/mesh reuse never touches.
-                putForm(md, buffer, (Object) getAffectedForm.invokeExact(drawable));
-                putInt(md, buffer, (int) getDrawOrder.invokeExact(drawable));
-            }
-            buffer.flip();
-            md.update(buffer);
-            return md.digest();
+            // Glue writes into affectedForm, which the deformer/mesh reuse never touches.
+            return formDigest.digestDrawables(model, getAllDrawables, getDeformedForm, getAffectedForm, getDrawOrder);
         } finally {
             digestNanos.add(System.nanoTime() - started);
         }
-    }
-
-    /** Digests one mesh or path form; {@code null} is a distinct "absent" marker. */
-    private void putForm(final MessageDigest md, final ByteBuffer buffer, final Object form) throws Throwable {
-        if (form == null) {
-            putInt(md, buffer, 0);
-        } else if (meshFormType.isInstance(form)) {
-            final float[] positions = (float[]) (Object) meshPositions.invokeExact(form);
-            putInt(md, buffer, 1);
-            if (positions == null) {
-                putInt(md, buffer, -1);
-            } else {
-                putInt(md, buffer, positions.length);
-                for (final float position : positions) putFloat(md, buffer, position);
-            }
-        } else if (pathFormType.isInstance(form)) {
-            final Object points = (Object) pathPositions.invokeExact(form);
-            putInt(md, buffer, 2);
-            if (points == null) {
-                putInt(md, buffer, -1);
-            } else if (!(points instanceof List)) {
-                throw new IllegalStateException(
-                        "path points of unexpected type " + points.getClass().getName());
-            } else {
-                putInt(md, buffer, ((List<?>) points).size());
-                for (final Object point : (List<?>) points) {
-                    if (point == null) {
-                        putInt(md, buffer, -1);
-                        continue;
-                    }
-                    putInt(md, buffer, 1);
-                    final Object curve = (Object) pointCurve.invokeExact(point);
-                    if (curve == null) {
-                        putInt(md, buffer, -1);
-                    } else {
-                        putVector(md, buffer, (Object) spPoint.invokeExact(curve));
-                        putVector(md, buffer, (Object) spStart.invokeExact(curve));
-                        putVector(md, buffer, (Object) spEnd.invokeExact(curve));
-                    }
-                    putFloat(md, buffer, (float) pointWidth.invokeExact(point));
-                    putFloat(md, buffer, (float) pointOpacity.invokeExact(point));
-                }
-            }
-        } else {
-            throw new IllegalStateException(
-                    "undigestable form " + form.getClass().getName());
-        }
-    }
-
-    private void putVector(final MessageDigest md, final ByteBuffer buffer, final Object vector) throws Throwable {
-        if (vector == null) {
-            putInt(md, buffer, -1);
-            return;
-        }
-        putInt(md, buffer, 1);
-        putFloat(md, buffer, (float) vecX.invokeExact(vector));
-        putFloat(md, buffer, (float) vecY.invokeExact(vector));
-    }
-
-    private static void putFloat(final MessageDigest md, final ByteBuffer buffer, final float value) {
-        putInt(md, buffer, Float.floatToRawIntBits(value));
-    }
-
-    private static void putInt(final MessageDigest md, final ByteBuffer buffer, final int value) {
-        if (buffer.remaining() < Integer.BYTES) {
-            buffer.flip();
-            md.update(buffer);
-            buffer.clear();
-        }
-        buffer.putInt(value);
-    }
-
-    private static void putLong(final MessageDigest md, final ByteBuffer buffer, final long value) {
-        putInt(md, buffer, (int) (value >>> 32));
-        putInt(md, buffer, (int) value);
     }
 
     private void writeProbe(final byte[] post, final Throwable failure) {

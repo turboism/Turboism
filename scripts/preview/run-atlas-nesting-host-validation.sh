@@ -18,21 +18,21 @@ fi
 case "$dataset" in
   geometry-100)
     count=100; dataset=geometry; fixture="$root/testing/assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_100.cmo3"
-    hash=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff ;;
+    hash="$(turboism_fixture_sha256 atlas_mapping_geometry_100.cmo3)" || exit 2 ;;
   geometry-500)
     count=500; dataset=geometry; fixture="$root/testing/assets/texture-atlas-layout/cmo3/geometry/atlas_mapping_geometry_500.cmo3"
-    hash=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b ;;
+    hash="$(turboism_fixture_sha256 atlas_mapping_geometry_500.cmo3)" || exit 2 ;;
   circle-500)
     count=500; dataset=circle; fixture="$root/testing/assets/texture-atlas-layout/cmo3/circle/atlas_mapping_500.cmo3"
-    hash=54ce27647bd8d63d16fc643eb209ef2016fda0d975779b5b07943da303478b50 ;;
+    hash="$(turboism_fixture_sha256 atlas_mapping_500.cmo3)" || exit 2 ;;
   heavy)
     turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_HEAVY 'heavy model fixture path' || exit 2
     count=0; fixture="$TURBOISM_HOST_VALIDATION_FIXTURE_HEAVY"
-    hash=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c ;;
+    hash="$(turboism_fixture_sha256 heavy.cmo3)" || exit 2 ;;
   pprcut)
     turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PPRCUT 'Pprcut model fixture path' || exit 2
     count=0; fixture="$TURBOISM_HOST_VALIDATION_FIXTURE_PPRCUT"
-    hash=2a758ba764693a956c327961820a55a03dc35cc1a8ff6567346c17bc2192587a ;;
+    hash="$(turboism_fixture_sha256 pprcut.cmo3)" || exit 2 ;;
   *) echo 'Unadmitted nesting fixture' >&2; exit 2 ;;
 esac
 extra=()

@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Static evidence only: logical-16 PNG resource paths in the nine exact reviewed 5.2/5.3
+ * Static evidence only: logical-16 PNG resource paths in the ten exact reviewed 5.2/5.3
  * artifacts, not bundled assets.
  *
  * <p>The whole-artifact identity in {@link ReviewedHostArtifacts} proves the archive, and

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.reflect.CodeSources;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
@@ -8,7 +9,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
-import java.net.URISyntaxException;
+import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,11 +48,13 @@ public final class TextureAtlasParallelMeshes implements AutoCloseable {
     private static final String POSITION_REVISION_METHOD = "get_postion_edit_version";
     private static final String CACHED_REVISION_METHOD = "getCache_version_gl_indices$core";
     private static final String POINT_COUNT_METHOD = "getPointCount";
-    private static final String CLASS_SUFFIX = ".class";
+    private static final String PROGRESS_PACKAGE_PREFIX =
+            TextureAtlasMeshSolverTransformer.PROGRESS_PACKAGE_PREFIX.replace('/', '.');
+    private static final int APPLY_PARAMETER_COUNT = 4;
+    private static final int PROGRESS_PARAMETER_INDEX = 3;
 
     private static final String SOLVER_CONTEXT_METHOD = "a";
     private static final String CONTEXT_CONTOURS_METHOD = "c";
-    private static final String FILE_SCHEME = "file";
 
     private static final ClassValue<Optional<Host>> HOST = new ClassValue<>() {
         @Override
@@ -59,11 +62,7 @@ public final class TextureAtlasParallelMeshes implements AutoCloseable {
             try {
                 meshOps.getDeclaredMethod(TextureAtlasMeshSolverTransformer.CAPTURE_MARKER);
                 return Host.reviewed(meshOps);
-            } catch (ReflectiveOperationException
-                    | IOException
-                    | URISyntaxException
-                    | LinkageError
-                    | SecurityException unsupported) {
+            } catch (ReflectiveOperationException | IOException | LinkageError | SecurityException unsupported) {
                 return Optional.empty();
             }
         }
@@ -255,25 +254,18 @@ public final class TextureAtlasParallelMeshes implements AutoCloseable {
             Method apply,
             Method solverContext,
             Method contextContours) {
-        static Optional<Host> reviewed(final Class<?> meshOps)
-                throws ReflectiveOperationException, IOException, URISyntaxException {
+        static Optional<Host> reviewed(final Class<?> meshOps) throws ReflectiveOperationException, IOException {
             final ClassLoader loader = meshOps.getClassLoader();
-            final var source = meshOps.getProtectionDomain().getCodeSource();
-            if (loader == null || source == null) return Optional.empty();
-            final var origin = source.getLocation().toURI();
-            if (!FILE_SCHEME.equalsIgnoreCase(origin.getScheme())
-                    || !ReviewedHostArtifacts.isReviewed(HostArtifactDigest.cached(Path.of(origin)))) {
+            final Path artifact = CodeSources.pathOf(meshOps.getProtectionDomain());
+            if (loader == null
+                    || artifact == null
+                    || !ReviewedHostArtifacts.isReviewed(HostArtifactDigest.cached(artifact))) {
                 return Optional.empty();
             }
-            final String progressName;
-            try (var bytes =
-                    meshOps.getResourceAsStream('/' + TextureAtlasMeshSolverTransformer.MESH_OPS + CLASS_SUFFIX)) {
-                progressName =
-                        bytes == null ? null : TextureAtlasMeshSolverTransformer.progressType(bytes.readAllBytes());
-            }
-            if (progressName == null) return Optional.empty();
             final Class<?> mesh = type(loader, TextureAtlasMeshSolverTransformer.MESH);
-            final Class<?> progressType = type(loader, progressName);
+            final Method apply = findApplyMethod(meshOps, mesh);
+            if (apply == null) return Optional.empty();
+            final Class<?> progressType = apply.getParameterTypes()[PROGRESS_PARAMETER_INDEX];
             final Object progressProvider =
                     progressType.getField(PROGRESS_DEFAULT).get(null);
             final Object progress = progressProvider
@@ -297,9 +289,34 @@ public final class TextureAtlasParallelMeshes implements AutoCloseable {
                     mesh.getMethod(CACHED_REVISION_METHOD),
                     mesh.getMethod(POINT_COUNT_METHOD),
                     meshOps.getMethod(OUTLINES_METHOD, mesh),
-                    meshOps.getMethod(APPLY_METHOD, mesh, List.class, boolean.class, progressType),
+                    apply,
                     solverContext,
                     solverContext.getReturnType().getMethod(CONTEXT_CONTOURS_METHOD)));
+        }
+
+        private static Method findApplyMethod(final Class<?> meshOps, final Class<?> mesh) {
+            Method matched = null;
+            for (final Method candidate : meshOps.getDeclaredMethods()) {
+                final int modifiers = candidate.getModifiers();
+                if (!Modifier.isPublic(modifiers)
+                        || Modifier.isStatic(modifiers)
+                        || !APPLY_METHOD.equals(candidate.getName())
+                        || candidate.getReturnType() != void.class) {
+                    continue;
+                }
+                final Class<?>[] params = candidate.getParameterTypes();
+                if (params.length != APPLY_PARAMETER_COUNT
+                        || params[0] != mesh
+                        || params[1] != List.class
+                        || params[2] != boolean.class
+                        || params[PROGRESS_PARAMETER_INDEX].isPrimitive()
+                        || !params[PROGRESS_PARAMETER_INDEX].getName().startsWith(PROGRESS_PACKAGE_PREFIX)) {
+                    continue;
+                }
+                if (matched != null) return null;
+                matched = candidate;
+            }
+            return matched;
         }
 
         List<?> contours(final Object solver) throws ReflectiveOperationException {

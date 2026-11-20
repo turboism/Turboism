@@ -4,22 +4,15 @@ import dev.turboism.adapter.cubism.physics.NativePhysicsEditorBridge;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorConstructorTransformer;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
-import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Owns the exact-version Physics Settings panel constructor transformer. */
 final class VerifiedPhysicsEditorHookInstaller implements AutoCloseable {
-    private final Instrumentation instrumentation;
-    private final ClassLoader hostClassLoader;
-    private final PhysicsEditorCoordinator coordinator;
-    private final PhysicsEditorHostProfile profile;
-    private final PhysicsEditorConstructorTransformer transformer;
-    private final String targetClassName;
-    private final LoadedClassIndex loadedClasses;
-    private final AtomicBoolean installed = new AtomicBoolean();
+
+    private final HookInstallSession session;
 
     VerifiedPhysicsEditorHookInstaller(
             final Instrumentation instrumentation,
@@ -39,47 +32,36 @@ final class VerifiedPhysicsEditorHookInstaller implements AutoCloseable {
             final PhysicsEditorCoordinator coordinator,
             final PhysicsEditorHostProfile profile,
             final LoadedClassIndex loadedClasses) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
-        this.profile = Objects.requireNonNull(profile, "profile");
-        this.loadedClasses = loadedClasses;
-        this.transformer = new PhysicsEditorConstructorTransformer(profile.panelOwnerInternalName(), hostClassLoader);
-        this.targetClassName = profile.panelOwnerInternalName().replace('/', '.');
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        Objects.requireNonNull(coordinator, "coordinator");
+        Objects.requireNonNull(profile, "profile");
+        final PhysicsEditorConstructorTransformer transformer =
+                new PhysicsEditorConstructorTransformer(profile.panelOwnerInternalName(), hostClassLoader);
+        final String targetClassName = profile.panelOwnerInternalName().replace('/', '.');
+        this.session = HookInstallSession.builder(
+                        instrumentation,
+                        hostClassLoader,
+                        Set.of(targetClassName, PhysicsEditorConstructorTransformer.PREVIEW_OWNER.replace('/', '.')))
+                .loadedClasses(loadedClasses)
+                .transformer(transformer)
+                .bridge(
+                        () -> NativePhysicsEditorBridge.install(coordinator, profile),
+                        () -> NativePhysicsEditorBridge.uninstall(coordinator))
+                .retransformOnInstall((inst, loaded, targets, loader) -> {
+                    // One enumeration covers both owners: the panel and its preview companion.
+                    VerifiedHookInstallerSupport.retransformIfLoaded(inst, loaded, targets, loader);
+                    RuntimeDiagnostics.debug("physics-editor", "Installed verified physics editor hook");
+                })
+                .build();
     }
 
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) return;
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        NativePhysicsEditorBridge.install(coordinator, profile);
-        instrumentation.addTransformer(transformer, true);
-        try {
-            // One enumeration covers both owners: the panel and its preview companion.
-            VerifiedHookInstallerSupport.retransformIfLoaded(
-                    instrumentation,
-                    loadedClasses(),
-                    Set.of(targetClassName, PhysicsEditorConstructorTransformer.PREVIEW_OWNER.replace('/', '.')),
-                    hostClassLoader);
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                    "physics-editor", "Installed verified physics editor hook");
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            close();
-            throw failure;
-        }
+        session.install();
     }
 
     @Override
     public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        instrumentation.removeTransformer(transformer);
-        NativePhysicsEditorBridge.uninstall(coordinator);
-    }
-
-    private LoadedClassIndex loadedClasses() {
-        return loadedClasses != null ? loadedClasses : LoadedClassIndex.snapshot(instrumentation);
+        session.close();
     }
 }

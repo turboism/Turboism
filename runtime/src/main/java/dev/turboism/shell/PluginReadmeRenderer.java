@@ -1,5 +1,6 @@
 package dev.turboism.shell;
 
+import dev.turboism.internal.TurboismEndpoints;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -257,7 +258,7 @@ final class PluginReadmeRenderer {
         // Generated first-party READMEs refer to the shared repository matrix.
         // Resolve only this known documentation path; arbitrary local links stay inert.
         return destination.startsWith("../../compatibility/")
-                ? "https://github.com/turboism/Turboism/blob/main/" + destination.substring(6)
+                ? TurboismEndpoints.GITHUB_BLOB_MAIN_PREFIX + destination.substring(6)
                 : destination;
     }
 

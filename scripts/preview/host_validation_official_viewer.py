@@ -12,9 +12,7 @@ from pathlib import Path
 from host_validation_queue import QueueError,atomic_json,file_digest,tree_inventory,runtime_digest,validate_admission
 import runpy
 _CORE=runpy.run_path(str(Path(__file__).with_name('host_validation_official_core.py')))
-path,windows,wait_for_task_exit,xvfb_binary=(_CORE[k] for k in ('path','windows','wait_for_task_exit','xvfb_binary'))
-
-EDITOR_SHA='988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21'
+path,windows,wait_for_task_exit,xvfb_binary,EDITOR_SHA=(_CORE[k] for k in ('path','windows','wait_for_task_exit','xvfb_binary','EDITOR_SHA'))
 FLAGS={'--name','--version','--bundle-root','--golden-prefix','--host-root','--run-label','--proton-wrapper','--proton-runner','--transport'}
 
 def require(ok,message):

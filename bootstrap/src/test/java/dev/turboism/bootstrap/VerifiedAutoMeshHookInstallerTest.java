@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.automesh.host.AutoMeshFunnelTransformer;
 import dev.turboism.automesh.host.AutoMeshHostProfile;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.test.Stubs;
 import java.lang.instrument.Instrumentation;
@@ -41,7 +42,7 @@ class VerifiedAutoMeshHookInstallerTest {
         final List<Boolean> callbacksDuringScan = new ArrayList<>();
         final Instrumentation instrumentation = instrumentation(calls, callbacksDuringScan);
 
-        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, AutoMeshHostProfile.CUBISM_5_3_04);
+        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, cubism5304());
         try {
             installer.install();
             installer.install();
@@ -90,7 +91,7 @@ class VerifiedAutoMeshHookInstallerTest {
                     calls.add(method.getName());
                     return defaultValue(method.getReturnType());
                 });
-        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, AutoMeshHostProfile.CUBISM_5_3_04);
+        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, cubism5304());
         assertThrows(IllegalStateException.class, installer::install);
         assertEquals(List.of(), calls, "no transformer may be added without retransformation support");
         installer.close();
@@ -126,7 +127,7 @@ class VerifiedAutoMeshHookInstallerTest {
                         }
                     }
                 });
-        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, AutoMeshHostProfile.CUBISM_5_3_04);
+        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, cubism5304());
         assertThrows(IllegalStateException.class, installer::install);
         assertEquals(
                 List.of(
@@ -180,7 +181,7 @@ class VerifiedAutoMeshHookInstallerTest {
                         }
                     }
                 });
-        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, AutoMeshHostProfile.CUBISM_5_3_04);
+        final VerifiedAutoMeshHookInstaller installer = installer(instrumentation, cubism5304());
         installer.install();
         assertThrows(IllegalStateException.class, installer::close);
         assertTrue(
@@ -211,7 +212,7 @@ class VerifiedAutoMeshHookInstallerTest {
     void rejectsAnUnreviewedReleaseAndAMismatchedSelectorShape() {
         final List<String> calls = new ArrayList<>();
         final Instrumentation instrumentation = instrumentation(calls, new ArrayList<>());
-        final AutoMeshHostProfile reviewed = AutoMeshHostProfile.CUBISM_5_3_04;
+        final AutoMeshHostProfile reviewed = cubism5304();
         final AutoMeshHostProfile unreviewed = new AutoMeshHostProfile(
                 "5.4.00",
                 reviewed.modelingFunnelOwner(),
@@ -251,9 +252,14 @@ class VerifiedAutoMeshHookInstallerTest {
     void theReviewedProfileGuardsTheTwoExactFunnelOwnersOnly() {
         assertEquals(
                 Set.of(OWNER, MESH_EDITOR_OWNER),
-                AutoMeshFunnelTransformer.sitesOf(AutoMeshHostProfile.CUBISM_5_3_04).stream()
+                AutoMeshFunnelTransformer.sitesOf(cubism5304()).stream()
                         .map(AutoMeshFunnelTransformer.Site::ownerInternalName)
                         .collect(Collectors.toSet()));
+    }
+
+    private static AutoMeshHostProfile cubism5304() {
+        return AutoMeshHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_04)
+                .orElseThrow();
     }
 
     @Test

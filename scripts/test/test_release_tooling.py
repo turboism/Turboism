@@ -35,7 +35,6 @@ from turboism_release import framework_update
 
 notes = load("extract_release_notes", ROOT / "scripts/release/extract-release-notes.py")
 release = load("verify_release", ROOT / "scripts/release/verify-release.py")
-audit = load("audit_v042", ROOT / "scripts/release/audit-v0.42.0.py")
 
 
 def agent(version: str) -> bytes:
@@ -99,24 +98,6 @@ class ReleaseNotesTest(unittest.TestCase):
     def test_rejects_missing_section(self):
         with self.assertRaises(ValueError):
             notes.extract("# Changelog\n", "0.42.0")
-
-
-class ReleaseBaselineAuditTest(unittest.TestCase):
-    def test_v042_contract_remains_exactly_eight_assets(self):
-        self.assertEqual(len(audit.EXPECTED), 8)
-        self.assertEqual(
-            set(audit.EXPECTED),
-            {
-                "turboism-0.42.0-full.zip",
-                "turboism-0.42.0-full.zip.sha256",
-                "turboism-0.42.0-lite.zip",
-                "turboism-0.42.0-lite.zip.sha256",
-                "TurboismInstaller-0.42.0.exe",
-                "TurboismInstaller-0.42.0.exe.sha256",
-                "TurboismInstaller-0.42.0.jar",
-                "TurboismInstaller-0.42.0.jar.sha256",
-            },
-        )
 
 
 class ReleaseWorkflowTest(unittest.TestCase):

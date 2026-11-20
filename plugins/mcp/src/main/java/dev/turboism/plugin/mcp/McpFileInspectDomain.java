@@ -1,7 +1,6 @@
 package dev.turboism.plugin.mcp;
 
 import dev.turboism.sdk.ui.*;
-import java.security.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
@@ -113,13 +112,8 @@ final class McpFileInspectDomain implements AutoCloseable {
             if (bytes.length > job.limit) finish(job, "FAILED", "SDK_BUDGET_VIOLATION", null, null);
             else if (read.truncated()) finish(job, "TRUNCATED", "NO_COMPLETE_FILE_HASH", null, (long) bytes.length);
             else {
-                try {
-                    var hash = HexFormat.of()
-                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-                    finish(job, "COMPLETE", "COMPLETE_READ_OBSERVED", hash, (long) bytes.length);
-                } catch (NoSuchAlgorithmException unavailable) {
-                    finish(job, "FAILED", "HASH_UNAVAILABLE", null, null);
-                }
+                var hash = McpDigests.sha256Hex(bytes);
+                finish(job, "COMPLETE", "COMPLETE_READ_OBSERVED", hash, (long) bytes.length);
             }
         }
     }

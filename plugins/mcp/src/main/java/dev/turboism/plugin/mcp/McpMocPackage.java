@@ -5,7 +5,6 @@ import dev.turboism.sdk.json.Json;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
 import java.util.*;
 import java.util.zip.*;
 import javax.imageio.ImageIO;
@@ -157,27 +156,12 @@ final class McpMocPackage {
 
     private static byte[] json(Map<String, Object> value) {
         @SuppressWarnings("unchecked")
-        var sorted = (Map<String, Object>) canonical(value);
+        var sorted = (Map<String, Object>) McpDigests.canonical(value);
         return Json.stringify(sorted).getBytes(StandardCharsets.UTF_8);
     }
 
-    private static Object canonical(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            var result = new TreeMap<String, Object>();
-            map.forEach((key, item) -> result.put((String) key, canonical(item)));
-            return result;
-        }
-        if (value instanceof List<?> list)
-            return list.stream().map(McpMocPackage::canonical).toList();
-        return value;
-    }
-
     static String hash(byte[] bytes) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return McpDigests.sha256Hex(bytes);
     }
 
     private static float number(Object value) {

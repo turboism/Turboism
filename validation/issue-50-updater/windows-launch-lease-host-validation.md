@@ -1,6 +1,6 @@
 # Windows Launch Lease and Native Recovery Acceptance: 2026-11-01
 
-This record supplements the historical state of the older machine in `HANDOFF.zh-CN.md`. This acceptance used the current Windows workspace and continued only `local/w2-validation-fixes` and `test/issue-50-windows-validation-fixes`, without merging into main. **A passing local recovery chain does not mean production self-update is ready.**
+This acceptance used the current Windows workspace and continued only `local/w2-validation-fixes` and `test/issue-50-windows-validation-fixes`, without merging into main. **A passing local recovery chain does not mean production self-update is ready.**
 
 ## Build Under Test and Isolated Environment
 

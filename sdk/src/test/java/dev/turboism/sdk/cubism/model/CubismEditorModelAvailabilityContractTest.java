@@ -13,11 +13,8 @@ import org.junit.jupiter.api.Test;
 
 class CubismEditorModelAvailabilityContractTest {
 
-    private static final String[] ALL_DECLARED = {
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
-    };
-    private static final String[] EXACT_5_3_ALL = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"};
+    private static final String EXPECTED_FROM_5_0 = "5.0.00";
+    private static final String EXPECTED_FROM_5_3 = "5.3.00";
     private static final String[] TEXTURE_WRITE_SET = {
         "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
         "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
@@ -25,78 +22,38 @@ class CubismEditorModelAvailabilityContractTest {
 
     @Test
     void exact5303CoreReadsAndPartAppearanceDeclareNarrowAvailability() throws Exception {
+        assertFrom(CubismModel.class.getMethod("id").getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
+        assertFrom(
+                CubismModel.class.getMethod("parameterDefinitions").getAnnotation(CubismEditor.class),
+                EXPECTED_FROM_5_0);
+        assertFrom(CubismModel.class.getMethod("canvas").getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
+        assertFrom(Part.class.getMethod("ui").getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
         assertArrayEquals(
-                new String[0],
-                CubismModel.class
-                        .getMethod("id")
-                        .getAnnotation(CubismEditor.class)
-                        .value());
-        assertEquals(
-                "5.0.00",
-                CubismModel.class
-                        .getMethod("id")
-                        .getAnnotation(CubismEditor.class)
-                        .from());
-        assertArrayEquals(
-                ALL_DECLARED,
-                CubismModel.class
-                        .getMethod("parameterDefinitions")
-                        .getAnnotation(CubismEditor.class)
-                        .value());
-        assertArrayEquals(
-                ALL_DECLARED,
-                CubismModel.class
-                        .getMethod("canvas")
-                        .getAnnotation(CubismEditor.class)
-                        .value());
-        assertArrayEquals(
-                ALL_DECLARED,
-                Part.class.getMethod("ui").getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(
-                ALL_DECLARED, Part.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(
-                ALL_DECLARED, Drawable.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(
-                new String[0],
-                ModelTextures.class.getAnnotation(CubismEditor.class).value());
-        assertEquals(
-                "5.0.00", ModelTextures.class.getAnnotation(CubismEditor.class).from());
-        assertArrayEquals(
-                EXACT_5_3_ALL,
-                AlphaComposition.class.getAnnotation(CubismEditor.class).value());
+                TEXTURE_WRITE_SET, Part.class.getAnnotation(CubismEditor.class).value());
+        assertFrom(Drawable.class.getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
+        assertFrom(ModelTextures.class.getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
+        assertFrom(AlphaComposition.class.getAnnotation(CubismEditor.class), EXPECTED_FROM_5_3);
     }
 
     @Test
     void partOverridesMatchReviewedHostDifferences() throws Exception {
-        assertExact53(Part.class.getMethod("maskIds"));
-        assertExact53(Part.class.getMethod("setMaskIds", List.class));
-        assertExact53(Part.class.getMethod("alphaComposition"));
-        assertExact53(Part.class.getMethod("setAlphaComposition", AlphaComposition.class));
-        assertExact53(Part.class.getMethod("setOpacity", float.class));
+        assertFrom53(Part.class.getMethod("maskIds"));
+        assertFrom53(Part.class.getMethod("setMaskIds", List.class));
+        assertFrom53(Part.class.getMethod("alphaComposition"));
+        assertFrom53(Part.class.getMethod("setAlphaComposition", AlphaComposition.class));
+        assertFrom53(Part.class.getMethod("setOpacity", float.class));
     }
 
     @Test
-    void glueReadsAndWritesDeclareAllThreeExactReviewedVersions() throws Exception {
-        assertArrayEquals(
-                ALL_DECLARED, Glue.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(
-                ALL_DECLARED, Glues.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(
-                ALL_DECLARED,
-                CubismModel.class
-                        .getMethod("glues")
-                        .getAnnotation(CubismEditor.class)
-                        .value());
+    void glueReadsAndWritesDeclareFrom50Availability() throws Exception {
+        assertFrom(Glue.class.getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
+        assertFrom(Glues.class.getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
+        assertFrom(CubismModel.class.getMethod("glues").getAnnotation(CubismEditor.class), EXPECTED_FROM_5_0);
     }
 
     @Test
-    void drawableOverrideIncludesTheDeclared5303Contract() throws Exception {
-        assertArrayEquals(
-                EXACT_5_3_ALL,
-                Drawable.class
-                        .getMethod("setAlphaComposition", AlphaComposition.class)
-                        .getAnnotation(CubismEditor.class)
-                        .value());
+    void drawableOverrideIncludesTheDeclared5300Contract() throws Exception {
+        assertFrom53(Drawable.class.getMethod("setAlphaComposition", AlphaComposition.class));
     }
 
     @Test
@@ -112,8 +69,12 @@ class CubismEditorModelAvailabilityContractTest {
         }
     }
 
-    private static void assertExact53(final Method method) {
-        assertArrayEquals(
-                EXACT_5_3_ALL, method.getAnnotation(CubismEditor.class).value());
+    private static void assertFrom53(final Method method) {
+        assertFrom(method.getAnnotation(CubismEditor.class), EXPECTED_FROM_5_3);
+    }
+
+    private static void assertFrom(final CubismEditor annotation, final String expectedFrom) {
+        assertArrayEquals(new String[0], annotation.value());
+        assertEquals(expectedFrom, annotation.from());
     }
 }

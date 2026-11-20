@@ -9,6 +9,11 @@ import java.util.function.BooleanSupplier;
 
 /** Resolves declared model resources using only separately granted SDK reads. */
 final class ModelInputFiles {
+    private static final int ZIP_SIGNATURE_MIN_BYTES = 4;
+    private static final int MAX_EXTERNAL_RESOURCES = 64;
+    private static final int MAX_CHOOSER_TITLE_LENGTH = 256;
+    private static final int TRUNCATED_TITLE_PREFIX_LENGTH = MAX_CHOOSER_TITLE_LENGTH - 3;
+
     private final byte[] input;
     private final UserFileAccessService files;
     private final String requestId;
@@ -82,16 +87,18 @@ final class ModelInputFiles {
                     if (!(failure instanceof ModelInputNormalizer.MissingResource missing))
                         return CompletableFuture.<Optional<byte[]>>failedFuture(failure);
                     // ZIP packages retain their existing requirement to contain all referenced resources.
-                    if (input.length >= 4 && input[0] == 'P' && input[1] == 'K')
+                    if (input.length >= ZIP_SIGNATURE_MIN_BYTES && input[0] == 'P' && input[1] == 'K')
                         return CompletableFuture.<Optional<byte[]>>failedFuture(missing);
                     if (!active.getAsBoolean()) return CompletableFuture.completedFuture(Optional.<byte[]>empty());
-                    if (resources.size() >= 64 || resources.containsKey(missing.key))
+                    if (resources.size() >= MAX_EXTERNAL_RESOURCES || resources.containsKey(missing.key))
                         return CompletableFuture.<Optional<byte[]>>failedFuture(
                                 new ModelImportPlugin.LocalizedIllegalArgumentException(
-                                        "error.resource-limit", "模型资源数量超限或无法关联。"));
+                                        "error.resource-limit",
+                                        "Model resource count exceeded or cannot be resolved."));
                     String name = missing.reference;
-                    String title = format("resource.chooser.title", "选择模型引用的资源：{0}", name);
-                    if (title.length() > 256) title = title.substring(0, 253) + "…";
+                    String title = format("resource.chooser.title", "Select referenced model resource: {0}", name);
+                    if (title.length() > MAX_CHOOSER_TITLE_LENGTH)
+                        title = title.substring(0, TRUNCATED_TITLE_PREFIX_LENGTH) + "…";
                     String suffix = name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
                     List<String> extensions = Set.of("png", "jpg", "jpeg").contains(suffix)
                             ? List.of("png", "jpg", "jpeg")
@@ -108,7 +115,9 @@ final class ModelInputFiles {
                                 if (selected.status() != UserFileRequestStatus.GRANTED)
                                     return CompletableFuture.<Optional<byte[]>>failedFuture(
                                             new ModelImportPlugin.LocalizedIllegalStateException(
-                                                    "error.resource-select", "无法选择模型资源：{0}", selected.status()));
+                                                    "error.resource-select",
+                                                    "Could not select model resource: {0}",
+                                                    selected.status()));
                                 var handle = selected.handle().orElseThrow();
                                 if (!active.getAsBoolean()) {
                                     handle.close();
@@ -128,16 +137,19 @@ final class ModelInputFiles {
                                             if (value.truncated())
                                                 throw new CompletionException(
                                                         new ModelImportPlugin.LocalizedIllegalArgumentException(
-                                                                "error.resource-too-large", "模型资源超过 16 MiB 限制。"));
+                                                                "error.resource-too-large",
+                                                                "Model resource exceeds the 16 MiB limit."));
                                             byte[] bytes = value.value()
                                                     .orElseThrow(
                                                             () -> new ModelImportPlugin.LocalizedIllegalStateException(
-                                                                    "error.resource-read", "无法读取模型资源。"));
+                                                                    "error.resource-read",
+                                                                    "Could not read model resource."));
                                             total += bytes.length;
                                             if (total > GlbSurfaceReader.MAX_BYTES)
                                                 throw new CompletionException(
                                                         new ModelImportPlugin.LocalizedIllegalArgumentException(
-                                                                "error.total-too-large", "模型及外部资源合计超过 16 MiB 限制。"));
+                                                                "error.total-too-large",
+                                                                "Total size of model and external resources exceeds the 16 MiB limit."));
                                             resources.put(missing.key, bytes);
                                             return resolve();
                                         });

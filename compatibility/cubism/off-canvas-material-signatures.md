@@ -1,6 +1,6 @@
 # OffCanvas Material Signature Check
 
-All 20 reviewed JARs hold exactly one public instance `setColor`.
+All 20 inspected JARs (`5.0.00`–`5.3.04`) hold exactly one public instance `setColor`.
 Every return type is void. Every access is 17.
 
 - owner: `com/live2d/graphics3d/material/GMaterial`.

@@ -56,25 +56,29 @@ if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
   : "${TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX:=}"
   : "${TURBOISM_HOST_VALIDATION_PROTON_RUNNER:=}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_5203:=}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_5203_SHA256:=331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_5302:=}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256:=57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_5303:=}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256:=57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302:=}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302_SHA256:=8b1718d2976eabffc8d85ea10343003aadea784230094e5397a41acbc17a20b8}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK:=}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_CLIPMASK_SHA256:=2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_MCP:=}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_MCP_SHA256:=2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD:=}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_NAME:=clipmask.psd}"
-  : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256:=27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302:=}"
   : "${TURBOISM_HOST_VALIDATION_DEFAULT_VERSION:=5302}"
   : "${TURBOISM_HOST_VALIDATION_DEFAULT_FIXTURE_VERSION:=5303}"
 
-  unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
+  _turboism_fixtures_py="$_turboism_env_root/scripts/preview/host_validation_fixtures.py"
+  [[ -f "$_turboism_fixtures_py" ]] || _turboism_fixtures_py="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host_validation_fixtures.py"
+  if [[ -f "$_turboism_fixtures_py" ]]; then
+    while IFS='=' read -r _turboism_fix_key _turboism_fix_val; do
+      [[ -n "$_turboism_fix_key" && -n "$_turboism_fix_val" ]] || continue
+      if [[ -z "${!_turboism_fix_key:-}" ]]; then
+        printf -v "$_turboism_fix_key" '%s' "$_turboism_fix_val"
+      fi
+    done < <(python3 "$_turboism_fixtures_py" env-defaults)
+  fi
+
+  unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote _turboism_fixtures_py _turboism_fix_key _turboism_fix_val
 fi
 
 turboism_require_env() {
@@ -239,6 +243,10 @@ PY
 
 turboism_reviewed_jar_sha256() {
   python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/reviewed_host_artifacts.py" sha256 "$1"
+}
+
+turboism_fixture_sha256() {
+  python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host_validation_fixtures.py" sha256 "$1"
 }
 
 turboism_core_acquisition_metadata() {

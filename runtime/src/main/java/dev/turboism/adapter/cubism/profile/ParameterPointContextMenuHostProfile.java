@@ -1,9 +1,12 @@
 package dev.turboism.adapter.cubism.profile;
 
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Exact Q-menu owner and context class for one reviewed Cubism generation.
@@ -25,6 +28,13 @@ public record ParameterPointContextMenuHostProfile(String owner, String contextD
 
     /** Generations before 5.3 share one palette class letter. */
     private static final String LEGACY_OWNER = "Q";
+
+    private record GenerationProfile(Set<String> versions, ParameterPointContextMenuHostProfile profile) {}
+
+    private static final List<GenerationProfile> GENERATION_PROFILES = List.of(
+            new GenerationProfile(ReviewedVersions.between("5.0.00", "5.2.03"), profile(LEGACY_OWNER)),
+            new GenerationProfile(ReviewedVersions.between("5.3.00", "5.3.02"), profile("ab")),
+            new GenerationProfile(ReviewedVersions.since("5.3.03"), profile("ac")));
 
     public ParameterPointContextMenuHostProfile {
         Objects.requireNonNull(owner, "owner");
@@ -52,17 +62,12 @@ public record ParameterPointContextMenuHostProfile(String owner, String contextD
      */
     public static Optional<ParameterPointContextMenuHostProfile> forReviewedVersion(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
-        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
-            return Optional.empty();
+        for (final GenerationProfile entry : GENERATION_PROFILES) {
+            if (entry.versions().contains(cubismVersion)) {
+                return Optional.of(entry.profile());
+            }
         }
-        if (cubismVersion.startsWith("5.0.") || cubismVersion.startsWith("5.1.") || cubismVersion.startsWith("5.2.")) {
-            return Optional.of(profile(LEGACY_OWNER));
-        }
-        return switch (cubismVersion) {
-            case "5.3.00", "5.3.01", "5.3.02" -> Optional.of(profile("ab"));
-            case "5.3.03", "5.3.04", "5.3.05" -> Optional.of(profile("ac"));
-            default -> Optional.empty();
-        };
+        return Optional.empty();
     }
 
     private static ParameterPointContextMenuHostProfile profile(final String name) {

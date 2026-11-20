@@ -113,24 +113,12 @@ Gradle inputs for generation/checking; output is deterministic and cacheable.
    generator. Run configured artifact tests and report executed and skipped versions
    separately, then select real-host checks according to CONTRIBUTING.
 
-## Independent equivalence baseline
+## Target invariant verification
 
-`runtime/src/test/resources/dev/turboism/adapter/cubism/optimization/modelupdate/targets-before-generation.txt`
-was frozen **before** editing either Target from the original Java classes at the
-revision above. SHA-256:
-`b698a5009379a1181eeb5ff3981c50919c4f3847b7b7708681c83c87392209e6`.
-It contains all 20 skip and 20 incremental records (including artifact identity),
-ordered complete dependencies, and every incremental derived descriptor/binary
-owner query. `ModelUpdateSkipTargetTest.completeOutputMatchesIndependentPreMigrationBaseline`
-compares actual runtime output against these independent bytes, not against output
-recomputed by the new generator.
-
-To reproduce the baseline independently, compile HostArtifactDigest,
-ReviewedHostArtifacts, ReviewedReleaseTable, ClassPinTable and the two original
-Targets with JDK 17 from that revision. With runtime/src/main/resources on the
-classpath, print each skip record followed by each dependency; then each incremental
-record followed by coreDescriptor, deformerUpdateDescriptor,
-artMeshUpdateDescriptor, deformerInterpolateDescriptor, meshInterpolateDescriptor,
-deformerBinary, meshFormBinary and each dependency, one entry per LF-terminated
-line, in `all()` order. The test contains this serialization verbatim. This needs
-no licensed host JAR and makes no claim of new real-host verification.
+`ModelUpdateSkipTargetTest.incrementalTargetsExposeWellFormedDescriptorsAndLineScopedSignatures`
+and `ModelUpdateSkipTargetTest.generatedQueriesPreserveOrderIdentityAndUnknownVersionRejection`
+verify that every reviewed release in `ReviewedHostArtifacts.all()` exposes
+well-formed descriptors, line-scoped signatures, distinct dependencies, and
+ordered lookups in `ModelUpdateSkipTarget` and `IncrementalUpdateTarget`. The
+historical pre-migration text snapshot was retired after migration equivalence
+was established.

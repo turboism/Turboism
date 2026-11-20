@@ -27,19 +27,19 @@ final class ModelObjectNames {
     static final String KEY_MESH = "object.mesh";
     static final String KEY_MESH_NAMED = "object.mesh.named";
 
-    static final String FALLBACK_ROTATION_X = "X 旋转";
-    static final String FALLBACK_ROTATION_Y = "Y 旋转";
-    static final String FALLBACK_ROTATION_Z = "Z 旋转";
-    static final String FALLBACK_ROTATION_SUFFIX = " 旋转";
-    static final String FALLBACK_PLACEMENT = "整体定位";
-    static final String FALLBACK_WARP = "曲面变形";
-    static final String FALLBACK_LOCAL_ACTION = "分区 {0} 局部动作";
-    static final String FALLBACK_PARTITION = "{0} 分区 {1}";
-    static final String FALLBACK_SURFACE = "{0} 曲面 {1}";
-    static final String FALLBACK_DEFORMER = "{0} 变形器 {1}";
-    static final String FALLBACK_JOINT = "关节 {0}";
-    static final String FALLBACK_MESH = "{0} 网格 {1}";
-    static final String FALLBACK_MESH_NAMED = "{0} {1} 网格 {2}";
+    static final String FALLBACK_ROTATION_X = "X Rotation";
+    static final String FALLBACK_ROTATION_Y = "Y Rotation";
+    static final String FALLBACK_ROTATION_Z = "Z Rotation";
+    static final String FALLBACK_ROTATION_SUFFIX = " Rotation";
+    static final String FALLBACK_PLACEMENT = "Overall Positioning";
+    static final String FALLBACK_WARP = "Warp";
+    static final String FALLBACK_LOCAL_ACTION = "Partition {0} Local Motion";
+    static final String FALLBACK_PARTITION = "{0} Partition {1}";
+    static final String FALLBACK_SURFACE = "{0} Surface {1}";
+    static final String FALLBACK_DEFORMER = "{0} Deformer {1}";
+    static final String FALLBACK_JOINT = "Joint {0}";
+    static final String FALLBACK_MESH = "{0} Mesh {1}";
+    static final String FALLBACK_MESH_NAMED = "{0} {1} Mesh {2}";
     static final String LEGACY_DEFAULT_GROUP_PREFIX = "Mesh ";
 
     private static final Pattern SYNTHETIC_MESH_NAME = Pattern.compile("^mesh_\\d+(?:_\\d+)?$");

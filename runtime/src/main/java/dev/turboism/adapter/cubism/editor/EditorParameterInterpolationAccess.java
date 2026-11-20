@@ -1,13 +1,13 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.*;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorParameterInterpolationSelectorContract;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.Supplier;
 import javax.swing.SwingUtilities;
@@ -474,17 +474,9 @@ final class EditorParameterInterpolationAccess {
     }
 
     private static final class Hash {
-        final MessageDigest digest;
+        final MessageDigest digest = Sha256.digest();
         final byte[] buffer = new byte[65536];
         int used;
-
-        Hash() {
-            try {
-                digest = MessageDigest.getInstance("SHA-256");
-            } catch (NoSuchAlgorithmException impossible) {
-                throw new AssertionError(impossible);
-            }
-        }
 
         void integer(int value) {
             if (used > buffer.length - 4) flush();
@@ -506,7 +498,7 @@ final class EditorParameterInterpolationAccess {
 
         String finish() {
             flush();
-            return HexFormat.of().formatHex(digest.digest());
+            return Sha256.hex(digest);
         }
     }
 }

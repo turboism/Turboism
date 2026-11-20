@@ -2,28 +2,27 @@ package dev.turboism.exportsettings;
 
 import dev.turboism.adapter.cubism.profile.CubismExportHostProfile;
 import dev.turboism.internal.Requirements;
+import dev.turboism.internal.ReviewedVersions;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Exact reviewed selectors for the embedded-model exporter chooser seam.
  *
- * <p>Frozen from reviewed exact classfile observation of
- * {@code com/live2d/cubism/doc/model/exporter/b}: the private export continuation
- * methods {@code b} and {@code c} each call their own private chooser
- * ({@code a(panel,String)} and {@code a(String,boolean,panel)}) exactly once. A host whose
- * exporter does not match its exact tuple is refused instead of being transformed, and the
- * in-host transformer additionally fails closed on any cardinality drift.</p>
+ * <p>Pinned from classfile observation of {@code com/live2d/cubism/doc/model/exporter/b}: the
+ * continuation methods {@code b} and {@code c} each invoke one private chooser once. The
+ * installer refuses mismatched tuples, and the transformer fails closed on cardinality drift.</p>
  *
- * <p>Cubism 5.3.02 and 5.3.03 share one selector tuple whose continuations take the abstract
- * window panel {@code com/live2d/ui/window/V}. On the reviewed 5.2.03 build the same abstract
- * panel is named {@code com/live2d/ui/window/X}, so 5.2.03 carries its own tuple. Every other
- * artifact yields empty, which is the fail-closed signal that the redirect hook must not be
- * installed.</p>
+ * <p>Reviewed builds from 5.1.00 through 5.2.03 take the abstract window panel
+ * {@code com/live2d/ui/window/X}, while builds from 5.3.00 onward take
+ * {@code com/live2d/ui/window/V}. Earlier or unreviewed artifacts yield empty.</p>
  */
 public record ProtectedExportChooserProfile(
         String hostVersion,
@@ -53,60 +52,9 @@ public record ProtectedExportChooserProfile(
     private static final String MODEL_SOURCE = CubismExportHostProfile.SETTINGS_MODEL_SOURCE;
     private static final String FUNCTION2 = "kotlin/jvm/functions/Function2";
 
-    /** The exact reviewed 5.1.00 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_1_00 =
-            reviewedProfile("5.1.00", WINDOW_PANEL_5_2, "cubism.mapping.v5100.protected_export.");
-
-    /** The exact reviewed 5.1.01 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_1_01 =
-            reviewedProfile("5.1.01", WINDOW_PANEL_5_2, "cubism.mapping.v5101.protected_export.");
-
-    /** The exact reviewed 5.1.02 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_1_02 =
-            reviewedProfile("5.1.02", WINDOW_PANEL_5_2, "cubism.mapping.v5102.protected_export.");
-
-    /** The exact reviewed 5.1.03 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_1_03 =
-            reviewedProfile("5.1.03", WINDOW_PANEL_5_2, "cubism.mapping.v5103.protected_export.");
-
-    /** The exact reviewed 5.2.00 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_2_00 =
-            reviewedProfile("5.2.00", WINDOW_PANEL_5_2, "cubism.mapping.v5200.protected_export.");
-
-    /** The exact reviewed 5.2.01 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_2_01 =
-            reviewedProfile("5.2.01", WINDOW_PANEL_5_2, "cubism.mapping.v5201.protected_export.");
-
-    /** The exact reviewed 5.2.02 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_2_02 =
-            reviewedProfile("5.2.02", WINDOW_PANEL_5_2, "cubism.mapping.v5202.protected_export.");
-
-    /** The exact reviewed 5.2.03 tuple: the {@code X} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_2_03 =
-            reviewedProfile("5.2.03", WINDOW_PANEL_5_2, "cubism.mapping.v5203.protected_export.");
-
-    /** The exact reviewed 5.3.00 tuple: the {@code V} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_3_00 =
-            reviewedProfile("5.3.00", WINDOW_PANEL_5_3, "cubism.mapping.v5300.protected_export.");
-
-    /** The exact reviewed 5.3.01 tuple: the {@code V} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_3_01 =
-            reviewedProfile("5.3.01", WINDOW_PANEL_5_3, "cubism.mapping.v5301.protected_export.");
-
-    /** The exact reviewed 5.3.02 tuple: the {@code V} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_3_02 =
-            reviewedProfile("5.3.02", WINDOW_PANEL_5_3, "cubism.mapping.v5302.protected_export.");
-
-    /** The exact reviewed 5.3.03 tuple: the {@code V} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_3_03 =
-            reviewedProfile("5.3.03", WINDOW_PANEL_5_3, "cubism.mapping.v5303.protected_export.");
-
-    /** The exact reviewed 5.3.04 tuple: the {@code V} window panel on its own reviewed build. */
-    public static final ProtectedExportChooserProfile CUBISM_5_3_04 =
-            reviewedProfile("5.3.04", WINDOW_PANEL_5_3, "cubism.mapping.v5304.protected_export.");
-
-    public static final ProtectedExportChooserProfile CUBISM_5_3_05 = reviewedProfile(
-            ReviewedHostArtifacts.CUBISM_5_3_05_VERSION, WINDOW_PANEL_5_3, "cubism.mapping.v5305.protected_export.");
+    private static final Set<String> WINDOW_PANEL_5_2_VERSIONS = ReviewedVersions.between("5.1.00", "5.2.03");
+    private static final Set<String> WINDOW_PANEL_5_3_VERSIONS = ReviewedVersions.since("5.3.00");
+    private static final Map<HostArtifactDigest, ProtectedExportChooserProfile> BY_ARTIFACT = buildProfilesByArtifact();
 
     private static ProtectedExportChooserProfile reviewedProfile(
             final String hostVersion, final String windowPanel, final String mappingIdPrefix) {
@@ -182,49 +130,38 @@ public record ProtectedExportChooserProfile(
      */
     public static Optional<ProtectedExportChooserProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (ReviewedHostArtifacts.CUBISM_5_1_00.equals(artifact)) {
-            return Optional.of(CUBISM_5_1_00);
+        return Optional.ofNullable(BY_ARTIFACT.get(artifact));
+    }
+
+    /**
+     * Resolves the reviewed chooser-redirect selectors for a reviewed Cubism version.
+     *
+     * @param hostVersion exact reviewed Cubism version string
+     * @return the matching profile, or empty when unsupported
+     * @throws NullPointerException if {@code hostVersion} is {@code null}
+     */
+    public static Optional<ProtectedExportChooserProfile> forReviewedVersion(final String hostVersion) {
+        Objects.requireNonNull(hostVersion, "hostVersion");
+        final String windowPanel;
+        if (WINDOW_PANEL_5_2_VERSIONS.contains(hostVersion)) {
+            windowPanel = WINDOW_PANEL_5_2;
+        } else if (WINDOW_PANEL_5_3_VERSIONS.contains(hostVersion)) {
+            windowPanel = WINDOW_PANEL_5_3;
+        } else {
+            return Optional.empty();
         }
-        if (ReviewedHostArtifacts.CUBISM_5_1_01.equals(artifact)) {
-            return Optional.of(CUBISM_5_1_01);
+        return Optional.of(reviewedProfile(
+                hostVersion, windowPanel, "cubism.mapping.v" + hostVersion.replace(".", "") + ".protected_export."));
+    }
+
+    private static Map<HostArtifactDigest, ProtectedExportChooserProfile> buildProfilesByArtifact() {
+        final Map<HostArtifactDigest, ProtectedExportChooserProfile> profiles = new LinkedHashMap<>();
+        for (final HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
+            final String version = ReviewedHostArtifacts.cubismVersionOf(artifact)
+                    .orElseThrow(() -> new IllegalStateException("Missing Cubism version for reviewed artifact"));
+            forReviewedVersion(version).ifPresent(profile -> profiles.put(artifact, profile));
         }
-        if (ReviewedHostArtifacts.CUBISM_5_1_02.equals(artifact)) {
-            return Optional.of(CUBISM_5_1_02);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_1_03.equals(artifact)) {
-            return Optional.of(CUBISM_5_1_03);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_2_00.equals(artifact)) {
-            return Optional.of(CUBISM_5_2_00);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_2_01.equals(artifact)) {
-            return Optional.of(CUBISM_5_2_01);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_2_02.equals(artifact)) {
-            return Optional.of(CUBISM_5_2_02);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
-            return Optional.of(CUBISM_5_2_03);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_00.equals(artifact)) {
-            return Optional.of(CUBISM_5_3_00);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_01.equals(artifact)) {
-            return Optional.of(CUBISM_5_3_01);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
-            return Optional.of(CUBISM_5_3_02);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
-            return Optional.of(CUBISM_5_3_03);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(artifact)) {
-            return Optional.of(CUBISM_5_3_04);
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_05.equals(artifact)) {
-            return Optional.of(CUBISM_5_3_05);
-        }
-        return Optional.empty();
+        return Map.copyOf(profiles);
     }
 
     private static String descriptor(final String internalName) {

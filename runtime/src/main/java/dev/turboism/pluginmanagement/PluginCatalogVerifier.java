@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.plugin.PluginJarContract;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
@@ -25,7 +26,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
@@ -994,11 +994,7 @@ public final class PluginCatalogVerifier {
     }
 
     static byte[] sha256Bytes(final byte[] bytes) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(bytes);
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
-        }
+        return Sha256.bytes(bytes);
     }
 
     private static PluginCatalogVerificationException reject(final String code, final String message) {

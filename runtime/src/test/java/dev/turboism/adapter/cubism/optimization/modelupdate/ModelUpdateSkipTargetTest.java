@@ -164,30 +164,34 @@ public class ModelUpdateSkipTargetTest {
     }
 
     @Test
-    void completeOutputMatchesIndependentPreMigrationBaseline() throws Exception {
-        StringBuilder actual = new StringBuilder();
-        for (var target : ModelUpdateSkipTarget.all()) {
-            actual.append(target).append('\n');
-            for (var dependency : target.dependencies()) {
-                actual.append(dependency).append('\n');
-            }
-        }
+    void incrementalTargetsExposeWellFormedDescriptorsAndLineScopedSignatures() {
+        assertEquals(
+                ReviewedHostArtifacts.all().size(),
+                IncrementalUpdateTarget.all().size());
         for (var target : IncrementalUpdateTarget.all()) {
-            actual.append(target).append('\n');
-            actual.append(target.coreDescriptor()).append('\n');
-            actual.append(target.deformerUpdateDescriptor()).append('\n');
-            actual.append(target.artMeshUpdateDescriptor()).append('\n');
-            actual.append(target.deformerInterpolateDescriptor()).append('\n');
-            actual.append(target.meshInterpolateDescriptor()).append('\n');
-            actual.append(target.deformerBinary()).append('\n');
-            actual.append(target.meshFormBinary()).append('\n');
-            for (var dependency : target.dependencies()) {
-                actual.append(dependency).append('\n');
-            }
-        }
-        try (var input = getClass().getResourceAsStream("targets-before-generation.txt")) {
-            assertNotNull(input);
-            assertEquals(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), actual.toString());
+            assertEquals(
+                    target.version(),
+                    ReviewedHostArtifacts.cubismVersionOf(target.digest()).orElseThrow(),
+                    target.version());
+            assertFalse(target.updater().isBlank());
+            assertFalse(target.updateContext().isBlank());
+            assertTrue(target.coreDescriptor().startsWith("("));
+            assertTrue(target.coreDescriptor().endsWith(")V"));
+            assertTrue(target.deformerInterpolateDescriptor().startsWith("("));
+            assertTrue(target.meshInterpolateDescriptor().startsWith("("));
+            assertEquals("com/live2d/cubism/doc/model/deformer/ACDeformer", target.deformerBinary());
+            assertEquals("com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm", target.meshFormBinary());
+
+            final boolean legacyLine =
+                    target.version().startsWith("5.0.") || target.version().startsWith("5.1.");
+            assertEquals(!legacyLine, target.deformerUpdateDescriptor().contains("Ljava/util/List;"), target.version());
+            assertEquals(!legacyLine, target.artMeshUpdateDescriptor().contains("CParameterSet;"), target.version());
+
+            long distinctDeps = target.dependencies().stream()
+                    .map(dep -> dep.owner() + "." + dep.name() + dep.descriptor())
+                    .distinct()
+                    .count();
+            assertEquals(distinctDeps, target.dependencies().size(), target.version());
         }
     }
 

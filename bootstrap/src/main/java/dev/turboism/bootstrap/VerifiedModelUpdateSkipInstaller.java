@@ -17,8 +17,9 @@ import java.util.Optional;
  *
  * <p>Every getter the predicate or probe reads is verified against the official artifact
  * bytecode via {@link ReviewedMethodShape} before the entry method is rewritten; any
- * absent, renamed or changed dependency fails the installation closed. On close the
- * original entry bytes are re-captured and must hash back to the pre-rewrite SHA-256.</p>
+ * absent, renamed or changed dependency fails the installation closed. On close
+ * {@link VerifiedInstall} removes the transformer and retransforms the entry class so the JVM
+ * restores its original definition.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
  * contract table and its dependency-body proof.</p>
@@ -33,7 +34,7 @@ final class VerifiedModelUpdateSkipInstaller implements VerifiedHookInstaller {
     /** The one entry method this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<ModelUpdateSkipTarget>> CANDIDATES =

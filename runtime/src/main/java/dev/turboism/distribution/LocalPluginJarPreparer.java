@@ -1,5 +1,6 @@
 package dev.turboism.distribution;
 
+import dev.turboism.core.io.Sha256;
 import dev.turboism.core.version.VersionRange;
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,7 +10,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.Objects;
 
 /** Safely inspects and stages a plugin JAR selected directly from local disk. */
@@ -75,7 +75,7 @@ public final class LocalPluginJarPreparer {
     }
 
     private Digest snapshot(final Path source, final Path target) throws Exception {
-        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final MessageDigest digest = Sha256.digest();
         long size = 0L;
         final byte[] buffer = new byte[64 * 1024];
         try (InputStream input = access.open(source);
@@ -88,7 +88,7 @@ public final class LocalPluginJarPreparer {
                 output.write(buffer, 0, read);
             }
         }
-        return new Digest(HexFormat.of().formatHex(digest.digest()), size);
+        return new Digest(Sha256.hex(digest), size);
     }
 
     private void unchanged(final Path path, final BasicFileAttributes initial) throws Exception {
@@ -107,21 +107,18 @@ public final class LocalPluginJarPreparer {
             throws Exception {
         final String name = pluginId + "-" + expected.sha256() + ".jar";
         final ConfinedStagingFiles.Target target = ConfinedStagingFiles.create(stagingDirectory, name);
-        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final MessageDigest digest = Sha256.digest();
         long size = 0L;
         final byte[] buffer = new byte[64 * 1024];
         try (InputStream input = Files.newInputStream(snapshot);
-                OutputStream output = new DigestingOutputStream(target.output(), digest)) {
+                OutputStream output = Sha256.digestingOutput(target.output(), digest)) {
             for (int read; (read = input.read(buffer)) >= 0; ) {
                 if (read == 0) continue;
                 size += read;
                 output.write(buffer, 0, read);
             }
             require(size == expected.size(), "ARTIFACT_SIZE_MISMATCH", snapshot.toString());
-            require(
-                    HexFormat.of().formatHex(digest.digest()).equals(expected.sha256()),
-                    "ARTIFACT_HASH_MISMATCH",
-                    snapshot.toString());
+            require(Sha256.hex(digest).equals(expected.sha256()), "ARTIFACT_HASH_MISMATCH", snapshot.toString());
             target.publish();
             return target.target();
         } catch (Exception failure) {
@@ -169,31 +166,4 @@ public final class LocalPluginJarPreparer {
     }
 
     private record Digest(String sha256, long size) {}
-
-    private static final class DigestingOutputStream extends OutputStream {
-        private final OutputStream delegate;
-        private final MessageDigest digest;
-
-        private DigestingOutputStream(final OutputStream delegate, final MessageDigest digest) {
-            this.delegate = delegate;
-            this.digest = digest;
-        }
-
-        @Override
-        public void write(final int value) throws IOException {
-            delegate.write(value);
-            digest.update((byte) value);
-        }
-
-        @Override
-        public void write(final byte[] bytes, final int offset, final int length) throws IOException {
-            delegate.write(bytes, offset, length);
-            digest.update(bytes, offset, length);
-        }
-
-        @Override
-        public void close() throws IOException {
-            delegate.close();
-        }
-    }
 }

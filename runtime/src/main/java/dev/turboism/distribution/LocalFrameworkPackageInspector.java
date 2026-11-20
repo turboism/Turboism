@@ -1,6 +1,7 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.core.io.Sha256;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -8,8 +9,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.zip.ZipEntry;
@@ -132,21 +131,7 @@ public final class LocalFrameworkPackageInspector implements FrameworkPackageIns
     }
 
     private static String sha256(Path path) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
-            input.transferTo(new java.io.OutputStream() {
-                @Override
-                public void write(int value) {
-                    digest.update((byte) value);
-                }
-
-                @Override
-                public void write(byte[] bytes, int offset, int length) {
-                    digest.update(bytes, offset, length);
-                }
-            });
-        }
-        return HexFormat.of().formatHex(digest.digest());
+        return Sha256.hex(path, LinkOption.NOFOLLOW_LINKS);
     }
 
     private static JsonNode manifest(ZipFile zip) throws Exception {

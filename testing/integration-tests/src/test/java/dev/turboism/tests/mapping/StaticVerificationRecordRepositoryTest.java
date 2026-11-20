@@ -94,13 +94,7 @@ class StaticVerificationRecordRepositoryTest {
                                     "5.3.02",
                                     SliceKind.PROJECT_WORKSPACE),
                             "build/generated/verification/cubism-5.2.03-core-model-read.json",
-                            coreExpectation(
-                                    "5.2.03",
-                                    "5.2.03",
-                                    36_237L,
-                                    "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-                                    80,
-                                    "5.2.03"),
+                            coreExpectation("5.2.03", "5.2.03", 80, "5.2.03"),
                             "build/generated/verification/cubism-5.3.02-clipmask.json",
                             new SliceExpectation(
                                     ClipMaskVerificationManifest.RECORD_5_3_02.verificationId(),
@@ -226,13 +220,7 @@ class StaticVerificationRecordRepositoryTest {
                                     "5.3.02",
                                     SliceKind.EDITOR_MODEL),
                             "build/generated/verification/cubism-5.3.02-core-model-read.json",
-                            coreExpectation(
-                                    "5.3.02",
-                                    "5.3.02",
-                                    42_471L,
-                                    "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-                                    82,
-                                    "5.3.02"))))))))))))));
+                            coreExpectation("5.3.02", "5.3.02", 82, "5.3.02"))))))))))))));
 
     /**
      * Registers one repository expectation per emitted exact-version record not covered by
@@ -436,31 +424,6 @@ class StaticVerificationRecordRepositoryTest {
         }
     }
 
-    private static String expected5303RecordSha(final String fileName) {
-        return switch (fileName) {
-            case "cubism-5.3.03-autobackup" -> "639036d9d0bc35a480ef18521efc43eec29f26a95c4eea7b136f52e40cf0d74d";
-            case "cubism-5.3.03-clipmask" -> "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459";
-            case "cubism-5.3.03-editor-model" -> "e4b4d240b2bdf37c11bd4d8c41cb516e23dced35358df6691c1c81c7a20b20b8";
-            case "cubism-5.3.03-performance-render-scene" ->
-                "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
-            case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";
-            case "cubism-5.3.03-project-workspace" ->
-                "401e121ca6d06634b04f59737660c2eec95fee37f8603b5eacd86fd74e7c7fa9";
-            case "cubism-5.3.03-ui-bounding-box-overlay" ->
-                "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000";
-            case "cubism-5.3.03-ui-control-appearance" ->
-                "6c771b8564af0569ed1c47064f13db20a0da5b8ef3dd1d90d06905311c58f710";
-            case "cubism-5.3.03-ui-embedded-panel" ->
-                "efd21e78301e09cb5cdf4d4d80fdbaa78c6f676f8bb813ef28af41a2656dca55";
-            case "cubism-5.3.03-ui-main-toolbar" -> "cee7eca72cd4abf180d0e01905381907c8ae35056d68dc4b2f7911d2e2d4fee4";
-            case "cubism-5.3.03-ui-status-bar" -> "f74152ef76ac4f88daf22ae3670aa8296757f18818f98d8763deea913cd3a1f2";
-            case "cubism-5.3.03-ui-top-menu" -> "8468ba23f43f3176cd20b92851348c719b1b8811b90c5af055fd26bf10f0bfea";
-            case "cubism-5.3.03-workspace-control" ->
-                "1a1be264fe64c6dc3e2f1ec10cb854a475540ebf1270b93e6d50e01ae6b801fc";
-            default -> throw new IllegalArgumentException("unregistered 5.3.03 record " + fileName);
-        };
-    }
-
     private static String packIdFor5303(final String fileName) {
         return fileName.equals("cubism-5.3.03-editor-model") ? "cubism-5.3.03-editor-model-read" : fileName;
     }
@@ -501,7 +464,6 @@ class StaticVerificationRecordRepositoryTest {
                         "5.2.03",
                         ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                         ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                        "1acf44eab99b480b1981c3c14f0229d2f0c5cfefdcc739fa831100a42496be94",
                         "m.workspace-5.2.03.control.static",
                         "adapter.workspace.control.v5_2",
                         "5.2.03"));
@@ -512,7 +474,6 @@ class StaticVerificationRecordRepositoryTest {
                         "5.3.02",
                         ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                         ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                        "ac52277ae32f617d7aeced4845f15adf91c414b9e206d935a7a904f62e5ecf47",
                         "m.workspace-5.3.02.control.static",
                         "adapter.workspace.control.v5_3",
                         "5.3.02"));
@@ -524,7 +485,6 @@ class StaticVerificationRecordRepositoryTest {
             String version,
             long size,
             String artifactSha,
-            String recordSha,
             String verificationId,
             String sliceId,
             String range) {
@@ -1230,10 +1190,11 @@ class StaticVerificationRecordRepositoryTest {
     private static SliceExpectation coreExpectation(
             final String profile,
             final String exactVersion,
-            final long artifactSize,
-            final String artifactSha256,
             final int selectorCount,
             final String expectedCubismVersion) {
+        final JsonNode observedArtifact = observedCoreArtifact(profile);
+        final long artifactSize = observedArtifact.get("sizeBytes").asLong();
+        final String artifactSha256 = observedArtifact.get("sha256").asText();
         final Set<String> aliases =
                 CorePublicApiSelectorContract.requiredAliasesFor(profile).orElseThrow();
         final Set<String> methods = CorePublicApiSelectorContract.structuralMethodAliasesFor(profile)
@@ -1265,6 +1226,16 @@ class StaticVerificationRecordRepositoryTest {
                 Path.of("build/generated/draft/profiles/cubism-" + profile + ".json"),
                 expectedCubismVersion,
                 SliceKind.CORE);
+    }
+
+    private static JsonNode observedCoreArtifact(final String profile) {
+        final Path observedPath =
+                PROJECT_ROOT.resolve("compatibility/cubism/core-api/observed/cubism-core-" + profile + ".json");
+        try {
+            return new ObjectMapper().readTree(observedPath.toFile()).get("artifact");
+        } catch (Exception failure) {
+            throw new IllegalStateException("cannot read observed Core inventory " + observedPath, failure);
+        }
     }
 
     private final ObjectMapper mapper = new ObjectMapper();

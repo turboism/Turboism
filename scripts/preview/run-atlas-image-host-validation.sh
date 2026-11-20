@@ -9,8 +9,8 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" \
 # Machine-specific input paths come from the ignored .env/environment entry.
 # shellcheck source=/dev/null
 source "$root/scripts/preview/host-validation-env.sh"
-fixture_sha256=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e
 fixture_name=atlas_mapping_100.cmo3
+fixture_sha256="$(turboism_fixture_sha256 "$fixture_name")" || exit 2
 
 fail() {
   printf 'atlas-image host validation: %s\n' "$*" >&2

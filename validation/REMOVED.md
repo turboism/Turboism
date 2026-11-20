@@ -11,5 +11,8 @@ commit on `origin/main` that touched the directory and one command that restores
 | `validation/product-ui-lifecycle-host-probe` | Task-only agent that drives ACP, MCP, command-palette and perf-stats plugin enable and disable cycles. | `88a494973` | `git checkout 88a494973 -- validation/product-ui-lifecycle-host-probe` |
 | `validation/0.70.0-acceptance` | Release-acceptance evidence notes for 0.70.0: representative host matrix, installer and Windows findings, plugin lifecycle, GIF recording review and the release-preparation checklist. | `c7e826e10` | `git checkout c7e826e10 -- validation/0.70.0-acceptance` |
 | `validation/model-viewer-host-probe` | Test-only character viewer exerciser that drove the production viewer entrypoint through the generic Runner. | `afbf1c3c1` | `git checkout afbf1c3c1 -- validation/model-viewer-host-probe` |
+| `validation/windows-cornflower-performance-20261105` | One-off Windows OpenGL Cornflower performance baseline capture notes from 2026-11-05. | `a8ad262f5` | `git checkout a8ad262f5 -- validation/windows-cornflower-performance-20261105` |
+| `validation/incremental-update-artpath-analysis.md` | One-off ArtPath incremental update analysis note superseded by runtime validation. | `a8ad262f5` | `git checkout a8ad262f5 -- validation/incremental-update-artpath-analysis.md` |
+| `validation/model-update-visual-safety.md` | One-off visual safety analysis note for model updates. | `4db307676` | `git checkout 4db307676 -- validation/model-update-visual-safety.md` |
 
 Restore one directory only when a consumer returns. Add that consumer in the same change.

@@ -204,8 +204,8 @@ function New-CubismInstallationCandidate {
     $probe = $null
     $compatStatus = ""
     $probeReason = ""
-    $applicationSha256 = ""
-    $javaSha256 = ""
+    $applicationStamp = ""
+    $javaStamp = ""
     $missing = @()
     if (-not (Test-CubismFixedDrive $canonical)) { $missing += "fixed local drive" }
     if (-not (Test-Path -LiteralPath $canonical -PathType Container)) { $missing += "root directory" }
@@ -222,13 +222,12 @@ function New-CubismInstallationCandidate {
     if (-not (Test-Path -LiteralPath $java -PathType Leaf)) { $missing += "bundled Java launcher" }
     if (-not (Test-Path -LiteralPath $applicationJar -PathType Leaf)) { $missing += "Cubism application JAR" }
     if ($missing.Count -eq 0) {
-        # Bind the version probe to stable input bytes; a host update during
-        # discovery must not turn an old admission result into a new identity.
+        # Bind the version probe to stable file metadata without hashing ~45 MB binaries.
         try {
-            $applicationSha256 = Get-CubismSha256 $applicationJar
-            $javaSha256 = Get-CubismSha256 $java
+            $applicationStamp = Get-CubismFileStamp $applicationJar
+            $javaStamp = Get-CubismFileStamp $java
             $probe = Get-CubismVersionFromArtifact -Java $java -ApplicationJar $applicationJar -TurboismHome $TurboismHome
-            if ((Get-CubismSha256 $applicationJar) -ine $applicationSha256 -or (Get-CubismSha256 $java) -ine $javaSha256) {
+            if ((Get-CubismFileStamp $applicationJar) -cne $applicationStamp -or (Get-CubismFileStamp $java) -cne $javaStamp) {
                 $probe = $null
             }
         }
@@ -271,7 +270,7 @@ function New-CubismInstallationCandidate {
         Status = $status; Reason = $reason; Selectable = ($status -in @("Ready", "Compatible", "Declared"))
         OfficialBat = $officialBat; D3DBat = (Get-CubismD3DBat $canonical)
         Java = $java; ApplicationJar = $applicationJar; Selected = $false
-        ApplicationSha256 = $applicationSha256; JavaSha256 = $javaSha256
+        ApplicationStamp = $applicationStamp; JavaStamp = $javaStamp
     }
 }
 
@@ -551,13 +550,14 @@ function Write-CubismInstallerSnapshot {
     # The report publishes this file's digest only after the snapshot is complete.
     # No installation state or user selection is mutated during discovery.
     $agent = Join-Path $TurboismHome "turboism-agent.jar"
-    if (-not (Test-CubismNormalFile $agent)) { throw "installer verifier payload is missing" }    if (Test-Path -LiteralPath $SnapshotPath) { throw "installer snapshot already exists" }
+    if (-not (Test-CubismNormalFile $agent)) { throw "installer verifier payload is missing" }
+    if (Test-Path -LiteralPath $SnapshotPath) { throw "installer snapshot already exists" }
     $entries = @(
         foreach ($candidate in @($Candidates | Where-Object { $_.Selectable })) {
-            if ([string]::IsNullOrWhiteSpace($candidate.ApplicationSha256) -or
-                [string]::IsNullOrWhiteSpace($candidate.JavaSha256) -or
-                (Get-CubismSha256 $candidate.ApplicationJar) -ine $candidate.ApplicationSha256 -or
-                (Get-CubismSha256 $candidate.Java) -ine $candidate.JavaSha256) {
+            if ([string]::IsNullOrWhiteSpace($candidate.ApplicationStamp) -or
+                [string]::IsNullOrWhiteSpace($candidate.JavaStamp) -or
+                (Get-CubismFileStamp $candidate.ApplicationJar) -cne $candidate.ApplicationStamp -or
+                (Get-CubismFileStamp $candidate.Java) -cne $candidate.JavaStamp) {
                 throw "Cubism changed before the discovery snapshot was published"
             }
             $d3dName = if ([string]::IsNullOrWhiteSpace($candidate.D3DBat)) { "" } else { [System.IO.Path]::GetFileName($candidate.D3DBat) }
@@ -565,8 +565,6 @@ function Write-CubismInstallerSnapshot {
                 root = $candidate.CanonicalRoot
                 version = $candidate.Version
                 status = $candidate.Status
-                applicationSha256 = $candidate.ApplicationSha256
-                javaSha256 = $candidate.JavaSha256
                 d3dName = $d3dName
             }
         }
@@ -588,18 +586,21 @@ function Write-CubismInstallerSnapshot {
     finally {
         if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
     }
-    return (Get-CubismSha256 $SnapshotPath)
+    return (Get-CubismBytesSha256 $bytes)
 }
 
 function Read-CubismInstallerSnapshot {
-    param([string]$TurboismHome, [string]$SnapshotPath, [string]$ExpectedSha256)
-    if ($ExpectedSha256 -notmatch '^[0-9a-fA-F]{64}$' -or -not (Test-CubismNormalFile $SnapshotPath)) {
+    param([string]$TurboismHome, [string]$SnapshotPath, [string]$ExpectedSha256 = '')
+    if (-not (Test-CubismNormalFile $SnapshotPath)) {
         throw "installer discovery snapshot or digest is missing"
     }
-    # Read a bounded, single byte snapshot. The digest received by NSIS at scan
-    # completion binds the bytes; a later edited sidecar cannot change targets.
+    if ($PSBoundParameters.ContainsKey('ExpectedSha256') -and $ExpectedSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "installer discovery snapshot or digest is missing"
+    }
     $text = Read-CubismStateBytes $SnapshotPath
-    if ((Get-CubismTextSha256 $text) -ine $ExpectedSha256) { throw "installer discovery snapshot digest mismatch" }
+    if (-not [string]::IsNullOrEmpty($ExpectedSha256) -and (Get-CubismTextSha256 $text) -ine $ExpectedSha256) {
+        throw "installer discovery snapshot digest mismatch"
+    }
     try { $document = $text | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "installer discovery snapshot is invalid JSON" }
     if ($null -eq $document) { throw "installer discovery snapshot schema is invalid" }
@@ -620,14 +621,16 @@ function Read-CubismInstallerSnapshot {
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $items = [System.Collections.Generic.List[object]]::new()
     foreach ($entry in $document.installations) {
-        if ($null -eq $entry -or
-            (@($entry.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'applicationSha256,d3dName,javaSha256,root,status,version' -or
+        if ($null -eq $entry) {
+            throw "installer discovery candidate is invalid"
+        }
+        # applicationSha256 and javaSha256 are retired fields; ignore them to avoid re-hashing ~45 MB binaries.
+        $entryFields = @($entry.PSObject.Properties.Name | Where-Object { $_ -cnotin @('applicationSha256', 'javaSha256') } | Sort-Object) -join ','
+        if ($entryFields -cne 'd3dName,root,status,version' -or
             $entry.root -isnot [string] -or [string]::IsNullOrWhiteSpace($entry.root) -or
             $entry.root.Length -gt $script:CubismMaxStateFieldLength -or
             $entry.version -isnot [string] -or $entry.version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or
             $entry.status -isnot [string] -or $entry.status -notin @('Ready', 'Compatible', 'Declared') -or
-            $entry.applicationSha256 -isnot [string] -or $entry.applicationSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
-            $entry.javaSha256 -isnot [string] -or $entry.javaSha256 -notmatch '^[0-9a-fA-F]{64}$' -or
             $entry.d3dName -isnot [string] -or ($entry.d3dName -ne '' -and $entry.d3dName -notmatch '(?i)^CubismEditor5[-_]?D3D\.bat$')) {
             throw "installer discovery candidate is invalid"
         }
@@ -646,14 +649,11 @@ function Read-CubismInstallerSnapshot {
         foreach ($path in @($official, $java, $application, $d3d)) {
             if ($null -ne $path -and -not (Test-CubismNormalFile $path)) { throw "Cubism file changed after discovery: $path" }
         }
-        if ((Get-CubismSha256 $application) -ine $entry.applicationSha256 -or (Get-CubismSha256 $java) -ine $entry.javaSha256) {
-            throw "Cubism identity changed after discovery: $root"
-        }
         [void]$items.Add([pscustomobject]@{
             Root=$root; CanonicalRoot=$root; Key=(Get-CubismRootKey $root); Version=$entry.version
             Source='installer-snapshot'; Status=$entry.status; Reason='Verified installer discovery snapshot.'
             Selectable=$true; Selected=$false; OfficialBat=$official; D3DBat=$d3d; Java=$java; ApplicationJar=$application
-            ApplicationSha256=$entry.applicationSha256; JavaSha256=$entry.javaSha256
+            ApplicationStamp=(Get-CubismFileStamp $application); JavaStamp=(Get-CubismFileStamp $java)
         })
     }
     return $items.ToArray()
@@ -1204,6 +1204,20 @@ function Invoke-CubismAtomicFileReplace {
 # so a later launch can detect that it changed between check and use (TOCTOU) and
 # derive stable names. They are not a tamper defense; the hashes are stored beside
 # the files they describe.
+function Get-CubismFileStamp {
+    param([string]$Path)
+    if (-not (Test-CubismNormalFile $Path)) { throw "file is not a normal file: $Path" }
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    return "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
+}
+
+function Get-CubismBytesSha256 {
+    param([byte[]]$Bytes)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($sha.ComputeHash($Bytes))).Replace("-", "").ToUpperInvariant() }
+    finally { $sha.Dispose() }
+}
+
 function Get-CubismSha256 {
     param([string]$Path)
     if (-not (Test-CubismNormalFile $Path)) { throw "file is not a normal file: $Path" }
@@ -1215,9 +1229,7 @@ function Get-CubismSha256 {
 
 function Get-CubismTextSha256 {
     param([string]$Text)
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try { return ([System.BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text)))).Replace("-", "").ToUpperInvariant() }
-    finally { $sha.Dispose() }
+    return Get-CubismBytesSha256 ([System.Text.Encoding]::UTF8.GetBytes($Text))
 }
 
 function Test-CubismNormalFile {

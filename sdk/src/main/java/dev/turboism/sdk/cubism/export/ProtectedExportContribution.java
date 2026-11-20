@@ -13,10 +13,7 @@ import java.util.Objects;
  * it builds the census, calls the planner and verifies the plan before it stages
  * anything.</p>
  */
-@CubismEditor({
-    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
-    "5.3.03", "5.3.04", "5.3.05"
-})
+@CubismEditor(from = "5.1.00")
 public record ProtectedExportContribution(
         String optionId, String labelKey, ExportSettingsDecisionCallback callback, ProtectedExportPlanner planner) {
     private static final int MAX_KEY_LENGTH = 128;

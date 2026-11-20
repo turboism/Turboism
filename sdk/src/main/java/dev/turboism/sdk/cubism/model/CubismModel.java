@@ -56,10 +56,7 @@ public interface CubismModel {
      * Returns the model's parameter-definition document projection.
      * @throws UnsupportedOperationException when the backend does not expose parameter definitions
      */
-    @CubismEditor({
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
-    })
+    @CubismEditor(from = "5.0.00")
     default ParameterDefinitions parameterDefinitions() {
         throw new UnsupportedOperationException("Cubism parameter-definition access is unavailable.");
     }
@@ -214,10 +211,7 @@ public interface CubismModel {
      * Returns the model's immutable canvas metrics.
      * @throws UnsupportedOperationException when the backend does not expose canvas metrics
      */
-    @CubismEditor({
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
-    })
+    @CubismEditor(from = "5.0.00")
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
     }
@@ -333,10 +327,7 @@ public interface CubismModel {
     }
 
     /** Returns the model's glue collection. */
-    @CubismEditor({
-        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"
-    })
+    @CubismEditor(from = "5.0.00")
     Glues glues();
 
     /** Runs one host model-instance update pass, re-evaluating the model's current state. */

@@ -20,8 +20,9 @@ import java.util.Optional;
  * <p>Only the reviewed {@link SkippedFrameMeshSetupElisionTarget#OWNER} setup
  * method is rewritten. The bridge reads the persistent buffer base's protected
  * dirty flag and the frame's {@code GL3} context; every such dependency body is
- * verified against the official artifact before any rewrite. On close the class
- * must hash back to its pre-rewrite SHA-256.</p>
+ * verified against the official artifact before any rewrite. On close
+ * {@link VerifiedInstall} removes the transformer and retransforms the class so the
+ * JVM restores its original definition.</p>
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
  * target, its setup-shape gate and its dependency-body proof.</p>
@@ -37,7 +38,7 @@ final class VerifiedSkippedFrameMeshSetupElisionInstaller implements AutoCloseab
     /** The one setup method this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     private final InstallContext context;

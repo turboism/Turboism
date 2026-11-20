@@ -15,22 +15,19 @@ import java.util.Objects;
 public record AtlasTileBboxTarget(String internalName, String className, String hostLabel) {
 
     /**
-     * Cubism 5.3.x target: {@code com/live2d/util/f/g}, shared across 5.3.00–5.3.04;
+     * Cubism 5.3.x target: {@code com/live2d/util/f/g}, shared across 5.3.00–5.3.05;
      * the same name also ships in 5.0.00–5.0.02, which never reach this hook.
      */
     static final AtlasTileBboxTarget CUBISM_53X = new AtlasTileBboxTarget("com/live2d/util/f/g", "5.3.00-5.3.05");
 
-    /** Cubism 5.2.x target: {@code com/live2d/util/e/g}, shared across 5.2.00–5.2.03. */
-    static final AtlasTileBboxTarget CUBISM_5203 = new AtlasTileBboxTarget("com/live2d/util/e/g", "5.2.00-5.2.03");
-
-    /** Cubism 5.0.03–5.1.03 target: {@code com/live2d/util/e/g}, shared across 5.0.03–5.1.03. */
-    static final AtlasTileBboxTarget CUBISM_5003_5103 = new AtlasTileBboxTarget("com/live2d/util/e/g", "5.0.03-5.1.03");
+    /** Cubism 5.0.03–5.2.03 target: {@code com/live2d/util/e/g}, shared across 5.0.03–5.2.03. */
+    static final AtlasTileBboxTarget CUBISM_5003_5203 = new AtlasTileBboxTarget("com/live2d/util/e/g", "5.0.03-5.2.03");
 
     /** Cubism 5.0.00–5.0.02 target: {@code com/live2d/util/d/g}, shared across 5.0.00–5.0.02. */
     static final AtlasTileBboxTarget CUBISM_5000_5002 = new AtlasTileBboxTarget("com/live2d/util/d/g", "5.0.00-5.0.02");
 
     /** Every reviewed target, in table order. */
-    static final AtlasTileBboxTarget[] REVIEWED = {CUBISM_53X, CUBISM_5203, CUBISM_5003_5103, CUBISM_5000_5002};
+    static final AtlasTileBboxTarget[] REVIEWED = {CUBISM_53X, CUBISM_5003_5203, CUBISM_5000_5002};
 
     AtlasTileBboxTarget(final String internalName, final String hostLabel) {
         this(internalName, internalName.replace('/', '.'), hostLabel);

@@ -26,13 +26,12 @@ import java.util.jar.JarFile;
  * <p>One shader-query class and the four lifecycle roles are prepared and attested here — in
  * registration order, shader query first — and then handed to {@link VerifiedInstall}, which publishes
  * the callbacks, registers every transformer, retransforms the five classes in one call, proves one
- * rewritten site per class and re-captures each of them on close. An installation or restoration
+ * rewritten site per class and restores each of them on close. An installation or restoration
  * failure never becomes a silent success.</p>
  *
  * <p>The preparation stays in the constructor on purpose: the restored baseline of every class is the
  * definition this installer <em>observes</em>, which may already be composed by the shader-uniform or
- * glGetError-elision hook, so the digest the close proof must reproduce is fixed before anything is
- * registered.</p>
+ * glGetError-elision hook, so the JVM replays the upstream chain over the original bytes on close.</p>
  */
 final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final String HOOK_ID = "cubism.render.uniform-location-cache";
@@ -44,7 +43,7 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final int EXPECTED_MATCHES = 1;
 
     /**
-     * The shader query and the four lifecycle roles are all re-captured on close; pinned by
+     * The shader query and the four lifecycle roles are all restored on close; pinned by
      * {@code WeaveSpecTest}.
      */
     static final int EXPECTED_OWNERS = 5;

@@ -18,7 +18,7 @@ class SurfaceRotationAuthoringTest {
         assertEquals(1, state.batches);
         assertEquals(
                 List.of(new ParameterDefinition(
-                        new ParameterId("Roll"), "Apple Z 旋转", -180, 0, 180, ParameterType.NORMAL, false)),
+                        new ParameterId("Roll"), "Apple Z Rotation", -180, 0, 180, ParameterType.NORMAL, false)),
                 state.definitions);
         var snapshot = result.authoringSnapshot();
         assertEquals(5, snapshot.forms().size());

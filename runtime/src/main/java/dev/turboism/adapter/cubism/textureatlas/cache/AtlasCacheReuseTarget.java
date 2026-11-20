@@ -14,19 +14,11 @@ import java.util.Objects;
 public record AtlasCacheReuseTarget(String internalName, String className, String hostLabel) {
 
     /** Reviewed target: the atlas class shared by every reviewed build. */
-    static final AtlasCacheReuseTarget CUBISM_52_53 = new AtlasCacheReuseTarget(
-            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "5.2.00-5.3.05");
-
-    /** Reviewed target: the 5.1.x atlas class. */
-    static final AtlasCacheReuseTarget CUBISM_51 = new AtlasCacheReuseTarget(
-            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "5.1.00-5.1.03");
-
-    /** Reviewed target: the 5.0.x atlas class. */
-    static final AtlasCacheReuseTarget CUBISM_50 = new AtlasCacheReuseTarget(
-            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "5.0.00-5.0.06");
+    static final AtlasCacheReuseTarget REVIEWED_TARGET = new AtlasCacheReuseTarget(
+            "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", "all reviewed builds");
 
     /** Every reviewed target, in table order. */
-    static final AtlasCacheReuseTarget[] REVIEWED = {CUBISM_52_53, CUBISM_51, CUBISM_50};
+    static final AtlasCacheReuseTarget[] REVIEWED = {REVIEWED_TARGET};
 
     AtlasCacheReuseTarget(final String internalName, final String hostLabel) {
         this(internalName, internalName.replace('/', '.'), hostLabel);

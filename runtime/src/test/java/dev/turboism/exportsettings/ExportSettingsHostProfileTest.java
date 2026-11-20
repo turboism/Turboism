@@ -23,7 +23,9 @@ class ExportSettingsHostProfileTest {
 
     @Test
     void exact5302SelectorsMatchTheReviewedDialogShape() {
-        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.CUBISM_5_3_02;
+        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.forArtifact(
+                        ReviewedHostArtifacts.CUBISM_5_3_02)
+                .orElseThrow();
         assertEquals("5.3.02", profile.hostVersion());
 
         assertEquals(StaticSelector.Kind.CLASS, profile.dialogOwner().kind());
@@ -66,7 +68,9 @@ class ExportSettingsHostProfileTest {
 
     @Test
     void everyMemberSelectorForbidsStaticBinding() {
-        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.CUBISM_5_3_02;
+        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.forArtifact(
+                        ReviewedHostArtifacts.CUBISM_5_3_02)
+                .orElseThrow();
         for (StaticSelector selector : profile.selectors()) {
             if (selector.kind() == StaticSelector.Kind.CLASS) {
                 assertEquals(0, selector.forbiddenAccessFlags(), selector.alias());
@@ -81,9 +85,13 @@ class ExportSettingsHostProfileTest {
 
     @Test
     void eachSelectorCarriesADistinctReviewedMappingIdentity() {
-        final List<String> aliases = ExportSettingsHostProfile.CUBISM_5_3_02.selectors().stream()
-                .map(StaticSelector::alias)
-                .toList();
+        final List<String> aliases =
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02)
+                        .orElseThrow()
+                        .selectors()
+                        .stream()
+                        .map(StaticSelector::alias)
+                        .toList();
         assertEquals(7, aliases.size());
         assertEquals(7, aliases.stream().distinct().count());
         assertTrue(aliases.containsAll(List.of(
@@ -98,7 +106,9 @@ class ExportSettingsHostProfileTest {
 
     @Test
     void exact5203SelectorsMatchTheReviewedDialogShape() {
-        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.CUBISM_5_2_03;
+        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.forArtifact(
+                        ReviewedHostArtifacts.CUBISM_5_2_03)
+                .orElseThrow();
         assertEquals("5.2.03", profile.hostVersion());
         assertEquals(DIALOG_OWNER, profile.dialogOwner().ownerInternalName());
         // The 5.2.03 abstract window panel is X, not the 5.3.x V.
@@ -114,7 +124,9 @@ class ExportSettingsHostProfileTest {
 
     @Test
     void exact5303SelectorsMatchTheReviewedDialogShape() {
-        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.CUBISM_5_3_03;
+        final ExportSettingsHostProfile profile = ExportSettingsHostProfile.forArtifact(
+                        ReviewedHostArtifacts.CUBISM_5_3_03)
+                .orElseThrow();
         assertEquals("5.3.03", profile.hostVersion());
         assertEquals(
                 "(Lcom/live2d/ui/window/V;Lcom/live2d/cubism/doc/model/exporter/"
@@ -127,9 +139,12 @@ class ExportSettingsHostProfileTest {
     @Test
     void everyProfileMemberSelectorForbidsStaticBinding() {
         for (ExportSettingsHostProfile profile : List.of(
-                ExportSettingsHostProfile.CUBISM_5_2_03,
-                ExportSettingsHostProfile.CUBISM_5_3_02,
-                ExportSettingsHostProfile.CUBISM_5_3_03)) {
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03)
+                        .orElseThrow(),
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02)
+                        .orElseThrow(),
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03)
+                        .orElseThrow())) {
             for (StaticSelector selector : profile.selectors()) {
                 if (selector.kind() == StaticSelector.Kind.CLASS) {
                     assertEquals(0, selector.forbiddenAccessFlags(), selector.alias());
@@ -147,9 +162,12 @@ class ExportSettingsHostProfileTest {
     void eachProfileCarriesItsOwnReviewedMappingIdentities() {
         final List<String> mappingIds = new java.util.ArrayList<>();
         for (ExportSettingsHostProfile profile : List.of(
-                ExportSettingsHostProfile.CUBISM_5_2_03,
-                ExportSettingsHostProfile.CUBISM_5_3_02,
-                ExportSettingsHostProfile.CUBISM_5_3_03)) {
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03)
+                        .orElseThrow(),
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02)
+                        .orElseThrow(),
+                ExportSettingsHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03)
+                        .orElseThrow())) {
             profile.selectors().forEach(selector -> mappingIds.add(selector.mappingId()));
         }
         assertEquals(21, mappingIds.size());
@@ -181,5 +199,26 @@ class ExportSettingsHostProfileTest {
                         "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00",
                         "5.3.01", "5.3.02", "5.3.03", "5.3.04", "5.3.05"),
                 ExportSettingsHostProfile.supportedHostVersions());
+    }
+
+    @Test
+    void protectedExportChooserProfileCoversAllSupportedArtifactsWithExactWindowPanel() {
+        for (final var artifact : ReviewedHostArtifacts.all()) {
+            final String version =
+                    ReviewedHostArtifacts.cubismVersionOf(artifact).orElseThrow();
+            final var resolved = ProtectedExportChooserProfile.forArtifact(artifact);
+            if (version.compareTo("5.1.00") < 0) {
+                assertTrue(resolved.isEmpty(), version);
+                continue;
+            }
+            final ProtectedExportChooserProfile profile = resolved.orElseThrow();
+            final String expectedPanel =
+                    version.compareTo("5.3.00") < 0 ? "Lcom/live2d/ui/window/X;" : "Lcom/live2d/ui/window/V;";
+            assertTrue(profile.moc3Chooser().descriptor().contains(expectedPanel), version);
+            assertTrue(profile.gatedChooser().descriptor().contains(expectedPanel), version);
+        }
+        assertTrue(ProtectedExportChooserProfile.forArtifact(
+                        new dev.turboism.mapping.verification.HostArtifactDigest(1L, "0".repeat(64)))
+                .isEmpty());
     }
 }

@@ -46,6 +46,7 @@ with tempfile.TemporaryDirectory(prefix="official-psd-preparation-argv-") as tem
 
     shutil.copy2(wrapper_source, preview / wrapper_source.name)
     shutil.copy2(env_source, preview / env_source.name)
+    shutil.copy2(wrapper_source.with_name("host_validation_fixtures.py"), preview / "host_validation_fixtures.py")
     executable(dev / "worktree-id.sh", "#!/bin/sh\nprintf '%s\\n' wrapper-test\n")
     runner = preview / "run-cubism-host-validation.sh"
     runner.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")

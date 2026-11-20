@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from generate_reviewed_releases import ENV, HOST, TABLE, TEMPLATE, check, render
-from preview.reviewed_host_artifacts import SOURCE_RELATIVE, compact, load, load_releases
+from preview.reviewed_host_artifacts import SOURCE_RELATIVE, compact, load, load_dependencies, load_releases
 from scripts.test.reviewed_releases_fixture import table
 from unittest.mock import patch
 from scripts import check_reviewed_releases as gate
@@ -31,6 +31,9 @@ class ReviewedReleasesTest(unittest.TestCase):
             lambda d: d['releases'][0]['core'].update(patch=-1),
             lambda d: d['releases'][0].update(hostLabel='../host'),
             lambda d: d['releases'][0].update(unreviewed=True),
+            lambda d: d['dependencies']['CUBISM_5_3_03_JOGL'].update(size=0),
+            lambda d: d['dependencies']['CUBISM_5_3_03_JOGL'].update(sha256='bad'),
+            lambda d: d['dependencies'].update(bad_key=copy.deepcopy(d['dependencies']['CUBISM_5_3_03_JOGL'])),
         ]
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'reviewed-releases.json'
@@ -58,6 +61,8 @@ class ReviewedReleasesTest(unittest.TestCase):
                 dest.write_bytes((ROOT / relative).read_bytes())
             outputs = render(root)
             self.assertIn('CUBISM_5_3_05_VERSION = "5.3.05"', outputs[HOST])
+            self.assertIn('CUBISM_5_3_03_JOGL', outputs[HOST])
+            self.assertEqual(3616948, load_dependencies(path)['CUBISM_5_3_03_JOGL'].size)
             self.assertIn('new Release("5.3.05", 2, 5, 0, 0, false)', outputs[TABLE])
             self.assertEqual(['5304', '5305'], [compact(v) for v in load(path)])
             self.assertIn('FIXTURE_5305=', outputs[ENV])

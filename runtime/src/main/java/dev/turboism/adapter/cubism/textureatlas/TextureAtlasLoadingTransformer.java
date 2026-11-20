@@ -1,9 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import dev.turboism.core.io.Sha256;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
-import java.util.Map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -33,16 +31,6 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
     private static final String DRAWABLE_GROUPS_METHOD = "a";
     private static final String DRAWABLE_GROUPS_DESC =
             "(Lcom/live2d/cubism/doc/model/CModelSource;)Ljava/util/HashMap;";
-    private static final String DRAWABLE_GROUPS_EARLY = LAYER_PACKAGE + "S";
-    private static final String DRAWABLE_GROUPS_MIDDLE = LAYER_PACKAGE + "U";
-    private static final String DRAWABLE_GROUPS_RECENT = LAYER_PACKAGE + "W";
-    private static final Map<String, String> DRAWABLE_GROUPS_BY_MODEL = Map.of(
-            "ce286072d8aebd87ba7aa154fbc005a2470f69a2270fda1e8b1fccca8d3d03b8", DRAWABLE_GROUPS_EARLY,
-            "bc532b90bb9d13ddf72fa8d6f69bbb6e8a488c57d2afc22038c1a9b3d0195e2b", DRAWABLE_GROUPS_EARLY,
-            "ff99130a5f68fd1fde47951e2efcba251cf3f92e1cce456833ec188eec366f6c", DRAWABLE_GROUPS_MIDDLE,
-            "0b1c85404abbe2509c3f170787f350cc4aa33b3e18bd71aaf9a5eae787abb0f1", DRAWABLE_GROUPS_MIDDLE,
-            "2b3981e25968662fde21accb73f2dc6a2e87f03133fd54c36673b67ec0ba818c", DRAWABLE_GROUPS_RECENT,
-            "dbeef29b0565569e0b9a2a34f929c262d16da7daaf70a064a3acdfc738c70119", DRAWABLE_GROUPS_RECENT);
 
     private final boolean parallel;
 
@@ -65,8 +53,7 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
         final ClassReader reader = new ClassReader(bytes);
         if (!MODEL.equals(reader.getClassName())) return null;
         final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
-        final LoadingVisitor visitor =
-                new LoadingVisitor(writer, parallel ? DRAWABLE_GROUPS_BY_MODEL.get(Sha256.hex(bytes)) : null);
+        final LoadingVisitor visitor = new LoadingVisitor(writer, parallel);
         reader.accept(visitor, 0);
         return visitor.matches() ? writer.toByteArray() : null;
     }
@@ -74,17 +61,23 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
     private static final class LoadingVisitor extends ClassVisitor {
         private String constructorTarget;
         private String initializer;
+        private String preloadMethod;
         private int layerSites;
         private int wrappedSites;
-        private final String groupsOwner;
+        private int preloadSites;
+        private final boolean parallel;
 
-        LoadingVisitor(final ClassWriter writer, final String groupsOwner) {
+        LoadingVisitor(final ClassWriter writer, final boolean parallel) {
             super(Opcodes.ASM9, writer);
-            this.groupsOwner = groupsOwner;
+            this.parallel = parallel;
         }
 
         boolean matches() {
-            return layerSites == 1 && wrappedSites == 1 && initializer.equals(constructorTarget);
+            return layerSites == 1
+                    && wrappedSites == 1
+                    && initializer != null
+                    && initializer.equals(constructorTarget)
+                    && (!parallel || (preloadSites == 1 && initializer.equals(preloadMethod)));
         }
 
         @Override
@@ -118,12 +111,14 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
                     } else {
                         super.visitMethodInsn(opcode, owner, member, type, isInterface);
                     }
-                    if (groupsOwner != null
+                    if (parallel
                             && privateInitializer
                             && opcode == Opcodes.INVOKEVIRTUAL
-                            && groupsOwner.equals(owner)
+                            && owner.startsWith(LAYER_PACKAGE)
                             && DRAWABLE_GROUPS_METHOD.equals(member)
                             && DRAWABLE_GROUPS_DESC.equals(type)) {
+                        preloadMethod = name;
+                        preloadSites++;
                         super.visitInsn(Opcodes.DUP);
                         super.visitLdcInsn(Type.getObjectType(TextureAtlasMeshSolverTransformer.MESH_OPS));
                         super.visitMethodInsn(

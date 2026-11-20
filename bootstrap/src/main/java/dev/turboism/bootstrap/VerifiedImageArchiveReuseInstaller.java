@@ -25,7 +25,7 @@ final class VerifiedImageArchiveReuseInstaller implements VerifiedHookInstaller 
     /** The one resource class this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;
 
-    /** The close proof re-captures the one rewritten class; pinned by {@code WeaveSpecTest}. */
+    /** The close proof restores the one rewritten class; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =

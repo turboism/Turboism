@@ -1,6 +1,5 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.exportsettings.ExportSettingsNativeMethodTransformer;
 import dev.turboism.exportsettings.NativeExportSettingsDialogBridge;
@@ -9,7 +8,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Set;
 
 /**
  * Thin, reversible installer for the exact Export Settings transformer.
@@ -35,19 +34,8 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
         return version != null && SUPPORTED_CUBISM_VERSIONS.contains(version);
     }
 
-    private final Instrumentation instrumentation;
-    private final String targetClassName;
-    private final ClassLoader hostClassLoader;
-    private final ExportSettingsNativeMethodTransformer transformer;
-    /**
-     * Runtime policy handler installed as the export-settings bridge, or {@code null} when this
-     * installer owns only the transformer (focused shape tests and the resolver-based seam).
-     */
-    private final NativeExportSettingsDialogBridge.Handler bridgeHandler;
-
-    private final AtomicBoolean installed = new AtomicBoolean();
+    private final HookInstallSession session;
     private Registration bridge;
-    private boolean transformerRemoved;
 
     /**
      * Transformer-only installer: it owns no runtime bridge, so the resolver-based seam and the
@@ -96,12 +84,11 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
             final StaticSelector jdialog,
             final ClassLoader hostClassLoader,
             final NativeExportSettingsDialogBridge.Handler bridgeHandler) {
-        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
-        this.targetClassName =
+        Objects.requireNonNull(instrumentation, "instrumentation");
+        final String targetClassName =
                 requireExactDialogShape(owner, constructor, show, contentBuilder, windowField, windowClass, jdialog);
-        this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
-        this.bridgeHandler = bridgeHandler;
-        this.transformer = new ExportSettingsNativeMethodTransformer(
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        final ExportSettingsNativeMethodTransformer transformer = new ExportSettingsNativeMethodTransformer(
                 owner.ownerInternalName(),
                 contentBuilder.memberName(),
                 contentBuilder.descriptor(),
@@ -113,6 +100,24 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
                 jdialog.memberName(),
                 jdialog.descriptor(),
                 hostClassLoader);
+        this.session = HookInstallSession.builder(instrumentation, hostClassLoader, Set.of(targetClassName))
+                .transformer(transformer)
+                .bridge(
+                        () -> {
+                            if (bridgeHandler != null) {
+                                bridge = NativeExportSettingsDialogBridge.install(bridgeHandler);
+                            }
+                        },
+                        () -> {
+                            if (bridge != null) {
+                                bridge.close();
+                                bridge = null;
+                            }
+                        })
+                .restorePolicy(HookInstallSession.RestorePolicy.RETRYABLE_BEFORE_BRIDGE_CLOSE)
+                .installFailureMessage("Verified export settings hook installation failed")
+                .restoreFailureMessage("Verified export settings hook restoration failed")
+                .build();
     }
 
     static VerifiedExportSettingsHookInstaller fromVerifiedResolver(
@@ -217,61 +222,12 @@ final class VerifiedExportSettingsHookInstaller implements AutoCloseable {
     }
 
     void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) {
-            return;
-        }
-        if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
-            throw new IllegalStateException("Class retransformation is unavailable.");
-        }
-        try {
-            // Bridge first: the transformer must never publish a call to a missing callback.
-            if (bridgeHandler != null) {
-                bridge = NativeExportSettingsDialogBridge.install(bridgeHandler);
-            }
-            // Register next: an owner that loads during the scan must be transformed too.
-            instrumentation.addTransformer(transformer, true);
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            try {
-                close();
-            } catch (Throwable cleanupFailure) {
-                FatalErrors.rethrowIfFatal(cleanupFailure);
-                failure.addSuppressed(cleanupFailure);
-            }
-            if (failure instanceof Exception exception) {
-                throw exception;
-            }
-            if (failure instanceof Error error) {
-                throw error;
-            }
-            throw new IllegalStateException("Verified export settings hook installation failed", failure);
-        }
+        session.install();
     }
 
     @Override
-    public synchronized void close() {
-        if (!installed.get()) {
-            return;
-        }
-        if (!transformerRemoved) {
-            instrumentation.removeTransformer(transformer);
-            transformerRemoved = true;
-        }
-        try {
-            VerifiedHookInstallerSupport.retransformIfLoaded(instrumentation, targetClassName, hostClassLoader);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            // Keep the installation live: callers must restore host bytes before removing bridge callbacks.
-            throw new IllegalStateException("Verified export settings hook restoration failed", failure);
-        }
-        // Host bytes are native again, so the runtime callback surface can be dropped safely.
-        if (bridge != null) {
-            bridge.close();
-            bridge = null;
-        }
-        installed.set(false);
+    public void close() {
+        session.close();
     }
 
     private static StaticSelector requireSelector(final VerifiedMemberResolver resolver, final String alias) {

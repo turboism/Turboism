@@ -42,7 +42,7 @@ release-blocker statements describe that checkpoint, not the current production 
 
 **Current evidence:** [Windows launch-lease/native recovery acceptance](windows-launch-lease-host-validation.md)
 (2026-11-01, current worktree). This checkpoint extends `f173f64e2` with lease/ACL/launcher changes tested on the
-working tree based on `bae2f3486`. The [older handoff](HANDOFF.zh-CN.md) retains prior-host history.
+working tree based on `bae2f3486`. Earlier prior-host history was retired from `HANDOFF.zh-CN.md`.
 Primary user Cubism p40752 is left running on the older e72137 local agent (a historical prior-host record,
 not the current worktree host). The separate f173 recovery instance was stopped; its STARTING_HEALTH component
 transaction and suspended intent are retained.
