@@ -8,8 +8,12 @@ import java.awt.KeyboardFocusManager;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeUnit;
 import javax.swing.BorderFactory;
@@ -18,22 +22,38 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.WindowConstants;
 
-/** Gives feedback during model initialization on the host's event dispatch thread. */
+/** Gives feedback and coordinates off-EDT workers within one atlas initialization on EDT. */
 public final class TextureAtlasLoading {
+
     private static final String BUNDLE = "dev.turboism.textureatlas.loading";
     private static final String TITLE = "loading.title";
     private static final String COUNT = "loading.count";
     private static final String LOG_COMPONENT = "texture-atlas-loading";
     private static final String DISPLAY_FAILURE = "Could not display texture atlas loading progress";
+    private static final String SET_PREVIEW_METHOD = "setPreviewImg$cubism";
+    private static final String WRITABLE_IMAGE_CLASS = "com.live2d.graphics.CWritableImage";
     private static final int VERTICAL_PADDING = 18;
     private static final int HORIZONTAL_PADDING = 24;
     private static final int COUNT_WIDTH_SAMPLE = 99_999;
     private static final long REPAINT_INTERVAL = TimeUnit.MILLISECONDS.toNanos(100);
     private static final ThreadLocal<Session> ACTIVE = new ThreadLocal<>();
 
+    private static final ClassValue<Optional<MethodHandle>> SET_PREVIEW_CACHE = new ClassValue<>() {
+        @Override
+        protected Optional<MethodHandle> computeValue(final Class<?> layerClass) {
+            try {
+                final Class<?> writableClass = layerClass.getClassLoader().loadClass(WRITABLE_IMAGE_CLASS);
+                final Method setter = layerClass.getMethod(SET_PREVIEW_METHOD, writableClass);
+                return Optional.of(MethodHandles.lookup().unreflect(setter));
+            } catch (ReflectiveOperationException | LinkageError | SecurityException failure) {
+                return Optional.empty();
+            }
+        }
+    };
+
     private TextureAtlasLoading() {}
 
-    /** Keeps the loading feedback and prepared solvers within a single native initialization. */
+    /** Keeps loading feedback, drawable group cache, preview workers, and mesh workers within one open. */
     public static void run(final Object model, final MethodHandle initialize) throws Throwable {
         if (!EventQueue.isDispatchThread() || ACTIVE.get() != null) {
             initialize.invoke(model);
@@ -44,10 +64,15 @@ public final class TextureAtlasLoading {
         ACTIVE.set(session);
         try {
             initialize.invoke(model);
+            session.previews.awaitAll();
         } finally {
             ACTIVE.remove();
             try {
-                session.meshes.close();
+                try {
+                    session.previews.close();
+                } finally {
+                    session.meshes.close();
+                }
             } finally {
                 session.closeProgress();
             }
@@ -59,9 +84,47 @@ public final class TextureAtlasLoading {
         return ACTIVE.get() != null || TextureAtlasParallelMeshes.onWorker();
     }
 
+    /**
+     * Caches {@code Editor_Texture$a.a(CModelSource)} across all atlas pages in the active open
+     * and launches off-EDT mesh triangulation once when enabled.
+     */
+    public static Object resolveDrawableGroups(
+            final Object helper, final Object modelSource, final Class<?> meshOps, final MethodHandle computeGroups)
+            throws Throwable {
+        final Session session = ACTIVE.get();
+        if (session == null) {
+            return computeGroups.invoke(helper, modelSource);
+        }
+        Object groups = session.cachedDrawableGroups;
+        if (groups == null) {
+            groups = computeGroups.invoke(helper, modelSource);
+            session.cachedDrawableGroups = groups;
+            if (meshOps != null && groups instanceof Map<?, ?> map) {
+                TextureAtlasParallelMeshes.preload(map, meshOps);
+            }
+        }
+        return groups;
+    }
+
     static TextureAtlasParallelMeshes meshBatch() {
         final Session session = ACTIVE.get();
         return session == null ? null : session.meshes;
+    }
+
+    static TextureAtlasPreviewImages previewBatch() {
+        final Session session = ACTIVE.get();
+        return session == null ? null : session.previews;
+    }
+
+    static boolean hasLayerSetPreview(final Object layer) {
+        return SET_PREVIEW_CACHE.get(layer.getClass()).isPresent();
+    }
+
+    static void assignLayerPreview(final Object layer, final Object preview) throws Throwable {
+        final Optional<MethodHandle> setter = SET_PREVIEW_CACHE.get(layer.getClass());
+        if (setter.isPresent()) {
+            setter.get().invoke(layer, preview);
+        }
     }
 
     /** Reports completed edit layers to the loading window. */
@@ -100,6 +163,8 @@ public final class TextureAtlasLoading {
 
     private static final class Session {
         private final TextureAtlasParallelMeshes meshes = new TextureAtlasParallelMeshes();
+        private final TextureAtlasPreviewImages previews = new TextureAtlasPreviewImages();
+        private Object cachedDrawableGroups;
         private Progress progress;
 
         Session(final Progress progress) {
@@ -169,8 +234,8 @@ public final class TextureAtlasLoading {
 
         private void paint() {
             // The host keeps the event queue busy until it finishes building the edit layers.
-            final var root = dialog.getRootPane();
-            root.paintImmediately(root.getVisibleRect());
+            final var rootPane = dialog.getRootPane();
+            rootPane.paintImmediately(rootPane.getVisibleRect());
             Toolkit.getDefaultToolkit().sync();
             lastPaint = System.nanoTime();
         }

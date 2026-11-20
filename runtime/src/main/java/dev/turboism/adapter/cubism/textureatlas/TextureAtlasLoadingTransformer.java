@@ -10,8 +10,12 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-/** Adds progress feedback at the native texture atlas editor's construction boundary. */
+/**
+ * Coordinates atlas editor initialization progress, drawable-group deduplication, off-EDT mesh
+ * solving, parallel preview scaling, and non-mesh atlas UI/confirm speedups.
+ */
 public final class TextureAtlasLoadingTransformer implements ClassFileTransformer {
+
     private static final String ATLAS_PACKAGE = "com/live2d/cubism/doc/modeling/ui/atlasEditor/";
     private static final String LAYER_PACKAGE = ATLAS_PACKAGE + "impl/";
     private static final String MODEL = LAYER_PACKAGE + "TAE_DataModel";
@@ -25,9 +29,10 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
     private static final String RUN = "run";
     private static final String RUN_DESCRIPTOR = "(Ljava/lang/Object;Ljava/lang/invoke/MethodHandle;)V";
     private static final String LAYER_READY = "layerReady";
-    private static final String PARALLEL_BRIDGE = Type.getInternalName(TextureAtlasParallelMeshes.class);
-    private static final String PRELOAD_METHOD = "preload";
-    private static final String PRELOAD_DESC = "(Ljava/util/Map;Ljava/lang/Class;)V";
+    private static final String RESOLVE_DRAWABLES = "resolveDrawableGroups";
+    private static final String RESOLVE_DRAWABLES_DESC =
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/invoke/MethodHandle;)Ljava/lang/Object;";
+    private static final String HASH_MAP_INTERNAL = "java/util/HashMap";
     private static final String DRAWABLE_GROUPS_METHOD = "a";
     private static final String DRAWABLE_GROUPS_DESC =
             "(Lcom/live2d/cubism/doc/model/CModelSource;)Ljava/util/HashMap;";
@@ -46,8 +51,15 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
             final ProtectionDomain protectionDomain,
             final byte[] bytes) {
         if (bytes == null || classBeingRedefined != null) return null;
-        if (parallel && TextureAtlasMeshSolverTransformer.MESH_OPS.equals(className)) {
-            return TextureAtlasMeshSolverTransformer.transform(bytes);
+        if (parallel) {
+            final byte[] meshPatched = TextureAtlasMeshApplyTransformer.patch(className, bytes);
+            if (meshPatched != null) return meshPatched;
+            final byte[] uiPatched = TextureAtlasUiListTransformer.patch(className, bytes);
+            if (uiPatched != null) return uiPatched;
+            final byte[] edgeFillPatched = TextureAtlasEdgeFillTransformer.TARGET.equals(className)
+                    ? TextureAtlasEdgeFillTransformer.patch(bytes)
+                    : null;
+            if (edgeFillPatched != null) return edgeFillPatched;
         }
         if (!MODEL.equals(className)) return null;
         final ClassReader reader = new ClassReader(bytes);
@@ -59,13 +71,13 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
     }
 
     private static final class LoadingVisitor extends ClassVisitor {
+        private final boolean parallel;
         private String constructorTarget;
         private String initializer;
         private String preloadMethod;
         private int layerSites;
         private int wrappedSites;
         private int preloadSites;
-        private final boolean parallel;
 
         LoadingVisitor(final ClassWriter writer, final boolean parallel) {
             super(Opcodes.ASM9, writer);
@@ -77,7 +89,7 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
                     && wrappedSites == 1
                     && initializer != null
                     && initializer.equals(constructorTarget)
-                    && (!parallel || (preloadSites == 1 && initializer.equals(preloadMethod)));
+                    && (!parallel || (preloadSites >= 1 && initializer.equals(preloadMethod)));
         }
 
         @Override
@@ -108,8 +120,7 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
                         wrappedSites++;
                         super.visitLdcInsn(new Handle(Opcodes.H_INVOKESPECIAL, owner, member, type, false));
                         super.visitMethodInsn(Opcodes.INVOKESTATIC, BRIDGE, RUN, RUN_DESCRIPTOR, false);
-                    } else {
-                        super.visitMethodInsn(opcode, owner, member, type, isInterface);
+                        return;
                     }
                     if (parallel
                             && privateInitializer
@@ -119,11 +130,14 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
                             && DRAWABLE_GROUPS_DESC.equals(type)) {
                         preloadMethod = name;
                         preloadSites++;
-                        super.visitInsn(Opcodes.DUP);
                         super.visitLdcInsn(Type.getObjectType(TextureAtlasMeshSolverTransformer.MESH_OPS));
+                        super.visitLdcInsn(new Handle(Opcodes.H_INVOKEVIRTUAL, owner, member, type, false));
                         super.visitMethodInsn(
-                                Opcodes.INVOKESTATIC, PARALLEL_BRIDGE, PRELOAD_METHOD, PRELOAD_DESC, false);
+                                Opcodes.INVOKESTATIC, BRIDGE, RESOLVE_DRAWABLES, RESOLVE_DRAWABLES_DESC, false);
+                        super.visitTypeInsn(Opcodes.CHECKCAST, HASH_MAP_INTERNAL);
+                        return;
                     }
+                    super.visitMethodInsn(opcode, owner, member, type, isInterface);
                     if (privateInitializer
                             && opcode == Opcodes.INVOKEINTERFACE
                             && owner.startsWith(LAYER_PACKAGE)
