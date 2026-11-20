@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-batch-transfer
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Transfers parameter bindings from one selected ArtMesh or Deformer to multiple t
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.parameter-batch-transfer` |
 | Category | `modeling` |
 | Tags | parameter, batch-edit, transfer |
@@ -109,6 +109,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | A transfer is skipped | Check destination validity, selection state, and the status notification for the rejected row. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

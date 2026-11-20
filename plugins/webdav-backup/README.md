@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.webdav
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Uploads Cubism backup artifacts to a WebDAV endpoint configured by the user.
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.webdav` |
 | Category | `workflow` |
 | Tags | backup, webdav, automation |
@@ -109,6 +109,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Two WebDAV entries after an upgrade | The plugin was renamed to `plugins/webdav-backup.jar`; a managed upgrade deletes the stale pre-rename `backup.jar` by its embedded plugin id, and the old id `dev.turboism.plugin.backup` is refused by the runtime. Delete a leftover `backup.jar` manually only if the installer could not remove a locked file. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

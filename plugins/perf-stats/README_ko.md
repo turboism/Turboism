@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ Cubism의 CPU 및 JVM 메모리(힙과 비힙) 통계를 실시간으로 표시�
 
 | 詳細 | 値 |
 |---|---|
-| 버전 | `0.68.1` |
+| 버전 | `0.68.5` |
 | 플러그인 ID | `dev.turboism.plugin.perf-stats` |
 | カテゴリー | `performance` |
 | 태그 | metrics, diagnostics |

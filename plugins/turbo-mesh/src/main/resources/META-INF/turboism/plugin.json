@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.turbo-mesh",
   "name": "Turbo Mesh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Custom ArtMesh point placement: curvature-aware boundary resampling, autonomous region subdivision and constrained Delaunay triangulation, committed as one undoable edit.",
   "entrypoints": [
     "dev.turboism.plugin.turbomesh.TurboMeshPlugin"

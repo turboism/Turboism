@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.mcp
-version: 0.68.2
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.2` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.mcp` |
 | Public catalog | 80 tools · 15 resources · 2 templates · 8 prompts |
 | Requires Cubism | Yes |
@@ -372,6 +372,10 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 | Resource returns permission denied | Check the plugin descriptor grant and the specific runtime permission named above. |
 
 ## Changelog
+
+### 0.68.5
+
+- Extend Cubism 5.3.05 support and update the SDK coverage inventory.
 
 ### 0.68.2
 

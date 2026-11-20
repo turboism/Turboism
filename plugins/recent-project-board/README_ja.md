@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-project-board
-version: 0.68.2
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.2` |
+| バージョン | `0.68.5` |
 | プラグイン ID | `dev.turboism.plugin.recent-project-board` |
 | カテゴリー | `workflow` |
 | タグ | recent-files, preview, viewport, navigation |

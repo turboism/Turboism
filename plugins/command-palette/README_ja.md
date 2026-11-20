@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.command-palette
-version: 0.68.1
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.1` |
+| バージョン | `0.68.4` |
 | プラグイン ID | `dev.turboism.plugin.command-palette` |
 | カテゴリ | `workflow` |
 | タグ | launcher, commands, shortcut |

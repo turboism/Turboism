@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.1` |
+| 版本 | `0.68.5` |
 | 插件 ID | `dev.turboism.plugin.perf-stats` |
 | 类别 | `performance` |
 | 标签 | metrics, diagnostics |

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.4
+version: 0.68.6
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ Agent 会話ウィンドウと Agent 設定ウィンドウを開き、ユーザ�
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.4` |
+| 버전 | `0.68.6` |
 | 플러그인 ID | `dev.turboism.plugin.acp` |
 | 카테고리 | `integration` |
 | 태그 | automation, acp, agent |

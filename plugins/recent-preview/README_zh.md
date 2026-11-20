@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-preview
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.1` |
+| 版本 | `0.68.5` |
 | 插件 ID | `dev.turboism.plugin.recent-preview` |
 | 类别 | `workflow` |
 | 标签 | recent-files, preview, navigation |

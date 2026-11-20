@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.frame-animation-import
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 項目 | 内容 |
 |---|---|
-| 버전 | `0.68.0` |
+| 버전 | `0.68.3` |
 | 플러그인 ID | `dev.turboism.plugin.frame-animation-import` |
 | 카테고리 | `modeling` (モデリング) |
 | 태그 | animation, frame-animation, sprite-sheet, parameter |

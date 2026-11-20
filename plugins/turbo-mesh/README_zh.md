@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.turbo-mesh
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: embedded
 
 | 条目 | 值 |
 |---|---|
-| 版本 | `0.1.0` |
+| 版本 | `0.1.1` |
 | 插件 ID | `dev.turboism.plugin.turbo-mesh` |
 | 分类 | `modeling` |
 | 标签 | mesh, artmesh, editing |

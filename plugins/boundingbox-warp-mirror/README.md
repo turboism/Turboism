@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.boundingbox-warp-mirror
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -23,7 +23,7 @@ mirror), which is untouched by this plugin.
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.boundingbox-warp-mirror` |
 | Category | `modeling` |
 | Tags | deformer, warp, editing, symmetry, boundingbox |
@@ -103,6 +103,10 @@ nothing anywhere.
   presence, interpolated edit context, or unsolvable compensation).
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

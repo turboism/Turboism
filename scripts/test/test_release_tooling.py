@@ -227,7 +227,8 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertNotIn("gh release create", workflow)
         self.assertLess(workflow.index("Verify checksums and release metadata"),
                         workflow.index("promote-github-release.py candidate-tag"))
-        self.assertNotIn("prepare-market-release.py", workflow)
+        self.assertIn("--verify-bundled build/windows-installer/staging/plugins", workflow)
+        self.assertNotIn("--build-root", workflow)
         self.assertNotIn("--market-dir", workflow)
         self.assertNotIn("turboism-market-release-", workflow)
 

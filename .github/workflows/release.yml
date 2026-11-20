@@ -240,6 +240,12 @@ jobs:
             --manifest-output build/release-orchestrator/framework-artifacts.json \
             "${skip_args[@]}"
 
+      - name: Verify bundled plugin versions
+        run: |
+          python3 scripts/release/prepare-market-release.py \
+            --verify-bundled build/windows-installer/staging/plugins \
+            --catalog https://plugin.turboism.dev/api/v2/catalog.json
+
       - name: Generate deterministic release candidate
         if: needs.preflight.outputs.channel == 'stable'
         env:

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.palette-label-style
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Adds text and background color controls to Deformer, Part, and Parameter palette
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.palette-label-style` |
 | Category | `appearance` |
 | Tags | palette, labels, typography |
@@ -116,6 +116,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Custom color is rejected | Enter a valid six-digit RGB color through the provided dialog. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

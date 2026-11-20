@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-folders
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Creates texture pages by top-level Part folders, recursively splitting overflowi
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas-folders` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, auto-layout |
@@ -84,6 +84,10 @@ Preview. Current-page-only algorithms are listed but disabled for complete-atlas
 If no algorithm is available, enable a compatible algorithm plugin. If no atlas is open, create or open one for the active model. Use Undo to restore the previous layout.
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

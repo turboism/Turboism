@@ -157,6 +157,14 @@ jobs:
           echo "has_plugins=true" >> "$GITHUB_OUTPUT"
           echo "market_artifact=$MARKET_ARTIFACT" >> "$GITHUB_OUTPUT"
 
+      - name: Verify bundled plugin versions
+        if: startsWith(steps.source.outputs.artifact_name, 'turboism-release-candidate-')
+        run: |
+          python3 release-tools/scripts/release/prepare-market-release.py \
+            --repo-root release-source \
+            --verify-bundled build/github-release-fallback/candidate/windows-installer/staging/plugins \
+            --catalog https://plugin.turboism.dev/api/v2/catalog.json
+
       - name: Check out public Plugin Directory verifier
         if: steps.market.outputs.has_plugins == 'true'
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a

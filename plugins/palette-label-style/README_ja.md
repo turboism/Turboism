@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.palette-label-style
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: embedded
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.68.0` |
+| バージョン | `0.68.3` |
 | プラグイン ID | `dev.turboism.plugin.palette-label-style` |
 | カテゴリー | `appearance` |
 | タグ | palette, labels, typography |

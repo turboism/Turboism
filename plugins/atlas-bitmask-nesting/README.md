@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.texture-atlas-nesting
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Independent current-page texture-atlas nesting using material-local concave cont
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.texture-atlas-nesting` |
 | Category | `modeling` |
 | Tags | texture-atlas, packing, polygon, auto-layout |
@@ -72,6 +72,10 @@ Development build. Native invocations pack the current page with real contours. 
 If the selector is missing, check plugin enablement, host compatibility and the runtime log. Overflow at fixed scale is left to the runtime current-page contract. Run `./gradlew :plugins:atlas-bitmask-nesting:test` for collision and geometry regressions. `:plugins:atlas-bitmask-nesting:nestingBenchmark` measures synthetic planner time; it is separate from Cubism UI time.
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.perf-stats
-version: 0.68.1
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Cubism の CPU と JVM メモリー（ヒープと非ヒープ）統計をリア
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.68.1` |
+| バージョン | `0.68.5` |
 | プラグイン ID | `dev.turboism.plugin.perf-stats` |
 | カテゴリー | `performance` |
 | タグ | metrics, diagnostics |

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.uitheme
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: none
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.0` |
+| 버전 | `0.68.3` |
 | 플러그인 ID | `dev.turboism.plugin.uitheme` |
 | カテゴリー | `appearance` |
 | 태그 | theme, colors, user-interface |

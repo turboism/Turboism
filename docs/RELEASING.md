@@ -178,10 +178,10 @@ own packaged code, resources or descriptor contract changes. Compatibility betwe
 framework and plugin is expressed only by `turboismApi` and the descriptor
 `schemaVersion`.
 
-Staging enforces this. `resolve_next_plugin_version` keeps the committed version
-when the built bytes already match the newest catalog release. Otherwise it
-advances one patch above the highest cataloged version. The build never rewrites
-`plugin.json`; only the staged copy carries the resolved version.
+Commit each new plugin version in `plugin.json` before release.
+Framework bundles and Plugin Directory candidates use that version and the built JAR.
+Both workflows reject versions below the signed catalog or changed content at its current version.
+The framework publisher checks the catalog again before publication.
 
 ### Version values and external digest anchors
 
@@ -268,12 +268,9 @@ preserves existing decisions and defaults every newly rostered plugin to `withhe
 plugin to `market-plugins.txt` never publishes it. An approved plugin whose `required` dependency
 is withheld fails staging unless the signed catalog already serves a compatible release.
 
-Staging publishes a channel promotion. When a plugin's built bytes already match its newest
-catalog release but that release carries a weaker channel, as when a plugin first shipped during
-a Beta round and never changed, the next Stable staging bumps the patch version and publishes it
-on `stable`. Catalog versions must be unique and strictly ascending, so a promotion cannot reuse
-the carried version. The reverse direction never happens implicitly, because it would withdraw a
-release from Stable installations.
+Commit a new plugin version to promote a preview to Stable.
+Catalog versions advance in order across channels, so a promotion needs a new version.
+Staging leaves an unchanged Stable release in its existing channel.
 
 A plugin bundled in the standard installer/archive is not thereby published to the Plugin Directory, and a plugin published to the Plugin Directory does not need to be bundled in the standard installer/archive.
 
@@ -348,11 +345,10 @@ Generic `--yes` confirmation is intentionally unsupported. The run ID must ident
 - Trust model: GitHub Release `.sha256` sidecars and the plugin-template `setup.sh` sidecar check are same-origin integrity checks (they catch corruption, not tampering). Independent anchors are the Ed25519-signed framework update manifest, the Ed25519-signed plugin catalog, pinned Gradle verification metadata / wrapper `distributionSha256Sum` / ManagedGraal and script-engine archive pins, reviewed whole-JAR host digests (`reviewed-releases.json`), and R2 write verification.
 - Same-version different bytes fail with a version-not-bumped error. Assets are never overwritten.
 - Partial publication is resumable by uploading only absent immutable objects.
-- Plugin versions are descriptor-owned and independent of the framework version. The build never rewrites
-  `plugin.json`; installer payloads and market jars carry the version committed in source. Staging reuses a
-  cataloged release when the jar content is unchanged and otherwise publishes the next patch above the highest
-  cataloged version (or the committed version when that is higher). Bump the committed version and add a
-  matching README changelog entry when a plugin changes.
+- Plugin versions are independent of the framework version.
+  The installer and Plugin Directory carry the version from the committed descriptor.
+  Commit a version above the latest catalog release when plugin content changes.
+  Add a matching README changelog entry.
 - Plugin publication uses immutable GitHub Releases and a verified Ed25519-signed catalog v2.
 - Combined releases publish and publicly verify plugins first, then framework GitHub assets, then R2 immutable files. Mutable channel pointers are updated last.
 - v0.42.0 is an immutable baseline and must not be edited or backfilled with fabricated historical counts.

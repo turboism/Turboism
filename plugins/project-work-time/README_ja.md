@@ -8,7 +8,7 @@ Cubism 下部ステータスバーに、エディタのセッション時間と�
 
 | 項目 | 値 |
 |---|---|
-| バージョン | `0.68.1` |
+| バージョン | `0.68.3` |
 | プラグイン ID | `dev.turboism.plugin.project-work-time` |
 | カテゴリ | `workflow` |
 | タグ | time, project, status-bar |

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.scene-palette-enhancer
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -19,7 +19,7 @@ Cubism の Scene パレットに自然順ソートと、永続化される手動
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.0` |
+| 버전 | `0.68.3` |
 | 플러그인 ID | `dev.turboism.plugin.scene-palette-enhancer` |
 | カテゴリー | `appearance` |
 | 태그 | scene, palette, enhancement |

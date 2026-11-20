@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.turbo-mesh
-version: 0.1.0
+version: 0.1.1
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Custom ArtMesh point placement: curvature-aware boundary resampling, autonomous 
 
 | Detail | Value |
 |---|---|
-| Version | `0.1.0` |
+| Version | `0.1.1` |
 | Plugin ID | `dev.turboism.plugin.turbo-mesh` |
 | Category | `modeling` |
 | Tags | mesh, artmesh, editing |
@@ -150,6 +150,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Nothing changes on a mesh | Confirm the mesh has a valid triangle topology and is not locked. |
 
 ## Changelog
+
+### 0.1.1
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.1.0
 

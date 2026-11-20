@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.deformer-batch-rename
-version: 0.68.1
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Generate name suggestions for Warp and Rotation Deformers in the current model f
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.1` |
+| Version | `0.68.4` |
 | Plugin ID | `dev.turboism.plugin.deformer-batch-rename` |
 | Category | `modeling` |
 | Tags | deformer, rename, batch-edit |
@@ -99,6 +99,10 @@ Release candidate. The preview and both native deformer icon types were verified
 Open a model first. If you switch models or change hierarchy, names or parameter bindings while the preview is open, cancel and reopen it. Confirmation rejects a stale preview. For failed transactions, check the plugin log and the reported transaction outcome.
 
 ## Changelog
+
+### 0.68.4
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.1
 

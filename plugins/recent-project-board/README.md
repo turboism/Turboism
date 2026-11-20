@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.recent-project-board
-version: 0.68.2
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Replaces the empty Cubism modeling viewport with a board of recent project thumb
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.2` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.recent-project-board` |
 | Category | `workflow` |
 | Tags | recent-files, preview, viewport, navigation |
@@ -119,6 +119,11 @@ No telemetry is sent by this plugin.
 | Double-click does not open a project | Confirm the project file still exists at its original path on disk. |
 
 ## Changelog
+
+### 0.68.5
+
+- Cycle preview layouts and preserve the row height.
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.2
 

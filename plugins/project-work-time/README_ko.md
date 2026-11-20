@@ -8,7 +8,7 @@ Cubism 하단 상태 표시줄에 에디터 세션 시간 및 활성 프로젝�
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.1` |
+| 버전 | `0.68.3` |
 | 플러그인 ID | `dev.turboism.plugin.project-work-time` |
 | 카테고리 | `workflow` |
 | 태그 | time, project, status-bar |

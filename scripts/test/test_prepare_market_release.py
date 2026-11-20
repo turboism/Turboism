@@ -941,7 +941,7 @@ class StagingTest(unittest.TestCase):
         self.assertEqual(leftovers, [])
 
 
-class ContentAddressedAutoBumpTest(unittest.TestCase):
+class CommittedPluginVersionTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
@@ -1047,7 +1047,7 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             self.assertEqual(hashlib.sha256(embedded_raw).hexdigest(), artifact["descriptorSha256"])
             self.assertEqual(json.loads(embedded_raw)["version"], "0.1.0")
 
-    def test_changed_plugin_bumps_patch_and_unchanged_plugin_is_skipped(self):
+    def test_changed_plugin_requires_a_committed_version_and_preserves_jar_bytes(self):
         descriptor = json.loads(self.fixture.mcp_descriptor.read_text())
         descriptor["dependencies"] = [{
             "id": "dev.turboism.plugin.webdav", "version": "[0.1.0,0.2.0)",
@@ -1091,14 +1091,24 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             archive.writestr("dev/turboism/plugin/fixture/Extra.class", b"changed-bytecode")
 
         second_out = self.tmp / "release-2"
-        result = run_script(
-            self.tmp,
+        args = (
             "--manifest", str(self.manifest),
             "--build-root", str(self.build_root),
             "--output", str(second_out),
             "--source-revision", GIT_SHA,
             "--catalog", str(self.catalog_path),
         )
+        result = run_script(self.tmp, *args)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("commit a version above 0.1.0", result.stderr)
+        self.assertFalse(second_out.exists())
+
+        descriptor["version"] = "0.1.1"
+        self.fixture.mcp_descriptor.write_text(json.dumps(descriptor) + "\n")
+        self.fixture.build_modules([("mcp", self.fixture.mcp_descriptor.read_bytes())])
+        with zipfile.ZipFile(mcp_jar, "a") as archive:
+            archive.writestr("dev/turboism/plugin/fixture/Extra.class", b"changed-bytecode")
+        result = run_script(self.tmp, *args)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "selected=1")
         self.assertEqual(sorted(p.name for p in second_out.iterdir()), ["market-release.json", "mcp-0.1.1.jar"])
@@ -1106,6 +1116,7 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         self.assertEqual(len(second_sidecar["artifacts"]), 1)
         self.assertEqual(second_sidecar["artifacts"][0]["module"], "mcp")
         self.assertEqual(second_sidecar["artifacts"][0]["descriptor"]["version"], "0.1.1")
+        self.assertEqual((second_out / "mcp-0.1.1.jar").read_bytes(), mcp_jar.read_bytes())
 
     def test_all_unchanged_skips_all_and_removes_output(self):
         self.write_catalog([])
@@ -1174,11 +1185,10 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
         ])
         return sidecar
 
-    def test_unchanged_preview_content_is_promoted_to_stable(self):
+    def test_unchanged_preview_content_requires_committed_version_for_stable(self):
         self.publish_once_then_catalog("preview")
         promoted_out = self.tmp / "release-promoted"
-        result = run_script(
-            self.tmp,
+        args = (
             "--manifest", str(self.manifest),
             "--build-root", str(self.build_root),
             "--output", str(promoted_out),
@@ -1186,6 +1196,17 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             "--catalog", str(self.catalog_path),
             "--release-channel", "stable",
         )
+        refused = run_script(self.tmp, *args)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("for the channel promotion", refused.stderr)
+        descriptors = []
+        for module, path in (("mcp", self.fixture.mcp_descriptor), ("webdav-backup", self.fixture.backup_descriptor)):
+            descriptor = json.loads(path.read_text())
+            descriptor["version"] = "0.1.1"
+            path.write_text(json.dumps(descriptor) + "\n")
+            descriptors.append((module, path.read_bytes()))
+        self.fixture.build_modules(descriptors)
+        result = run_script(self.tmp, *args)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "selected=2")
         sidecar = json.loads((promoted_out / "market-release.json").read_text(encoding="utf-8"))
@@ -1276,16 +1297,19 @@ class ContentAddressedAutoBumpTest(unittest.TestCase):
             self.assertEqual(artifact["descriptor"]["version"], "0.1.0")
             self.assertEqual(artifact["policy"]["channel"], "preview")
 
-    def test_version_progression_ignores_framework_version(self):
+    def test_framework_bundle_rejects_an_older_committed_plugin_version(self):
         pmr = load_script()
-        self.assertEqual(pmr.resolve_next_plugin_version([], "0.1.0"), "0.1.0")
-        self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.1.0"}], "0.1.0"), "0.1.1")
-        self.assertEqual(
-            pmr.resolve_next_plugin_version([{"version": "0.68.0"}, {"version": "0.67.2"}], "0.1.0"),
-            "0.68.1",
-        )
-        self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.68.0"}], "0.69.0"), "0.69.0")
-        self.assertEqual(pmr.resolve_next_plugin_version([{"version": "0.68.0"}], "0.68.0"), "0.68.1")
+        bundled = self.tmp / "bundled"
+        bundled.mkdir()
+        shutil.copy(self.build_root / "mcp/libs/mcp-0.42.0-SNAPSHOT-market-publish.jar", bundled / "mcp.jar")
+        self.publish_once_then_catalog("stable")
+        self.assertEqual(pmr.verify_bundled_versions(self.tmp, bundled, str(self.catalog_path), None), 1)
+        catalog = json.loads(self.catalog_path.read_text())
+        published = catalog["plugins"][0]
+        published["releases"][0]["version"] = "0.1.1"
+        self.catalog_path.write_text(json.dumps(catalog) + "\n")
+        with self.assertRaisesRegex(pmr.MarketError, "older than catalog version 0.1.1"):
+            pmr.verify_bundled_versions(self.tmp, bundled, str(self.catalog_path), None)
 
     def test_contaminated_jar_entry_is_rejected_before_staging(self):
         self.write_catalog([])

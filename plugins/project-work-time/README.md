@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.project-work-time
-version: 0.68.1
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Shows Editor session time and the active project's cumulative work time in Cubis
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.1` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.project-work-time` |
 | Category | `workflow` |
 | Tags | time, project, status-bar |
@@ -107,6 +107,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Totals look lower than expected | The first sample establishes the baseline; the first foreground second is not retroactively counted. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.1
 

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.uitheme
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Manages built-in and user theme packages and applies reviewed semantic appearanc
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.0` |
+| Version | `0.68.3` |
 | Plugin ID | `dev.turboism.plugin.uitheme` |
 | Category | `appearance` |
 | Tags | theme, colors, user-interface |
@@ -108,6 +108,10 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 | Theme is missing after restart | Check `ui-theme/selection.cfg` and confirm the selected user package still exists in plugin data. |
 
 ## Changelog
+
+### 0.68.3
+
+- Update the Cubism 5.3.05 compatibility declaration.
 
 ### 0.68.0
 

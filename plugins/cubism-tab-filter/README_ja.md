@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.cubism-tab-filter
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Cubism の Parameter、Deformer、Scene、Log パレットタブにキーワー�
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.68.0` |
+| バージョン | `0.68.3` |
 | プラグイン ID | `dev.turboism.plugin.cubism-tab-filter` |
 | カテゴリ | `workflow` |
 | タグ | tab-filter, workspace |

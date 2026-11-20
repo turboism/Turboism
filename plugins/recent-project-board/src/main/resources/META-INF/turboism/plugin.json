@@ -3,7 +3,7 @@
   "schemaVersion": 4,
   "id": "dev.turboism.plugin.recent-project-board",
   "name": "Recent Project Board",
-  "version": "0.68.2",
+  "version": "0.68.5",
   "description": "Shows recent project thumbnails over the empty Cubism viewport and opens a project on double-click.",
   "entrypoints": [
     "dev.turboism.plugin.recentprojectboard.RecentProjectBoardPlugin"

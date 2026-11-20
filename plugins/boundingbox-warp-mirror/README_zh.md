@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.boundingbox-warp-mirror
-version: 0.68.0
+version: 0.68.3
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: none
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.0` |
+| 版本 | `0.68.3` |
 | 插件 ID | `dev.turboism.plugin.boundingbox-warp-mirror` |
 | 分类 | `modeling` |
 | 标签 | deformer, warp, editing, symmetry, boundingbox |
