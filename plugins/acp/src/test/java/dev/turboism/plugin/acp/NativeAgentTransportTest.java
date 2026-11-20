@@ -696,6 +696,47 @@ final class NativeAgentTransportTest {
         }
     }
 
+    /**
+     * Guards the bulk-write path.
+     *
+     * <p>A prompt arrives as large caller chunks that split frames at arbitrary offsets. Every
+     * complete frame must reach the dispatcher exactly once, and the dispatcher answers each unknown
+     * request, so the reply count proves the framing.</p>
+     */
+    @Test
+    void bulkWriteSplitsFramesOnNewlinesAcrossChunkBoundaries() throws Exception {
+        try (var transport = new NativeAgentTransport(
+                new AgentLaunchSpec(List.of("unused"), directory, Map.of(), AgentProtocol.PI))) {
+            final var input = transport.stdin();
+            final byte[] first = "{\"jsonrpc\":\"2.0\",\"id\":\"a\",\"method\":\"session/cancel\"}\n"
+                    .getBytes(StandardCharsets.UTF_8);
+            final byte[] second = "{\"jsonrpc\":\"2.0\",\"id\":\"b\",\"method\":\"session/cancel\"}\n"
+                    .getBytes(StandardCharsets.UTF_8);
+            // One chunk ends mid-frame, the next chunk closes two frames, and the last chunk is empty.
+            final byte[] chunk = new byte[first.length / 2];
+            System.arraycopy(first, 0, chunk, 0, chunk.length);
+            input.write(chunk, 0, chunk.length);
+            final byte[] remainder = new byte[(first.length - chunk.length) + second.length];
+            System.arraycopy(first, chunk.length, remainder, 0, first.length - chunk.length);
+            System.arraycopy(second, 0, remainder, first.length - chunk.length, second.length);
+            input.write(remainder, 0, remainder.length);
+            input.write(new byte[0], 0, 0);
+            input.flush();
+
+            try (var replies = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(transport.stdout(), StandardCharsets.UTF_8))) {
+                final var ids = new java.util.ArrayList<Object>();
+                for (int index = 0; index < 2; index++) {
+                    final String reply = replies.readLine();
+                    assertNotNull(reply, "bulk write lost a frame");
+                    ids.add(object(Json.parseObject(reply.getBytes(StandardCharsets.UTF_8)))
+                            .get("id"));
+                }
+                assertEquals(List.of("a", "b"), ids, "bulk write must preserve frame order");
+            }
+        }
+    }
+
     @Test
     void protocolSelectionSupportsWindowsShimsAndAcpFallback() {
         for (String name : List.of("codex", "codex.exe", "codex.cmd", "codex.bat"))

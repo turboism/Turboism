@@ -1,13 +1,17 @@
 import extension from '../../main/resources/extensions/pi-mcp-extension.mjs';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 const root = mkdtempSync(join(tmpdir(), 'turboism-pi-mcp-'));
 const server = join(root, 'server.mjs');
 writeFileSync(server, `import readline from 'node:readline';
+import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
 for await (const line of readline.createInterface({input:process.stdin})) {
- const r=JSON.parse(line); if(r.id===undefined)continue;
+ const r=JSON.parse(line);
+ if(r.method==='notifications/cancelled') { appendFileSync(join(process.env.TURBOISM_TEST_ROOT,'cancellations.jsonl'), JSON.stringify(r)+'\\n'); continue; }
+ if(r.id===undefined)continue;
  let result;
  if(r.method==='initialize') {if(r.params.protocolVersion!=='2025-11-25')throw new Error('unexpected offered version');result={protocolVersion:'2024-11-05',capabilities:{tools:{},resources:{}}};}
  else if(r.method==='tools/list') {
@@ -32,10 +36,16 @@ for await (const line of readline.createInterface({input:process.stdin})) {
  else if(r.method==='resources/list') result=r.params.cursor?{resources:[{uri:'turboism://second'}]}:{resources:[{uri:'turboism://first'}],nextCursor:'page-2'};
  else if(r.method==='resources/templates/list') result={resourceTemplates:[{uriTemplate:'turboism://objects/{id}'}],nextCursor:r.params.cursor?'end':'template-page-2'};
  else if(r.method==='resources/read') result={contents:[{uri:r.params.uri,mimeType:'application/json',text:'{"object":"head"}'},{uri:r.params.uri,mimeType:'image/png',blob:'cGl4ZWxz'},{uri:r.params.uri,mimeType:'application/octet-stream',blob:'RE9fTk9UX0RVTVA='}]};
+ else if(r.params?.arguments?.hang===true) {
+  // Reply later without blocking the read loop, so the fixture still observes
+  // a cancellation notification that arrives while this call is in flight.
+  setTimeout(()=>process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:r.id,result:{content:[{type:'text',text:'late'}]}})+'\\n'),8000);
+  continue;
+ }
  else result={content:[{type:'text',text:'done'},{type:'image',mimeType:'image/png',data:'cGl4ZWxz'}],structuredContent:{revision:7},isError:r.params?.arguments?.simulateError===true};
  process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:r.id,result})+'\\n');
 }`);
-writeFileSync(join(root, 'config.json'), JSON.stringify({mcpServers:{test:{command:process.execPath,args:[server]}}}));
+writeFileSync(join(root, 'config.json'), JSON.stringify({mcpServers:{test:{command:process.execPath,args:[server],env:{TURBOISM_TEST_ROOT:root}}}}));
 process.env.TURBOISM_PI_MCP_CONFIG=join(root,'config.json');
 const tools=[],commands=[],events={};
 try {
@@ -104,6 +114,25 @@ try {
  await assert.rejects(()=>read.execute('missing',{},undefined),/Invalid MCP resource arguments/);
  const controller=new AbortController();controller.abort();
  await assert.rejects(()=>list.execute('cancelled',{},controller.signal),/cancelled before dispatch/);
+ // An abort must reach the server as notifications/cancelled for the exact request id.
+ const hangController=new AbortController();
+ const hanging=tools[0].execute('hang',{hang:true},hangController.signal,undefined,ctx);
+ setTimeout(()=>hangController.abort(),120);
+ await assert.rejects(()=>hanging,/cancelled/);
+ const cancellationLog=join(root,'cancellations.jsonl');
+ let notified;
+ for(let attempt=0;attempt<100&&!notified;attempt++){
+   if(existsSync(cancellationLog)){
+     for(const line of readFileSync(cancellationLog,'utf8').split('\n').filter(Boolean)){
+       const parsed=JSON.parse(line);
+       if(parsed.method==='notifications/cancelled') notified=parsed;
+     }
+   }
+   if(!notified) await new Promise(resolve=>setTimeout(resolve,20));
+ }
+ assert.ok(notified,'abort must forward notifications/cancelled to the MCP server');
+ assert.equal(typeof notified.params.requestId,'number','the abort must name the in-flight request id');
+ assert.match(notified.params.reason,/cancel/i);
  const imageResult=await tools[0].execute('image',{},undefined,undefined,ctx);
  assert.equal(imageResult.content[1].type,'image');assert.equal(imageResult.details.revision,7);
  assert.ok(imageResult.content.at(-1).text.includes('no verified image input capability'));
@@ -170,6 +199,48 @@ try {
   assert.deepEqual(httpRequests.slice(boundary), ['initialize']);
   assert.equal(unsupportedTools.length, 0);
   console.log('Pi MCP: unsupported negotiated protocol rejected before discovery passed');
+  // An HTTP abort must also reach the server, because the request may already run host work.
+  negotiatedProtocol = '2025-06-18';
+  const httpCancelRoot = mkdtempSync(join(tmpdir(), 'turboism-pi-http-cancel-'));
+  const httpCancelLog = join(httpCancelRoot, 'cancellations.jsonl');
+  const httpCancelServer = createServer(async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const request = JSON.parse(body);
+    if (request.method === 'notifications/cancelled') {
+      writeFileSync(httpCancelLog, JSON.stringify(request));
+      res.writeHead(202); res.end(); return;
+    }
+    if (!request.id) { res.writeHead(202); res.end(); return; }
+    if (request.method === 'tools/call') { await new Promise(resolve => setTimeout(resolve, 1500)); }
+    const result = request.method === 'initialize' ? { protocolVersion: '2025-06-18', capabilities: { tools: {} } }
+      : request.method === 'tools/list' ? { tools: [{ name: 'read', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true } }] }
+      : { content: [{ type: 'text', text: 'late' }] };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }));
+  });
+  await new Promise(resolve => httpCancelServer.listen(0, '127.0.0.1', resolve));
+  const cancelConfig = join(httpCancelRoot, 'config.json');
+  writeFileSync(cancelConfig, JSON.stringify({ mcpServers: { test: { url: `http://127.0.0.1:${httpCancelServer.address().port}/mcp` } } }));
+  process.env.TURBOISM_PI_MCP_CONFIG = cancelConfig;
+  const cancelTools = [], cancelEvents = {};
+  await extension({ registerTool: tool => cancelTools.push(tool), registerCommand: () => {}, on: (name, fn) => cancelEvents[name] = fn });
+  const httpController = new AbortController();
+  const httpHanging = cancelTools[0].execute('http-hang', {}, httpController.signal, undefined, {});
+  setTimeout(() => httpController.abort(), 120);
+  await assert.rejects(() => httpHanging, /cancelled/);
+  let httpNotified;
+  for (let attempt = 0; attempt < 100 && !httpNotified; attempt++) {
+    if (existsSync(httpCancelLog)) httpNotified = JSON.parse(readFileSync(httpCancelLog, 'utf8'));
+    if (!httpNotified) await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.ok(httpNotified, 'an HTTP abort must forward notifications/cancelled');
+  assert.equal(httpNotified.method, 'notifications/cancelled');
+  cancelEvents.session_shutdown?.();
+  httpCancelServer.closeAllConnections();
+  await new Promise(resolve => httpCancelServer.close(resolve));
+  rmSync(httpCancelRoot, { recursive: true, force: true });
+  console.log('Pi MCP: HTTP abort forwards notifications/cancelled passed');
 } finally {
   httpEvents.session_shutdown?.();
   httpServer.closeAllConnections();

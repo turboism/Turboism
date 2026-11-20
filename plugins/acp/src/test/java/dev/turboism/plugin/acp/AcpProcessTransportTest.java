@@ -8,11 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class AcpProcessTransportTest {
+
+    /** Observation window that lets a surviving child write at least one more heartbeat byte. */
+    private static final long HEARTBEAT_SETTLE_MILLIS = 1500L;
 
     @TempDir
     Path temporaryDirectory;
@@ -55,10 +57,40 @@ final class AcpProcessTransportTest {
     }
 
     @Test
-    void windowsTeardownSkipsProcessHandleDescendantEnumeration() {
-        assertFalse(AcpProcessTransport.tracksDescendants("Windows 11"));
-        assertFalse(AcpProcessTransport.tracksDescendants("windows server 2025"));
-        assertTrue(AcpProcessTransport.tracksDescendants("Linux"));
+    void windowsTeardownCapturesTheProcessTreeWithoutABackgroundSampler() {
+        // A cmd.exe shim reparents its child on exit, so sampling cannot be trusted on Windows.
+        assertFalse(AcpProcessTransport.samplesDescendantsInBackground("Windows 11"));
+        assertFalse(AcpProcessTransport.samplesDescendantsInBackground("windows server 2025"));
+        assertTrue(AcpProcessTransport.samplesDescendantsInBackground("Linux"));
+        assertTrue(AcpProcessTransport.samplesDescendantsInBackground(null));
+    }
+
+    /**
+     * Guards the Windows regression where only {@code cmd.exe} was terminated and the CLI child
+     * survived as an orphan.
+     *
+     * <p>The child appends to a heartbeat file, which is the only portable liveness signal: a batch
+     * file cannot report its own PID. A frozen heartbeat after teardown proves that no process in
+     * the launch tree survived.</p>
+     */
+    @Test
+    void teardownTerminatesDescendantsSpawnedBehindAShellShim() throws Exception {
+        final Path heartbeat = temporaryDirectory.resolve("shim-heartbeat.txt");
+        final Path fixture = shellShimTreeFixture("shim-agent", heartbeat);
+
+        final AcpProcessTransport transport = AcpProcessTransport.start(
+                new AgentLaunchSpec(java.util.List.of(fixture.toString()), temporaryDirectory));
+        try {
+            awaitHeartbeat(heartbeat);
+        } finally {
+            transport.terminate(Duration.ofMillis(750));
+        }
+        final long settled = heartbeatSize(heartbeat);
+        Thread.sleep(HEARTBEAT_SETTLE_MILLIS);
+        assertEquals(
+                settled,
+                heartbeatSize(heartbeat),
+                "a descendant survived teardown, so the shell shim leaked a child process");
     }
 
     @Test
@@ -130,9 +162,19 @@ final class AcpProcessTransportTest {
         assertEquals(java.util.Map.of("PATH", "/bin"), environment);
     }
 
+    /**
+     * Verifies that cleanup reaches descendants that outlive the launch process.
+     *
+     * <p>On POSIX the launcher exits first and the background sampler must retain the child handle.
+     * Windows cannot sample that way, because a batch shim reparents its child on exit, so the same
+     * contract is asserted through teardown of a fast-exiting shim parent.</p>
+     */
     @Test
     void bestEffortCleanupUsesRetainedChildHandleAfterParentExit() throws Exception {
-        Assumptions.assumeTrue(Files.isExecutable(Path.of("/bin/sh")));
+        if (AgentLocator.isWindows()) {
+            assertFastExitingShimParentLeavesNoDescendant();
+            return;
+        }
         final Path childPid = temporaryDirectory.resolve("late-child.pid");
         final Path grandchildPid = temporaryDirectory.resolve("late-grandchild.pid");
         final Path childScript = temporaryDirectory.resolve("late-child.sh");
@@ -161,10 +203,7 @@ final class AcpProcessTransportTest {
         long child = -1L;
         long grandchild = -1L;
         try {
-            for (int attempt = 0; attempt < 200 && !Files.exists(childPid); attempt++) {
-                Thread.sleep(5L);
-            }
-            assertTrue(Files.exists(childPid), "fixture child pid was not published");
+            assertTrue(awaitFile(childPid), "fixture child pid was not published");
             child = Long.parseLong(Files.readString(childPid));
             final ProcessHandle childHandle = ProcessHandle.of(child).orElseThrow();
             for (int attempt = 0; attempt < 200 && !transport.retains(child); attempt++) {
@@ -174,12 +213,9 @@ final class AcpProcessTransportTest {
             for (int attempt = 0; attempt < 400 && transport.isAlive(); attempt++) {
                 Thread.sleep(5L);
             }
-            assertTrue(!transport.isAlive(), "fixture parent did not exit");
+            assertFalse(transport.isAlive(), "fixture parent did not exit");
             transport.terminate(Duration.ofMillis(750));
-            for (int attempt = 0; attempt < 200 && !Files.exists(grandchildPid); attempt++) {
-                Thread.sleep(5L);
-            }
-            if (Files.exists(grandchildPid)) {
+            if (awaitFile(grandchildPid)) {
                 grandchild = Long.parseLong(Files.readString(grandchildPid));
             }
             assertTrue(
@@ -196,48 +232,134 @@ final class AcpProcessTransportTest {
         }
     }
 
-    @Test
-    void teardownForceKillsAChildThatIgnoresGracefulTermination() throws Exception {
-        Assumptions.assumeTrue(Files.isExecutable(Path.of("/bin/sh")));
-        final Path childPid = temporaryDirectory.resolve("child.pid");
-        final Path script = temporaryDirectory.resolve("agent-fixture.sh");
-        Files.writeString(script, """
-            #!/bin/sh
-            sh -c 'trap "" TERM; while :; do sleep 1; done' &
-            child=$!
-            printf '%s' "$child" > "$1"
-            trap '' TERM
-            while :; do sleep 1; done
-            """);
-        script.toFile().setExecutable(true, true);
-        final Path executable = temporaryDirectory.resolve("fixture agent");
-        Files.writeString(executable, """
-            #!/bin/sh
-            exec "%s" "%s"
-            """.formatted(script, childPid));
-        executable.toFile().setExecutable(true, true);
+    /**
+     * Asserts that teardown removes the child of a shim parent that already exited.
+     *
+     * <p>The frozen heartbeat is the only portable proof: a batch file cannot report its own PID,
+     * and any surviving writer would append at least one more byte.</p>
+     */
+    private void assertFastExitingShimParentLeavesNoDescendant() throws Exception {
+        final Path heartbeat = temporaryDirectory.resolve("late-heartbeat.txt");
+        final Path fixture = shellShimTreeFixture("late-shim-agent", heartbeat);
 
         final AcpProcessTransport transport = AcpProcessTransport.start(
-                new AgentLaunchSpec(java.util.List.of(executable.toString()), temporaryDirectory));
-        long pid = -1L;
+                new AgentLaunchSpec(java.util.List.of(fixture.toString()), temporaryDirectory));
         try {
-            for (int attempt = 0; attempt < 200 && !Files.exists(childPid); attempt++) {
-                Thread.sleep(5L);
-            }
-            assertTrue(Files.exists(childPid), "fixture child pid was not published");
-            pid = Long.parseLong(Files.readString(childPid));
-            assertTrue(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false));
+            awaitHeartbeat(heartbeat);
+        } finally {
+            transport.terminate(Duration.ofMillis(750));
+        }
+        assertHeartbeatFrozen(heartbeat, "a descendant survived teardown of a fast-exiting shim parent");
+    }
+
+    /**
+     * Verifies that teardown force-kills a descendant that ignores the graceful request.
+     *
+     * <p>The child traps the graceful signal on POSIX and keeps running on Windows, so the frozen
+     * heartbeat proves that teardown escalated instead of returning after the grace period.</p>
+     */
+    @Test
+    void teardownForceKillsAChildThatIgnoresGracefulTermination() throws Exception {
+        final Path heartbeat = temporaryDirectory.resolve("force-heartbeat.txt");
+        final Path fixture = shellShimTreeFixture("force-agent", heartbeat);
+
+        final AcpProcessTransport transport = AcpProcessTransport.start(
+                new AgentLaunchSpec(java.util.List.of(fixture.toString()), temporaryDirectory));
+        try {
+            awaitHeartbeat(heartbeat);
         } finally {
             transport.terminate(Duration.ofMillis(100));
         }
-        final long retainedPid = pid;
-        assertTrue(
-                awaitGone(retainedPid, Duration.ofSeconds(3)), "retained fixture child survived best-effort cleanup");
+        assertHeartbeatFrozen(heartbeat, "descendant survived a forcible teardown");
+    }
+
+    /**
+     * Asserts that no process in the launch tree still writes to the heartbeat file.
+     *
+     * <p>A child writes faster than the observation window, so unchanged size proves the tree is
+     * gone; a single surviving writer would add at least one byte.</p>
+     */
+    private static void assertHeartbeatFrozen(final Path heartbeat, final String message) throws InterruptedException {
+        final long settled = heartbeatSize(heartbeat);
+        Thread.sleep(HEARTBEAT_SETTLE_MILLIS);
+        assertEquals(settled, heartbeatSize(heartbeat), message);
+    }
+
+    /** Waits for a fixture to publish a file. */
+    private static boolean awaitFile(final Path path) throws InterruptedException {
+        for (int attempt = 0; attempt < 400 && !Files.exists(path); attempt++) {
+            Thread.sleep(5L);
+        }
+        return Files.exists(path);
     }
 
     private static void killFixtureProcess(final long pid) {
         if (pid <= 0L) return;
         ProcessHandle.of(pid).filter(ProcessHandle::isAlive).ifPresent(ProcessHandle::destroyForcibly);
+    }
+
+    /**
+     * Builds an agent fixture whose child keeps rewriting a heartbeat file until terminated.
+     *
+     * <p>A heartbeat is the only portable liveness signal here: a batch file cannot report its own
+     * PID, and a frozen heartbeat proves that no process in the launch tree still writes.</p>
+     */
+    private Path shellShimTreeFixture(final String name, final Path heartbeat) throws java.io.IOException {
+        final boolean windows = AgentLocator.isWindows();
+        final Path child = temporaryDirectory.resolve(windows ? name + "-child.cmd" : name + "-child.sh");
+        final Path fixture = temporaryDirectory.resolve(windows ? name + ".cmd" : name + ".sh");
+        if (windows) {
+            // A batch child appends one heartbeat byte per tick; ping supplies the tick delay.
+            Files.writeString(
+                    child,
+                    "@echo off\r\n"
+                            + ":loop\r\n"
+                            + ">>\"%~dp0"
+                            + heartbeat.getFileName()
+                            + "\" echo .\r\n"
+                            + "ping -n 2 127.0.0.1 >nul\r\n"
+                            + "goto loop\r\n");
+            Files.writeString(
+                    fixture,
+                    "@echo off\r\n"
+                            + "start \"\" /b \"%~dp0"
+                            + child.getFileName()
+                            + "\"\"\r\n"
+                            + "ping -n 300 127.0.0.1 >nul\r\n");
+            return fixture;
+        }
+        Files.writeString(
+                child,
+                "#!/bin/sh\n"
+                        + "trap '' TERM\n"
+                        + "while :; do\n"
+                        + "  printf '.' >> \"$1\"\n"
+                        + "  sleep 0.05\n"
+                        + "done\n");
+        child.toFile().setExecutable(true, true);
+        Files.writeString(
+                fixture, "#!/bin/sh\n" + "trap '' TERM\n" + "sh \"$1\" \"$2\" &\n" + "while :; do sleep 1; done\n");
+        fixture.toFile().setExecutable(true, true);
+        return fixture;
+    }
+
+    /** Waits until the heartbeat file exists and holds at least one byte. */
+    private static long awaitHeartbeat(final Path heartbeat) throws InterruptedException {
+        for (int attempt = 0; attempt < 4000; attempt++) {
+            final long size = heartbeatSize(heartbeat);
+            if (size > 0L) return size;
+            Thread.sleep(5L);
+        }
+        throw new AssertionError("fixture child never wrote a heartbeat");
+    }
+
+    /** Reads the heartbeat size; a missing file reports 0 so growth comparisons stay simple. */
+    private static long heartbeatSize(final Path heartbeat) {
+        try {
+            return Files.exists(heartbeat) ? Files.size(heartbeat) : 0L;
+        } catch (java.io.IOException failure) {
+            return 0L;
+        }
     }
 
     private static boolean awaitGone(final long pid, final Duration timeout) throws InterruptedException {
