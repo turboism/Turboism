@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -852,5 +853,55 @@ final class TriangulationEdgeIndexTest {
         assertFalse(TriangulationEdgeIndex.remove(set, absent));
         assertEquals(List.of(t), TriangulationEdgeIndex.tryQuery(set, 1, 2));
         assertSame(t, TriangulationEdgeIndex.tryQuery(set, 1, 2).get(0));
+    }
+
+    @Test
+    void exactVictimTriangleSetDeindexesInConstantTimeWithoutScanningSurvivors() {
+        final ExactVictimTriangleSet exact = new ExactVictimTriangleSet();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 64; i++) {
+            final Tri t = tri(i, 1, 2, i + 3);
+            triangles.add(t);
+            TriangulationEdgeIndex.add(exact, t, t.ia, t.ib, t.ic);
+        }
+        assertEquals(64, TriangulationEdgeIndex.tryQuery(exact, 1, 2).size());
+
+        // Equal-geometry probe with distinct identity removes the original stored identity in O(1).
+        final Tri storedFirst = triangles.get(0);
+        final Tri distinctEqualProbe = tri(0, 1, 2, 3);
+        distinctEqualProbe.equalityCalls = 0;
+        assertNotSame(storedFirst, distinctEqualProbe);
+        assertTrue(TriangulationEdgeIndex.remove(exact, distinctEqualProbe));
+        final TriangulationEdgeIndex.St state = TriangulationEdgeIndex.st(exact);
+        assertEquals(0, state.pendingSize, "exact-victim set must deindex immediately without pending settle()");
+        assertFalse(state.dirty);
+        assertEquals(63, TriangulationEdgeIndex.tryQuery(exact, 1, 2).size());
+        assertFalse(TriangulationEdgeIndex.contains(exact, storedFirst));
+
+        final LinkedHashSet<Object> raw = new LinkedHashSet<>();
+        raw.add(storedFirst);
+        final LinkedHashSet<Object> wrapped = ExactVictimTriangleSet.wrap(raw);
+        assertTrue(wrapped instanceof ExactVictimTriangleSet);
+        assertTrue(wrapped.contains(storedFirst));
+        assertSame(exact, ExactVictimTriangleSet.wrap(exact));
+        TriangulationEdgeIndex.clear(exact);
+    }
+
+    @Test
+    void textureAtlasTriangleSetRemoveExactDeindexesImmediatelyWithoutPendingScan() {
+        final LinkedHashSet<Object> atlasSet = new TextureAtlasTriangleSet(t -> 0);
+        final Tri first = tri(1, 1, 2, 3);
+        final Tri second = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(atlasSet, first, 1, 2, 3);
+        TriangulationEdgeIndex.add(atlasSet, second, 1, 2, 4);
+        TriangulationEdgeIndex.tryQuery(atlasSet, 1, 2);
+
+        final Tri probeEqualToFirst = tri(1, 1, 2, 3);
+        assertTrue(TriangulationEdgeIndex.remove(atlasSet, probeEqualToFirst));
+        final TriangulationEdgeIndex.St state = TriangulationEdgeIndex.st(atlasSet);
+        assertEquals(0, state.pendingSize);
+        assertFalse(state.dirty);
+        assertEquals(List.of(second), TriangulationEdgeIndex.tryQuery(atlasSet, 1, 2));
+        TriangulationEdgeIndex.clear(atlasSet);
     }
 }

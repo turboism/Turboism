@@ -116,6 +116,26 @@ final class AtlasTileBboxTransformerTest {
     }
 
     @Test
+    void verifiesHostHelpersWithoutLoadingHelperClasses() throws Exception {
+        final byte[] fixture = fixtureBytes(F_G.internalName() + ".class");
+        final AtlasTileBboxTransformer transformer = new AtlasTileBboxTransformer(F_G);
+        final ClassLoader noHostClassLoad = new ClassLoader(getLoader()) {
+            @Override
+            protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+                if (name.startsWith("jp.noids.")) {
+                    throw new AssertionError("Transform must not load host helper class reentrantly: " + name);
+                }
+                return super.loadClass(name, resolve);
+            }
+        };
+
+        final byte[] patched = transformer.transform(null, noHostClassLoad, F_G.internalName(), null, null, fixture);
+
+        assertNotNull(patched, "bytecode verification must succeed without defining jp.noids.* classes");
+        assertEquals(AtlasTileBboxTransformer.Outcome.PATCHED, transformer.outcome());
+    }
+
+    @Test
     void patchedClassIsPixelIdenticalToTheOriginalPipeline() throws Exception {
         assertPixelIdentical(F_G, "com.live2d.util.f.gorig");
         assertPixelIdentical(E_G, "com.live2d.util.e.gorig");

@@ -2220,11 +2220,11 @@ function Get-CubismManagedJdkOptionTokens {
 function Read-CubismMeshTriangulationEdgeIndexPreference {
     param([string]$TurboismHome)
     # This is a root-level runtime preference, not launcher.*. Match the
-    # settings page and the agent: missing config or key means off, which keeps
-    # the VM's dynamic-attach behavior, and only an explicit true opts in.
-    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $false }
+    # settings page and the agent: missing config or key means on, claiming
+    # premain attach ownership unless explicitly disabled.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $true }
     $path = Join-Path $TurboismHome "config.json"
-    if (-not (Test-Path -LiteralPath $path)) { return $false }
+    if (-not (Test-Path -LiteralPath $path)) { return $true }
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
@@ -2232,7 +2232,7 @@ function Read-CubismMeshTriangulationEdgeIndexPreference {
         throw "Turboism config must be an object"
     }
     $setting = $document.PSObject.Properties["meshTriangulationEdgeIndex"]
-    if ($null -eq $setting) { return $false }
+    if ($null -eq $setting) { return $true }
     if ($setting.Value -isnot [bool]) { throw "Turboism meshTriangulationEdgeIndex setting is invalid" }
     return [bool]$setting.Value
 }

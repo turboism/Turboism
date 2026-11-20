@@ -246,7 +246,8 @@ function Assert-RuntimeConfigV1 {
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex", "atlasLoading"
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
+        "atlasLoading", "triangulationSpatialIndex"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -314,7 +315,8 @@ function Assert-RuntimeConfigV1 {
         throw "config.json useTextIcon must be a boolean"
     }
     foreach ($name in @(
-        "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex", "atlasLoading"
+        "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
+        "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property -and $property.Value -isnot [bool]) {
@@ -448,7 +450,8 @@ function Convert-RuntimeConfigToV1 {
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex", "atlasLoading",
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
+        "atlasLoading", "triangulationSpatialIndex",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
@@ -516,7 +519,7 @@ function Convert-RuntimeConfigToV1 {
     foreach ($name in @(
         "safeMode", "useTextIcon", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-            "meshTriangulationEdgeIndex", "atlasLoading"
+            "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property) {

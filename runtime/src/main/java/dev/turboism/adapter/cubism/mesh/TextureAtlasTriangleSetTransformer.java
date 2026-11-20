@@ -26,7 +26,9 @@ public final class TextureAtlasTriangleSetTransformer implements ClassFileTransf
     private static final String CONSTRUCTOR = "<init>";
     private static final String VOID = "()V";
     private static final String BRIDGE = Type.getInternalName(TextureAtlasTriangleSet.class);
+    private static final String GLOBAL_BRIDGE = Type.getInternalName(ExactVictimTriangleSet.class);
     private static final String FACTORY = "forAtlas";
+    private static final String GLOBAL_FACTORY = "forGlobal";
     private static final String FACTORY_TYPE = "(" + SET_TYPE + "Ljava/lang/Class;)" + SET_TYPE;
     private static final String ANGLE_CALLER = TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME;
     private static final String ANGLE_METHOD = "d";
@@ -43,9 +45,16 @@ public final class TextureAtlasTriangleSetTransformer implements ClassFileTransf
     private static final String GET_Y = "getY";
 
     private final boolean indexEdges;
+    private final boolean useGlobalHash;
 
     public TextureAtlasTriangleSetTransformer(final boolean indexEdges) {
+        this(indexEdges, false);
+    }
+
+    /** Enables atlas triangle-set acceleration, optionally using global hash equality semantics. */
+    public TextureAtlasTriangleSetTransformer(final boolean indexEdges, final boolean useGlobalHash) {
         this.indexEdges = indexEdges;
+        this.useGlobalHash = useGlobalHash;
     }
 
     @Override
@@ -112,6 +121,8 @@ public final class TextureAtlasTriangleSetTransformer implements ClassFileTransf
             return null;
         }
         if (!OWNER.equals(reader.getClassName())) return null;
+        final String bridge = useGlobalHash ? GLOBAL_BRIDGE : BRIDGE;
+        final String factory = useGlobalHash ? GLOBAL_FACTORY : FACTORY;
         final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
         final int[] counts = new int[2]; // [0] = final field b, [1] = putfield sites in <init>()V
         final boolean[] headerValid = new boolean[1];
@@ -165,7 +176,7 @@ public final class TextureAtlasTriangleSetTransformer implements ClassFileTransf
                                         && SET_TYPE.equals(type)) {
                                     counts[1]++;
                                     super.visitLdcInsn(Type.getObjectType(OWNER));
-                                    super.visitMethodInsn(Opcodes.INVOKESTATIC, BRIDGE, FACTORY, FACTORY_TYPE, false);
+                                    super.visitMethodInsn(Opcodes.INVOKESTATIC, bridge, factory, FACTORY_TYPE, false);
                                 }
                                 super.visitFieldInsn(opcode, owner, member, type);
                             }

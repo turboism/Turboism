@@ -59,6 +59,10 @@ public final class TriangulationEdgeIndexPatcher {
     /** The woven helper; resolved on the host classpath like any other plugin class. */
     static final String BRIDGE = "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex";
 
+    private static final String EXACT_VICTIM_SET = "dev/turboism/adapter/cubism/mesh/ExactVictimTriangleSet";
+    private static final String CONSTRUCTOR = "<init>";
+    private static final String VOID = "()V";
+
     private static final String SET = "java/util/LinkedHashSet";
     private static final String OBJ = "Ljava/lang/Object;";
     private static final String SET_DESC = "Ljava/util/LinkedHashSet;";
@@ -97,8 +101,8 @@ public final class TriangulationEdgeIndexPatcher {
 
     /** Counts the pinned features; the class is only patched when every count is exactly one. */
     private static final class Survey {
-        boolean aLFound, bLFound, cFound, aJFound;
-        int aLAddSites, bLRemoveSites, cClearSites, aJPrologues, cLContainsSites;
+        boolean ctorFound, aLFound, bLFound, cFound, aJFound;
+        int ctorPutSites, aLAddSites, bLRemoveSites, cClearSites, aJPrologues, cLContainsSites;
     }
 
     private void verify(final byte[] original) {
@@ -127,6 +131,24 @@ public final class TriangulationEdgeIndexPatcher {
                                         final String desc,
                                         final String signature,
                                         final String[] exceptions) {
+                                    if (CONSTRUCTOR.equals(name) && VOID.equals(desc)) {
+                                        survey.ctorFound = true;
+                                        return new MethodVisitor(Opcodes.ASM9) {
+                                            @Override
+                                            public void visitFieldInsn(
+                                                    final int op,
+                                                    final String owner,
+                                                    final String field,
+                                                    final String fieldDesc) {
+                                                if (op == Opcodes.PUTFIELD
+                                                        && OWNER.equals(owner)
+                                                        && SET_FIELD.equals(field)
+                                                        && SET_DESC.equals(fieldDesc)) {
+                                                    survey.ctorPutSites++;
+                                                }
+                                            }
+                                        };
+                                    }
                                     if ("a".equals(name) && A_L_DESC.equals(desc)) {
                                         survey.aLFound = true;
                                         return countInvoke(() -> survey.aLAddSites++, "add", "(" + OBJ + ")Z");
@@ -298,6 +320,9 @@ public final class TriangulationEdgeIndexPatcher {
         if (survey.cLContainsSites != 1)
             throw new NotApplicable("c(l) LinkedHashSet.contains sites=" + survey.cLContainsSites);
         if (survey.aJPrologues != 1) throw new NotApplicable("a(j) leading prologue sequences=" + survey.aJPrologues);
+        if (!survey.ctorFound) throw new NotApplicable("constructor <init>()V not found");
+        if (survey.ctorPutSites != 1)
+            throw new NotApplicable("<init>()V LinkedHashSet putfield sites=" + survey.ctorPutSites);
     }
 
     // ------------------------------------------------------------------ emit
@@ -322,6 +347,26 @@ public final class TriangulationEdgeIndexPatcher {
                                 final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                                 if (mv == null) return null;
 
+                                if (CONSTRUCTOR.equals(name) && VOID.equals(desc)) {
+                                    return new MethodVisitor(Opcodes.ASM9, mv) {
+                                        @Override
+                                        public void visitFieldInsn(
+                                                final int op, final String owner, final String n, final String d) {
+                                            if (op == Opcodes.PUTFIELD
+                                                    && OWNER.equals(owner)
+                                                    && SET_FIELD.equals(n)
+                                                    && SET_DESC.equals(d)) {
+                                                super.visitMethodInsn(
+                                                        Opcodes.INVOKESTATIC,
+                                                        EXACT_VICTIM_SET,
+                                                        "wrap",
+                                                        "(" + SET_DESC + ")" + SET_DESC,
+                                                        false);
+                                            }
+                                            super.visitFieldInsn(op, owner, n, d);
+                                        }
+                                    };
+                                }
                                 if ("a".equals(name) && A_L_DESC.equals(desc)) {
                                     return new MethodVisitor(Opcodes.ASM9, mv) {
                                         @Override

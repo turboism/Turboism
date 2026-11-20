@@ -105,6 +105,7 @@ class NativeOptimizationPolicyTest {
 
     @Test
     void refusedContributorNeverReportsAnInstalledOptimization() throws Exception {
+        writeChoices(false);
         HookEnvironment env = environment();
         NativeOptimizationPolicy.modelUpdateSkipEnabled(env);
         NativeOptimizationHookContributor refused =

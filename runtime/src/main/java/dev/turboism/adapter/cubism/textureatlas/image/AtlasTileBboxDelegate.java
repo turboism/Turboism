@@ -6,9 +6,18 @@ import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Bbox-bounded delegate replacing the body of the Cubism private per-image alpha workaround —
@@ -39,21 +48,82 @@ import java.util.Arrays;
 public final class AtlasTileBboxDelegate {
 
     private static final int TYPE_BYTE_GRAY = 10;
+    private static final int PUBLIC_STATIC_FLAGS = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC;
+    private static final String CLASS_RESOURCE_SUFFIX = ".class";
+    private static final String BOOTSTRAP_UNREACHABLE =
+            "atlas tile-bbox: patched class is bootstrap-loaded; host unreachable";
+    private static final String MISSING_HELPER_PREFIX = "atlas tile-bbox host helper missing: ";
+    private static final Map<String, Set<String>> REQUIRED_HELPER_SIGNATURES = Map.of(
+            "jp/noids/util/UtCache",
+            Set.of("getBufferedImage(III)Ljava/awt/image/BufferedImage;", "release(Ljava/lang/Object;)V"),
+            "jp/noids/graphics/f",
+            Set.of(
+                    "a(Ljava/awt/image/BufferedImage;Ljava/awt/image/BufferedImage;I)V",
+                    "a(Ljava/awt/image/BufferedImage;I)V",
+                    "c(Ljava/awt/image/BufferedImage;)[I",
+                    "f(Ljava/awt/image/BufferedImage;)[B"),
+            "jp/noids/graphics/h",
+            Set.of("a(Ljava/awt/image/BufferedImage;I)V"),
+            "jp/noids/graphics/i",
+            Set.of("a(Ljava/awt/Graphics;)V", "b(Ljava/awt/Graphics;)V", "c(Ljava/awt/Graphics;)V"));
     private static volatile Helpers helpers;
 
     private AtlasTileBboxDelegate() {}
 
     /**
-     * Proves every host helper resolves through the loader that defined the patched class.
+     * Verifies all host helper methods exist on {@code hostLoader} without defining host classes.
      *
-     * @return {@code null} when all ten handles resolve, otherwise a diagnostic detail
+     * <p>Reads {@code .class} resources directly so {@code ClassFileTransformer} callbacks never
+     * trigger reentrant class loading that would bypass peer transformers.</p>
+     *
+     * @param hostLoader loader defining the patched host class
+     * @return {@code null} when all ten helper methods exist, otherwise a diagnostic detail
      */
     public static String verifyHostAccess(final ClassLoader hostLoader) {
-        try {
-            resolve(hostLoader);
+        if (hostLoader == null) {
+            return BOOTSTRAP_UNREACHABLE;
+        }
+        for (final Map.Entry<String, Set<String>> entry : REQUIRED_HELPER_SIGNATURES.entrySet()) {
+            final String internalName = entry.getKey();
+            final String failure = verifyHelperClass(hostLoader, internalName, entry.getValue());
+            if (failure != null) {
+                return failure;
+            }
+        }
+        return null;
+    }
+
+    private static String verifyHelperClass(
+            final ClassLoader loader, final String internalName, final Set<String> required) {
+        final String resource = internalName + CLASS_RESOURCE_SUFFIX;
+        try (InputStream stream = loader.getResourceAsStream(resource)) {
+            if (stream == null) {
+                return MISSING_HELPER_PREFIX + internalName;
+            }
+            final Set<String> remaining = new HashSet<>(required);
+            new ClassReader(stream.readAllBytes())
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        final int access,
+                                        final String name,
+                                        final String descriptor,
+                                        final String signature,
+                                        final String[] exceptions) {
+                                    if ((access & PUBLIC_STATIC_FLAGS) == PUBLIC_STATIC_FLAGS) {
+                                        remaining.remove(name + descriptor);
+                                    }
+                                    return null;
+                                }
+                            },
+                            ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            if (!remaining.isEmpty()) {
+                return MISSING_HELPER_PREFIX + internalName + " " + remaining;
+            }
             return null;
-        } catch (IllegalStateException unavailable) {
-            return String.valueOf(unavailable.getMessage());
+        } catch (IOException | IllegalArgumentException unreadable) {
+            return MISSING_HELPER_PREFIX + internalName + " (" + unreadable.getMessage() + ")";
         }
     }
 

@@ -15,8 +15,8 @@ public final class AtlasTileBboxPreference {
 
     /** Config key holding the preference. */
     public static final String KEY = "atlasTileBbox";
-    /** Default when nothing is persisted: rendering optimizations require explicit opt-in. */
-    public static final boolean DEFAULT_ENABLED = false;
+    /** Default when nothing is persisted: bit-exact bounding-box optimization defaults on. */
+    public static final boolean DEFAULT_ENABLED = true;
 
     private AtlasTileBboxPreference() {}
 

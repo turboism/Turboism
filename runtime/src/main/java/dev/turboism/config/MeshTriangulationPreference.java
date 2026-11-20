@@ -15,8 +15,8 @@ public final class MeshTriangulationPreference {
 
     /** Config key holding the preference. */
     public static final String KEY = "meshTriangulationHashFix";
-    /** Default when nothing is persisted: the fix is on. */
-    public static final boolean DEFAULT_ENABLED = false;
+    /** Default when nothing is persisted: the fix is enabled. */
+    public static final boolean DEFAULT_ENABLED = true;
 
     private MeshTriangulationPreference() {}
 

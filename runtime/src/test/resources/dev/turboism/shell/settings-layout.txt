@@ -45,6 +45,7 @@ performance 104 toggle atlas-cache-reuse
 performance 105 toggle image-archive-reuse
 performance 106 toggle float-array-parse-cache
 performance 107 toggle atlas-loading
+performance 108 toggle triangulation-spatial-index
 performance 110 note performance.section.jvm
 performance 111 toggle cubism-zgc
 performance 112 toggle cubism-disable-auto-backup

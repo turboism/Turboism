@@ -46,18 +46,32 @@ final class OptimizationCatalogTest {
 
     @Test
     void everyDeclaredOptimizationIsTheOneTheProductShips() {
-        assertEquals(41, OptimizationCatalog.all().size());
-        assertEquals(36, OptimizationCatalog.persisted().size());
+        assertEquals(42, OptimizationCatalog.all().size());
+        assertEquals(37, OptimizationCatalog.persisted().size());
         assertEquals(
                 5,
                 OptimizationCatalog.all().size()
                         - OptimizationCatalog.persisted().size());
-        assertEquals(36, OptimizationCatalog.placed().size());
+        assertEquals(37, OptimizationCatalog.placed().size());
         assertEquals(31, OptimizationCatalog.launcherFieldNames().size());
         assertEquals(31, OptimizationCatalog.booleanLauncherFieldNames().size());
-        assertEquals(5, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(42, OptimizationCatalog.protocols().size(), "37 reported protocols plus 5 probe protocols");
+        assertEquals(6, OptimizationCatalog.rootFieldNames().size());
+        assertEquals(43, OptimizationCatalog.protocols().size(), "38 reported protocols plus 5 probe protocols");
     }
+
+    private static final java.util.Set<Optimization> DEFAULT_ON = java.util.Set.of(
+            OptimizationCatalog.MODEL_UPDATE_SKIP,
+            OptimizationCatalog.UPLOAD_ELISION,
+            OptimizationCatalog.MESH_SETUP_ELISION,
+            OptimizationCatalog.CLIP_MASK_DEDUPLICATION,
+            OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR,
+            OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
+            OptimizationCatalog.MESH_TRIANGULATION_HASH,
+            OptimizationCatalog.TRIANGULATION_EDGE_INDEX,
+            OptimizationCatalog.ATLAS_TILE_BBOX,
+            OptimizationCatalog.ATLAS_CACHE_REUSE,
+            OptimizationCatalog.ATLAS_LOADING,
+            OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX);
 
     /**
      * I1: every persisted entry keeps the {@code config.json} key, the {@code launcher.} vs root
@@ -74,7 +88,7 @@ final class OptimizationCatalogTest {
                     optimization.access(),
                     optimization.key() + " must be written where its field is read");
             assertTrue(field.booleanValue(), optimization.key() + " is persisted as a boolean");
-            final String expectedDefault = Boolean.toString(optimization == OptimizationCatalog.ATLAS_LOADING);
+            final String expectedDefault = Boolean.toString(DEFAULT_ON.contains(optimization));
             assertEquals(expectedDefault, field.defaultValue(false), optimization.key());
             assertEquals(expectedDefault, field.defaultValue(true), optimization.key());
         }
@@ -114,7 +128,7 @@ final class OptimizationCatalogTest {
                 .map(optimization -> optimization.contributionId() + " "
                         + optimization.placement().orElseThrow().index())
                 .toList();
-        assertEquals(36, layout.size(), "settings-layout.txt renders every persisted optimization");
+        assertEquals(37, layout.size(), "settings-layout.txt renders every persisted optimization");
         assertEquals(layout, actual, "settings-layout.txt order changed");
     }
 

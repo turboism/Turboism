@@ -91,6 +91,35 @@ final class MeshTriangulationHashTransformerTest {
                 "an unexpected shape must be reported, never silently patched");
     }
 
+    @Test
+    void negativeZeroAndPositiveZeroVerticesHashIdentically() throws Exception {
+        final MeshTriangulationHashTransformer transformer = new MeshTriangulationHashTransformer();
+        final byte[] rewritten = transformer.transform(
+                null, MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, fixtureClassBytes());
+        assertNotNull(rewritten);
+
+        final Loader loader = new Loader(rewritten);
+        final Class<?> point = loader.loadClass("com.live2d.graphics3d.editableMesh.triangulation.TriPoint");
+        final Class<?> triple = loader.loadClass("com.live2d.graphics3d.editableMesh.triangulation.l");
+
+        final Object posZero = newTripleWithZeroSign(triple, point, +0.0f, 1, 2);
+        final Object negZero = newTripleWithZeroSign(triple, point, -0.0f, 3, 4);
+        assertEquals(hashOf(posZero), hashOf(negZero), "patched hashCode must canonicalize -0.0f to +0.0f");
+        assertEquals(0, Float.hashCode(+0.0f));
+        assertEquals(Integer.MIN_VALUE, Float.hashCode(-0.0f));
+    }
+
+    private static Object newTripleWithZeroSign(
+            final Class<?> triple, final Class<?> point, final float zero, final int firstIndex, final int secondIndex)
+            throws Exception {
+        final Constructor<?> pointCtor = point.getConstructor(float.class, float.class, int.class);
+        final Constructor<?> tripleCtor = triple.getConstructor(point, point, point);
+        return tripleCtor.newInstance(
+                pointCtor.newInstance(zero, 1.5f, firstIndex),
+                pointCtor.newInstance(2.5f, zero, secondIndex),
+                pointCtor.newInstance(zero, zero, secondIndex + 10));
+    }
+
     private static int hashOf(final Object instance) throws Exception {
         final Method hashCode = instance.getClass().getMethod("hashCode");
         return (int) hashCode.invoke(instance);

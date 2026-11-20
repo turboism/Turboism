@@ -80,28 +80,26 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
     /** Preserves edge lookup for accepted triangles in the atlas set. */
     public static boolean add(
             final LinkedHashSet<Object> triangles, final Object triangle, final int a, final int b, final int c) {
-        return triangles instanceof TextureAtlasTriangleSet
+        return isIndexed(triangles)
                 ? TriangulationEdgeIndex.add(triangles, triangle, a, b, c)
                 : triangles.add(triangle);
     }
 
     /** Removes the triangle and its indexed edges from the atlas set. */
     public static boolean remove(final LinkedHashSet<Object> triangles, final Object triangle) {
-        return triangles instanceof TextureAtlasTriangleSet
-                ? TriangulationEdgeIndex.remove(triangles, triangle)
-                : triangles.remove(triangle);
+        return isIndexed(triangles) ? TriangulationEdgeIndex.remove(triangles, triangle) : triangles.remove(triangle);
     }
 
     /** Uses native triangle equality for membership in either collection. */
     public static boolean contains(final LinkedHashSet<Object> triangles, final Object triangle) {
-        return triangles instanceof TextureAtlasTriangleSet
+        return isIndexed(triangles)
                 ? TriangulationEdgeIndex.contains(triangles, triangle)
                 : triangles.contains(triangle);
     }
 
     /** Releases edge lookup state when the host clears an atlas set. */
     public static void clear(final LinkedHashSet<Object> triangles) {
-        if (triangles instanceof TextureAtlasTriangleSet) {
+        if (isIndexed(triangles)) {
             TriangulationEdgeIndex.clear(triangles);
         } else {
             triangles.clear();
@@ -110,7 +108,11 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
 
     /** Returns null when the caller must use the native edge scan. */
     public static List<?> tryQuery(final LinkedHashSet<Object> triangles, final int a, final int b) {
-        return triangles instanceof TextureAtlasTriangleSet ? TriangulationEdgeIndex.tryQuery(triangles, a, b) : null;
+        return isIndexed(triangles) ? TriangulationEdgeIndex.tryQuery(triangles, a, b) : null;
+    }
+
+    private static boolean isIndexed(final LinkedHashSet<Object> triangles) {
+        return triangles instanceof TextureAtlasTriangleSet || triangles instanceof ExactVictimTriangleSet;
     }
 
     @Override
@@ -126,6 +128,11 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
     @Override
     public boolean remove(final Object value) {
         return values.remove(key(value)) != null;
+    }
+
+    /** Removes the equal entry and returns its exact stored identity, or {@code null} if absent. */
+    Object removeExact(final Object value) {
+        return values.remove(key(value));
     }
 
     @Override

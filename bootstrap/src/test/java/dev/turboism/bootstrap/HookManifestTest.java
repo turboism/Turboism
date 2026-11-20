@@ -37,6 +37,7 @@ final class HookManifestTest {
                         MeshTriangulationHashHookContributor.class,
                         TextureAtlasLoadingHookContributor.class,
                         TriangulationEdgeIndexHookContributor.class,
+                        TriangulationSpatialIndexHookContributor.class,
                         AtlasTileBboxHookContributor.class,
                         AtlasCacheReuseHookContributor.class,
                         MeshInterpolationHookContributor.class,

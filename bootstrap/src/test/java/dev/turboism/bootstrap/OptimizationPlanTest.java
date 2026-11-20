@@ -124,7 +124,7 @@ class OptimizationPlanTest {
                 "incrementalUpdate-disabled");
 
         // ... and the plan refuses with exactly those codes, in that order.
-        writeConfig(Map.of("uploadElision", true), Map.of());
+        writeConfig(Map.of("uploadElision", true, "modelUpdateSkip", false), Map.of());
         assertEquals(
                 "modelUpdateSkip-disabled",
                 refusal(plan(), OptimizationCatalog.UPLOAD_ELISION).reasonCode());
@@ -134,12 +134,12 @@ class OptimizationPlanTest {
                 "uniformLocationCache-enabled",
                 refusal(plan(), OptimizationCatalog.UPLOAD_ELISION).reasonCode());
 
-        writeConfig(Map.of("meshSetupElision", true), Map.of());
+        writeConfig(Map.of("meshSetupElision", true, "modelUpdateSkip", false), Map.of());
         assertEquals(
                 "modelUpdateSkip-disabled",
                 refusal(plan(), OptimizationCatalog.MESH_SETUP_ELISION).reasonCode());
 
-        writeConfig(Map.of("clipMaskScissorClear", true), Map.of());
+        writeConfig(Map.of("clipMaskScissorClear", true, "clipMaskDeduplication", false), Map.of());
         assertEquals(
                 "clipMaskDeduplication-disabled",
                 refusal(plan(), OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR).reasonCode());
@@ -150,7 +150,7 @@ class OptimizationPlanTest {
                 refusal(plan(), OptimizationCatalog.INCREMENTAL_UPDATE_AFFECTERS)
                         .reasonCode());
 
-        writeConfig(Map.of(), Map.of());
+        writeConfig(Map.of("uploadElision", false), Map.of());
         assertEquals(
                 OptimizationPlan.Decision.PREFERENCE_DISABLED,
                 refusal(plan(), OptimizationCatalog.UPLOAD_ELISION).reasonCode());
@@ -197,26 +197,31 @@ class OptimizationPlanTest {
     /** I9 for the derived default: the probe follows the entries it serves, and its switch wins. */
     @Test
     void derivedEntryFollowsItsTargetsAndItsExplicitSwitchWins() throws Exception {
-        writeConfig(Map.of(), Map.of());
+        writeConfig(
+                Map.of("modelUpdateSkip", false, "meshSetupElision", false, "clipMaskDeduplication", false), Map.of());
         assertFalse(plan().admitted(OptimizationCatalog.SORTING_INFO_CACHE));
 
-        writeConfig(Map.of("modelUpdateSkip", true), Map.of());
+        writeConfig(
+                Map.of("modelUpdateSkip", true, "meshSetupElision", false, "clipMaskDeduplication", false), Map.of());
         assertTrue(plan().admitted(OptimizationCatalog.SORTING_INFO_CACHE));
         assertEquals(
                 "derived-preference",
                 plan().choice(OptimizationCatalog.SORTING_INFO_CACHE).source());
 
-        writeConfig(Map.of("meshSetupElision", true, "modelUpdateSkip", true), Map.of());
+        writeConfig(
+                Map.of("meshSetupElision", true, "modelUpdateSkip", true, "clipMaskDeduplication", false), Map.of());
         assertTrue(plan().admitted(OptimizationCatalog.SORTING_INFO_CACHE));
 
-        writeConfig(Map.of("clipMaskDeduplication", true), Map.of());
+        writeConfig(
+                Map.of("modelUpdateSkip", false, "meshSetupElision", false, "clipMaskDeduplication", true), Map.of());
         assertTrue(plan().admitted(OptimizationCatalog.SORTING_INFO_CACHE));
 
         // An explicit switch overrides the derived default in both directions.
         writeConfig(Map.of("modelUpdateSkip", true), Map.of());
         System.setProperty("turboism.optimization.sortingInfoCache", "false");
         assertFalse(plan().admitted(OptimizationCatalog.SORTING_INFO_CACHE));
-        writeConfig(Map.of(), Map.of());
+        writeConfig(
+                Map.of("modelUpdateSkip", false, "meshSetupElision", false, "clipMaskDeduplication", false), Map.of());
         System.setProperty("turboism.optimization.sortingInfoCache", "true");
         assertTrue(plan().admitted(OptimizationCatalog.SORTING_INFO_CACHE));
     }

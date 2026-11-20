@@ -325,22 +325,49 @@ public final class TriangulationEdgeIndex {
      * Bookkeeping defers a bounded batch of identities, never invokes element equality again.
      */
     public static boolean remove(final LinkedHashSet s, final Object tri) {
-        final boolean removed = s.remove(tri);
-        if (!removed) return false;
+        final Object victim;
+        final boolean hasExactVictim;
+        if (s instanceof TextureAtlasTriangleSet atlasSet) {
+            hasExactVictim = true;
+            victim = atlasSet.removeExact(tri);
+            if (victim == null) return false;
+        } else if (s instanceof ExactVictimTriangleSet exactSet) {
+            hasExactVictim = true;
+            victim = exactSet.removeExact(tri);
+            if (victim == ExactVictimTriangleSet.ABSENT) return false;
+        } else {
+            hasExactVictim = false;
+            victim = tri;
+            if (!s.remove(tri)) return false;
+        }
         try {
             final St t = st(s);
-            if (!t.dead
-                    && !t.dirty
-                    && t.sz == s.size() + 1
-                    && t.keys.size() == t.sz + t.pendingSize
-                    && t.keys.containsKey(tri)
-                    && !isPending(t, tri)
-                    && t.pendingSize < t.pending.length) {
-                t.pending[t.pendingSize++] = tri;
+            if (hasExactVictim) {
+                if (!t.dead
+                        && !t.dirty
+                        && t.pendingSize == 0
+                        && t.sz == s.size() + 1
+                        && t.keys.size() == t.sz
+                        && deindex(t, victim)) {
+                    t.sz = s.size();
+                } else {
+                    markDirty(t);
+                    t.sz = s.size();
+                }
             } else {
-                markDirty(t);
+                if (!t.dead
+                        && !t.dirty
+                        && t.sz == s.size() + 1
+                        && t.keys.size() == t.sz + t.pendingSize
+                        && t.keys.containsKey(tri)
+                        && !isPending(t, tri)
+                        && t.pendingSize < t.pending.length) {
+                    t.pending[t.pendingSize++] = tri;
+                } else {
+                    markDirty(t);
+                }
+                t.sz = s.size();
             }
-            t.sz = s.size();
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
             invalidate(s);

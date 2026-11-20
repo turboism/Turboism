@@ -1146,7 +1146,7 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(36, boxes.size());
+                assertEquals(37, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
@@ -1250,6 +1250,12 @@ class DeclarativeSettingsRendererTest {
                             findCheckBoxByName(checkboxes(form), OptimizationCatalog.ATLAS_LOADING.contributionId());
                     assertTrue(atlasLoading.isSelected(), "missing preference enables the atlas optimization");
                     atlasLoading.doClick();
+                    final JCheckBox spatialIndex = findCheckBoxByName(
+                            checkboxes(form), OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX.contributionId());
+                    assertTrue(
+                            spatialIndex.isSelected(),
+                            "missing preference enables the spatial triangulation optimization");
+                    spatialIndex.doClick();
                     final JPanel topSection = findCollapsibleSection(form);
                     assertTrue(topSection != null, "top collapsible section must render");
                     assertTrue(
@@ -1292,6 +1298,12 @@ class DeclarativeSettingsRendererTest {
             assertEquals(Boolean.FALSE, persistedRoot.path(atlasKey).booleanValue());
             assertTrue(persistedRoot.path(atlasKey).isBoolean());
             assertFalse(nativeReloaded.choice(OptimizationCatalog.ATLAS_LOADING).enabled());
+            final String spatialKey = OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX.key();
+            assertEquals(Boolean.FALSE, persistedRoot.path(spatialKey).booleanValue());
+            assertTrue(persistedRoot.path(spatialKey).isBoolean());
+            assertFalse(nativeReloaded
+                    .choice(OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX)
+                    .enabled());
             for (final Optimization optimization : hotpath) {
                 assertTrue(
                         persistedRoot.path("launcher").path(optimization.key()).asBoolean(false),

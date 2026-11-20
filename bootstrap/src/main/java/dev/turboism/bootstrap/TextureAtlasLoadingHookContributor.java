@@ -60,7 +60,7 @@ final class TextureAtlasLoadingHookContributor implements ReportedHookContributo
         final boolean requested = environment.plan().admitted(OptimizationCatalog.ATLAS_LOADING);
         final var transformer = new TextureAtlasLoadingTransformer(requested);
         instrumentation.addTransformer(transformer);
-        if (!requested || hasGlobalHash) {
+        if (!requested || (hasGlobalHash && !indexScopedEdges)) {
             NativeOptimizationDiagnostics.installed(
                     ID, requested ? INSTALLED : NOT_INSTALLED, requested ? INSTALLED : PREFERENCE_DISABLED);
             return () -> {
@@ -68,7 +68,7 @@ final class TextureAtlasLoadingHookContributor implements ReportedHookContributo
                 NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, CLOSED);
             };
         }
-        final var triangleSet = new TextureAtlasTriangleSetTransformer(indexScopedEdges);
+        final var triangleSet = new TextureAtlasTriangleSetTransformer(indexScopedEdges, hasGlobalHash);
         try {
             instrumentation.addTransformer(triangleSet);
         } catch (RuntimeException failure) {
