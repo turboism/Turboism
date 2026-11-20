@@ -11,6 +11,22 @@ final class McpOutputSchemas {
 
     private static final String DRAFT = "https://json-schema.org/draft/2020-12/schema";
 
+    /** JSON-Pointer prefix that addresses the definitions advertised at a schema root. */
+    private static final String DEFINITIONS_POINTER = "#/$defs/";
+
+    /** Native history bounds the projected child list of one group node. */
+    private static final int HISTORY_CHILD_LIMIT = 64;
+
+    private static final String HISTORY_SNAPSHOT = "historySnapshot";
+    private static final String HISTORY_ENTRY = "historyEntry";
+    private static final String HISTORY_DETAIL = "historyDetail";
+    private static final String HISTORY_ORIGIN = "historyOrigin";
+    private static final String HISTORY_TARGET = "historyTarget";
+    private static final String HISTORY_CHANGE = "historyChange";
+    private static final String HISTORY_EDIT_CONTEXT = "historyEditContext";
+    private static final String HISTORY_GROUP = "historyGroup";
+    private static final String HISTORY_PARAMETER_COORDINATE = "historyParameterCoordinate";
+
     private McpOutputSchemas() {}
 
     static Map<String, Object> modelObjectBatch() {
@@ -47,16 +63,16 @@ final class McpOutputSchemas {
     }
 
     static Map<String, Object> historyRead() {
-        return successOrFailure(object(
+        return historyEnvelope(object(
                 properties(
                         entry("ok", booleanSchema()),
-                        entry("snapshot", historySnapshot()),
+                        entry("snapshot", reference(HISTORY_SNAPSHOT)),
                         entry("diagnosticId", nullableString())),
                 List.of("ok", "snapshot", "diagnosticId")));
     }
 
     static Map<String, Object> historyMove() {
-        return successOrFailure(object(
+        return historyEnvelope(object(
                 properties(
                         entry("ok", booleanSchema()),
                         entry(
@@ -69,7 +85,7 @@ final class McpOutputSchemas {
                                         "PARTIAL_MOVE",
                                         "UNAVAILABLE",
                                         "FAILED_UNKNOWN_POSITION"))),
-                        entry("snapshot", historySnapshot()),
+                        entry("snapshot", reference(HISTORY_SNAPSHOT)),
                         entry("diagnosticId", nullableString())),
                 List.of("ok", "outcome", "snapshot", "diagnosticId")));
     }
@@ -350,7 +366,7 @@ final class McpOutputSchemas {
                         entry("generation", nonNegativeInteger()),
                         entry("revision", nonNegativeInteger()),
                         entry("position", nonNegativeInteger()),
-                        entry("entries", array(historyEntry())),
+                        entry("entries", array(reference(HISTORY_ENTRY))),
                         entry("canUndo", booleanSchema()),
                         entry("canRedo", booleanSchema())),
                 List.of("availability", "generation", "revision", "position", "entries", "canUndo", "canRedo"));
@@ -362,11 +378,11 @@ final class McpOutputSchemas {
                         entry("index", nonNegativeInteger()),
                         entry("label", stringSchema()),
                         entry("significant", booleanSchema()),
-                        entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
+                        entry("detailLevel", historyDetailLevel()),
                         entry("entryId", nullableString()),
                         entry("transactionId", nullableString()),
                         entry("action", nullableObject(historyAction())),
-                        entry("detail", historyDetail(4))),
+                        entry("detail", reference(HISTORY_DETAIL))),
                 List.of(
                         "index",
                         "label",
@@ -391,21 +407,26 @@ final class McpOutputSchemas {
                 List.of("kind", "targetType", "targetId", "property", "before", "after", "detailLevel"));
     }
 
-    private static Map<String, Object> historyDetail(final int remainingGroupDepth) {
+    /**
+     * Recursive history detail. The child members address shared definitions, so the advertised tree
+     * stays recursive through {@code group.children} without the four-level inline unrolling that
+     * dominated {@code tools/list}.
+     */
+    private static Map<String, Object> historyDetail() {
         return object(
                 properties(
                         entry("summary", nonEmptyString()),
-                        entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
-                        entry("origin", historyOrigin()),
-                        entry("targets", boundedArray(historyTarget(), 64)),
-                        entry("changes", boundedArray(historyChange(), 64)),
-                        entry(
-                                "group",
-                                remainingGroupDepth == 0
-                                        ? Map.of("type", "null")
-                                        : nullableObject(historyGroup(remainingGroupDepth - 1))),
+                        entry("detailLevel", historyDetailLevel()),
+                        entry("origin", reference(HISTORY_ORIGIN)),
+                        entry("targets", boundedArray(reference(HISTORY_TARGET), HISTORY_CHILD_LIMIT)),
+                        entry("changes", boundedArray(reference(HISTORY_CHANGE), HISTORY_CHILD_LIMIT)),
+                        entry("group", nullable(reference(HISTORY_GROUP))),
                         entry("degradationCode", nullableString())),
                 List.of("summary", "detailLevel", "origin", "targets", "changes", "group", "degradationCode"));
+    }
+
+    private static Map<String, Object> historyDetailLevel() {
+        return enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"));
     }
 
     private static Map<String, Object> historyOrigin() {
@@ -434,7 +455,7 @@ final class McpOutputSchemas {
                         entry("property", nullableString()),
                         entry("before", nullableString()),
                         entry("after", nullableString()),
-                        entry("context", historyEditContext()),
+                        entry("context", reference(HISTORY_EDIT_CONTEXT)),
                         entry("relation", nullableObject(historyRelationChange()))),
                 List.of("operation", "targetIndex", "property", "before", "after", "context", "relation"));
     }
@@ -452,7 +473,7 @@ final class McpOutputSchemas {
         return object(
                 properties(
                         entry("state", enumSchema(List.of("TARGET", "ROOT", "UNKNOWN"))),
-                        entry("target", nullableObject(historyTarget()))),
+                        entry("target", nullable(reference(HISTORY_TARGET)))),
                 List.of("state", "target"));
     }
 
@@ -461,24 +482,53 @@ final class McpOutputSchemas {
                 properties(
                         entry("kind", enumSchema(List.of("OBJECT", "DEFAULT_FORM", "KEYFORM", "DOCUMENT", "UNKNOWN"))),
                         entry("formId", nullableString()),
-                        entry("coordinates", boundedArray(historyParameterCoordinate(), 64))),
+                        entry(
+                                "coordinates",
+                                boundedArray(reference(HISTORY_PARAMETER_COORDINATE), HISTORY_CHILD_LIMIT))),
                 List.of("kind", "formId", "coordinates"));
     }
 
     private static Map<String, Object> historyParameterCoordinate() {
         return object(
-                properties(entry("parameter", historyTarget()), entry("value", nonEmptyString())),
+                properties(entry("parameter", reference(HISTORY_TARGET)), entry("value", nonEmptyString())),
                 List.of("parameter", "value"));
     }
 
-    private static Map<String, Object> historyGroup(final int remainingGroupDepth) {
+    private static Map<String, Object> historyGroup() {
         return object(
                 properties(
                         entry("groupId", nullableString()),
-                        entry("children", boundedArray(historyDetail(remainingGroupDepth), 64)),
+                        entry("children", boundedArray(reference(HISTORY_DETAIL), HISTORY_CHILD_LIMIT)),
                         entry("observedChildCount", nonNegativeInteger()),
                         entry("truncated", booleanSchema())),
                 List.of("groupId", "observedChildCount", "children", "truncated"));
+    }
+
+    /** Every history definition, advertised once at the schema root. */
+    private static Map<String, Object> historyDefinitions() {
+        return linked(
+                entry(HISTORY_SNAPSHOT, historySnapshot()),
+                entry(HISTORY_ENTRY, historyEntry()),
+                entry(HISTORY_DETAIL, historyDetail()),
+                entry(HISTORY_ORIGIN, historyOrigin()),
+                entry(HISTORY_TARGET, historyTarget()),
+                entry(HISTORY_CHANGE, historyChange()),
+                entry(HISTORY_EDIT_CONTEXT, historyEditContext()),
+                entry(HISTORY_GROUP, historyGroup()),
+                entry(HISTORY_PARAMETER_COORDINATE, historyParameterCoordinate()));
+    }
+
+    private static Map<String, Object> historyEnvelope(final Map<String, Object> payload) {
+        return linked(
+                entry("$schema", DRAFT),
+                entry("type", "object"),
+                entry("oneOf", List.of(payload, failure())),
+                entry("$defs", historyDefinitions()));
+    }
+
+    /** Pointer into the shared definitions of the enclosing schema document. */
+    private static Map<String, Object> reference(final String definition) {
+        return Map.of("$ref", DEFINITIONS_POINTER + definition);
     }
 
     private static Map<String, Object> successOrFailure(final Map<String, Object> success) {

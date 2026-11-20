@@ -31,6 +31,22 @@ final class McpRuntimeDiagnostics {
     private static final Pattern WINDOWS_PATH = Pattern.compile("(?i)(?:[a-z]:\\\\|\\\\\\\\)[^\\s]+");
     private static final Pattern UNIX_PATH = Pattern.compile("(?<![A-Za-z0-9_.-])/(?:[^\\s/]+/)*[^\\s]+");
 
+    /**
+     * Top-level members that make an otherwise successful payload noteworthy. A clean success
+     * carries none of them, so its nested strings never reach the outcome scan.
+     */
+    private static final List<String> NOTEWORTHY_KEYS = List.of(
+            "error",
+            "outcome",
+            "diagnosticId",
+            "readbackWarning",
+            "parameterSnapshotWarning",
+            "degradationCode",
+            "diagnosticCode");
+
+    /** Recursion budget of the key-only evidence scan. */
+    private static final int EVIDENCE_SCAN_DEPTH = 32;
+
     private final Object lock = new Object();
     private final int capacity;
     private final Clock clock;
@@ -48,27 +64,18 @@ final class McpRuntimeDiagnostics {
         this.events = new ArrayDeque<>(capacity);
     }
 
+    /**
+     * Returns {@code delegate} with outcome observation, without a second validating catalog layer.
+     * A nested {@code McpToolCatalog} would repeat argument validation, envelope validation, and
+     * image decoding on every call.
+     */
     McpToolCatalog observe(final McpToolCatalog delegate) {
         final McpToolCatalog checked = Objects.requireNonNull(delegate, "delegate");
-        return McpToolCatalog.of(checked.registrations().stream()
-                .map(registration -> registration.withHandlers(
-                        arguments -> observeInvocation(
-                                registration.name(), () -> checked.call(registration.name(), arguments)),
-                        arguments -> observeInvocation(
-                                registration.name(), () -> checked.callRaw(registration.name(), arguments))))
-                .toList());
+        return checked.withObserver(this::recordStructuredOutcomes, this::recordFailure);
     }
 
-    private Map<String, Object> observeInvocation(
-            final String name, final java.util.function.Supplier<Map<String, Object>> invocation) {
-        try {
-            final Map<String, Object> envelope = invocation.get();
-            recordStructuredOutcomes(name, envelope.get("structuredContent"));
-            return envelope;
-        } catch (RuntimeException failure) {
-            recordFailure(name, failure);
-            throw failure;
-        }
+    private void recordStructuredOutcomes(final String name, final Map<String, Object> envelope) {
+        recordStructuredOutcomes(name, envelope.get("structuredContent"));
     }
 
     McpResourceCatalog observe(final McpResourceCatalog delegate) {
@@ -102,6 +109,7 @@ final class McpRuntimeDiagnostics {
     }
 
     private void recordStructuredOutcomes(final String provider, final Object structured) {
+        if (isCleanSuccess(structured) && !carriesOutcomeEvidence(structured, 0)) return;
         final LinkedHashSet<String> kinds = new LinkedHashSet<>();
         collectKinds(structured, kinds, 0);
         for (String kind : kinds) {
@@ -115,6 +123,35 @@ final class McpRuntimeDiagnostics {
                     null,
                     structuredMessage(structured, kind));
         }
+    }
+
+    /**
+     * Returns {@code true} when a payload reports success. A failed payload always reaches the
+     * outcome scan because its own shape is the evidence.
+     */
+    private static boolean isCleanSuccess(final Object structured) {
+        return structured instanceof Map<?, ?> map && Boolean.TRUE.equals(map.get("ok"));
+    }
+
+    /**
+     * Returns {@code true} when any nested object declares an outcome, error, or warning member.
+     * The scan reads keys only, so a large geometry payload pays no string allocation.
+     */
+    private static boolean carriesOutcomeEvidence(final Object value, final int depth) {
+        if (value == null || depth > EVIDENCE_SCAN_DEPTH) return false;
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() instanceof String key && NOTEWORTHY_KEYS.contains(key)) return true;
+                if (carriesOutcomeEvidence(entry.getValue(), depth + 1)) return true;
+            }
+            return false;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                if (carriesOutcomeEvidence(item, depth + 1)) return true;
+            }
+        }
+        return false;
     }
 
     private static void collectKinds(final Object value, final Set<String> kinds, final int depth) {

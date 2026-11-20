@@ -14,6 +14,11 @@ final class McpRegisteredTool {
         Map<String, Object> call(Map<String, Object> arguments);
     }
 
+    /** JSON-Pointer prefix that addresses a definition in the enclosing schema document root. */
+    private static final String DEFINITIONS_POINTER = "#/$defs/";
+
+    private static final int MAX_SCHEMA_DEPTH = 64;
+
     private final Map<String, Object> publicDefinition;
     private final String name;
     private final McpOperationEffect effect;
@@ -90,7 +95,7 @@ final class McpRegisteredTool {
                 affinity,
                 transactionEligible,
                 Objects.requireNonNull(versionSupport, "versionSupport"),
-                isExactSchema(definition.get("outputSchema"), 0),
+                isExactSchema(definition.get("outputSchema"), 0, definitionsOf(definition.get("outputSchema"))),
                 checkedRaw,
                 standalone);
     }
@@ -187,13 +192,26 @@ final class McpRegisteredTool {
         return McpOperationEffect.EXTERNAL_SIDE_EFFECT;
     }
 
-    private static boolean isExactSchema(final Object value, final int depth) {
-        if (!(value instanceof Map<?, ?> schema) || depth > 64) return false;
+    /**
+     * Reports whether {@code value} pins every member of a projection.
+     *
+     * @param definitions the enclosing document definitions, or {@code null} when none apply
+     */
+    private static boolean isExactSchema(final Object value, final int depth, final Map<String, Object> definitions) {
+        if (!(value instanceof Map<?, ?> schema) || depth > MAX_SCHEMA_DEPTH) return false;
+
+        if (schema.get("$ref") instanceof String pointer) {
+            return definitions != null
+                    && pointer.startsWith(DEFINITIONS_POINTER)
+                    && isExactSchema(
+                            definitions.get(pointer.substring(DEFINITIONS_POINTER.length())), depth + 1, definitions);
+        }
 
         final Object oneOf = schema.get("oneOf");
         if (oneOf instanceof java.util.List<?> alternatives) {
             return !alternatives.isEmpty()
-                    && alternatives.stream().allMatch(alternative -> isExactSchema(alternative, depth + 1));
+                    && alternatives.stream()
+                            .allMatch(alternative -> isExactSchema(alternative, depth + 1, definitions));
         }
 
         final Object type = schema.get("type");
@@ -202,7 +220,7 @@ final class McpRegisteredTool {
             for (Object alternative : alternatives) {
                 final LinkedHashMap<Object, Object> narrowed = new LinkedHashMap<>(schema);
                 narrowed.put("type", alternative);
-                if (!isExactSchema(narrowed, depth + 1)) return false;
+                if (!isExactSchema(narrowed, depth + 1, definitions)) return false;
             }
             return true;
         }
@@ -212,13 +230,13 @@ final class McpRegisteredTool {
             final Object propertiesValue = schema.get("properties");
             if (!(propertiesValue instanceof Map<?, ?> properties)) return false;
             for (Object propertySchema : properties.values()) {
-                if (!isExactSchema(propertySchema, depth + 1)) return false;
+                if (!isExactSchema(propertySchema, depth + 1, definitions)) return false;
             }
             return true;
         }
 
         if ("array".equals(type) || schema.containsKey("items")) {
-            return isExactSchema(schema.get("items"), depth + 1);
+            return isExactSchema(schema.get("items"), depth + 1, definitions);
         }
 
         if (type instanceof String primitive) {
@@ -228,6 +246,14 @@ final class McpRegisteredTool {
             };
         }
         return schema.containsKey("const") || schema.get("enum") instanceof java.util.List<?>;
+    }
+
+    /** Returns the definitions a schema root advertises, or an empty map when it declares none. */
+    private static Map<String, Object> definitionsOf(final Object value) {
+        if (!(value instanceof Map<?, ?> schema)) return Map.of();
+        return schema.get("$defs") instanceof Map<?, ?> definitions
+                ? Collections.unmodifiableMap(new LinkedHashMap<>((Map<String, Object>) definitions))
+                : Map.of();
     }
 
     private static Map<String, Object> immutableDefinition(final Map<String, Object> value) {

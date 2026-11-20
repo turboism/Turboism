@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -218,9 +219,9 @@ final class McpHttpServerIntegrationTest {
             assertEquals(200, tools.statusCode());
             final List<Object> toolDefinitions =
                     new ArrayList<>(array(result(tools).get("tools")));
-            assertEquals(50, toolDefinitions.size());
+            assertEquals(80, toolDefinitions.size());
             Object toolCursor = result(tools).get("nextCursor");
-            assertInstanceOf(String.class, toolCursor);
+            assertNull(toolCursor, "the full catalog must fit one tools/list page");
             while (toolCursor != null) {
                 var page = request(
                         server.endpoint(),

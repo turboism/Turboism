@@ -68,15 +68,15 @@ final class McpHistoryConvenienceToolsTest {
         final Map<String, Object> root = McpOutputSchemas.historyRead();
         final Map<String, Object> success = object(((List<?>) root.get("oneOf")).get(0));
         final Map<String, Object> successProperties = object(success.get("properties"));
-        final Map<String, Object> snapshot = object(successProperties.get("snapshot"));
+        final Map<String, Object> snapshot = dereferenced(root, successProperties.get("snapshot"));
         final Map<String, Object> snapshotProperties = object(snapshot.get("properties"));
         final Map<String, Object> entries = object(snapshotProperties.get("entries"));
-        final Map<String, Object> entrySchema = object(entries.get("items"));
+        final Map<String, Object> entrySchema = dereferenced(root, entries.get("items"));
         final Map<String, Object> entryProperties = object(entrySchema.get("properties"));
-        final Map<String, Object> detail = object(entryProperties.get("detail"));
+        final Map<String, Object> detail = dereferenced(root, entryProperties.get("detail"));
         final Map<String, Object> detailProperties = object(detail.get("properties"));
         final Map<String, Object> changes = object(detailProperties.get("changes"));
-        final Map<String, Object> changeSchema = object(changes.get("items"));
+        final Map<String, Object> changeSchema = dereferenced(root, changes.get("items"));
         final Map<String, Object> changeProperties = object(changeSchema.get("properties"));
         assertEquals(
                 java.util.Arrays.stream(dev.turboism.sdk.cubism.history.HistoryChange.Operation.values())
@@ -91,7 +91,7 @@ final class McpHistoryConvenienceToolsTest {
                 List.of("PART_MEMBERSHIP", "DEFORMER_PARENT"),
                 object(relationProperties.get("kind")).get("enum"));
         final Map<String, Object> endpointProperties =
-                object(object(relationProperties.get("before")).get("properties"));
+                object(dereferenced(root, relationProperties.get("before")).get("properties"));
         assertEquals(
                 List.of("TARGET", "ROOT", "UNKNOWN"),
                 object(endpointProperties.get("state")).get("enum"));
@@ -104,12 +104,15 @@ final class McpHistoryConvenienceToolsTest {
         assertEquals(
                 List.of("FULL", "PARTIAL", "LABEL_ONLY"),
                 object(detailProperties.get("detailLevel")).get("enum"));
-        final Map<String, Object> group = object(detailProperties.get("group"));
-        assertEquals(List.of("object", "null"), group.get("type"));
+        final Map<String, Object> group = nullableObject(root, detailProperties.get("group"));
         final Map<String, Object> groupChildren =
                 object(object(group.get("properties")).get("children"));
-        final Map<String, Object> childDetail = object(groupChildren.get("items"));
+        final Map<String, Object> childDetail = dereferenced(root, groupChildren.get("items"));
         assertTrue(object(childDetail.get("properties")).containsKey("group"));
+        assertEquals(
+                List.of(Map.of("$ref", "#/$defs/historyGroup"), Map.of("type", "null")),
+                object(object(childDetail.get("properties")).get("group")).get("oneOf"),
+                "recursive detail must advertise itself once through shared definitions");
     }
 
     @Test
@@ -253,5 +256,22 @@ final class McpHistoryConvenienceToolsTest {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> object(final Object value) {
         return (Map<String, Object>) value;
+    }
+
+    /** Resolves one local {@code $ref} against the definitions of the enclosing schema root. */
+    private static Map<String, Object> dereferenced(final Map<String, Object> root, final Object value) {
+        final Map<String, Object> schema = object(value);
+        final Object reference = schema.get("$ref");
+        if (!(reference instanceof String pointer)) return schema;
+        final String prefix = "#/$defs/";
+        assertTrue(pointer.startsWith(prefix), "unexpected reference " + pointer);
+        return object(object(root.get("$defs")).get(pointer.substring(prefix.length())));
+    }
+
+    /** Resolves a nullable {@code $ref} wrapper whose {@code oneOf} also admits JSON {@code null}. */
+    private static Map<String, Object> nullableObject(final Map<String, Object> root, final Object value) {
+        final List<?> alternatives = (List<?>) object(value).get("oneOf");
+        assertEquals(List.of(Map.of("type", "null")), alternatives.subList(1, alternatives.size()));
+        return dereferenced(root, alternatives.get(0));
     }
 }

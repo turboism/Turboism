@@ -16,6 +16,12 @@ final class McpProtocol {
     static final String VERSION = "2025-11-25";
     static final Set<String> SUPPORTED_VERSIONS = Set.of(VERSION, "2025-06-18", "2025-03-26");
 
+    /**
+     * Default list page size. The full production catalog fits one page, so a client needs one
+     * {@code tools/list} request instead of two.
+     */
+    static final int DEFAULT_PAGE_SIZE = 100;
+
     private final McpToolCatalog tools;
     private final McpResourceCatalog resources;
     private final McpPromptCatalog prompts;
@@ -286,7 +292,7 @@ final class McpProtocol {
             final String sessionId) {
         only(params, "cursor", "_meta");
         final int offset = cursorOffset(params.get("cursor"), key, sessionId, values.size());
-        final int end = Math.min(offset + 50, values.size());
+        final int end = Math.min(offset + DEFAULT_PAGE_SIZE, values.size());
         final LinkedHashMap<String, Object> result = linked(entry(key, new ArrayList<>(values.subList(offset, end))));
         if (end < values.size()) {
             result.put("nextCursor", encodeCursor(sessionId, key, end));

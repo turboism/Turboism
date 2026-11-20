@@ -1,14 +1,42 @@
 package dev.turboism.plugin.mcp;
 
 import dev.turboism.sdk.json.Json;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /** Discoverable MCP tool catalog and invocation boundary. */
 final class McpToolCatalog {
+
+    /** Leading Base64 characters that carry the eight-byte PNG signature. */
+    private static final int BASE64_CHARACTERS_PER_PNG_SIGNATURE = 12;
+
+    private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
+
+    private static final int MAX_CONTENT_BLOCKS = 10;
+
+    /** JSON-Pointer prefix that addresses a definition in the enclosing schema document root. */
+    private static final String DEFINITIONS_POINTER = "#/$defs/";
+
+    private static final int MAX_IMAGE_BASE64_LENGTH = 4 * 1024 * 1024;
+
+    private static final int MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+    private static final int MAX_SCHEMA_DEPTH = 64;
+
+    private static final Pattern BASE64_ALPHABET = Pattern.compile("[A-Za-z0-9+/]*={0,2}");
+
+    /** Schema keywords that carry no constraint; they never require a definition lookup. */
+    private static final Set<String> ANNOTATION_KEYWORDS =
+            Set.of("$ref", "$defs", "$schema", "$id", "title", "description", "default", "examples");
 
     private static final Map<String, Object> DEFAULT_OUTPUT_SCHEMA = Map.of(
             "$schema",
@@ -40,15 +68,40 @@ final class McpToolCatalog {
         Map<String, Object> call(String name, Map<String, Object> arguments);
     }
 
+    /**
+     * Observes one completed invocation envelope. Observers must not mutate the envelope: the same
+     * instance continues on the wire.
+     */
+    @FunctionalInterface
+    interface Observer {
+        void observed(String name, Map<String, Object> envelope);
+    }
+
+    /**
+     * Observes one failed invocation. Observers rethrow nothing; the original failure continues to
+     * the MCP protocol boundary.
+     */
+    @FunctionalInterface
+    interface FailureObserver {
+        void observed(String name, RuntimeException failure);
+    }
+
     private final McpToolRegistry registry;
     private final List<Map<String, Object>> definitions;
     private final Map<String, Map<String, Object>> outputSchemas;
+    private final Observer observer;
+    private final FailureObserver failureObserver;
 
     McpToolCatalog(final List<Map<String, Object>> definitions, final Caller caller) {
-        this(legacyRegistry(definitions, caller));
+        this(legacyRegistry(definitions, caller), null, null);
     }
 
     private McpToolCatalog(final McpToolRegistry registry) {
+        this(registry, null, null);
+    }
+
+    private McpToolCatalog(
+            final McpToolRegistry registry, final Observer observer, final FailureObserver failureObserver) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.definitions = registry.definitions();
         final LinkedHashMap<String, Map<String, Object>> schemas = new LinkedHashMap<>();
@@ -61,6 +114,8 @@ final class McpToolCatalog {
             schemas.put(name, Map.copyOf(stringMap(rawSchema, "outputSchema")));
         }
         this.outputSchemas = Map.copyOf(schemas);
+        this.observer = observer;
+        this.failureObserver = failureObserver;
     }
 
     static McpToolCatalog of(final List<McpRegisteredTool> registrations) {
@@ -71,6 +126,18 @@ final class McpToolCatalog {
         return new McpToolCatalog(List.of(), (name, arguments) -> {
             throw new IllegalArgumentException("Unknown MCP tool: " + name);
         });
+    }
+
+    /**
+     * Returns a catalog that reports every outcome to {@code observer} without adding another
+     * validating layer. The delegate already validates arguments and envelopes; a second
+     * {@code McpToolCatalog} wrapper would repeat that work on every call.
+     */
+    McpToolCatalog withObserver(final Observer observer, final FailureObserver failureObserver) {
+        return new McpToolCatalog(
+                registry,
+                Objects.requireNonNull(observer, "observer"),
+                Objects.requireNonNull(failureObserver, "failureObserver"));
     }
 
     List<Map<String, Object>> definitions() {
@@ -95,13 +162,25 @@ final class McpToolCatalog {
     }
 
     Map<String, Object> call(final String name, final Map<String, Object> arguments) {
-        validateArguments(name, arguments);
-        return validate(name, registry.call(name, arguments));
+        return invoke(name, arguments, false);
     }
 
     Map<String, Object> callRaw(final String name, final Map<String, Object> arguments) {
+        return invoke(name, arguments, true);
+    }
+
+    private Map<String, Object> invoke(final String name, final Map<String, Object> arguments, final boolean raw) {
         validateArguments(name, arguments);
-        return validate(name, registry.callRaw(name, arguments));
+        final Map<String, Object> envelope;
+        try {
+            envelope = raw ? registry.callRaw(name, arguments) : registry.call(name, arguments);
+        } catch (RuntimeException failure) {
+            if (failureObserver != null) failureObserver.observed(name, failure);
+            throw failure;
+        }
+        final Map<String, Object> validated = validate(name, envelope);
+        if (observer != null) observer.observed(name, validated);
+        return validated;
     }
 
     private void validateArguments(final String name, final Map<String, Object> arguments) {
@@ -145,36 +224,78 @@ final class McpToolCatalog {
         if (!"text".equals(block.get("type")) || !(block.get("text") instanceof String text)) {
             return "content[0] must be a text block";
         }
-        try {
-            final Map<String, ?> parsed = Json.parseObject(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            if (!McpJsonSupport.stringify(output).equals(Json.stringify(parsed))) {
-                return "content text must equal structuredContent";
-            }
-        } catch (IllegalArgumentException failure) {
-            return "content text must contain valid JSON";
+        final String expected = McpJsonSupport.stringify(output);
+        if (!expected.equals(text) && !parsesTo(text, expected)) {
+            return "content text must equal structuredContent";
         }
-        if (content.size() > 10) return "content exceeds the attachment limit";
+        if (content.size() > MAX_CONTENT_BLOCKS) return "content exceeds the attachment limit";
         int imageBytes = 0;
         for (int index = 1; index < content.size(); index++) {
-            if (!(content.get(index) instanceof Map<?, ?> image)
-                    || !image.keySet().equals(java.util.Set.of("type", "mimeType", "data"))
-                    || !"image".equals(image.get("type"))
-                    || !"image/png".equals(image.get("mimeType"))
-                    || !(image.get("data") instanceof String data)
-                    || data.length() > 4 * 1024 * 1024) return "additional content must be bounded PNG image blocks";
-            try {
-                byte[] png = java.util.Base64.getDecoder().decode(data);
-                imageBytes += png.length;
-                if (imageBytes > 3 * 1024 * 1024) return "image content exceeds the total byte budget";
-                byte[] signature = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
-                if (png.length < signature.length
-                        || !java.util.Arrays.equals(signature, java.util.Arrays.copyOf(png, signature.length)))
-                    return "image content must contain PNG data";
-            } catch (IllegalArgumentException failure) {
-                return "image content must contain valid base64";
-            }
+            final Integer decodedLength = pngByteLength(content.get(index));
+            if (decodedLength == null) return "additional content must be bounded PNG image blocks";
+            imageBytes += decodedLength;
+            if (imageBytes > MAX_IMAGE_BYTES) return "image content exceeds the total byte budget";
         }
         return JsonSchemaValidator.validate(outputSchema, output);
+    }
+
+    /**
+     * Confirms the text block repeats the structured payload. Internal helpers already encode
+     * {@code expected}, so the equality check above settles every trusted envelope in one string
+     * comparison. A legacy caller that reordered keys or reformatted whitespace still matches.
+     */
+    private static boolean parsesTo(final String text, final String expected) {
+        final Map<String, ?> parsed;
+        try {
+            parsed = Json.parseObject(text.getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException failure) {
+            return false;
+        }
+        return expected.equals(Json.stringify(parsed));
+    }
+
+    /**
+     * Returns the decoded PNG byte length of one image block, or {@code null} when the block is not a
+     * bounded PNG attachment. The check reads only the leading Base64 characters instead of decoding
+     * the whole payload.
+     */
+    private static Integer pngByteLength(final Object value) {
+        if (!(value instanceof Map<?, ?> image)
+                || !image.keySet().equals(Set.of("type", "mimeType", "data"))
+                || !"image".equals(image.get("type"))
+                || !"image/png".equals(image.get("mimeType"))
+                || !(image.get("data") instanceof String data)
+                || data.length() > MAX_IMAGE_BASE64_LENGTH
+                || !BASE64_ALPHABET.matcher(data).matches()) return null;
+        final int visible = data.length() - padding(data);
+        if (visible <= 0) return null;
+        final long decodedLength = (long) visible * 3 / 4;
+        if (decodedLength > MAX_IMAGE_BYTES) return null;
+        final int signatureCharacters = Math.min(BASE64_CHARACTERS_PER_PNG_SIGNATURE, data.length());
+        final byte[] signature;
+        try {
+            signature = decodeFragment(data.substring(0, signatureCharacters));
+        } catch (IllegalArgumentException failure) {
+            return null;
+        }
+        if (signature.length < PNG_SIGNATURE.length) return null;
+        for (int index = 0; index < PNG_SIGNATURE.length; index++) {
+            if (signature[index] != PNG_SIGNATURE[index]) return null;
+        }
+        return (int) decodedLength;
+    }
+
+    private static int padding(final String data) {
+        int padding = 0;
+        while (padding < data.length() && data.charAt(data.length() - 1 - padding) == '=') padding++;
+        return padding;
+    }
+
+    /** Decodes a Base64 fragment whose character count is not a multiple of four. */
+    private static byte[] decodeFragment(final String fragment) {
+        final StringBuilder padded = new StringBuilder(fragment);
+        while (padded.length() % 4 != 0) padded.append('=');
+        return Base64.getDecoder().decode(padded.toString());
     }
 
     private static Map<String, Object> invalidOutput(final String detail) {
@@ -183,9 +304,12 @@ final class McpToolCatalog {
                 false,
                 "error",
                 Map.of(
-                        "code", "INTERNAL_OUTPUT_INVALID",
-                        "message", "MCP tool produced output outside its declared contract",
-                        "details", detail));
+                        "code",
+                        "INTERNAL_OUTPUT_INVALID",
+                        "message",
+                        "MCP tool produced output outside its declared contract",
+                        "details",
+                        detail));
         return Map.of(
                 "content",
                 List.of(Map.of("type", "text", "text", Json.stringify(output))),
@@ -233,23 +357,70 @@ final class McpToolCatalog {
         private JsonSchemaValidator() {}
 
         static String validate(final Map<String, Object> schema, final Object value) {
-            return validate(schema, value, "$", 0);
+            return validate(schema, value, "$", 0, definitions(schema));
         }
 
         private static String validate(
-                final Map<String, Object> schema, final Object value, final String path, final int depth) {
-            if (depth > 64) return path + " schema nesting exceeds 64 levels";
-            final Object oneOfValue = schema.get("oneOf");
+                final Map<String, Object> schema,
+                final Object value,
+                final String path,
+                final int depth,
+                final Map<String, Object> definitions) {
+            if (depth > MAX_SCHEMA_DEPTH) return path + " schema nesting exceeds " + MAX_SCHEMA_DEPTH + " levels";
+            final Map<String, Object> resolved = resolve(schema, definitions, path);
+            if (resolved == null) return path + " references an unknown definition";
+            final Object oneOfValue = resolved.get("oneOf");
             if (oneOfValue instanceof List<?> alternatives) {
                 int matches = 0;
                 for (Object alternative : alternatives) {
                     if (alternative instanceof Map<?, ?> raw
-                            && validate(stringMap(raw, "oneOf"), value, path, depth + 1) == null) {
+                            && validate(stringMap(raw, "oneOf"), value, path, depth + 1, definitions) == null) {
                         matches++;
                     }
                 }
                 return matches == 1 ? null : path + " must match exactly one schema";
             }
+            return validateConstraints(resolved, value, path, depth, definitions);
+        }
+
+        /**
+         * Returns the schema that constrains the value. A {@code $ref} resolves against the enclosing
+         * document definitions; sibling keywords stay in force.
+         */
+        private static Map<String, Object> resolve(
+                final Map<String, Object> schema, final Map<String, Object> definitions, final String path) {
+            if (!(schema.get("$ref") instanceof String pointer) || !pointer.startsWith(DEFINITIONS_POINTER)) {
+                return schema;
+            }
+            final Object target = definitions.get(pointer.substring(DEFINITIONS_POINTER.length()));
+            if (!(target instanceof Map<?, ?> raw)) return null;
+            final Map<String, Object> resolved = stringMap(raw, path);
+            boolean constrained = false;
+            for (String key : schema.keySet()) {
+                if (!ANNOTATION_KEYWORDS.contains(key)) {
+                    constrained = true;
+                    break;
+                }
+            }
+            if (!constrained) return resolved;
+            final LinkedHashMap<String, Object> merged = new LinkedHashMap<>(resolved);
+            for (Map.Entry<String, Object> entry : schema.entrySet()) {
+                if (!"$ref".equals(entry.getKey())) merged.put(entry.getKey(), entry.getValue());
+            }
+            return merged;
+        }
+
+        /** Returns the definitions the enclosing document advertises. */
+        private static Map<String, Object> definitions(final Map<String, Object> schema) {
+            return schema.get("$defs") instanceof Map<?, ?> raw ? stringMap(raw, "$defs") : Map.of();
+        }
+
+        private static String validateConstraints(
+                final Map<String, Object> schema,
+                final Object value,
+                final String path,
+                final int depth,
+                final Map<String, Object> definitions) {
             final Object constValue = schema.get("const");
             if (schema.containsKey("const") && !Objects.equals(constValue, value)) {
                 return path + " must equal its declared constant";
@@ -264,7 +435,7 @@ final class McpToolCatalog {
                 for (Object type : types) {
                     final LinkedHashMap<String, Object> candidate = new LinkedHashMap<>(schema);
                     candidate.put("type", type);
-                    if (validate(candidate, value, path, depth + 1) == null) return null;
+                    if (validate(candidate, value, path, depth + 1, definitions) == null) return null;
                 }
                 return path + " has the wrong type";
             }
@@ -300,7 +471,8 @@ final class McpToolCatalog {
                             stringMap(rawProperty, "property"),
                             object.get(property.getKey()),
                             path + "." + property.getKey(),
-                            depth + 1);
+                            depth + 1,
+                            definitions);
                     if (violation != null) return violation;
                 }
             }
@@ -314,8 +486,8 @@ final class McpToolCatalog {
                 if (schema.get("items") instanceof Map<?, ?> rawItems) {
                     final Map<String, Object> itemSchema = stringMap(rawItems, "items");
                     for (int index = 0; index < values.size(); index++) {
-                        final String violation =
-                                validate(itemSchema, values.get(index), path + "[" + index + "]", depth + 1);
+                        final String violation = validate(
+                                itemSchema, values.get(index), path + "[" + index + "]", depth + 1, definitions);
                         if (violation != null) return violation;
                     }
                 }
@@ -328,17 +500,35 @@ final class McpToolCatalog {
                     return path + " is too long";
             }
             if (value instanceof Number number) {
-                final java.math.BigDecimal decimal = new java.math.BigDecimal(number.toString());
-                if (schema.get("minimum") instanceof Number minimum
-                        && decimal.compareTo(new java.math.BigDecimal(minimum.toString())) < 0) {
+                if (schema.get("minimum") instanceof Number minimum && compareDecimal(number, minimum) < 0) {
                     return path + " is below the minimum";
                 }
-                if (schema.get("maximum") instanceof Number maximum
-                        && decimal.compareTo(new java.math.BigDecimal(maximum.toString())) > 0) {
+                if (schema.get("maximum") instanceof Number maximum && compareDecimal(number, maximum) > 0) {
                     return path + " is above the maximum";
                 }
             }
             return null;
+        }
+
+        /** Compares two JSON numbers through a primitive fast path before an exact decimal compare. */
+        private static int compareDecimal(final Number value, final Number bound) {
+            if (isIntegral(value) && isIntegral(bound)) return Long.compare(value.longValue(), bound.longValue());
+            if (value instanceof Float
+                    || value instanceof Double
+                    || bound instanceof Float
+                    || bound instanceof Double) {
+                final double left = value.doubleValue();
+                final double right = bound.doubleValue();
+                if (Double.isFinite(left) && Double.isFinite(right)) return Double.compare(left, right);
+            }
+            return new java.math.BigDecimal(value.toString()).compareTo(new java.math.BigDecimal(bound.toString()));
+        }
+
+        private static boolean isIntegral(final Number number) {
+            return number instanceof Byte
+                    || number instanceof Short
+                    || number instanceof Integer
+                    || number instanceof Long;
         }
 
         private static boolean typeMatches(final String type, final Object value) {
@@ -354,8 +544,8 @@ final class McpToolCatalog {
                             || value instanceof Short
                             || value instanceof Integer
                             || value instanceof Long
-                            || value instanceof java.math.BigInteger
-                            || value instanceof java.math.BigDecimal decimal
+                            || value instanceof BigInteger
+                            || value instanceof BigDecimal decimal
                                     && decimal.stripTrailingZeros().scale() <= 0;
                 default -> true;
             };
