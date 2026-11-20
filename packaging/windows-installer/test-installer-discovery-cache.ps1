@@ -151,10 +151,18 @@ try {
     }
 
     [System.IO.File]::AppendAllText($jar, 'changed')
-    Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'changed host artifact fails closed'
-    [System.IO.File]::WriteAllText($jar, 'synthetic reviewed artifact')
     [System.IO.File]::AppendAllText($java, 'changed')
-    Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'changed host Java fails closed'
+    # Host binaries are no longer hashed into the snapshot, so byte edits alone do not
+    # trigger 45 MB re-hashing; missing binaries still fail closed.
+    $hostEdited = @(Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash)
+    Assert-DiscoveryCache ($hostEdited.Count -eq 1 -and $hostEdited[0].Version -ceq '5.3.04') 'snapshot reuse skips redundant host binary hashing'
+    [System.IO.File]::WriteAllText($jar, 'synthetic reviewed artifact')
+    [System.IO.File]::WriteAllText($java, 'synthetic Java, not executable')
+    Remove-Item -LiteralPath $jar
+    Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'missing host artifact fails closed'
+    [System.IO.File]::WriteAllText($jar, 'synthetic reviewed artifact')
+    Remove-Item -LiteralPath $java
+    Assert-DiscoveryCacheThrows { Read-CubismInstallerSnapshot -TurboismHome $homePath -SnapshotPath $snapshot -ExpectedSha256 $snapshotHash } 'missing host Java fails closed'
     [System.IO.File]::WriteAllText($java, 'synthetic Java, not executable')
     [System.IO.File]::AppendAllText($agent, 'changed')
     # The agent digest is no longer part of the snapshot, so a changed agent must still import: the

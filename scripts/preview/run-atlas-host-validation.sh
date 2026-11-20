@@ -22,35 +22,25 @@ case "$variant" in
   ui-circle-*-native|ui-circle-*-new|ui-circle-*-polygon) dataset=circle; ui_timing=true ;;
   ui-geometry-*-native|ui-geometry-*-new|ui-geometry-*-polygon) ui_timing=true ;;
 esac
-circle_100=2866a509322496680500090cb26432b1b59fe30404e1f5e2163536c01a8dce4e
-circle_500=54ce27647bd8d63d16fc643eb209ef2016fda0d975779b5b07943da303478b50
-circle_1000=5a1a4d0e1f27dbffe09eafc5d5f8626776bcad35fab8fcd06c6ecc34b68959f9
-circle_2500=3cbd3d8ef91166010c90d5f96d872ef527841b36aadb9e634368cab3d159a239
-geometry_100=369c906ad47610a958e770930649f0821f616e8eb66564c39a478c41b49024ff
-geometry_500=99038495f8c7fb9ee94cf6b9ce3d60370fc0203c411ed39b0084d84ce72a683b
-geometry_1000=2f64a7f5fd4f2abc4cdd0036d1943f8382f30581228ea5f87143b5b367abd3e2
-geometry_2500=4bb38d8073cf339b32047bf186514dc7d3709cbfb90dbe665b0a5b0a76daf24b
 count=""
 if [[ "$heavy" == true ]]; then
-  count=0; hash=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c
+  count=0
 fi
 case "$variant" in
-  *-100-native|*-100-new|*-100-polygon) count=100; hash=$circle_100 ;;
-  *-500-native|*-500-new|*-500-polygon) count=500; hash=$circle_500 ;;
-  *-1000-native|*-1000-new|*-1000-polygon) count=1000; hash=$circle_1000 ;;
-  *-2500-native|*-2500-new|*-2500-polygon) count=2500; hash=$circle_2500 ;;
+  *-100-native|*-100-new|*-100-polygon) count=100 ;;
+  *-500-native|*-500-new|*-500-polygon) count=500 ;;
+  *-1000-native|*-1000-new|*-1000-polygon) count=1000 ;;
+  *-2500-native|*-2500-new|*-2500-polygon) count=2500 ;;
 esac
-if [[ "$dataset" == geometry && -n "$count" ]]; then
-  case "$count" in
-    100) hash=$geometry_100 ;; 500) hash=$geometry_500 ;;
-    1000) hash=$geometry_1000 ;; 2500) hash=$geometry_2500 ;;
-  esac
-fi
 [[ -n "$count" ]] || { echo 'Unadmitted Atlas case' >&2; exit 2; }
 case "$variant" in
   *-native|*-new|*-polygon) implementation="${variant##*-}" ;;
   *) echo 'Unadmitted Atlas case' >&2; exit 2 ;;
 esac
+fixture_name="atlas_mapping_geometry_$count.cmo3"
+[[ "$dataset" != circle ]] || fixture_name="atlas_mapping_$count.cmo3"
+[[ "$heavy" != true ]] || fixture_name=heavy.cmo3
+hash="$(turboism_fixture_sha256 "$fixture_name")" || exit 2
 result_timeout=7500
 [[ "$count" != 2500 ]] || result_timeout=21900
 # UI matrix uses a 30-minute result ceiling, except geometry-1000-native whose
@@ -83,11 +73,8 @@ shopt -s nullglob
 maxrects=("$root/build/worktree/$id/atlas-maxrects-bssf/libs/"*.jar)
 dalsoo=("$root/build/worktree/$id/atlas-dalsoo-polygon/libs/"*.jar)
 [[ ${#maxrects[@]} == 1 && ${#dalsoo[@]} == 1 && -f "$probe" && -f "$agent" ]] || { echo 'Build previewBundle, both Atlas plugin jars and package-atlas-queue-probe.sh first' >&2; exit 2; }
-fixture_name="atlas_mapping_geometry_$count.cmo3"
-[[ "$dataset" != circle ]] || fixture_name="atlas_mapping_$count.cmo3"
 fixture="$root/testing/assets/texture-atlas-layout/cmo3/$dataset/$fixture_name"
 if [[ "$heavy" == true ]]; then
-  fixture_name=heavy.cmo3
   fixture="$root/testing/assets/texture-atlas-layout/heavy.cmo3"
 fi
 exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \

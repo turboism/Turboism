@@ -575,6 +575,9 @@ class PreparedStore:
             reviewed_source = source_root / "compatibility/cubism/reviewed-releases.json"
             if reviewed_source.is_file():
                 copy_verified(reviewed_source, stage / "tool" / reviewed_source.relative_to(source_root))
+            corpus_source = source_root / "testing/assets/corpus.json"
+            if corpus_source.is_file():
+                copy_verified(corpus_source, stage / "tool" / corpus_source.relative_to(source_root))
             hvq_source = source_root / "scripts/preview/hvq"
             if not (hvq_source / "__init__.py").is_file():
                 raise QueueError("missing canonical runner/helper: hvq")
@@ -722,6 +725,10 @@ class PreparedStore:
                                     raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
+                    if source.name in {"stage-direct-nmt-launcher.py", "capture-direct-nmt-launcher.py"}:
+                        helper = source.with_name("direct_nmt_launcher_common.py")
+                        if helper.is_file():
+                            copy_verified(helper, (stage / relative).with_name(helper.name))
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),
                                           "inventory": tree_inventory(stage / relative)})
                     value = "@INPUT@/" + relative.as_posix() + suffix

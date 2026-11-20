@@ -45,7 +45,6 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/release/extract-release-notes.py",
         "scripts/release/verify-release.py",
-        "scripts/release/audit-v0.42.0.py",
         "scripts/release/build-updates-manifests.py",
         "scripts/release/build-framework-update.py",
         "packaging/framework-update-layout.json",

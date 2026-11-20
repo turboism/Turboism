@@ -1255,7 +1255,7 @@ class PreparedStoreTest(unittest.TestCase):
         for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
                      "host_validation.py", "host_validation_queue.py", "host_validation_retention.py",
-                     "host_validation_static_gates.py", "reviewed_host_artifacts.py",
+                     "host_validation_static_gates.py", "host_validation_fixtures.py", "reviewed_host_artifacts.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             queue.copy_verified(tools / name, self.preview / name)
         reviewed_relative = "compatibility/cubism/reviewed-releases.json"

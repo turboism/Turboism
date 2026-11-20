@@ -114,7 +114,7 @@ without requesting `WRITE_OWNER`. Existing user file bytes under `state` are pre
    - Uses `SetOutPath "$INSTDIR\bootstrap"` followed by `File "/oname=manifest.json"` and `.sig`,
      restoring `SetOutPath "$INSTDIR"`.
    - `SecCore` runs `configure_turboism.ps1 -ResetUpdateState` before writing optional bootstrap documents so unsigned or nightly installs never retain stale signed state.
-   - The final `-最终配置` Section runs `configure_turboism.ps1 -InitializeSelection` with `-RefreshReceipt` when `BOOTSTRAP_RECEIPT_DIR` is defined, or `-SkipReceipt` otherwise.
+   - The final `-FinalConfiguration` Section runs `configure_turboism.ps1 -InitializeSelection` with `-RefreshReceipt` when `BOOTSTRAP_RECEIPT_DIR` is defined, or `-SkipReceipt` otherwise.
    - On uninstall, cleans up `$INSTDIR\bootstrap` and `$INSTDIR\bootstrap-receipt.ps1`.
    - When omitted (e.g. legacy build), the conditional receipt payload is absent.
 
