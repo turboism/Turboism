@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The MCP connection window uses a plain agent prompt label and shows the full prompt in a three-row field.
+
 ## [0.70.2] - 2026-11-20
 
 ### Added
