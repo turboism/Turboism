@@ -207,10 +207,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         } catch (RuntimeException failure) {
             context.logger().warn("Turboism ACP harness detection failed safely");
         } finally {
-            detectionRequested.set(false);
-            detectionRefresh.set(false);
             detectionPass.compareAndSet(pass, null);
             pass.complete(true);
+            // A Refresh that arrived after the loop check saw this pass active; start the follow-up.
+            if (!closed.get() && detectionRequested.get()) startDetection();
         }
     }
 

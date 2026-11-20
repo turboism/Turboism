@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /** Discoverable MCP tool catalog and invocation boundary. */
 final class McpToolCatalog {
@@ -32,7 +31,21 @@ final class McpToolCatalog {
 
     private static final int MAX_SCHEMA_DEPTH = 64;
 
-    private static final Pattern BASE64_ALPHABET = Pattern.compile("[A-Za-z0-9+/]*={0,2}");
+    private static final int MAX_BASE64_PADDING = 2;
+
+    private static final int ASCII_TABLE_SIZE = 128;
+
+    private static final boolean[] BASE64_CHARS = buildBase64Table();
+
+    private static boolean[] buildBase64Table() {
+        final boolean[] table = new boolean[ASCII_TABLE_SIZE];
+        for (char c = 'A'; c <= 'Z'; c++) table[c] = true;
+        for (char c = 'a'; c <= 'z'; c++) table[c] = true;
+        for (char c = '0'; c <= '9'; c++) table[c] = true;
+        table['+'] = true;
+        table['/'] = true;
+        return table;
+    }
 
     /** Schema keywords that carry no constraint; they never require a definition lookup. */
     private static final Set<String> ANNOTATION_KEYWORDS =
@@ -265,10 +278,13 @@ final class McpToolCatalog {
                 || !"image".equals(image.get("type"))
                 || !"image/png".equals(image.get("mimeType"))
                 || !(image.get("data") instanceof String data)
-                || data.length() > MAX_IMAGE_BASE64_LENGTH
-                || !BASE64_ALPHABET.matcher(data).matches()) return null;
-        final int visible = data.length() - padding(data);
-        if (visible <= 0) return null;
+                || data.length() > MAX_IMAGE_BASE64_LENGTH) return null;
+        final int padding = padding(data);
+        if (padding > MAX_BASE64_PADDING) return null;
+        final int visible = data.length() - padding;
+        if (visible <= 0 || !allBase64Chars(data, visible)) return null;
+        if (padding > 0 && data.length() % 4 != 0) return null;
+        if (visible % 4 == 1) return null;
         final long decodedLength = (long) visible * 3 / 4;
         if (decodedLength > MAX_IMAGE_BYTES) return null;
         final int signatureCharacters = Math.min(BASE64_CHARACTERS_PER_PNG_SIGNATURE, data.length());
@@ -283,6 +299,16 @@ final class McpToolCatalog {
             if (signature[index] != PNG_SIGNATURE[index]) return null;
         }
         return (int) decodedLength;
+    }
+
+    /** Rejects non-Base64 characters without invoking the regex engine across megabyte payloads. */
+    private static boolean allBase64Chars(final String data, final int limit) {
+        final boolean[] table = BASE64_CHARS;
+        for (int index = 0; index < limit; index++) {
+            final char c = data.charAt(index);
+            if (c >= ASCII_TABLE_SIZE || !table[c]) return false;
+        }
+        return true;
     }
 
     private static int padding(final String data) {

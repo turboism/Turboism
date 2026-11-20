@@ -874,7 +874,12 @@ final class McpHttpServer implements AutoCloseable {
         final McpToolCatalog current = tools;
         if (current == null) return false;
         try {
-            return current.registration(toolName).affinity() != McpExecutionAffinity.DIRECT;
+            final McpRegisteredTool registration = current.registration(toolName);
+            // Legacy batch writers register as DIRECT even though their handlers block on the UI
+            // bridge; keep EXTERNAL_SIDE_EFFECT tools inside the host-work lane so they cannot
+            // exhaust the shared HTTP pool.
+            return registration.affinity() != McpExecutionAffinity.DIRECT
+                    || registration.effect() == McpOperationEffect.EXTERNAL_SIDE_EFFECT;
         } catch (IllegalArgumentException unknownTool) {
             // An unknown tool is rejected by the protocol on its own thread; it cannot wait on a host.
             return false;
