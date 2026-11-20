@@ -41,6 +41,9 @@ public final class TextureAtlasEdgeFillDelegate {
     }
 
     static void edgeFillRowMajor(final int[] pixels, final int width, final int height, final int distance) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         for (int y = 0, rowOff = 0; y < height; y++, rowOff += width) {
             int dist = 0;
             int rgb = NO_COLOR;
