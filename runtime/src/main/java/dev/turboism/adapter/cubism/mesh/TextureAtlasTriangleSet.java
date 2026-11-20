@@ -128,6 +128,11 @@ public final class TextureAtlasTriangleSet extends LinkedHashSet<Object> {
         return values.remove(key(value)) != null;
     }
 
+    /** Removes the equal entry and returns its exact stored identity, or {@code null} if absent. */
+    Object removeExact(final Object value) {
+        return values.remove(key(value));
+    }
+
     @Override
     public void clear() {
         values.clear();

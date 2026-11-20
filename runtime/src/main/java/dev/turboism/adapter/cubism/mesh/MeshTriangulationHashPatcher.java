@@ -107,6 +107,9 @@ public final class MeshTriangulationHashPatcher {
                 mv.visitVarInsn(Opcodes.ALOAD, 0);
                 mv.visitFieldInsn(Opcodes.GETFIELD, classOwner, CORNER_FIELDS[index], pointDescriptor);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, pointOwner, accessor, "()F", false);
+                // Canonicalizes -0.0f to +0.0f so hashCode agrees with TriPoint.equals (fcmpg == 0).
+                mv.visitInsn(Opcodes.FCONST_0);
+                mv.visitInsn(Opcodes.FADD);
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Float", "hashCode", "(F)I", false);
                 if ("getX".equals(accessor)) {
                     mv.visitIntInsn(Opcodes.BIPUSH, 31);
