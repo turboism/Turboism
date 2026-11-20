@@ -34,6 +34,15 @@ final class McpStdioBridge {
     static final String MAIN_CLASS = "dev.turboism.plugin.mcp.TurboismMcpBridge";
     private static final String RESOURCE = "/META-INF/turboism/mcp/TurboismMcpBridge.java";
     private static final String STATE_DIR_PLACEHOLDER = "__TURBOISM_STATE_DIR__";
+    /** Lowest code unit that stays verbatim in the published literal. */
+    private static final int FIRST_PRINTABLE_CODE_UNIT = 0x20;
+    /**
+     * Lowest code unit that must be escaped. A Windows user profile can carry CJK characters in
+     * its directory name, and the single-file launcher reads the source with the platform
+     * codepage; a raw code unit above US-ASCII therefore fails to compile under GBK, Shift-JIS,
+     * and CP949 alike.
+     */
+    private static final int FIRST_ESCAPED_CODE_UNIT = 0x7F;
 
     private McpStdioBridge() {}
 
@@ -160,6 +169,7 @@ final class McpStdioBridge {
         }
     }
 
+    /** Encodes {@code value} so the result stays legal inside a Java string literal on any codepage. */
     private static String javaLiteral(final String value) {
         final StringBuilder out = new StringBuilder(value.length() + 8);
         for (int index = 0; index < value.length(); index++) {
@@ -187,7 +197,7 @@ final class McpStdioBridge {
                     out.append("\\t");
                     break;
                 default:
-                    if (c < 0x20 || c == 0x7F || !Character.isDefined(c)) {
+                    if (c < FIRST_PRINTABLE_CODE_UNIT || c >= FIRST_ESCAPED_CODE_UNIT) {
                         out.append(String.format("\\u%04x", (int) c));
                     } else {
                         out.append(c);

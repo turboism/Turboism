@@ -229,6 +229,16 @@ final class McpMaskDomain {
         }
     }
 
+    /** Releases every snapshot and retained operation of a closed or expired session. */
+    void dropSession(String session) {
+        synchronized (snapshots) {
+            snapshots.values().removeIf(snapshot -> snapshot.session().equals(session));
+        }
+        synchronized (operations) {
+            operations.keySet().removeIf(key -> key.session().equals(session));
+        }
+    }
+
     private void finish(Key key, Map<String, Object> output) {
         synchronized (operations) {
             var old = operations.get(key);

@@ -65,6 +65,21 @@ final class McpAuthoringSnapshotStoreTest {
                 () -> store.put("a", Map.of(), "rotation", "head", "source", "not-native", List.of(), 1));
     }
 
+    @Test
+    void droppingASessionReleasesEverySnapshotItOwns() {
+        var store = new McpAuthoringSnapshotStore();
+        var owned = put(store, "session-a", 100);
+        var foreign = put(store, "session-b", 100);
+
+        store.dropSession("session-a");
+
+        assertThrows(NoSuchElementException.class, () -> store.get(owned.snapshotId(), "session-a"));
+        assertSame(NATIVE, store.get(foreign.snapshotId(), "session-b").nativeSnapshot());
+        // The released byte budget is reusable: a fresh session reaches the full count limit.
+        for (int index = 0; index < McpAuthoringSnapshotStore.MAX_ENTRIES; index++) put(store, "session-c", 1);
+        assertThrows(NoSuchElementException.class, () -> store.get(foreign.snapshotId(), "session-b"));
+    }
+
     private static McpAuthoringSnapshotStore.Entry put(McpAuthoringSnapshotStore store, String session, int size) {
         return store.put(
                 session,

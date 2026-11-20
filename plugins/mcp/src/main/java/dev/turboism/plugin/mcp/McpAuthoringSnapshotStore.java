@@ -99,6 +99,17 @@ final class McpAuthoringSnapshotStore {
         if (previous != null) bytes -= previous.encodedBytes();
     }
 
+    /** Releases every snapshot a closed or expired session owns and returns its byte budget. */
+    synchronized void dropSession(String session) {
+        for (Iterator<Entry> iterator = entries.values().iterator(); iterator.hasNext(); ) {
+            var entry = iterator.next();
+            if (entry.session().equals(session)) {
+                iterator.remove();
+                bytes -= entry.encodedBytes();
+            }
+        }
+    }
+
     private void prune() {
         long now = clock.getAsLong();
         for (Iterator<Entry> iterator = entries.values().iterator(); iterator.hasNext(); ) {

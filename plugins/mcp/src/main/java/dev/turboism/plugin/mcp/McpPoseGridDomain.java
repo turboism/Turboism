@@ -23,6 +23,9 @@ final class McpPoseGridDomain {
     static final int MAX_IMAGE_JOBS = 2;
     static final int MAX_TOTAL_PIXELS = 1_048_576;
     static final int MAX_METADATA_BYTES = 240 * 1024;
+    /** State members that prove the scan still runs in the scope it was admitted for. */
+    private static final List<String> SCOPE_STATE_KEYS = List.of("documentId", "modelId", "historyGeneration");
+
     private final CubismFacade cubism;
     private final McpExecutionBridge execution;
     private final McpRenderDomain render;
@@ -304,19 +307,27 @@ final class McpPoseGridDomain {
     }
 
     private void requireScope(McpRenderDomain.Context initial, HistorySnapshot history) {
-        var now = render.context();
-        for (String key : List.of("documentId", "modelId", "historyGeneration"))
+        requireScopeAt(initial, history, render.context());
+    }
+
+    private void requireScopeAt(McpRenderDomain.Context initial, HistorySnapshot history, McpRenderDomain.Context now) {
+        for (String key : SCOPE_STATE_KEYS)
             if (!Objects.equals(initial.state().get(key), now.state().get(key))) throw new ScanFailed("SCOPE_CHANGED");
         requireHistoryScope(history, cubism.history().snapshot());
     }
 
+    /**
+     * Verifies one pose against a single render snapshot. A scan visits this method three times per
+     * pose, and each {@code render.context()} call rescans the whole parameter list; one snapshot
+     * therefore carries both the scope and the value check.
+     */
     private void requirePose(
             McpRenderDomain.Context initial,
             HistorySnapshot history,
             Map<String, Float> expected,
             Map<String, Parameter> handles) {
-        requireScope(initial, history);
         var now = render.context();
+        requireScopeAt(initial, history, now);
         if (now.parameters().size() != handles.size()) throw new ScanFailed("PARAMETERS_CHANGED");
         var seen = new HashSet<String>();
         for (var row : now.parameters()) {
@@ -327,7 +338,6 @@ final class McpPoseGridDomain {
                     || Float.compare(handles.get(id).getValue(), expected.get(id)) != 0)
                 throw new ScanFailed("POSE_MISMATCH");
         }
-        requireScope(initial, history);
     }
 
     private static void requireBinding(HistorySnapshot value) {
@@ -365,6 +375,16 @@ final class McpPoseGridDomain {
             return envelope(Map.of("ok", false, "error", failure.code), List.of());
         } catch (RuntimeException failure) {
             return envelope(Map.of("ok", false, "error", "RASTER_CHECK_FAILED"), List.of());
+        }
+    }
+
+    /**
+     * Releases every scan a closed or expired session owns. A job that still restores its baseline
+     * keeps its own retention until it terminates; only retained identities are dropped here.
+     */
+    void dropSession(String session) {
+        synchronized (jobs) {
+            jobs.keySet().removeIf(key -> key.session().equals(session));
         }
     }
 

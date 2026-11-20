@@ -2,19 +2,25 @@ package dev.turboism.plugin.mcp;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Stdio-to-loopback relay for the Turboism MCP server. The class intentionally uses only
@@ -25,17 +31,54 @@ import java.time.Duration;
  * Each stdin JSON-RPC line is posted to the published loopback endpoint with the persisted
  * bearer token, and each non-empty response line is written back to stdout. Mutating tools
  * stay token-gated while users never have to copy a credential themselves.
+ *
+ * <p>One {@link HttpClient} serves every frame so the transport keeps a single keep-alive
+ * connection instead of a handshake per call. Session establishment stays synchronous, and
+ * later frames run on a bounded daemon pool: a slow {@code tools/call} must not delay the
+ * {@code notifications/cancelled} frame that stops it, nor a direct query queued behind it.
+ * This file must stay pure US-ASCII: clients compile it with {@code java TurboismMcpBridge.java}
+ * under whatever platform codepage the client process runs with.</p>
  */
 public final class TurboismMcpBridge {
 
     private static final Path EMBEDDED_STATE_DIR = Path.of("__TURBOISM_STATE_DIR__");
     private static final Duration ENDPOINT_WAIT = Duration.ofSeconds(30);
+    private static final long ENDPOINT_POLL_MILLIS = 250L;
+    private static final String LOOPBACK_ENDPOINT_PATTERN = "http://127\\.0\\.0\\.1:\\d+/mcp";
+    private static final String TOKEN_FILE = "mcp.token";
+    private static final String CONNECTION_FILE = "mcp-connection.json";
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(120);
+    private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration DRAIN_TIMEOUT = Duration.ofSeconds(30);
+    private static final int DISPATCH_THREADS = 4;
+    private static final int DISPATCH_QUEUE_CAPACITY = 64;
+    private static final int MAX_ATTEMPTS = 2;
+    private static final int HTTP_OK = 200;
+    private static final int HTTP_UNAUTHORIZED = 401;
+    private static final int HTTP_NOT_FOUND = 404;
+    private static final int AUTH_FAILURE_CODE = -32001;
+    private static final int RELAY_FAILURE_CODE = -32000;
+    private static final String SESSION_HEADER = "MCP-Session-Id";
+    private static final String PROTOCOL_HEADER = "MCP-Protocol-Version";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String METHOD_INITIALIZE = "initialize";
+    private static final String METHOD_INITIALIZED = "notifications/initialized";
+    private static final String AUTH_FAILURE_MESSAGE =
+            "Turboism MCP authentication failed (HTTP 401). Reconnect the stdio bridge;"
+                    + " this is a credential failure, not a read-only tool limitation.";
+    private static final String UNREACHABLE_MESSAGE = "Turboism MCP server is unreachable";
 
     private final Path stateDir;
-    private String endpoint;
-    private String token;
-    private String sessionId;
-    private String protocolVersion;
+    private final HttpClient client;
+    private final ExecutorService dispatch;
+    private final Object stdoutLock = new Object();
+    private volatile PrintWriter stdout;
+    private volatile String endpoint;
+    private volatile String token;
+    private volatile String sessionId;
+    private volatile String protocolVersion;
 
     /**
      * Entry point launched by the MCP client. Relays stdin JSON-RPC frames to the loopback
@@ -67,99 +110,139 @@ public final class TurboismMcpBridge {
         this.stateDir = stateDir;
         this.token = readToken();
         this.endpoint = awaitEndpoint();
+        this.client = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(CONNECT_TIMEOUT)
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+        this.dispatch = newDispatchPool();
     }
 
     private void run() throws IOException, InterruptedException {
-        final PrintWriter stdout = new PrintWriter(new OutputStreamWriter(System.out, StandardCharsets.UTF_8), true);
+        final PrintWriter output = new PrintWriter(new OutputStreamWriter(System.out, StandardCharsets.UTF_8), true);
+        this.stdout = output;
         final BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
         for (String line = stdin.readLine(); line != null; line = stdin.readLine()) {
             if (line.isBlank()) continue;
-            final String response = relay(line);
-            if (response != null) stdout.println(response);
+            submit(line);
         }
+        drain();
         closeSession();
+    }
+
+    /**
+     * Routes one stdin frame. Session-establishing frames run on the reader thread so every
+     * later frame observes its session identity; all other frames run on the pool.
+     */
+    private void submit(final String line) {
+        if (establishesSession(line)) {
+            publish(relay(line));
+            return;
+        }
+        try {
+            dispatch.execute(() -> publish(relay(line)));
+        } catch (RejectedExecutionException rejected) {
+            // A closed pool means stdin already ended; the frame has no reader left to answer.
+            System.err.println("turboism-mcp-bridge: frame dropped after shutdown");
+        }
+    }
+
+    /**
+     * Reports whether this frame must finish before the next frame starts. A batch may carry the
+     * {@code initialize} request, so it stays on the reader thread as well.
+     */
+    private static boolean establishesSession(final String line) {
+        if (line.strip().startsWith("[")) return true;
+        final String method = jsonString(line, "method");
+        return METHOD_INITIALIZE.equals(method) || METHOD_INITIALIZED.equals(method);
+    }
+
+    private void publish(final String response) {
+        if (response == null) return;
+        final PrintWriter output = stdout;
+        if (output == null) return;
+        synchronized (stdoutLock) {
+            output.println(response);
+        }
     }
 
     private String relay(final String line) {
         final boolean batch = line.strip().startsWith("[");
         final String id = batch ? null : jsonMember(line, "id");
-        for (int attempt = 0; attempt < 2; attempt++) {
-            HttpURLConnection connection = null;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             try {
-                connection = open();
-                writeBody(connection, line);
-                final int status = connection.getResponseCode();
-                final String body = readBody(connection, status);
-                if (status == 401) {
+                final HttpResponse<String> response =
+                        client.send(request(line), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                final int status = response.statusCode();
+                final String body = response.body() == null ? "" : response.body();
+                if (status == HTTP_UNAUTHORIZED) {
                     // Authentication is checked before dispatch, so this rejected request
                     // cannot have mutated the model. Retry once only if the persisted
                     // credential changed; never turn a write rejection into read-only mode.
                     if (attempt == 0 && refreshToken()) continue;
-                    return id == null
-                            ? null
-                            : error(
-                                    id,
-                                    -32001,
-                                    "Turboism MCP authentication failed (HTTP 401). Reconnect the stdio bridge; "
-                                            + "this is a credential failure, not a read-only tool limitation.");
+                    return id == null ? null : error(id, AUTH_FAILURE_CODE, AUTH_FAILURE_MESSAGE);
                 }
-                captureSession(connection, line, status, body);
-                if (status == 404) {
+                captureSession(response, line, status, body);
+                if (status == HTTP_NOT_FOUND) {
                     sessionId = null;
                     protocolVersion = null;
                 }
                 if (!body.isEmpty()) return body;
                 return id == null ? null : error(id, "MCP server returned HTTP " + status);
-            } catch (ConnectException | SocketTimeoutException unreachable) {
-                refreshEndpoint();
-            } catch (IOException | IllegalArgumentException failure) {
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return id == null ? null : error(id, RELAY_FAILURE_CODE, "bridge relay was interrupted");
+            } catch (IOException failure) {
+                if (reachesEndpoint(failure)) {
+                    // The listener may have restarted on a new port; republish before retrying.
+                    refreshEndpoint();
+                    continue;
+                }
                 // The wire error is fixed text; the exception detail (paths, class
                 // names, endpoint internals) stays on stderr of the bridge process.
                 System.err.println("turboism-mcp-bridge: relay failure: " + failure);
-                return id == null ? null : error(id, "bridge relay failure");
-            } finally {
-                if (connection != null) connection.disconnect();
+                return id == null ? null : error(id, RELAY_FAILURE_CODE, "bridge relay failure");
+            } catch (IllegalArgumentException failure) {
+                System.err.println("turboism-mcp-bridge: relay failure: " + failure);
+                return id == null ? null : error(id, RELAY_FAILURE_CODE, "bridge relay failure");
             }
         }
-        return id == null ? null : error(id, "Turboism MCP server is unreachable");
+        return id == null ? null : error(id, RELAY_FAILURE_CODE, UNREACHABLE_MESSAGE);
     }
 
-    private HttpURLConnection open() throws IOException {
-        final HttpURLConnection connection =
-                (HttpURLConnection) URI.create(endpoint).toURL().openConnection();
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(5_000);
-        connection.setReadTimeout(120_000);
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Accept", "application/json, text/event-stream");
-        connection.setRequestProperty("Authorization", "Bearer " + token);
-        if (sessionId != null) connection.setRequestProperty("MCP-Session-Id", sessionId);
-        if (protocolVersion != null) connection.setRequestProperty("MCP-Protocol-Version", protocolVersion);
-        return connection;
+    private HttpRequest request(final String line) {
+        final HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(endpoint))
+                .timeout(REQUEST_TIMEOUT)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json, text/event-stream")
+                .header(AUTHORIZATION_HEADER, BEARER_PREFIX + token);
+        final String currentSession = sessionId;
+        if (currentSession != null) builder.header(SESSION_HEADER, currentSession);
+        final String currentProtocol = protocolVersion;
+        if (currentProtocol != null) builder.header(PROTOCOL_HEADER, currentProtocol);
+        return builder.POST(HttpRequest.BodyPublishers.ofString(line, StandardCharsets.UTF_8))
+                .build();
     }
 
-    private static void writeBody(final HttpURLConnection connection, final String line) throws IOException {
-        final byte[] body = line.getBytes(StandardCharsets.UTF_8);
-        connection.setFixedLengthStreamingMode(body.length);
-        try (OutputStream out = connection.getOutputStream()) {
-            out.write(body);
+    /**
+     * Reports whether the failure means the listener did not answer at all, as opposed to a
+     * rejected request. Only an unreachable endpoint justifies re-reading the published port.
+     */
+    private static boolean reachesEndpoint(final IOException failure) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current instanceof ConnectException || current instanceof HttpConnectTimeoutException) {
+                return true;
+            }
+            if (current.getCause() == current) return false;
         }
-    }
-
-    private static String readBody(final HttpURLConnection connection, final int status) throws IOException {
-        final InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
-        if (stream == null) return "";
-        try (InputStream input = stream) {
-            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
-        }
+        return false;
     }
 
     private void captureSession(
-            final HttpURLConnection connection, final String request, final int status, final String body) {
-        if (!"initialize".equals(jsonString(request, "method"))) return;
-        if (status != 200) return;
-        final String header = connection.getHeaderField("MCP-Session-Id");
+            final HttpResponse<String> response, final String request, final int status, final String body) {
+        if (!METHOD_INITIALIZE.equals(jsonString(request, "method"))) return;
+        if (status != HTTP_OK) return;
+        final String header = response.headers().firstValue(SESSION_HEADER).orElse(null);
         if (header != null && !header.isBlank()) sessionId = header;
         final String result = jsonMember(body, "result");
         final String negotiated = result == null ? null : jsonString(result, "protocolVersion");
@@ -167,27 +250,53 @@ public final class TurboismMcpBridge {
     }
 
     private void closeSession() {
-        if (sessionId == null) return;
+        final String current = sessionId;
+        if (current == null) return;
         try {
-            final HttpURLConnection connection =
-                    (HttpURLConnection) URI.create(endpoint).toURL().openConnection();
-            connection.setRequestMethod("DELETE");
-            connection.setConnectTimeout(5_000);
-            connection.setReadTimeout(5_000);
-            connection.setRequestProperty("Authorization", "Bearer " + token);
-            connection.setRequestProperty("MCP-Session-Id", sessionId);
-            if (protocolVersion != null) {
-                connection.setRequestProperty("MCP-Protocol-Version", protocolVersion);
-            }
-            connection.connect();
-            connection.getResponseCode();
-        } catch (Exception ignored) {
+            final HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(endpoint))
+                    .timeout(CLOSE_TIMEOUT)
+                    .header(AUTHORIZATION_HEADER, BEARER_PREFIX + token)
+                    .header(SESSION_HEADER, current);
+            final String negotiated = protocolVersion;
+            if (negotiated != null) builder.header(PROTOCOL_HEADER, negotiated);
+            client.send(builder.DELETE().build(), HttpResponse.BodyHandlers.discarding());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (IOException | IllegalArgumentException ignored) {
             // Best effort: the editor may already be shutting down.
         }
     }
 
+    /** Waits for every dispatched frame so no response is lost when stdin ends. */
+    private void drain() throws InterruptedException {
+        dispatch.shutdown();
+        if (!dispatch.awaitTermination(DRAIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
+            dispatch.shutdownNow();
+        }
+    }
+
+    /**
+     * Builds the frame pool. A full queue runs the frame on the reader thread, which applies
+     * backpressure to stdin instead of dropping a response or growing without a bound.
+     */
+    private static ExecutorService newDispatchPool() {
+        final AtomicInteger sequence = new AtomicInteger();
+        return new ThreadPoolExecutor(
+                DISPATCH_THREADS,
+                DISPATCH_THREADS,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(DISPATCH_QUEUE_CAPACITY),
+                task -> {
+                    final Thread thread = new Thread(task, "turboism-mcp-bridge-" + sequence.incrementAndGet());
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.CallerRunsPolicy());
+    }
+
     private String readToken() throws IOException {
-        return Files.readString(stateDir.resolve("mcp.token"), StandardCharsets.UTF_8)
+        return Files.readString(stateDir.resolve(TOKEN_FILE), StandardCharsets.UTF_8)
                 .strip();
     }
 
@@ -210,7 +319,7 @@ public final class TurboismMcpBridge {
             if (System.nanoTime() >= deadline) {
                 throw new IllegalStateException("Turboism MCP connection file was not published under " + stateDir);
             }
-            Thread.sleep(250);
+            Thread.sleep(ENDPOINT_POLL_MILLIS);
         }
     }
 
@@ -221,10 +330,10 @@ public final class TurboismMcpBridge {
 
     private String readEndpoint() {
         try {
-            final String endpoint = jsonString(
-                    Files.readString(stateDir.resolve("mcp-connection.json"), StandardCharsets.UTF_8), "endpoint");
+            final String endpoint =
+                    jsonString(Files.readString(stateDir.resolve(CONNECTION_FILE), StandardCharsets.UTF_8), "endpoint");
             // Only a published loopback endpoint is ever followed.
-            if (endpoint != null && endpoint.matches("http://127\\.0\\.0\\.1:\\d+/mcp")) {
+            if (endpoint != null && endpoint.matches(LOOPBACK_ENDPOINT_PATTERN)) {
                 return endpoint;
             }
             return null;
@@ -236,8 +345,8 @@ public final class TurboismMcpBridge {
     /**
      * Returns the verbatim source token of the top-level member {@code name} in a
      * JSON object document, or {@code null} when the document is not an object or
-     * the member is absent. The scan walks the document structurally — strings
-     * honour backslash escapes and nested containers are skipped by depth — so a
+     * the member is absent. The scan walks the document structurally - strings
+     * honour backslash escapes and nested containers are skipped by depth - so a
      * same-named key inside a nested value cannot shadow the top-level member.
      */
     private static String jsonMember(final String json, final String name) {
@@ -474,7 +583,7 @@ public final class TurboismMcpBridge {
     }
 
     private static String error(final String id, final String message) {
-        return error(id, -32000, message);
+        return error(id, RELAY_FAILURE_CODE, message);
     }
 
     private static String error(final String id, final int code, final String message) {

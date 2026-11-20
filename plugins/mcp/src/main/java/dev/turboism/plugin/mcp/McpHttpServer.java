@@ -44,6 +44,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /** Loopback-only Streamable HTTP transport for the embedded MCP server. */
 final class McpHttpServer implements AutoCloseable {
@@ -61,6 +62,25 @@ final class McpHttpServer implements AutoCloseable {
     private static final int HTTP_THREADS = 4;
 
     private static final int HOST_WORK_SLOTS = HTTP_THREADS - 1;
+
+    /** Methods whose transport thread waits on host execution unconditionally. */
+    private static final String METHOD_TOOLS_CALL = "tools/call";
+
+    private static final String METHOD_RESOURCES_READ = "resources/read";
+    private static final String METHOD_CANCELLED = "notifications/cancelled";
+    private static final String METHOD_GET = "GET";
+    private static final String METHOD_POST = "POST";
+    private static final String METHOD_DELETE = "DELETE";
+    private static final String ALLOW_HEADER = "Allow";
+    /** Methods this endpoint serves; a streamable-HTTP endpoint never streams a bare GET. */
+    private static final String ALLOWED_METHODS = METHOD_POST + ", " + METHOD_DELETE;
+
+    private static final long RATE_LIMIT_WINDOW_NANOS = 60_000_000_000L;
+    private static final long RATE_LIMIT_WINDOW_SECONDS = RATE_LIMIT_WINDOW_NANOS / 1_000_000_000L;
+    /** Lower bound for the advertised wait, so a client never retries inside the same window. */
+    private static final long MINIMUM_RETRY_AFTER_SECONDS = 1L;
+
+    private static final String RETRY_AFTER_HEADER = "Retry-After";
 
     /** A client that connects before the warm-up finishes waits at most this long per request. */
     private static final long GRAPH_READY_TIMEOUT_SECONDS = 30L;
@@ -94,6 +114,13 @@ final class McpHttpServer implements AutoCloseable {
     private volatile McpMocExportDomain mocExport;
     private volatile McpConnectionHistory history;
     private final McpHostWorkLane hostWork;
+    /**
+     * Session-scoped state released when a session closes or idles out. Every stateful domain
+     * registers one callback here, so a new session starts with the full retention budget and a
+     * client that never sends {@code DELETE} cannot exhaust it.
+     */
+    private volatile List<Consumer<String>> sessionCleanups;
+
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private McpHttpServer(
@@ -115,7 +142,8 @@ final class McpHttpServer implements AutoCloseable {
             final McpImageRegistrationDomain imageRegistration,
             final McpAtlasDomain atlas,
             final McpMocExportDomain mocExport,
-            final McpConnectionHistory history) {
+            final McpConnectionHistory history,
+            final List<Consumer<String>> sessionCleanups) {
         this.server = server;
         this.executor = executor;
         this.logger = logger;
@@ -135,6 +163,7 @@ final class McpHttpServer implements AutoCloseable {
         this.atlas = Objects.requireNonNull(atlas, "atlas");
         this.mocExport = Objects.requireNonNull(mocExport, "mocExport");
         this.history = Objects.requireNonNull(history, "history");
+        this.sessionCleanups = List.copyOf(Objects.requireNonNull(sessionCleanups, "sessionCleanups"));
         this.hostWork = new McpHostWorkLane(HOST_WORK_SLOTS);
         graphReady.countDown();
     }
@@ -165,6 +194,7 @@ final class McpHttpServer implements AutoCloseable {
         this.stdioLaunch = Objects.requireNonNull(stdioLaunch, "stdioLaunch");
         this.rateLimiter = rateLimiter;
         this.requireAuthForRead = requireAuthForRead;
+        this.sessionCleanups = List.of();
         this.hostWork = new McpHostWorkLane(HOST_WORK_SLOTS);
     }
 
@@ -178,7 +208,8 @@ final class McpHttpServer implements AutoCloseable {
             final McpImageRegistrationDomain imageRegistration,
             final McpAtlasDomain atlas,
             final McpMocExportDomain mocExport,
-            final McpConnectionHistory history) {
+            final McpConnectionHistory history,
+            final List<Consumer<String>> sessionCleanups) {
         if (closed.get()) {
             // The transport closed while the surface was warming: release what was built instead
             // of installing it onto a stopped server.
@@ -199,6 +230,7 @@ final class McpHttpServer implements AutoCloseable {
         this.atlas = atlas;
         this.mocExport = mocExport;
         this.history = history;
+        this.sessionCleanups = List.copyOf(sessionCleanups);
         fileGrants.startMaintenance();
         graphReady.countDown();
     }
@@ -326,7 +358,6 @@ final class McpHttpServer implements AutoCloseable {
             final int actualPort = server.getAddress().getPort();
             final URI endpoint = URI.create("http://127.0.0.1:" + actualPort + "/mcp");
             final Path connectionFile = checked.stateDir().resolve("mcp-connection.json");
-            final McpExecutionBridge execution = new McpExecutionBridge(checked.uiScheduler());
             stage.enter("access-token publication");
             final McpAccessToken accessToken = McpAccessToken.loadOrCreate(checked.stateDir(), logger::warn);
             stage.enter("stdio bridge publication");
@@ -392,7 +423,8 @@ final class McpHttpServer implements AutoCloseable {
                                 parts.imageRegistration(),
                                 parts.atlas(),
                                 parts.mocExport(),
-                                parts.history());
+                                parts.history(),
+                                parts.sessionCleanups());
                         transport.logger.info("Turboism MCP tool surface ready after "
                                 + ((System.nanoTime() - startedNanos) / 1_000_000L) + "ms");
                     } catch (ThreadDeath | VirtualMachineError fatal) {
@@ -417,7 +449,8 @@ final class McpHttpServer implements AutoCloseable {
             McpImageRegistrationDomain imageRegistration,
             McpAtlasDomain atlas,
             McpMocExportDomain mocExport,
-            McpConnectionHistory history) {}
+            McpConnectionHistory history,
+            List<Consumer<String>> sessionCleanups) {}
 
     private static GraphParts buildGraph(final Dependencies checked) {
         final PluginLogger logger = checked.logger();
@@ -540,13 +573,27 @@ final class McpHttpServer implements AutoCloseable {
                 parameterResources,
                 historyCommands.resources()));
         final McpConnectionHistory history = new McpConnectionHistory();
+        final List<Consumer<String>> sessionCleanups = List.of(
+                fileGrants::dropSession,
+                fileInspect::dropSession,
+                imageRegistration::dropSession,
+                atlas::dropSession,
+                mocExport::dropSession,
+                poses::dropSession,
+                authoringSnapshots::dropSession,
+                assetSources::dropSession,
+                keyforms::dropSession,
+                masks::dropSession,
+                properties::dropSession,
+                imageBindings::dropSession,
+                bindingInitialization::dropSession,
+                meshCreation::dropSession,
+                parameterStructure::dropSession,
+                documents::dropSession,
+                documentFiles::dropSession);
         final McpSessionRegistry sessions =
                 new McpSessionRegistry(java.time.Duration.ofMinutes(30), java.time.Clock.systemUTC(), session -> {
-                    fileGrants.dropSession(session);
-                    fileInspect.dropSession(session);
-                    imageRegistration.dropSession(session);
-                    atlas.dropSession(session);
-                    mocExport.dropSession(session);
+                    sessionCleanups.forEach(cleanup -> cleanup.accept(session));
                     history.record(McpConnectionHistory.Event.SESSION_EXPIRED, "", "idle timeout");
                 });
         return new GraphParts(
@@ -558,7 +605,8 @@ final class McpHttpServer implements AutoCloseable {
                 imageRegistration,
                 atlas,
                 mocExport,
-                history);
+                history,
+                sessionCleanups);
     }
 
     /**
@@ -649,18 +697,15 @@ final class McpHttpServer implements AutoCloseable {
                 sendEmpty(exchange, 403);
                 return;
             }
-            if (!rateLimiter.acquire()) {
-                responseHeaders.set("Retry-After", "60");
-                sendEmpty(exchange, 429);
-                return;
-            }
             final String method = exchange.getRequestMethod();
-            if ("GET".equalsIgnoreCase(method)) {
-                responseHeaders.set("Allow", "POST, DELETE");
+            if (METHOD_GET.equalsIgnoreCase(method)) {
+                responseHeaders.set(ALLOW_HEADER, ALLOWED_METHODS);
                 sendEmpty(exchange, 405);
                 return;
             }
-            if ("DELETE".equalsIgnoreCase(method)) {
+            if (METHOD_DELETE.equalsIgnoreCase(method)) {
+                // Session close stays outside the window budget: a client that exhausted its
+                // budget must still be able to dispose its session state.
                 if (!authorized(exchange)) {
                     unauthorized(exchange);
                     return;
@@ -669,18 +714,14 @@ final class McpHttpServer implements AutoCloseable {
                 if (sessionId == null || !sessions.remove(sessionId)) {
                     sendEmpty(exchange, 404);
                 } else {
-                    fileGrants.dropSession(sessionId);
-                    fileInspect.dropSession(sessionId);
-                    imageRegistration.dropSession(sessionId);
-                    atlas.dropSession(sessionId);
-                    mocExport.dropSession(sessionId);
+                    releaseSession(sessionId);
                     history.record(McpConnectionHistory.Event.SESSION_CLOSED, "", "client requested session close");
                     sendEmpty(exchange, 200);
                 }
                 return;
             }
-            if (!"POST".equalsIgnoreCase(method)) {
-                responseHeaders.set("Allow", "POST, DELETE");
+            if (!METHOD_POST.equalsIgnoreCase(method)) {
+                responseHeaders.set(ALLOW_HEADER, ALLOWED_METHODS);
                 sendEmpty(exchange, 405);
                 return;
             }
@@ -718,7 +759,15 @@ final class McpHttpServer implements AutoCloseable {
             try {
                 request = Json.parseObject(body);
             } catch (IllegalArgumentException failure) {
+                if (!rateLimiter.acquire(false)) {
+                    rejectRateLimited(exchange);
+                    return;
+                }
                 sendJson(exchange, 200, McpProtocol.parseError(failure.getMessage()));
+                return;
+            }
+            if (!rateLimiter.acquire(METHOD_CANCELLED.equals(requestMethod(request)))) {
+                rejectRateLimited(exchange);
                 return;
             }
             final boolean initializeRequest = isInitializeRequest(request);
@@ -809,18 +858,62 @@ final class McpHttpServer implements AutoCloseable {
      * <p>Every {@code tools/call} handler may submit work to the host thread through
      * {@link McpExecutionBridge}; a started host write cannot be cancelled, so the serving
      * thread waits for the definitive result. {@code resources/read} handlers submit their
-     * read through the same boundary. Lifecycle, discovery, session, and authorization
-     * paths never wait on the host, so they stay outside the lane and keep a free thread.</p>
+     * read through the same boundary. A {@link McpExecutionAffinity#DIRECT} tool never touches
+     * the host, so it keeps its own thread and stays answerable while every host-work slot is
+     * busy. Lifecycle, discovery, session, and authorization paths stay outside the lane too.</p>
      */
-    private static boolean waitsOnHost(final Object request) {
+    private boolean waitsOnHost(final Object request) {
         if (!(request instanceof Map<?, ?> values)) return false;
         final Object method = values.get("method");
-        return "tools/call".equals(method) || "resources/read".equals(method);
+        if (METHOD_RESOURCES_READ.equals(method)) return true;
+        if (!METHOD_TOOLS_CALL.equals(method)) return false;
+        final Object params = values.get("params");
+        if (!(params instanceof Map<?, ?> paramValues)) return false;
+        final Object name = paramValues.get("name");
+        if (!(name instanceof String toolName)) return false;
+        final McpToolCatalog current = tools;
+        if (current == null) return false;
+        try {
+            return current.registration(toolName).affinity() != McpExecutionAffinity.DIRECT;
+        } catch (IllegalArgumentException unknownTool) {
+            // An unknown tool is rejected by the protocol on its own thread; it cannot wait on a host.
+            return false;
+        }
+    }
+
+    /**
+     * Releases every session-scoped domain retention for a closed or expired session. A domain
+     * that throws must not stop the remaining cleanups, and a cleanup failure is never fatal.
+     */
+    private void releaseSession(final String sessionId) {
+        for (Consumer<String> cleanup : sessionCleanups) {
+            try {
+                cleanup.accept(sessionId);
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (RuntimeException failure) {
+                logger.warn("MCP session cleanup failed: " + failure.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /**
+     * Rejects a request that exceeded the window budget and advertises the exact remaining wait.
+     * A client that cannot retry yet still learns when its next request will succeed.
+     */
+    private void rejectRateLimited(final HttpExchange exchange) throws IOException {
+        exchange.getResponseHeaders().set(RETRY_AFTER_HEADER, Long.toString(rateLimiter.retryAfterSeconds()));
+        sendEmpty(exchange, 429);
     }
 
     /** @return host-work admissions currently held; test and diagnostics support only */
     int hostWorkInFlight() {
         return hostWork.inFlight();
+    }
+
+    /** @return session-scoped cleanup callbacks registered by the tool surface; test support only */
+    int sessionCleanupCount() {
+        return sessionCleanups.size();
     }
 
     /** @return maximum concurrent host-work waits; test and diagnostics support only */
@@ -1361,15 +1454,27 @@ final class McpHttpServer implements AutoCloseable {
             this.limit = limit;
         }
 
-        private synchronized boolean acquire() {
+        /**
+         * Reports whether this request may proceed. {@code exempt} requests always proceed and stay
+         * outside the count, so cancellation and session close keep working after the budget empties.
+         */
+        private synchronized boolean acquire(final boolean exempt) {
             final long now = System.nanoTime();
-            if (now - windowStart >= 60_000_000_000L) {
+            if (now - windowStart >= RATE_LIMIT_WINDOW_NANOS) {
                 windowStart = now;
                 count = 0;
             }
+            if (exempt) return true;
             if (count >= limit) return false;
             count++;
             return true;
+        }
+
+        /** @return whole seconds until the current window resets, never below one second */
+        private synchronized long retryAfterSeconds() {
+            final long remaining = RATE_LIMIT_WINDOW_NANOS - (System.nanoTime() - windowStart);
+            final long seconds = (remaining + 1_000_000_000L - 1L) / 1_000_000_000L;
+            return Math.max(MINIMUM_RETRY_AFTER_SECONDS, Math.min(seconds, RATE_LIMIT_WINDOW_SECONDS));
         }
     }
 }

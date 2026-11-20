@@ -526,21 +526,21 @@ final class McpHttpServerIntegrationTest {
         }
     }
 
-    @ParameterizedTest(name = "rejects symlinked {0} without touching target")
+    /**
+     * A protected state file must never be published over an unsafe path. A symbolic link is the
+     * reported attack, but Windows hosts without Developer Mode cannot create one at all, so the
+     * directory case asserts the same fail-closed contract everywhere: a non-regular file at the
+     * target path stops startup at the owning publication stage and leaves the target untouched.
+     */
+    @ParameterizedTest(name = "rejects unsafe {0} path without touching it")
     @CsvSource({
-        "connection-file, mcp-connection.json, -mcp-outside, connection-file publication",
-        "access-token, mcp.token, -token-outside, access-token publication"
+        "connection-file, mcp-connection.json, connection-file publication",
+        "access-token, mcp.token, access-token publication"
     })
-    void rejectsSymlinkedProtectedFileWithoutTouchingItsTarget(
-            String name, String fileName, String suffix, String expectedStage) throws Exception {
-        final Path outside = temporaryDirectory.resolveSibling(temporaryDirectory.getFileName() + suffix);
-        Files.writeString(outside, "sentinel", StandardCharsets.UTF_8);
+    void rejectsUnsafeProtectedFilePathWithoutTouchingIt(
+            final String name, final String fileName, final String expectedStage) throws Exception {
         final Path targetFile = temporaryDirectory.resolve(fileName);
-        try {
-            Files.createSymbolicLink(targetFile, outside);
-        } catch (UnsupportedOperationException | IOException unavailable) {
-            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links unavailable");
-        }
+        Files.createDirectory(targetFile);
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
                 McpHttpServer.McpStartupFailure.class,
@@ -548,10 +548,8 @@ final class McpHttpServerIntegrationTest {
                         dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices())));
 
         assertEquals(expectedStage, failure.stage());
-        assertTrue(Files.isSymbolicLink(targetFile));
-        assertEquals("sentinel", Files.readString(outside, StandardCharsets.UTF_8));
+        assertTrue(Files.isDirectory(targetFile, java.nio.file.LinkOption.NOFOLLOW_LINKS));
         Files.deleteIfExists(targetFile);
-        Files.deleteIfExists(outside);
     }
 
     @Test
@@ -2480,21 +2478,9 @@ final class McpHttpServerIntegrationTest {
                                 "method",
                                 "tools/call",
                                 "params",
-                                Map.of(
-                                        "name",
-                                        McpParameterDomain.PARAMETERS_APPLY,
-                                        "arguments",
-                                        Map.of(
-                                                "operations",
-                                                List.of(Map.of(
-                                                        "operation",
-                                                        "set_value",
-                                                        "parameterId",
-                                                        "ParamAngleX",
-                                                        "value",
-                                                        1))))))));
+                                Map.of("name", McpDocumentLifecycleDomain.READ, "arguments", Map.of())))));
             }
-            // Three host writes occupy the host-work lane; the transport keeps a thread free.
+            // Three host reads occupy the host-work lane; the transport keeps a thread free.
             awaitInFlight(ui, 3);
 
             // Then: a lifecycle request still completes while those writes wait.

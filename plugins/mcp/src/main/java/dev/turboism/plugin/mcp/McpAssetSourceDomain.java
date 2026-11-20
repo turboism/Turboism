@@ -212,6 +212,19 @@ final class McpAssetSourceDomain {
         }
     }
 
+    /** Releases every page owned by a closed or expired session and returns its byte budget. */
+    void dropSession(String session) {
+        synchronized (entries) {
+            for (var it = entries.values().iterator(); it.hasNext(); ) {
+                var entry = it.next();
+                if (entry.session.equals(session)) {
+                    retainedBytes -= entry.encodedBytes;
+                    it.remove();
+                }
+            }
+        }
+    }
+
     private void removeOldest() {
         var it = entries.values().iterator();
         var first = it.next();

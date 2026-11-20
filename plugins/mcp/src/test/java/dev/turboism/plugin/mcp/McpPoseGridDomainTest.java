@@ -361,6 +361,25 @@ final class McpPoseGridDomainTest {
     }
 
     @Test
+    void droppingASessionReleasesItsImageSlotsAndRetainedResultIdentities() {
+        var f = new Fixture();
+        McpRequestRegistry.inSession("a", () -> f.call(McpPoseGridDomain.SCAN, f.request("first", f.grid())));
+        McpRequestRegistry.inSession("a", () -> f.call(McpPoseGridDomain.SCAN, f.request("second", f.grid())));
+        assertEquals(
+                "RESULT_STORE_FULL",
+                McpRequestRegistry.inSession(
+                        "a", () -> error(f.call(McpPoseGridDomain.SCAN, f.request("blocked", f.grid())))));
+
+        f.poses.dropSession("a");
+
+        assertEquals(
+                "COMPLETED",
+                McpRequestRegistry.inSession(
+                                "a", () -> output(f.call(McpPoseGridDomain.SCAN, f.request("after-drop", f.grid()))))
+                        .get("outcome"));
+    }
+
+    @Test
     void releasingPixelsPreservesHistoricalMetadataAndIdentityButAllowsNextScan() {
         var f = new Fixture();
         var first = f.request("first", f.grid());
@@ -594,8 +613,8 @@ final class McpPoseGridDomainTest {
         final McpExecutionBridge execution =
                 new McpExecutionBridge(FakeDirectUiScheduler.immediateWithUnsupportedLater());
         final McpRenderDomain render = new McpRenderDomain(facade, execution);
-        final McpToolCatalog tools = McpToolCatalog.combine(
-                render.tools(), new McpPoseGridDomain(facade, execution, render, clock::get).tools());
+        final McpPoseGridDomain poses = new McpPoseGridDomain(facade, execution, render, clock::get);
+        final McpToolCatalog tools = McpToolCatalog.combine(render.tools(), poses.tools());
 
         private Parameter parameter(int index) {
             return proxy(Parameter.class, (m, a) -> switch (m) {
