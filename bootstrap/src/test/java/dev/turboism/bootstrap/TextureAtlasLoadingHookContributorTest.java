@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.mesh.TextureAtlasTriangleSetTransformer;
+import dev.turboism.adapter.cubism.mesh.TriangulationSpatialIndexTransformer;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoadingTransformer;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.RuntimeConfigRepository;
@@ -91,18 +92,24 @@ final class TextureAtlasLoadingHookContributorTest {
     @Test
     void spatialIndexContributorFollowsPreferenceAndPolicyAndClosesCleanly() throws Exception {
         final TriangulationSpatialIndexHookContributor contributor = new TriangulationSpatialIndexHookContributor();
+        final List<ClassFileTransformer> added = new ArrayList<>();
+        final List<ClassFileTransformer> removed = new ArrayList<>();
         final HookEnvironment defaultEnv = HookEnvironment.builder()
                 .options(AgentOptions.parse("home=" + home, home))
                 .startupPolicy(new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of()))
+                .instrumentation(recordingInstrumentation(added, removed))
                 .build();
         assertTrue(contributor.admitted(defaultEnv));
         try (AutoCloseable handle = contributor.install(defaultEnv)) {
+            assertEquals(1, added.size());
+            assertTrue(added.get(0) instanceof TriangulationSpatialIndexTransformer);
             assertEquals(
-                    "awaiting-transformer",
+                    "installed",
                     NativeOptimizationDiagnostics.snapshot()
                             .get(OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX)
                             .reason());
         }
+        assertEquals(1, removed.size());
         assertEquals(
                 "closed",
                 NativeOptimizationDiagnostics.snapshot()

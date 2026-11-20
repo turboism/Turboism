@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoading;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -40,6 +41,7 @@ public final class ExactVictimTriangleSet extends LinkedHashSet<Object> {
 
     /** Factory matching {@link TextureAtlasTriangleSet#forAtlas} when triangle hashing is global. */
     public static LinkedHashSet<Object> forGlobal(final LinkedHashSet<Object> original, final Class<?> owner) {
+        if (!TextureAtlasLoading.isInitializing()) return original;
         return wrap(original);
     }
 

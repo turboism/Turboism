@@ -1,23 +1,18 @@
 package dev.turboism.bootstrap;
 
+import dev.turboism.adapter.cubism.mesh.TriangulationSpatialIndexTransformer;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.optimization.OptimizationCatalog;
-import dev.turboism.runtime.log.RuntimeDiagnostics;
 
-/**
- * Installs spatial-index triangulation acceleration before Cubism loads its mesh classes.
- *
- * <p>Reports diagnostic state through {@link NativeOptimizationDiagnostics} until the mesh-kernel
- * transformer lands on merge.</p>
- */
+/** Installs spatial-index triangulation acceleration before Cubism loads its mesh classes. */
 final class TriangulationSpatialIndexHookContributor implements ReportedHookContributor {
 
     static final String HOOK_POLICY_ID = "cubism.mesh.triangulation-spatial-index";
     private static final String ID = "TURBOISM_TRIANGULATION_SPATIAL_INDEX";
+    private static final String INSTALLED = "installed";
     private static final String NOT_INSTALLED = "not-installed";
     private static final String PREFERENCE_DISABLED = "preference-disabled";
     private static final String POLICY_DISABLED = "policy-disabled";
-    private static final String AWAITING_TRANSFORMER = "awaiting-transformer";
     private static final String CLOSED = "closed";
 
     @Override
@@ -58,9 +53,16 @@ final class TriangulationSpatialIndexHookContributor implements ReportedHookCont
 
     @Override
     public AutoCloseable install(final HookEnvironment environment) {
-        // TODO(merge): attach TriangulationSpatialIndexTransformer from Lane 1 before host class load.
-        RuntimeDiagnostics.debug("bootstrap", "Triangulation spatial index awaiting transformer merge");
-        NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, AWAITING_TRANSFORMER);
-        return () -> NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, CLOSED);
+        final var instrumentation = environment.instrumentation();
+        final var transformer = new TriangulationSpatialIndexTransformer();
+        instrumentation.addTransformer(transformer);
+        NativeOptimizationDiagnostics.installed(ID, INSTALLED, INSTALLED);
+        return () -> {
+            try {
+                instrumentation.removeTransformer(transformer);
+            } finally {
+                NativeOptimizationDiagnostics.installed(ID, NOT_INSTALLED, CLOSED);
+            }
+        };
     }
 }
