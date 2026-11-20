@@ -346,8 +346,8 @@ final class FrameworkUpdateApplier {
                 faults.hit("after-replace:" + step.relative);
             }
             if (receipt != null) {
-                faults.hit("before-receipt-index");
                 receipt.publishDocuments();
+                faults.hit("before-receipt-index");
                 writePrivateAtomic(receipt.indexPath(), receipt.index());
                 faults.hit("after-receipt-index");
             }
