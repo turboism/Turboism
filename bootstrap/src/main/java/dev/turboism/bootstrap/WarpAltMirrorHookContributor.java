@@ -41,10 +41,21 @@ final class WarpAltMirrorHookContributor implements HookContributor {
     static ReviewedHostContract.Resolution<WarpAltMirrorHostProfile> resolveProfile(final Path artifact) {
         return ReviewedHostContract.resolve(
                 artifact,
-                ReviewedHostContract.candidates(
+                ReviewedHostContract.candidatesWithMethods(
                         WarpAltMirrorHostProfile.targetClasses(),
                         version -> WarpAltMirrorHostProfile.forReviewedVersion(version)
-                                .orElse(null)));
+                                .orElse(null),
+                        version -> WarpAltMirrorHostProfile.forReviewedVersion(version)
+                                .map(profile -> List.of(
+                                        new ReviewedHostContract.MethodSignatureSpec(
+                                                profile.stripOwner(),
+                                                profile.stripMountMethod(),
+                                                profile.stripMountDescriptor()),
+                                        new ReviewedHostContract.MethodSignatureSpec(
+                                                profile.stripOwner(),
+                                                profile.stripLayoutMethod(),
+                                                profile.stripLayoutDescriptor())))
+                                .orElse(List.of())));
     }
 
     /**

@@ -58,8 +58,11 @@ class NativeOptimizationConfigTest {
         final var repository = new RuntimeConfigRepository(home, ignored -> {});
         repository.update(root -> root.put("reduceAutoBackup", true));
         final var service = new OptimizationSettingsFileService(repository);
-        for (final var option :
-                java.util.List.of(OptimizationCatalog.ATLAS_LOADING, OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX)) {
+        for (final var option : java.util.List.of(
+                OptimizationCatalog.ATLAS_LOADING,
+                OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX,
+                OptimizationCatalog.MODEL_OPEN_ACCELERATION,
+                OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION)) {
             assertTrue(service.enabled(option.key()));
             assertTrue(NativeOptimizationConfig.load(home, ignored -> {})
                     .choice(option)

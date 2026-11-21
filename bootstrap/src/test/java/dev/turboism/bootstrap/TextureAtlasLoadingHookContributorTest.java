@@ -151,6 +151,71 @@ final class TextureAtlasLoadingHookContributorTest {
                         .reason());
     }
 
+    @Test
+    void modelOpenAndRuntimeExportContributorsFollowPreferenceAndPolicyAndCloseCleanly() throws Exception {
+        assertAccelerationContributorLifecycle(
+                new ModelOpenAccelerationHookContributor(),
+                ModelOpenAccelerationHookContributor.HOOK_POLICY_ID,
+                OptimizationCatalog.MODEL_OPEN_ACCELERATION);
+        assertAccelerationContributorLifecycle(
+                new RuntimeExportAccelerationHookContributor(),
+                RuntimeExportAccelerationHookContributor.HOOK_POLICY_ID,
+                OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION);
+    }
+
+    private void assertAccelerationContributorLifecycle(
+            final HookContributor contributor,
+            final String policyId,
+            final dev.turboism.config.optimization.Optimization optimization)
+            throws Exception {
+        NativeOptimizationDiagnostics.resetForTesting();
+        new RuntimeConfigRepository(home, ignored -> {}).update(root -> {
+            root.remove(optimization.key());
+            return root;
+        });
+        final List<ClassFileTransformer> added = new ArrayList<>();
+        final List<ClassFileTransformer> removed = new ArrayList<>();
+        final HookEnvironment defaultEnv = HookEnvironment.builder()
+                .options(AgentOptions.parse("home=" + home, home))
+                .startupPolicy(new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of()))
+                .instrumentation(recordingInstrumentation(added, removed))
+                .build();
+        assertTrue(contributor.admitted(defaultEnv));
+        try (AutoCloseable handle = contributor.install(defaultEnv)) {
+            assertEquals(1, added.size());
+            assertEquals(
+                    "installed",
+                    NativeOptimizationDiagnostics.snapshot().get(optimization).reason());
+        }
+        assertEquals(1, removed.size());
+        assertEquals(
+                "closed",
+                NativeOptimizationDiagnostics.snapshot().get(optimization).reason());
+
+        final HookEnvironment policyDisabled = HookEnvironment.builder()
+                .options(AgentOptions.parse("home=" + home, home))
+                .startupPolicy(
+                        new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of(policyId)))
+                .build();
+        assertFalse(contributor.admitted(policyDisabled));
+        assertEquals(
+                "policy-disabled",
+                NativeOptimizationDiagnostics.snapshot().get(optimization).reason());
+
+        new RuntimeConfigRepository(home, ignored -> {}).update(root -> {
+            root.put(optimization.key(), false);
+            return root;
+        });
+        final HookEnvironment optOut = HookEnvironment.builder()
+                .options(AgentOptions.parse("home=" + home, home))
+                .startupPolicy(new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of()))
+                .build();
+        assertFalse(contributor.admitted(optOut));
+        assertEquals(
+                "preference-disabled",
+                NativeOptimizationDiagnostics.snapshot().get(optimization).reason());
+    }
+
     private static Instrumentation recordingInstrumentation(
             final List<ClassFileTransformer> added, final List<ClassFileTransformer> removed) {
         return (Instrumentation) Proxy.newProxyInstance(

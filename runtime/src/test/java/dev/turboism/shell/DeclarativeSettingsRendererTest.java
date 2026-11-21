@@ -1146,7 +1146,7 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(37, boxes.size());
+                assertEquals(39, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
@@ -1256,6 +1256,14 @@ class DeclarativeSettingsRendererTest {
                             spatialIndex.isSelected(),
                             "missing preference enables the spatial triangulation optimization");
                     spatialIndex.doClick();
+                    final JCheckBox modelOpen = findCheckBoxByName(
+                            checkboxes(form), OptimizationCatalog.MODEL_OPEN_ACCELERATION.contributionId());
+                    assertTrue(modelOpen.isSelected(), "missing preference enables model open acceleration");
+                    modelOpen.doClick();
+                    final JCheckBox runtimeExport = findCheckBoxByName(
+                            checkboxes(form), OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION.contributionId());
+                    assertTrue(runtimeExport.isSelected(), "missing preference enables runtime export acceleration");
+                    runtimeExport.doClick();
                     final JPanel topSection = findCollapsibleSection(form);
                     assertTrue(topSection != null, "top collapsible section must render");
                     assertTrue(
@@ -1303,6 +1311,18 @@ class DeclarativeSettingsRendererTest {
             assertTrue(persistedRoot.path(spatialKey).isBoolean());
             assertFalse(nativeReloaded
                     .choice(OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX)
+                    .enabled());
+            final String modelOpenKey = OptimizationCatalog.MODEL_OPEN_ACCELERATION.key();
+            assertEquals(Boolean.FALSE, persistedRoot.path(modelOpenKey).booleanValue());
+            assertTrue(persistedRoot.path(modelOpenKey).isBoolean());
+            assertFalse(nativeReloaded
+                    .choice(OptimizationCatalog.MODEL_OPEN_ACCELERATION)
+                    .enabled());
+            final String runtimeExportKey = OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION.key();
+            assertEquals(Boolean.FALSE, persistedRoot.path(runtimeExportKey).booleanValue());
+            assertTrue(persistedRoot.path(runtimeExportKey).isBoolean());
+            assertFalse(nativeReloaded
+                    .choice(OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION)
                     .enabled());
             for (final Optimization optimization : hotpath) {
                 assertTrue(

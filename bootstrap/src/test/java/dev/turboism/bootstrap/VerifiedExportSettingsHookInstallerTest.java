@@ -90,6 +90,7 @@ class VerifiedExportSettingsHookInstallerTest {
         assertEquals(true, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.3.02"));
         assertEquals(true, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.3.03"));
         assertEquals(true, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.3.04"));
+        assertEquals(true, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.3.05"));
         assertEquals(false, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.3.02-preview"));
         assertEquals(false, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.0.06"));
         assertEquals(false, VerifiedExportSettingsHookInstaller.supportsExactCubismVersion("5.4.00"));
@@ -100,6 +101,7 @@ class VerifiedExportSettingsHookInstallerTest {
         assertEquals(false, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.0.06"));
         assertEquals(true, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.1.00"));
         assertEquals(true, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.3.04"));
+        assertEquals(true, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.3.05"));
         assertEquals(false, VerifiedProtectedExportHookInstaller.SUPPORTED_CUBISM_VERSIONS.contains("5.4.00"));
     }
 

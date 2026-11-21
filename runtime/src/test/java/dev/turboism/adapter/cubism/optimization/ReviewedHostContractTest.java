@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Bound;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Candidate;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.MethodShapeSpec;
+import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.MethodSignatureSpec;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Refused;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract.Resolution;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
@@ -292,6 +293,63 @@ class ReviewedHostContractTest {
                         List.of("feature/One"),
                         List.of(new MethodShapeSpec(
                                 SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR, List.of("op:96")))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Candidate<>(
+                        REVIEWED_VERSION,
+                        "mismatched-method",
+                        List.of("feature/One"),
+                        List.of(),
+                        List.of(new MethodSignatureSpec(SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR))));
+    }
+
+    @Test
+    void requiredMethodSignaturesDisambiguateStructuralCollisions() throws Exception {
+        final byte[] shaped = shapedClassBytes(SHAPED_OWNER, "v2", false);
+        final byte[] collision = classBytes("feature/Other", "collision");
+        final Path jar = hostJar(
+                ZERO_DAY_VERSION,
+                ZERO_DAY_BUILD,
+                Map.of(SHAPED_OWNER + ".class", shaped, "feature/Other.class", collision),
+                Map.of());
+        final List<Candidate<String>> candidates = List.of(
+                new Candidate<>(
+                        "5.2.03",
+                        "legacy",
+                        List.of("feature/Other"),
+                        List.of(),
+                        List.of(new MethodSignatureSpec("feature/Other", SHAPED_METHOD, SHAPED_DESCRIPTOR))),
+                new Candidate<>(
+                        "5.3.05",
+                        "modern",
+                        List.of(SHAPED_OWNER),
+                        List.of(),
+                        List.of(new MethodSignatureSpec(SHAPED_OWNER, SHAPED_METHOD, SHAPED_DESCRIPTOR))));
+
+        final Bound<String> bound = assertInstanceOf(Bound.class, ReviewedHostContract.resolve(jar, candidates));
+        assertEquals("5.3.05", bound.sourceVersion());
+        assertEquals("modern", bound.contract());
+    }
+
+    @Test
+    void equivalentContractsBehindEqualTargetsMergeInStructuralBinding() throws Exception {
+        final record VersionedContract(String version, String selector)
+                implements EquivalentContract<VersionedContract> {
+            @Override
+            public boolean sameContract(final VersionedContract other) {
+                return other != null && selector.equals(other.selector);
+            }
+        }
+        final List<String> targets = List.of("feature/One", "feature/Two");
+        final List<Candidate<VersionedContract>> candidates = List.of(
+                new Candidate<>("5.3.04", new VersionedContract("5.3.04", "shared-selector"), targets),
+                new Candidate<>("5.3.05", new VersionedContract("5.3.05", "shared-selector"), targets));
+        final Path jar = hostJar(ZERO_DAY_VERSION, ZERO_DAY_BUILD, targetClasses(), Map.of());
+
+        final Bound<VersionedContract> bound =
+                assertInstanceOf(Bound.class, ReviewedHostContract.resolve(jar, candidates));
+        assertEquals(List.of("5.3.04", "5.3.05"), bound.matchedVersions());
+        assertEquals("shared-selector", bound.contract().selector());
     }
 
     private Candidate<String> candidate(final String version) {

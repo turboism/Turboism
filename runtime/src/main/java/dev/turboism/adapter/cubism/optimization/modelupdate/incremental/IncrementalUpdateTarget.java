@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate.incremental;
 
+import dev.turboism.adapter.cubism.optimization.EquivalentContract;
 import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ModelUpdateTargetTable;
@@ -22,7 +23,17 @@ import java.util.Optional;
  * outside {@link ReviewedHostArtifacts} is not a target and fails closed.</p>
  */
 public record IncrementalUpdateTarget(
-        HostArtifactDigest digest, String version, String updater, String updateContext, String contextParam) {
+        HostArtifactDigest digest, String version, String updater, String updateContext, String contextParam)
+        implements EquivalentContract<IncrementalUpdateTarget> {
+
+    @Override
+    public boolean sameContract(final IncrementalUpdateTarget other) {
+        return other != null
+                && is50Or51() == other.is50Or51()
+                && Objects.equals(updater, other.updater)
+                && Objects.equals(updateContext, other.updateContext)
+                && Objects.equals(contextParam, other.contextParam);
+    }
 
     /** Reviewed dependency method identity, identical to the slice-A dep record. */
     public record Dep(String owner, String name, String descriptor) {

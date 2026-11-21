@@ -107,6 +107,7 @@ class VerifiedElisionInstallerRollbackTest {
                         f.rewritten.stream().filter(f::isRestored).count(),
                         "the other class must still be restored after the first restoration fails");
                 assertTrue(f.active.isEmpty());
+                f.clearRestoreFailures();
                 installer.handle.close();
                 assertTrue(installer.restored.getAsBoolean());
                 f.assertRestored();
@@ -132,6 +133,7 @@ class VerifiedElisionInstallerRollbackTest {
                         f.rewritten.stream().filter(f::isRestored).count(),
                         "the other class must still be restored after the first restoration fails");
                 assertTrue(f.active.isEmpty());
+                f.clearRestoreFailures();
                 installer.handle.close();
                 assertTrue(installer.restored.getAsBoolean());
                 f.assertRestored();
@@ -155,6 +157,7 @@ class VerifiedElisionInstallerRollbackTest {
         final Instrumentation instrumentation;
         int hookClasses, rejectAt, throwAfter;
         boolean failFirstRestore, failFatalRestore;
+        Class<?> pinnedRestoreFailureTarget;
 
         Fixture(Path artifact, Hook hook) throws Exception {
             this.artifact = artifact;
@@ -206,16 +209,25 @@ class VerifiedElisionInstallerRollbackTest {
             };
         }
 
+        void clearRestoreFailures() {
+            failFirstRestore = false;
+            failFatalRestore = false;
+            pinnedRestoreFailureTarget = null;
+        }
+
         void retransform(Class<?> type) throws Exception {
             boolean hooking = active.stream().anyMatch(hook.transformer::isInstance);
             if (hooking) hookClasses++;
-            if (!hooking && failFirstRestore && rewritten.contains(type)) {
-                failFirstRestore = false;
-                throw new UnmodifiableClassException("injected restoration failure");
-            }
-            if (!hooking && failFatalRestore && rewritten.contains(type)) {
-                failFatalRestore = false;
-                throw new OutOfMemoryError("injected fatal restoration failure");
+            if (!hooking && rewritten.contains(type) && (failFirstRestore || failFatalRestore)) {
+                if (pinnedRestoreFailureTarget == null) {
+                    pinnedRestoreFailureTarget = type;
+                }
+                if (type.equals(pinnedRestoreFailureTarget)) {
+                    if (failFatalRestore) {
+                        throw new OutOfMemoryError("injected fatal restoration failure");
+                    }
+                    throw new UnmodifiableClassException("injected restoration failure");
+                }
             }
             byte[] bytes;
             try (var input = type.getResourceAsStream("/" + type.getName().replace('.', '/') + ".class")) {

@@ -340,10 +340,26 @@ final class VerifiedInstall<T> implements AutoCloseable {
                 owners.add(target.type());
             }
         }
-        if (!owners.isEmpty()) {
-            context.instrumentation().retransformClasses(owners.toArray(Class<?>[]::new));
+        if (owners.isEmpty()) {
+            restored = registrations.isEmpty();
+            return;
         }
-        restored = registrations.isEmpty();
+        final Class<?>[] targets = owners.toArray(Class<?>[]::new);
+        final Throwable batchFailure = attempt(() -> context.instrumentation().retransformClasses(targets));
+        if (batchFailure == null) {
+            restored = registrations.isEmpty();
+            return;
+        }
+        if (targets.length == 1) {
+            throw FatalErrors.propagate(batchFailure);
+        }
+        // Replay single-owner restoration when batch retransformation fails so sibling classes recover.
+        Throwable merged = null;
+        for (final Class<?> owner : targets) {
+            merged = FatalErrors.mergeForCleanup(
+                    merged, attempt(() -> context.instrumentation().retransformClasses(owner)));
+        }
+        throw FatalErrors.propagate(merged != null ? merged : batchFailure);
     }
 
     /**

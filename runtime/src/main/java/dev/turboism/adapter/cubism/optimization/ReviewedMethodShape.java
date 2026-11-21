@@ -69,6 +69,42 @@ public final class ReviewedMethodShape {
         return shape;
     }
 
+    /**
+     * Returns whether {@code owner} declares at least one method matching {@code methodName} and {@code descriptor}.
+     *
+     * @param bytes classfile bytes to inspect
+     * @param owner expected internal class name
+     * @param methodName exact method name
+     * @param descriptor exact JVM descriptor
+     * @return {@code true} when the class declares the method signature
+     */
+    public static boolean declaresMethod(
+            final byte[] bytes, final String owner, final String methodName, final String descriptor) {
+        Objects.requireNonNull(bytes, "bytes");
+        final ClassReader reader = new ClassReader(bytes);
+        if (!owner.equals(reader.getClassName())) {
+            return false;
+        }
+        final boolean[] found = {false};
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String desc,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (methodName.equals(name) && descriptor.equals(desc)) {
+                            found[0] = true;
+                        }
+                        return null;
+                    }
+                },
+                ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return found[0];
+    }
+
     private static List<String> parse(byte[] bytes, String owner, String methodName, String descriptor) {
         ClassReader reader = new ClassReader(bytes);
         if (!owner.equals(reader.getClassName())) return null;

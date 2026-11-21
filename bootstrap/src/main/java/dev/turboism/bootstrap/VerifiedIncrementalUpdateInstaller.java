@@ -43,11 +43,18 @@ final class VerifiedIncrementalUpdateInstaller implements VerifiedHookInstaller 
     /** The close proof restores all five rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 5;
 
+    /** Frame-update core entry method name on the updater singleton. */
+    private static final String CORE_ENTRY_METHOD = "a";
+
     private static final List<ReviewedHostContract.Candidate<IncrementalUpdateTarget>> CANDIDATES =
-            ReviewedHostContract.candidates(
+            ReviewedHostContract.candidatesWithMethods(
                     IncrementalUpdateTarget.targetClasses(),
                     version ->
-                            IncrementalUpdateTarget.forReviewedVersion(version).orElse(null));
+                            IncrementalUpdateTarget.forReviewedVersion(version).orElse(null),
+                    version -> IncrementalUpdateTarget.forReviewedVersion(version)
+                            .map(target -> List.of(new ReviewedHostContract.MethodSignatureSpec(
+                                    target.updater(), CORE_ENTRY_METHOD, target.coreDescriptor())))
+                            .orElse(List.of()));
 
     private final InstallContext context;
     private IncrementalUpdateBridge bridge;

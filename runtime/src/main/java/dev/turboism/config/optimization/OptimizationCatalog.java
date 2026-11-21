@@ -568,6 +568,32 @@ public final class OptimizationCatalog {
             "settings.optimization.triangulation-spatial-index.tooltip",
             List.of());
 
+    /** Speeds up opening Cubism model documents cleanly alongside texture upload preparation. */
+    public static final Optimization MODEL_OPEN_ACCELERATION = new Optimization(
+            "modelOpenAcceleration",
+            "model-open-acceleration",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.modelOpenAcceleration"),
+            List.of("TURBOISM_MODEL_OPEN_ACCELERATION"),
+            Set.of("cubism.model.open-acceleration"),
+            Optional.of(new Optimization.Placement("model", 75)),
+            "settings.optimization.model-open-acceleration",
+            "settings.optimization.model-open-acceleration.tooltip",
+            List.of());
+
+    /** Speeds up exporting runtime Cubism MOC3 models without changing exported output. */
+    public static final Optimization RUNTIME_EXPORT_ACCELERATION = new Optimization(
+            "runtimeExportAcceleration",
+            "runtime-export-acceleration",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.runtimeExportAcceleration"),
+            List.of("TURBOISM_RUNTIME_EXPORT_ACCELERATION"),
+            Set.of("cubism.model.runtime-export-acceleration"),
+            Optional.of(new Optimization.Placement("model", 76)),
+            "settings.optimization.runtime-export-acceleration",
+            "settings.optimization.runtime-export-acceleration.tooltip",
+            List.of());
+
     // ---------------------------------------------------------------- diagnostic-only probe hooks
 
     /**
@@ -686,6 +712,8 @@ public final class OptimizationCatalog {
             ATLAS_CACHE_REUSE,
             ATLAS_LOADING,
             TRIANGULATION_SPATIAL_INDEX,
+            MODEL_OPEN_ACCELERATION,
+            RUNTIME_EXPORT_ACCELERATION,
             CANVAS_COMPOSITE_ELISION,
             CLIP_MASK_PROBE,
             GL_GET_ERROR_ELISION,

@@ -38,9 +38,13 @@ final class VerifiedModelUpdateSkipInstaller implements VerifiedHookInstaller {
     static final int EXPECTED_OWNERS = 1;
 
     private static final List<ReviewedHostContract.Candidate<ModelUpdateSkipTarget>> CANDIDATES =
-            ReviewedHostContract.candidates(
+            ReviewedHostContract.candidatesWithMethods(
                     ModelUpdateSkipTarget.targetClasses(),
-                    version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null));
+                    version -> ModelUpdateSkipTarget.forReviewedVersion(version).orElse(null),
+                    version -> ModelUpdateSkipTarget.forReviewedVersion(version)
+                            .map(target -> List.of(new ReviewedHostContract.MethodSignatureSpec(
+                                    target.owner(), ModelUpdateSkipTarget.METHOD, target.methodDescriptor())))
+                            .orElse(List.of()));
 
     static final WeaveSpec<ReviewedHostContract.Bound<ModelUpdateSkipTarget>> SPEC =
             new WeaveSpec<ReviewedHostContract.Bound<ModelUpdateSkipTarget>>(

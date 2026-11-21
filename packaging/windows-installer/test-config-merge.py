@@ -135,6 +135,7 @@ V1_FIELDS = {
     "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
     "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
     "atlasLoading", "triangulationSpatialIndex",
+    "modelOpenAcceleration", "runtimeExportAcceleration",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
@@ -151,6 +152,7 @@ BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "incre
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
     "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+    "modelOpenAcceleration", "runtimeExportAcceleration",
 }
 CUBISM_JVMS = {"graalvm", "bundled"}
 MEMORY_PROFILES = {"system", "balanced4g", "balanced4gFastSoft"}
@@ -568,6 +570,7 @@ def check_config_migration_contract():
               "reduceAutoBackup", "meshTriangulationHashFix",
               "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
               "atlasLoading", "triangulationSpatialIndex",
+              "modelOpenAcceleration", "runtimeExportAcceleration",
           ))
           and '"zgc", "modelUpdateSkip", "incrementalUpdate"' in configure)
     check("CM6c merged documents with runtime boolean fields pass v1",
@@ -578,6 +581,7 @@ def check_config_migration_contract():
               "atlasTileBbox": True, "atlasCacheReuse": False,
               "meshTriangulationEdgeIndex": False, "atlasLoading": False,
               "triangulationSpatialIndex": False,
+              "modelOpenAcceleration": True, "runtimeExportAcceleration": False,
               "launcher": {"cubismJvm": "bundled", "zgc": False,
                            "modelUpdateSkip": False, "incrementalUpdate": True, "uniformLocationCache": False},
           }) is not None)
@@ -1232,14 +1236,14 @@ def check_launcher_and_shortcut_contract():
     )
     pat1 = re.sub(r"\\p\{[A-Za-z]+\}", r"\\w", shortcut_match.group(1)) if shortcut_match else ""
     pat2 = re.sub(r"\\p\{[A-Za-z]+\}", r"\\w", shortcut_match.group(2)) if shortcut_match else ""
-    check("L3b managed shortcut patterns admit all reviewed 5.0.00-5.3.04 versions",
+    check("L3b managed shortcut patterns admit all reviewed 5.0.00-5.3.05 versions",
           shortcut_match is not None
           and all(
               re.match(pat1, f"Turboism_Cubism_{v}_Live2D_Cubism_{v}-A1B2C3D4E5F6.lnk", re.I)
               and re.match(pat1, f"Turboism_Cubism_{v}_Live2D_Cubism_{v}-A1B2C3D4E5F6-D3D.lnk", re.I)
               and re.match(pat2, f"Turboism Cubism {v} [Live2D Cubism {v}-A1B2C3D4E5F6].lnk", re.I)
               and re.match(pat2, f"Turboism Cubism {v} [Live2D Cubism {v}-A1B2C3D4E5F6] - D3D.lnk", re.I)
-              for v in ["5.0.00", "5.1.00", "5.1.03", "5.2.03", "5.3.02", "5.3.04", "5.0", "5.2"]
+              for v in ["5.0.00", "5.1.00", "5.1.03", "5.2.03", "5.3.02", "5.3.04", "5.3.05", "5.0", "5.2"]
           ))
     check("L4 installer Start Menu shortcut names contain no spaces",
           '"Turboism_Configurator"' in text
