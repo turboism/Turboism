@@ -26,16 +26,31 @@ final class McpStdioBridgeTest {
 
         assertEquals(stateDir.resolve(McpStdioBridge.FILE_NAME), bridge);
         final String source = Files.readString(bridge, StandardCharsets.UTF_8);
-        assertTrue(source.contains(stateDir.toAbsolutePath().toString().replace("\\", "\\\\")));
+        assertTrue(source.contains(javaSourceLiteral(stateDir.toAbsolutePath().toString())));
         assertTrue(source.contains("mcp.token"));
         assertTrue(source.contains("mcp-connection.json"));
-        assertTrue(source.contains("Authorization\", \"Bearer "));
+        assertTrue(source.contains("\"Authorization\""));
+        assertTrue(source.contains("\"Bearer \""));
         assertTrue(source.contains("class TurboismMcpBridge"));
 
         // An unchanged source is not republished.
         final long written = Files.getLastModifiedTime(bridge).toMillis();
         assertEquals(bridge, McpStdioBridge.publish(stateDir));
         assertEquals(written, Files.getLastModifiedTime(bridge).toMillis());
+    }
+
+    /**
+     * The published bridge must stay pure US-ASCII: external clients compile it with
+     * {@code java TurboismMcpBridge.java} under their own platform codepage.
+     */
+    @Test
+    void publishedBridgeStaysPureAsciiEvenUnderANonAsciiStateDirectory(@TempDir final Path root) throws Exception {
+        final Path localized = Files.createDirectory(root.resolve("\u30e6\u30fc\u30b6\u30fc\u30d5\u30a9\u30eb\u30c0"));
+
+        final String source = Files.readString(McpStdioBridge.publish(localized), StandardCharsets.UTF_8);
+
+        assertTrue(source.chars().allMatch(codeUnit -> codeUnit < 0x80), "bridge source must not carry non-ASCII text");
+        assertTrue(source.contains("\\u30e6"), "a non-ASCII path character must be escaped, not written raw");
     }
 
     @Test
@@ -139,6 +154,26 @@ final class McpStdioBridgeTest {
 
     private Path temporaryCodeSource() {
         return stateDir;
+    }
+
+    /** Encodes a path the way the publisher must: every non-printable or non-ASCII unit escaped. */
+    private static String javaSourceLiteral(final String value) {
+        final StringBuilder out = new StringBuilder(value.length() + 8);
+        for (int index = 0; index < value.length(); index++) {
+            final char c = value.charAt(index);
+            switch (c) {
+                case '\\' -> out.append("\\\\");
+                case '"' -> out.append("\\\"");
+                default -> {
+                    if (c < 0x20 || c >= 0x7F) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+                }
+            }
+        }
+        return out.toString();
     }
 
     private static final class CapturingPluginLogger implements dev.turboism.sdk.plugin.PluginLogger {

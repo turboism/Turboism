@@ -332,6 +332,13 @@ final class McpKeyformWriteDomain {
         }
     }
 
+    /** Releases every retained operation of a closed or expired session. */
+    void dropSession(String session) {
+        synchronized (operations) {
+            operations.keySet().removeIf(key -> key.session().equals(session));
+        }
+    }
+
     private void finish(OperationKey key, Map<String, Object> output) {
         synchronized (operations) {
             var before = operations.get(key);

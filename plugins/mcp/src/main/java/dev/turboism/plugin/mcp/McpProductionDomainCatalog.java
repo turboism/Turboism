@@ -80,32 +80,53 @@ final class McpProductionDomainCatalog {
         return invoke(McpTools.MODEL_SNAPSHOT_GET, Map.of());
     }
 
+    /**
+     * Reads the overview in one host read. A full {@code model_snapshot_get} would also collect
+     * parameters, meshes, deformers, PSDs, clip masks, atlases, render status, workspace, and theme
+     * status, then discard them.
+     */
     private Map<String, Object> overview() {
-        final Map<String, Object> snapshot = snapshot();
-        final Map<String, Object> authoritative = invoke(McpTools.LIST, Map.of());
-        if (!Boolean.TRUE.equals(authoritative.get("ok"))) {
+        final OverviewRead read = invokeOverviewRead();
+        if (read.objects() == null) {
             return linked(
                     entry("ok", true),
                     entry("availability", "UNAVAILABLE"),
-                    entry("document", snapshot.get("document")),
+                    entry("document", read.document()),
                     entry("model", null),
-                    entry("selection", snapshot.get("selection")),
+                    entry("selection", read.selection()),
                     entry("objects", null),
                     entry("modelObjects", null),
                     entry("diagnosticCode", "MODEL_OBJECT_PROVIDER_UNAVAILABLE"));
         }
-        final List<Object> objects = array(authoritative.get("objects"), "objects");
-        final Object model = modelWithObjects(snapshot.get("model"), objects);
+        final List<Object> objects = read.objects();
+        final Object model = modelWithObjects(read.model(), objects);
         return linked(
                 entry("ok", true),
                 entry("availability", "AVAILABLE"),
-                entry("document", snapshot.get("document")),
+                entry("document", read.document()),
                 entry("model", model),
-                entry("selection", snapshot.get("selection")),
+                entry("selection", read.selection()),
                 entry("objects", objects),
                 entry("modelObjects", objects),
                 entry("diagnosticCode", null));
     }
+
+    /**
+     * Captures the active document, model, selection, and authoritative object list in one host read.
+     * An absent object provider yields {@code null} objects and no diagnostic identifier.
+     */
+    private OverviewRead invokeOverviewRead() {
+        final Map<String, Object> snapshot = invoke(McpTools.MODEL_OVERVIEW_READ, Map.of());
+        if (!Boolean.TRUE.equals(snapshot.get("ok"))) {
+            return new OverviewRead(null, null, null, null);
+        }
+        final Object rawObjects = snapshot.get("objects");
+        final List<Object> objects = rawObjects == null ? null : array(rawObjects, "objects");
+        return new OverviewRead(snapshot.get("document"), snapshot.get("model"), snapshot.get("selection"), objects);
+    }
+
+    /** One atomic overview read: the projections the overview publishes, and nothing else. */
+    private record OverviewRead(Object document, Object model, Object selection, List<Object> objects) {}
 
     private static Object modelWithObjects(final Object value, final List<Object> objects) {
         if (!(value instanceof Map<?, ?> raw)) return null;

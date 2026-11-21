@@ -417,6 +417,16 @@ final class McpDocumentLifecycleDomain {
         }
     }
 
+    /** Releases every document snapshot and retained operation of a closed or expired session. */
+    void dropSession(String session) {
+        synchronized (snapshots) {
+            snapshots.values().removeIf(snapshot -> snapshot.session().equals(session));
+        }
+        synchronized (operations) {
+            operations.keySet().removeIf(key -> key.session().equals(session));
+        }
+    }
+
     private void finish(
             Operation op, String outcome, String code, String status, Map<String, Object> state, boolean ready) {
         synchronized (operations) {

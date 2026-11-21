@@ -161,8 +161,9 @@ final class McpExpandedProtocolTest {
 
     @Test
     void listCursorsAreOpaqueAndBoundToTheSessionAndMethod() {
+        final int total = McpProtocol.DEFAULT_PAGE_SIZE + 5;
         final java.util.List<Map<String, Object>> definitions = new java.util.ArrayList<>();
-        for (int index = 0; index < 55; index++) {
+        for (int index = 0; index < total; index++) {
             definitions.add(Map.of(
                     "name", "tool_" + index,
                     "description", "Tool " + index,
@@ -174,7 +175,7 @@ final class McpExpandedProtocolTest {
                 McpPromptCatalog.defaults());
 
         final Map<String, Object> first = result(protocol.handle(request(1, "tools/list", Map.of()), "session-a"));
-        assertEquals(50, list(first.get("tools")).size());
+        assertEquals(McpProtocol.DEFAULT_PAGE_SIZE, list(first.get("tools")).size());
         final String cursor = (String) first.get("nextCursor");
 
         final Map<String, Object> second =

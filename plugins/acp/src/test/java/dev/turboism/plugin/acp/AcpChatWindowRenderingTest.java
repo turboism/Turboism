@@ -139,8 +139,8 @@ final class AcpChatWindowRenderingTest {
             });
             SwingUtilities.invokeAndWait(() -> {
                 final JTextPane transcript = component(reference.get(), "transcript", JTextPane.class);
-                assertTrue(transcript.getText().contains("Screenshot ready"));
-                assertFalse(transcript.getText().contains("![Screenshot]"));
+                assertTrue(transcriptText(transcript).contains("Screenshot ready"));
+                assertFalse(transcriptText(transcript).contains("![Screenshot]"));
             });
         } finally {
             SwingUtilities.invokeAndWait(reference.get()::dispose);
@@ -246,10 +246,10 @@ final class AcpChatWindowRenderingTest {
                 final AcpChatWindow window = reference.get();
                 window.refreshTheme();
                 final JTextPane transcript = component(window, "transcript", JTextPane.class);
-                assertTrue(transcript.getText().contains("text after image"));
+                assertTrue(transcriptText(transcript).contains("text after image"));
                 assertTrue(StyleConstants.getIcon(transcript
                                 .getStyledDocument()
-                                .getCharacterElement(transcript.getText().indexOf("clipboard.png") - 2)
+                                .getCharacterElement(transcriptText(transcript).indexOf("clipboard.png") - 2)
                                 .getAttributes())
                         != null);
             });
@@ -337,7 +337,7 @@ final class AcpChatWindowRenderingTest {
                 window.appendAgent("成**\n```java\n  int x = 1;\n");
                 window.appendAgent("```\n正常文本");
                 final JTextPane transcript = component(window, "transcript", JTextPane.class);
-                final String before = transcript.getText();
+                final String before = transcriptText(transcript);
                 assertTrue(before.contains("请检查 **模型**"));
                 assertTrue(before.contains("结果\n完成\n  int x = 1;\n正常文本"));
                 assertFalse(before.contains("```"));
@@ -349,7 +349,7 @@ final class AcpChatWindowRenderingTest {
 
                 window.updateTool("tool-1", "completed", "检查通过");
                 window.appendAgent("，可以继续。");
-                final String after = transcript.getText();
+                final String after = transcriptText(transcript);
                 assertFalse(after.contains("检查通过"));
                 assertTrue(after.contains("Tools: 1"));
                 assertFalse(after.contains("Thinking"));
@@ -358,13 +358,13 @@ final class AcpChatWindowRenderingTest {
                 assertEquals(1, after.split("结果", -1).length - 1);
 
                 toggleDisclosureWithKeyboard(transcript, "Tools: 1");
-                assertTrue(transcript.getText().contains("▸  Thinking"));
-                assertFalse(transcript.getText().contains("分析参数"));
+                assertTrue(transcriptText(transcript).contains("▸  Thinking"));
+                assertFalse(transcriptText(transcript).contains("分析参数"));
                 toggleDisclosureWithKeyboard(transcript, "Thinking");
-                assertTrue(transcript.getText().contains("分析参数"));
+                assertTrue(transcriptText(transcript).contains("分析参数"));
                 toggleDisclosureWithKeyboard(transcript, "Thinking");
                 toggleDisclosureWithKeyboard(transcript, "Tools: 1");
-                assertEquals(after, transcript.getText());
+                assertEquals(after, transcriptText(transcript));
             } finally {
                 window.dispose();
             }
@@ -385,12 +385,12 @@ final class AcpChatWindowRenderingTest {
                 window.updateTool("tool-2", "completed", "ParamAngleX = 0");
                 window.appendAgent("检查完成");
                 final JTextPane transcript = component(window, "transcript", JTextPane.class);
-                assertTrue(transcript.getText().contains("Commands: 1 · Other tools: 1  ·  1 running"));
-                assertFalse(transcript.getText().contains("ls -la"));
-                assertFalse(transcript.getText().contains("ParamAngleX"));
+                assertTrue(transcriptText(transcript).contains("Commands: 1 · Other tools: 1  ·  1 running"));
+                assertFalse(transcriptText(transcript).contains("ls -la"));
+                assertFalse(transcriptText(transcript).contains("ParamAngleX"));
                 window.showAgentAndFront();
                 // Exercise the actual mouse hit target on the summary row.
-                final int summary = transcript.getText().indexOf("Commands:");
+                final int summary = transcriptText(transcript).indexOf("Commands:");
                 try {
                     final java.awt.geom.Rectangle2D bounds = transcript.modelToView2D(summary);
                     transcript.dispatchEvent(new MouseEvent(
@@ -406,33 +406,33 @@ final class AcpChatWindowRenderingTest {
                 } catch (javax.swing.text.BadLocationException failure) {
                     throw new AssertionError(failure);
                 }
-                assertTrue(transcript.getText().contains("▸  检查文件 · in_progress"));
-                assertTrue(transcript.getText().contains("▸  读取参数 · completed"));
-                assertFalse(transcript.getText().contains("ls -la"));
-                assertFalse(transcript.getText().contains("ParamAngleX = 0"));
+                assertTrue(transcriptText(transcript).contains("▸  检查文件 · in_progress"));
+                assertTrue(transcriptText(transcript).contains("▸  读取参数 · completed"));
+                assertFalse(transcriptText(transcript).contains("ls -la"));
+                assertFalse(transcriptText(transcript).contains("ParamAngleX = 0"));
                 toggleDisclosureWithKeyboard(transcript, "检查文件");
-                assertTrue(transcript.getText().contains("printf 'first\\n'\nls -la"));
-                assertFalse(transcript.getText().contains("ParamAngleX = 0"));
+                assertTrue(transcriptText(transcript).contains("printf 'first\\n'\nls -la"));
+                assertFalse(transcriptText(transcript).contains("ParamAngleX = 0"));
                 toggleDisclosureWithKeyboard(transcript, "读取参数");
-                assertTrue(transcript.getText().contains("ParamAngleX = 0"));
+                assertTrue(transcriptText(transcript).contains("ParamAngleX = 0"));
                 window.updateTool("command-1", "failed", "permission denied");
                 window.updateTool("command-1", "failed", "");
                 window.appendAgent("，请检查权限");
-                assertTrue(transcript.getText().contains("ls -la"));
-                assertTrue(transcript.getText().contains("permission denied"));
-                assertTrue(transcript.getText().contains("1 failed"));
-                assertTrue(transcript.getText().contains("检查完成，请检查权限"));
+                assertTrue(transcriptText(transcript).contains("ls -la"));
+                assertTrue(transcriptText(transcript).contains("permission denied"));
+                assertTrue(transcriptText(transcript).contains("1 failed"));
+                assertTrue(transcriptText(transcript).contains("检查完成，请检查权限"));
                 toggleSummaryWithKeyboard(transcript);
-                assertFalse(transcript.getText().contains("ls -la"));
+                assertFalse(transcriptText(transcript).contains("ls -la"));
                 toggleSummaryWithKeyboard(transcript);
-                assertTrue(transcript.getText().contains("permission denied"));
+                assertTrue(transcriptText(transcript).contains("permission denied"));
                 window.appendUser("下一轮");
                 window.appendTool("command-3", "下一条命令", "execute", "pending");
-                assertEquals(2, transcript.getText().split("Commands:", -1).length - 1);
+                assertEquals(2, transcriptText(transcript).split("Commands:", -1).length - 1);
                 window.clearTranscript();
                 window.appendTool("fresh", "新工具", "read", "completed");
-                assertFalse(transcript.getText().contains("permission denied"));
-                assertFalse(transcript.getText().contains("新工具"));
+                assertFalse(transcriptText(transcript).contains("permission denied"));
+                assertFalse(transcriptText(transcript).contains("新工具"));
             } finally {
                 window.dispose();
             }
@@ -453,7 +453,7 @@ final class AcpChatWindowRenderingTest {
                 window.appendUser("继续");
                 window.appendAgent("第二轮回答");
                 final JTextPane transcript = component(window, "transcript", JTextPane.class);
-                final String text = transcript.getText();
+                final String text = transcriptText(transcript);
                 assertTrue(text.contains("第一轮回答"));
                 assertFalse(text.contains("Model A"));
                 assertFalse(text.contains("You\n"));
@@ -478,8 +478,8 @@ final class AcpChatWindowRenderingTest {
                         "model", "Model", "raw-model-id", List.of(new AcpConfigOption.Choice("other", "Other")))));
                 window.appendUser("第三轮");
                 window.appendAgent("第三轮回答");
-                assertTrue(transcript.getText().contains("第三轮回答"));
-                assertFalse(transcript.getText().contains("raw-model-id"));
+                assertTrue(transcriptText(transcript).contains("第三轮回答"));
+                assertFalse(transcriptText(transcript).contains("raw-model-id"));
             } finally {
                 window.dispose();
             }
@@ -737,7 +737,7 @@ final class AcpChatWindowRenderingTest {
                 assertEquals(palette[5], AcpChatTheme.accent());
                 assertEquals(palette[6], AcpChatTheme.border());
                 assertEquals("未发送的草稿", prompt.getText());
-                assertTrue(transcript.getText().contains("保留展开的思考"));
+                assertTrue(transcriptText(transcript).contains("保留展开的思考"));
                 assertEquals(
                         palette[1],
                         transcript
@@ -767,16 +767,16 @@ final class AcpChatWindowRenderingTest {
                 window.appendThinking("**第一段");
                 window.appendThinking("思考**");
                 final JTextPane transcript = component(window, "transcript", JTextPane.class);
-                assertTrue(transcript.getText().contains("▸  Thinking"));
-                assertFalse(transcript.getText().contains("第一段思考"));
+                assertTrue(transcriptText(transcript).contains("▸  Thinking"));
+                assertFalse(transcriptText(transcript).contains("第一段思考"));
                 toggleDisclosureWithKeyboard(transcript, "Thinking");
                 window.appendThinking("，继续分析");
-                assertTrue(transcript.getText().contains("第一段思考，继续分析"));
+                assertTrue(transcriptText(transcript).contains("第一段思考，继续分析"));
                 window.appendTool("one", "读取模型", "read", "pending");
                 window.appendThinking("第二段思考");
                 window.appendTool("two", "检查参数", "read", "completed");
                 window.appendAgent("最终结论");
-                String text = transcript.getText();
+                String text = transcriptText(transcript);
                 // Summary omits Thinking and shows nested Thinking disclosures inside the expanded group.
                 assertFalse(text.contains("Thinking · Tools: 2"));
                 assertTrue(text.contains("▾  Tools: 2  ·  1 running"));
@@ -784,18 +784,18 @@ final class AcpChatWindowRenderingTest {
                 assertFalse(text.contains("第一段思考"));
                 assertFalse(text.contains("第二段思考"));
                 toggleDisclosureWithKeyboard(transcript, "▸  Thinking");
-                text = transcript.getText();
+                text = transcriptText(transcript);
                 assertTrue(text.contains("▾  Thinking"));
                 assertTrue(text.indexOf("第一段思考") < text.indexOf("读取模型"));
                 assertTrue(text.indexOf("读取模型") < text.indexOf("▸  Thinking"));
                 assertTrue(text.indexOf("▸  Thinking") < text.indexOf("检查参数"));
 
                 window.updateTool("one", "completed", "读取完成");
-                assertFalse(transcript.getText().contains("读取完成"));
+                assertFalse(transcriptText(transcript).contains("读取完成"));
                 toggleDisclosureWithKeyboard(transcript, "读取模型");
-                assertTrue(transcript.getText().contains("读取完成"));
+                assertTrue(transcriptText(transcript).contains("读取完成"));
                 toggleDisclosureWithKeyboard(transcript, "Tools: 2");
-                text = transcript.getText();
+                text = transcriptText(transcript);
                 assertTrue(text.contains("▸  Tools: 2"));
                 assertFalse(text.contains("Thinking"));
                 assertFalse(text.contains("第一段思考"));
@@ -804,11 +804,11 @@ final class AcpChatWindowRenderingTest {
 
                 // A later turn after an agent message starts a separate independent group.
                 window.appendThinking("下一轮思考");
-                assertEquals(1, transcript.getText().split("Thinking", -1).length - 1);
+                assertEquals(1, transcriptText(transcript).split("Thinking", -1).length - 1);
 
                 window.clearTranscript();
                 window.appendThinking("新会话思考");
-                assertFalse(transcript.getText().contains("新会话思考"));
+                assertFalse(transcriptText(transcript).contains("新会话思考"));
             } finally {
                 window.dispose();
             }
@@ -983,7 +983,7 @@ final class AcpChatWindowRenderingTest {
                 transcript.setSize(600, 400);
                 transcript.doLayout();
                 try {
-                    final String rendered = transcript.getText();
+                    final String rendered = transcriptText(transcript);
                     assertTrue(
                             java.util.regex.Pattern.compile("[A-Za-z]+ \\d{2}:\\d{2}")
                                     .matcher(rendered)
@@ -1118,8 +1118,8 @@ final class AcpChatWindowRenderingTest {
             SwingUtilities.invokeAndWait(() -> {
                 final AcpChatWindow window = windowRef.get();
                 final JTextPane transcript = component(window, "transcript", JTextPane.class);
-                assertFalse(transcript.getText().contains("Tool image"));
-                assertFalse(transcript.getText().contains("reported:"));
+                assertFalse(transcriptText(transcript).contains("Tool image"));
+                assertFalse(transcriptText(transcript).contains("reported:"));
                 final AcpChatWindow.ImageSource source = window.imageAtOffset(0);
                 assertTrue(source != null);
                 assertEquals(toolAttachment.data(), source.attachment().data());
@@ -1250,12 +1250,29 @@ final class AcpChatWindowRenderingTest {
         });
     }
 
+    /**
+     * Returns the transcript text exactly as the document stores it.
+     *
+     * <p>{@code JTextPane.getText()} rewrites each document newline to the platform separator, so a
+     * Windows run produces two characters where a model offset counts one. Reading the document
+     * keeps substring offsets and document offsets identical on every platform.</p>
+     */
+    private static String transcriptText(final JTextPane transcript) {
+        final javax.swing.text.Document document = transcript.getStyledDocument();
+        try {
+            return document.getText(0, document.getLength());
+        } catch (javax.swing.text.BadLocationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
     private static void toggleSummaryWithKeyboard(final JTextPane transcript) {
-        toggleDisclosureWithKeyboard(transcript, transcript.getText().contains("Commands:") ? "Commands:" : "Tools:");
+        toggleDisclosureWithKeyboard(
+                transcript, transcriptText(transcript).contains("Commands:") ? "Commands:" : "Tools:");
     }
 
     private static void toggleDisclosureWithKeyboard(final JTextPane transcript, final String label) {
-        transcript.setCaretPosition(transcript.getText().indexOf(label));
+        transcript.setCaretPosition(transcriptText(transcript).indexOf(label));
         final Object key = transcript.getInputMap().get(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0));
         transcript.getActionMap().get(key).actionPerformed(new ActionEvent(transcript, 0, "toggle"));
     }

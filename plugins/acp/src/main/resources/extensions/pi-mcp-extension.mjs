@@ -5,6 +5,18 @@ import { spawn } from 'node:child_process';
 const preferredProtocol = '2025-11-25';
 const supportedProtocols = new Set([preferredProtocol, '2025-06-18', '2025-03-26', '2024-11-05']);
 
+// The handshake and catalog calls are local and short. A tool call can execute a
+// host-side operation, so it needs the same budget the Turboism server and stdio
+// bridge allow; a shorter deadline aborts work the server is still completing.
+const HANDSHAKE_TIMEOUT_MS = 15000;
+const TOOL_CALL_TIMEOUT_MS = 120000;
+const CANCEL_TIMEOUT_MS = 2000;
+const REQUEST_TIMEOUT_METHODS = new Set(['initialize', 'tools/list', 'resources/list', 'resources/templates/list']);
+
+function timeoutFor(method) {
+  return REQUEST_TIMEOUT_METHODS.has(method) ? HANDSHAKE_TIMEOUT_MS : TOOL_CALL_TIMEOUT_MS;
+}
+
 export default async function (pi) {
   const clients = [];
   const names = new Set();
@@ -175,24 +187,68 @@ function createClient(config) {
     child.stdin.on('error', rejectAll);
     child.on('exit', () => rejectAll(new Error('MCP process exited')));
   }
+  // Tell the server to stop work the caller no longer waits for. A bridge deadline
+  // must not leave a host-side operation running after Pi has given up on it.
+  function notifyCancelled(requestId, reason) {
+    if (closed || requestId === undefined) return;
+    const notification = { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId, reason } };
+    try {
+      if (child) { child.stdin.write(JSON.stringify(notification) + '\n'); return; }
+      if (!config.url) return;
+      const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...config.headers });
+      headers.delete('MCP-Protocol-Version');
+      if (protocolVersion) headers.set('MCP-Protocol-Version', protocolVersion);
+      if (session) headers.set('Mcp-Session-Id', session);
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), CANCEL_TIMEOUT_MS).unref?.();
+      fetch(config.url, { method: 'POST', headers, body: JSON.stringify(notification), signal: controller.signal })
+        .then(response => response.body?.cancel())
+        .catch(() => {});
+    } catch {
+      // Cancellation is best effort; the timeout or abort result stays authoritative.
+    }
+  }
+
   async function send(message, signal) {
     if (closed) throw new Error('MCP connection closed');
     if (signal?.aborted) throw new Error('MCP request cancelled before dispatch');
+    const timeout = timeoutFor(message.method);
     if (child) {
       if (message.id === undefined) { child.stdin.write(JSON.stringify(message) + '\n'); return; }
       if (pending.size >= 64) throw new Error('Too many MCP requests');
       return new Promise((resolve, reject) => {
-        const abort = () => { const task = pending.get(message.id); pending.delete(message.id); task?.reject(new Error('MCP request cancelled')); };
-        const timer = setTimeout(() => { const task = pending.get(message.id); pending.delete(message.id); task?.reject(new Error('MCP request timed out')); }, 15000);
-        const finish = fn => value => { clearTimeout(timer); signal?.removeEventListener('abort', abort); fn(value); };
-        pending.set(message.id, { resolve: finish(resolve), reject: finish(reject) });
+        const finish = (error, value) => {
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', abort);
+          error ? reject(error) : resolve(value);
+        };
+        const abandon = reason => {
+          if (!pending.delete(message.id)) return;
+          notifyCancelled(message.id, reason);
+          finish(new Error(reason));
+        };
+        const abort = () => abandon('MCP request cancelled');
+        const timer = setTimeout(() => abandon('MCP request timed out'), timeout);
+        pending.set(message.id, { resolve: value => finish(null, value), reject: error => finish(error) });
         signal?.addEventListener('abort', abort, { once: true });
         child.stdin.write(JSON.stringify(message) + '\n');
       });
     }
     const controller = new AbortController();
-    const abort = () => controller.abort();
-    const timer = setTimeout(abort, 15000);
+    // A caller abort or an expired deadline must also reach the server, because the
+    // HTTP request may already have started a host-side operation.
+    let completed = false;
+    // Reports who ended the request, so the caller sees one stable message instead of
+    // the transport's generic AbortError.
+    let abandonedAs;
+    const abandon = reason => {
+      if (completed || abandonedAs) return;
+      abandonedAs = reason;
+      controller.abort();
+      notifyCancelled(message.id, reason);
+    };
+    const abort = () => abandon('MCP request cancelled');
+    const timer = setTimeout(() => abandon('MCP request timed out'), timeout);
     signal?.addEventListener('abort', abort, { once: true });
     try {
       const headers = new Headers({ 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...config.headers });
@@ -229,7 +285,14 @@ function createClient(config) {
       const parsed = JSON.parse(body);
       if (parsed.error) throw new Error(parsed.error.message);
       return parsed.result;
-    } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+    } catch (error) {
+      if (abandonedAs) throw new Error(abandonedAs);
+      throw error;
+    } finally {
+      completed = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+    }
   }
   return {
     async call(method, params, signal) {

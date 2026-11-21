@@ -1268,6 +1268,55 @@ final class AcpChatControllerTest {
     }
 
     @Test
+    void persistedConnectDoesNotWaitForBackgroundDetection() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("agentId", "custom");
+        fixture.config.values.put("customCommand", temporaryExecutable().toString());
+        final java.util.concurrent.CountDownLatch detectionBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseDetection = new java.util.concurrent.CountDownLatch(1);
+        try (AcpChatController controller = fixture.controller((configuration, listener) -> {
+            throw new java.io.IOException("no agent in test");
+        })) {
+            detectionExecutor(controller).execute(() -> {
+                detectionBlocked.countDown();
+                awaitQuietly(releaseDetection);
+            });
+            assertTrue(detectionBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+            controller.detectAgentsIfNeeded();
+
+            controller.connect();
+
+            fixture.view.awaitFailure("status.executable-start-failed");
+            assertEquals(1L, releaseDetection.getCount());
+        } finally {
+            releaseDetection.countDown();
+        }
+    }
+
+    @Test
+    void backgroundDetectionDoesNotOccupyTheSerialLifecycleLane() throws Exception {
+        final Fixture fixture = new Fixture();
+        final java.util.concurrent.CountDownLatch detectionBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseDetection = new java.util.concurrent.CountDownLatch(1);
+        try (AcpChatController controller = fixture.controller()) {
+            detectionExecutor(controller).execute(() -> {
+                detectionBlocked.countDown();
+                awaitQuietly(releaseDetection);
+            });
+            assertTrue(detectionBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+            controller.detectAgentsIfNeeded();
+
+            controller.saveSettings("codex", null, "note");
+
+            awaitConfigValue(fixture, "agentId", "codex");
+            assertEquals("note", fixture.config.value("initialPrompt"));
+            assertEquals(1L, releaseDetection.getCount(), "settings work had to wait for the harness sweep");
+        } finally {
+            releaseDetection.countDown();
+        }
+    }
+
+    @Test
     void staleSessionEventsAndPermissionsAreRejected() throws Exception {
         final Fixture fixture = new Fixture();
         try (AcpClient source = inactiveClient();
@@ -1602,6 +1651,21 @@ final class AcpChatControllerTest {
         final java.util.concurrent.ExecutorService serial =
                 (java.util.concurrent.ExecutorService) field.get(controller);
         serial.submit(() -> {}).get(2, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    private static java.util.concurrent.ExecutorService detectionExecutor(final AcpChatController controller)
+            throws ReflectiveOperationException {
+        final java.lang.reflect.Field field = controller.getClass().getDeclaredField("detection");
+        field.setAccessible(true);
+        return (java.util.concurrent.ExecutorService) field.get(controller);
+    }
+
+    private static void awaitQuietly(final java.util.concurrent.CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void invokeUi(final AcpChatController controller, final Runnable work)

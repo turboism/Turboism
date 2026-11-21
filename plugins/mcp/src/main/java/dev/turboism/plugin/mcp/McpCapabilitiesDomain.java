@@ -6,7 +6,6 @@ import static dev.turboism.plugin.mcp.McpSchemas.immutableMap;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +16,18 @@ import java.util.function.Supplier;
 final class McpCapabilitiesDomain {
 
     static final String CAPABILITIES_READ = "turboism.capabilities.read";
+
+    /** Longest tool name the filter accepts, matching the shared identifier budget. */
+    private static final int MAX_TOOL_NAME_LENGTH = 4096;
+
+    private static final String CODE_UNKNOWN_TOOL = "UNKNOWN_TOOL";
+
+    private static final String CODE_INVALID_ARGUMENTS = "INVALID_ARGUMENTS";
+
+    private static final String CODE_TOOL_NOT_REGISTERED = "TOOL_NOT_REGISTERED";
+
+    /** Accepted {@code turboism.capabilities.read} arguments. */
+    private static final java.util.Set<String> ALLOWED_ARGUMENTS = java.util.Set.of("tool", "includeCoverage");
 
     private final Supplier<McpToolCatalog> tools;
 
@@ -30,42 +41,92 @@ final class McpCapabilitiesDomain {
 
     Map<String, Object> call(final String name, final Map<String, Object> arguments) {
         if (!CAPABILITIES_READ.equals(name)) {
-            return envelope(failure("UNKNOWN_TOOL"));
+            return envelope(failure(CODE_UNKNOWN_TOOL));
         }
-        if (arguments != null && !arguments.isEmpty()) {
-            return envelope(failure("INVALID_ARGUMENTS"));
-        }
+        final Map<String, Object> checked = arguments == null ? Map.of() : arguments;
+        final String requestedTool = requestedTool(checked);
+        final boolean includeCoverage = requestedIncludeCoverage(checked);
         final McpToolCatalog catalog = Objects.requireNonNull(tools.get(), "tools.get()");
         final List<Map<String, Object>> operations = new ArrayList<>();
+        boolean matched = requestedTool == null;
         for (McpRegisteredTool registration : catalog.registrations()) {
             final Object rawName = registration.publicDefinition().get("name");
             if (!(rawName instanceof String toolName) || toolName.isBlank()) {
                 throw new IllegalStateException("registered tool has no public name");
             }
-            final LinkedHashMap<String, Object> operation = new LinkedHashMap<>();
-            operation.put("name", toolName);
-            operation.put("effect", registration.effect().name());
-            operation.put("affinity", registration.affinity().name());
-            operation.put("transactionEligible", registration.transactionEligible());
-            if (registration.versionSupport().scoped()) {
-                operation.put(
-                        "providerCapabilityId", registration.versionSupport().providerCapabilityId());
-                operation.put("supportedVersions", registration.versionSupport().supportedVersions());
-                if (!registration.versionSupport().operations().isEmpty()) {
-                    operation.put(
-                            "operations",
-                            registration.versionSupport().operations().stream()
-                                    .map(McpCapabilitiesDomain::operationSupport)
-                                    .toList());
-                }
-            }
-            operations.add(Collections.unmodifiableMap(operation));
+            if (requestedTool != null && !requestedTool.equals(toolName)) continue;
+            matched = true;
+            operations.add(operation(registration, toolName));
         }
-        operations.sort(Comparator.comparing(operation -> (String) operation.get("name")));
+        if (!matched) {
+            return envelope(immutableMap(
+                    entry("ok", false),
+                    entry("code", CODE_TOOL_NOT_REGISTERED),
+                    entry("operations", List.of()),
+                    entry("coverage", coverage(includeCoverage))));
+        }
         return envelope(immutableMap(
                 entry("ok", true),
                 entry("operations", List.copyOf(operations)),
-                entry("coverage", McpSdkCoverageLedger.snapshot())));
+                entry("coverage", coverage(includeCoverage))));
+    }
+
+    /**
+     * Returns the {@code coverage} member. Agents that only need one tool's semantics omit the
+     * multi-hundred-kilobyte ledger; callers before this argument existed keep receiving it.
+     */
+    private static Object coverage(final boolean includeCoverage) {
+        return includeCoverage ? McpSdkCoverageLedger.snapshot() : null;
+    }
+
+    private static Map<String, Object> operation(final McpRegisteredTool registration, final String toolName) {
+        final LinkedHashMap<String, Object> operation = new LinkedHashMap<>();
+        operation.put("name", toolName);
+        operation.put("effect", registration.effect().name());
+        operation.put("affinity", registration.affinity().name());
+        operation.put("transactionEligible", registration.transactionEligible());
+        if (registration.versionSupport().scoped()) {
+            operation.put("providerCapabilityId", registration.versionSupport().providerCapabilityId());
+            operation.put("supportedVersions", registration.versionSupport().supportedVersions());
+            if (!registration.versionSupport().operations().isEmpty()) {
+                operation.put(
+                        "operations",
+                        registration.versionSupport().operations().stream()
+                                .map(McpCapabilitiesDomain::operationSupport)
+                                .toList());
+            }
+        }
+        return Collections.unmodifiableMap(operation);
+    }
+
+    /**
+     * Returns the exact tool name filter, or {@code null} when the caller omitted it.
+     *
+     * @throws IllegalArgumentException when {@code arguments} carries an unknown or malformed member
+     */
+    private static String requestedTool(final Map<String, Object> arguments) {
+        rejectUnknown(arguments);
+        if (!arguments.containsKey("tool")) return null;
+        if (!(arguments.get("tool") instanceof String tool) || tool.isBlank() || tool.length() > MAX_TOOL_NAME_LENGTH) {
+            throw new IllegalArgumentException("tool must be a non-blank registered tool name");
+        }
+        return tool;
+    }
+
+    private static boolean requestedIncludeCoverage(final Map<String, Object> arguments) {
+        if (!arguments.containsKey("includeCoverage")) return true;
+        if (!(arguments.get("includeCoverage") instanceof Boolean include)) {
+            throw new IllegalArgumentException("includeCoverage must be a boolean");
+        }
+        return include;
+    }
+
+    private static void rejectUnknown(final Map<String, Object> arguments) {
+        for (String key : arguments.keySet()) {
+            if (!ALLOWED_ARGUMENTS.contains(key)) {
+                throw new IllegalArgumentException("unknown argument: " + key);
+            }
+        }
     }
 
     private static Map<String, Object> operationSupport(final McpVersionSupport.OperationSupport support) {
@@ -80,7 +141,8 @@ final class McpCapabilitiesDomain {
     }
 
     private static Map<String, Object> failure(final String code) {
-        return immutableMap(entry("ok", false), entry("code", code), entry("operations", List.of()));
+        return immutableMap(
+                entry("ok", false), entry("code", code), entry("operations", List.of()), entry("coverage", null));
     }
 
     private static Map<String, Object> definition() {
@@ -90,12 +152,32 @@ final class McpCapabilitiesDomain {
                 entry(
                         "description",
                         "Lists the effect, execution affinity, and authoring-transaction "
-                                + "eligibility of every registered Turboism MCP tool."),
+                                + "eligibility of every registered Turboism MCP tool. Pass tool to read one "
+                                + "tool, and includeCoverage=false to omit the SDK coverage ledger."),
                 entry(
                         "inputSchema",
                         immutableMap(
                                 entry("type", "object"),
-                                entry("properties", Map.of()),
+                                entry(
+                                        "properties",
+                                        immutableMap(
+                                                entry(
+                                                        "tool",
+                                                        immutableMap(
+                                                                entry("type", "string"),
+                                                                entry("minLength", 1),
+                                                                entry("maxLength", MAX_TOOL_NAME_LENGTH),
+                                                                entry(
+                                                                        "description",
+                                                                        "Exact registered tool name to report."))),
+                                                entry(
+                                                        "includeCoverage",
+                                                        immutableMap(
+                                                                entry("type", "boolean"),
+                                                                entry("default", true),
+                                                                entry(
+                                                                        "description",
+                                                                        "Include the SDK coverage ledger; defaults to true."))))),
                                 entry("additionalProperties", false))),
                 entry("outputSchema", outputSchema()),
                 entry(
@@ -204,8 +286,12 @@ final class McpCapabilitiesDomain {
                                 entry("ok", immutableMap(entry("type", "boolean"))),
                                 entry("code", immutableMap(entry("type", "string"))),
                                 entry("operations", immutableMap(entry("type", "array"), entry("items", operation))),
-                                entry("coverage", coverageSchema()))),
-                entry("required", List.of("ok", "operations")),
+                                entry(
+                                        "coverage",
+                                        immutableMap(entry(
+                                                "oneOf",
+                                                List.of(coverageSchema(), immutableMap(entry("type", "null")))))))),
+                entry("required", List.of("ok", "operations", "coverage")),
                 entry("additionalProperties", false));
     }
 

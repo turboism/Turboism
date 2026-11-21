@@ -46,6 +46,9 @@ import org.junit.jupiter.api.io.TempDir;
  */
 final class AcpAgentDetectionRegressionTest {
 
+    /** Ceiling for a probe that must abort instead of waiting for the full 30 s fixture sleep. */
+    private static final long PROBE_TIMEOUT_BOUND_MILLIS = 5000L;
+
     @TempDir
     Path temporaryDirectory;
 
@@ -118,23 +121,19 @@ final class AcpAgentDetectionRegressionTest {
 
     @Test
     void probeReturnsFalseWhenProcessTimesOutAndCleansUpProcess() throws Exception {
-        final Path sleepingScript = temporaryDirectory.resolve("slow-agent.sh");
-        Files.writeString(sleepingScript, "#!/bin/sh\nsleep 30\n");
-        makeExecutable(sleepingScript);
+        final Path sleepingScript = probeFixture("slow-agent", "sleep 30", "ping -n 31 127.0.0.1 >nul");
 
         final long start = System.nanoTime();
         final boolean result = AgentLocator.probe(sleepingScript, Duration.ofMillis(100));
         final long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
         assertFalse(result, "timed-out probe must return false");
-        assertTrue(elapsed < 5000, "probe should abort within bounded timeout");
+        assertTrue(elapsed < PROBE_TIMEOUT_BOUND_MILLIS, "probe should abort within bounded timeout");
     }
 
     @Test
     void probeRejectsCrashingOrNonZeroExitPrograms() throws Exception {
-        final Path exitOneScript = temporaryDirectory.resolve("exit-one.sh");
-        Files.writeString(exitOneScript, "#!/bin/sh\nexit 1\n");
-        makeExecutable(exitOneScript);
+        final Path exitOneScript = probeFixture("exit-one", "exit 1", "exit /b 1");
 
         assertFalse(
                 AgentLocator.probe(exitOneScript, Duration.ofSeconds(2)),
@@ -143,9 +142,7 @@ final class AcpAgentDetectionRegressionTest {
 
     @Test
     void probeSucceedsForCleanExitZeroVersion() throws Exception {
-        final Path validScript = temporaryDirectory.resolve("valid-agent.sh");
-        Files.writeString(validScript, "#!/bin/sh\necho \"agent 1.0.0\"\nexit 0\n");
-        makeExecutable(validScript);
+        final Path validScript = probeFixture("valid-agent", "echo agent 1.0.0", "echo agent 1.0.0");
 
         assertTrue(
                 AgentLocator.probe(validScript, Duration.ofSeconds(2)),
@@ -303,6 +300,26 @@ final class AcpAgentDetectionRegressionTest {
                             .anyMatch(msg -> msg.contains("ACP connection") && msg.contains("antigravity")),
                     "Controller must log warning with agent ID on launch resolution failure");
         }
+    }
+
+    /**
+     * Writes a probe fixture the host shell can execute, with equivalent POSIX and batch bodies.
+     *
+     * <p>A Windows host cannot run a {@code .sh} file through {@code CreateProcess}, so a POSIX-only
+     * fixture makes every probe path return false. That would hide the timeout, non-zero exit, and
+     * clean exit contracts instead of exercising them.</p>
+     */
+    private Path probeFixture(final String name, final String posixCommand, final String batchCommand)
+            throws IOException {
+        final boolean windows = AgentLocator.isWindows();
+        final Path script = temporaryDirectory.resolve(windows ? name + ".cmd" : name + ".sh");
+        Files.writeString(
+                script,
+                windows
+                        ? "@echo off\r\n" + batchCommand + "\r\nexit /b %errorlevel%\r\n"
+                        : "#!/bin/sh\n" + posixCommand + "\n");
+        makeExecutable(script);
+        return script;
     }
 
     private void makeExecutable(final Path file) {

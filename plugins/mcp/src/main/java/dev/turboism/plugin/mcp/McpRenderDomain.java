@@ -29,6 +29,10 @@ final class McpRenderDomain {
     static final int MAX_PIXELS = 1_048_576;
     static final int MAX_PNG_BYTES = 3 * 1024 * 1024;
     private static final int MAX_PARAMETERS = 2048;
+
+    /** Parameter pose metadata must stay inside the render state response budget. */
+    private static final int MAX_PARAMETER_BYTES = 128 * 1024;
+
     private final CubismFacade cubism;
     private final McpExecutionBridge execution;
 
@@ -185,7 +189,9 @@ final class McpRenderDomain {
             // Ordinal is metadata only, never a native source GUID or write target identity.
             parameters.add(Map.of("ordinal", index, "id", parameter.id().value(), "value", value));
         }
-        if (Json.stringify(parameters).getBytes(StandardCharsets.UTF_8).length > 128 * 1024)
+        // One encoding serves both the byte budget and the pose hash.
+        var parameterBytes = Json.stringify(parameters).getBytes(StandardCharsets.UTF_8);
+        if (parameterBytes.length > MAX_PARAMETER_BYTES)
             throw new BudgetExceeded("Parameter metadata byte budget exceeded");
         var binding = Map.<String, Object>of(
                 "documentId",
@@ -197,7 +203,7 @@ final class McpRenderDomain {
                 "historyRevision",
                 history.revision(),
                 "poseHash",
-                hash(Json.stringify(parameters).getBytes(StandardCharsets.UTF_8)));
+                hash(parameterBytes));
         return new Context(model, binding, List.copyOf(parameters));
     }
 

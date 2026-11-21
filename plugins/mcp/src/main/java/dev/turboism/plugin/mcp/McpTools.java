@@ -78,6 +78,7 @@ final class McpTools {
     static final String MODEL_HIERARCHY_GET = "turboism_model_hierarchy_get";
     static final String SELECTION_GET = "turboism_selection_get";
     static final String MODEL_SNAPSHOT_GET = "turboism_model_snapshot_get";
+    static final String MODEL_OVERVIEW_READ = "turboism_model_overview_read";
     static final String CLIP_MASKS_LIST = "turboism_clip_masks_list";
 
     private static final Map<String, Object> READ_ONLY_HINTS = Map.of(
@@ -196,6 +197,12 @@ final class McpTools {
                         McpSchemas.object(properties(), List.of()),
                         READ_ONLY_HINTS),
                 tool(
+                        MODEL_OVERVIEW_READ,
+                        "Get the active model overview",
+                        "Returns the active document, model, selection, and authoritative model objects in one read.",
+                        McpSchemas.object(properties(), List.of()),
+                        READ_ONLY_HINTS),
+                tool(
                         CLIP_MASKS_LIST,
                         "List ArtMesh clip masks",
                         "Lists ArtMesh clip-mask records of the active model. id filters by the "
@@ -301,6 +308,7 @@ final class McpTools {
                         case MODEL_HIERARCHY_GET -> modelHierarchyGet(checkedArguments);
                         case SELECTION_GET -> selectionGet(checkedArguments);
                         case MODEL_SNAPSHOT_GET -> modelSnapshotGet(checkedArguments);
+                        case MODEL_OVERVIEW_READ -> modelOverviewRead(checkedArguments);
                         case CLIP_MASKS_LIST -> clipMasksList(checkedArguments);
                         default -> throw new ToolInputException("Unknown MCP tool: " + toolName);
                     };
@@ -450,43 +458,69 @@ final class McpTools {
 
     private Map<String, Object> modelSnapshotGet(final Map<String, Object> arguments) {
         only(arguments);
+        return readService(this::modelSnapshotOnUi);
+    }
+
+    /**
+     * Captures every read family in one host read so the snapshot cannot tear across a mid-read model
+     * switch. One read also removes thirteen host round-trips from each call.
+     */
+    private Map<String, Object> modelSnapshotOnUi() {
         return linked(
                 entry("ok", true),
-                entry(
-                        "project",
-                        execution.ui(read::activeProject).map(McpTools::project).orElse(null)),
-                entry(
-                        "document",
-                        execution
-                                .ui(read::activeDocument)
-                                .map(McpTools::document)
-                                .orElse(null)),
-                entry(
-                        "model",
-                        execution.ui(read::activeModel).map(McpTools::model).orElse(null)),
-                entry("selection", selection(execution.ui(read::selection))),
-                entry("parameters", list(execution.ui(read::parameters), McpTools::parameterSnapshot)),
-                entry("modelObjects", list(execution.ui(read::modelObjects), McpTools::modelObject)),
-                entry("meshes", list(execution.ui(read::meshes), McpTools::artMesh)),
-                entry("deformers", list(execution.ui(read::deformers), McpTools::deformer)),
-                entry("psdDocuments", list(execution.ui(read::psdDocuments), McpTools::psdDocument)),
-                entry("clipMasks", list(execution.ui(read::clipMasks), McpTools::clipMask)),
-                entry("textureAtlases", list(execution.ui(read::textureAtlases), McpTools::textureAtlas)),
+                entry("project", read.activeProject().map(McpTools::project).orElse(null)),
+                entry("document", read.activeDocument().map(McpTools::document).orElse(null)),
+                entry("model", read.activeModel().map(McpTools::model).orElse(null)),
+                entry("selection", selection(read.selection())),
+                entry("parameters", list(read.parameters(), McpTools::parameterSnapshot)),
+                entry("modelObjects", list(read.modelObjects(), McpTools::modelObject)),
+                entry("meshes", list(read.meshes(), McpTools::artMesh)),
+                entry("deformers", list(read.deformers(), McpTools::deformer)),
+                entry("psdDocuments", list(read.psdDocuments(), McpTools::psdDocument)),
+                entry("clipMasks", list(read.clipMasks(), McpTools::clipMask)),
+                entry("textureAtlases", list(read.textureAtlases(), McpTools::textureAtlas)),
                 entry(
                         "renderStatus",
-                        execution
-                                .ui(read::renderStatus)
-                                .map(McpTools::renderStatus)
-                                .orElse(null)),
-                entry(
-                        "workspace",
-                        execution.ui(read::workspace).map(McpTools::workspace).orElse(null)),
+                        read.renderStatus().map(McpTools::renderStatus).orElse(null)),
+                entry("workspace", read.workspace().map(McpTools::workspace).orElse(null)),
                 entry(
                         "themeStatus",
-                        execution
-                                .ui(read::themeStatus)
-                                .map(McpTools::themeStatus)
-                                .orElse(null)));
+                        read.themeStatus().map(McpTools::themeStatus).orElse(null)));
+    }
+
+    /**
+     * Captures the overview projections in one host read. The overview publishes no parameter,
+     * mesh, deformer, PSD, clip-mask, or atlas family, so this read never collects them.
+     */
+    private Map<String, Object> modelOverviewRead(final Map<String, Object> arguments) {
+        only(arguments);
+        return readService(this::modelOverviewOnUi);
+    }
+
+    private Map<String, Object> modelOverviewOnUi() {
+        final List<Map<String, Object>> objects;
+        try {
+            objects = service.list().stream().map(McpTools::descriptor).toList();
+        } catch (ModelObjectOperationException failure) {
+            if (failure.code() != ModelObjectOperationException.Code.UNAVAILABLE
+                    && failure.code() != ModelObjectOperationException.Code.STALE) {
+                throw failure;
+            }
+            return linked(
+                    entry("ok", true),
+                    entry(
+                            "document",
+                            read.activeDocument().map(McpTools::document).orElse(null)),
+                    entry("model", null),
+                    entry("selection", selection(read.selection())),
+                    entry("objects", null));
+        }
+        return linked(
+                entry("ok", true),
+                entry("document", read.activeDocument().map(McpTools::document).orElse(null)),
+                entry("model", read.activeModel().map(McpTools::model).orElse(null)),
+                entry("selection", selection(read.selection())),
+                entry("objects", objects));
     }
 
     private Map<String, Object> clipMasksList(final Map<String, Object> arguments) {

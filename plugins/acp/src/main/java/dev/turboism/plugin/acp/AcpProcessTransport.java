@@ -26,6 +26,15 @@ final class AcpProcessTransport implements AcpTransport {
 
     private static final long DESCENDANT_SAMPLER_JOIN_MILLIS = 250L;
 
+    /** Upper bound for waiting on a process tree after a forcible termination request. */
+    private static final long TREE_EXIT_WAIT_MILLIS = 3000L;
+    /** Wait applied when the caller grants no graceful window; survivors still get a forcible request. */
+    private static final long MINIMUM_EXIT_WAIT_MILLIS = 100L;
+    /** Upper bound for waiting on the launch process itself after a termination request. */
+    private static final long MAXIMUM_PARENT_EXIT_WAIT_MILLIS = 1000L;
+    /** Margin added to the graceful window so forced exit has time to complete. */
+    private static final long EXIT_WAIT_MARGIN_MILLIS = 2250L;
+
     private final Process process;
     private final java.util.Map<Long, ProcessHandle> retained = new ConcurrentHashMap<>();
     private final Thread descendantSampler;
@@ -38,7 +47,7 @@ final class AcpProcessTransport implements AcpTransport {
 
     private AcpProcessTransport(final Process process) {
         this.process = Objects.requireNonNull(process, "process");
-        if (!tracksDescendants(System.getProperty("os.name", ""))) {
+        if (!samplesDescendantsInBackground(System.getProperty("os.name", ""))) {
             descendantSampler = null;
             return;
         }
@@ -51,7 +60,14 @@ final class AcpProcessTransport implements AcpTransport {
         process.onExit().thenRun(samplerSignal::release);
     }
 
-    static boolean tracksDescendants(final String operatingSystem) {
+    /**
+     * Reports whether a background sampler retains descendants for the whole session.
+     *
+     * <p>Sampling relies on a descendant staying attached to the launch process. Windows batch
+     * shims break that assumption when {@code cmd.exe} exits, so Windows captures the tree once
+     * during {@link #terminate} instead of sampling it.</p>
+     */
+    static boolean samplesDescendantsInBackground(final String operatingSystem) {
         return !Objects.requireNonNullElse(operatingSystem, "")
                 .toLowerCase(Locale.ROOT)
                 .startsWith("windows");
@@ -215,30 +231,88 @@ final class AcpProcessTransport implements AcpTransport {
                 .toList();
         survivors.forEach(ProcessHandle::destroyForcibly);
         if (process.isAlive()) process.destroyForcibly();
-        awaitExit(survivors, Math.max(1000L, Math.min(3000L, millis + 2250L)));
+        awaitExit(
+                survivors,
+                Math.max(
+                        MAXIMUM_PARENT_EXIT_WAIT_MILLIS,
+                        Math.min(TREE_EXIT_WAIT_MILLIS, millis + EXIT_WAIT_MARGIN_MILLIS)));
         try {
-            process.waitFor(Math.max(100L, Math.min(1000L, millis)), TimeUnit.MILLISECONDS);
+            process.waitFor(
+                    Math.max(MINIMUM_EXIT_WAIT_MILLIS, Math.min(MAXIMUM_PARENT_EXIT_WAIT_MILLIS, millis)),
+                    TimeUnit.MILLISECONDS);
         } catch (InterruptedException failure) {
             interrupted = true;
         }
         if (interrupted) Thread.currentThread().interrupt();
     }
 
+    /**
+     * Terminates the direct process and the tree reachable from it.
+     *
+     * <p>The tree is captured before the first destroyed handle can exit, because Windows batch
+     * shims hand their children to a reparented process: after {@code cmd.exe} exits, the live
+     * {@code node.exe}, CLI worker, or bridge JVM no longer reports as a descendant.</p>
+     */
     private void terminateDirectProcess(final long millis) {
+        final java.util.List<ProcessHandle> tree = descendantsDeepestFirst();
         boolean interrupted = false;
+        tree.forEach(ProcessHandle::destroy);
         process.destroy();
-        try {
-            if (millis > 0L) process.waitFor(millis, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException failure) {
-            interrupted = true;
+        if (millis > 0L) {
+            try {
+                process.waitFor(millis, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException failure) {
+                interrupted = true;
+            }
+            // A shim child can outlive the graceful window even when the parent already exited.
+            if (!interrupted) interrupted = awaitGone(tree, millis);
         }
+        tree.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
         if (process.isAlive()) process.destroyForcibly();
+        if (!interrupted) {
+            interrupted = awaitGone(tree, Math.max(MINIMUM_EXIT_WAIT_MILLIS, millis + EXIT_WAIT_MARGIN_MILLIS));
+        }
         try {
-            process.waitFor(Math.max(100L, Math.min(1000L, millis)), TimeUnit.MILLISECONDS);
+            process.waitFor(
+                    Math.max(MINIMUM_EXIT_WAIT_MILLIS, Math.min(MAXIMUM_PARENT_EXIT_WAIT_MILLIS, millis)),
+                    TimeUnit.MILLISECONDS);
         } catch (InterruptedException failure) {
             interrupted = true;
         }
         if (interrupted) Thread.currentThread().interrupt();
+    }
+
+    /**
+     * Returns the process tree below this process, ordered so children precede their parents.
+     *
+     * <p>Windows allocates increasing PIDs, so reverse PID order destroys a shim child before the
+     * {@code cmd.exe} that would otherwise reparent it and hide it from later snapshots.</p>
+     */
+    private java.util.List<ProcessHandle> descendantsDeepestFirst() {
+        return process.toHandle()
+                .descendants()
+                .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
+                .toList();
+    }
+
+    /** Waits for every handle to exit; returns whether the wait was interrupted. */
+    private static boolean awaitGone(final java.util.List<ProcessHandle> handles, final long millis) {
+        if (handles.isEmpty()) return false;
+        final java.util.concurrent.CompletableFuture<?>[] exits = handles.stream()
+                .filter(ProcessHandle::isAlive)
+                .map(ProcessHandle::onExit)
+                .toArray(java.util.concurrent.CompletableFuture[]::new);
+        if (exits.length == 0) return false;
+        try {
+            java.util.concurrent.CompletableFuture.allOf(exits).get(millis, TimeUnit.MILLISECONDS);
+            return false;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return true;
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException ignored) {
+            // Survivors already received a forcible termination request.
+            return false;
+        }
     }
 
     private void sampleDescendantsWhileParentLives() {

@@ -250,6 +250,13 @@ final class McpDocumentFileDomain {
         return Map.copyOf(map);
     }
 
+    /** Releases every retained file operation of a closed or expired session. */
+    void dropSession(String session) {
+        synchronized (jobs) {
+            jobs.keySet().removeIf(key -> key.session().equals(session));
+        }
+    }
+
     private void finish(Job job, String outcome, String code, String nativeStatus, Map<String, Object> after) {
         synchronized (jobs) {
             job.outcome = outcome;

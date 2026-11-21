@@ -30,6 +30,18 @@ final class NativeAgentTransport implements AcpTransport {
         AcpTransport start(AgentLaunchSpec launch) throws IOException;
     }
 
+    /** Line terminator of the JSONL protocol, also the frame boundary the writer scans for. */
+    private static final int NEWLINE = '\n';
+    /**
+     * Upper bound for one buffered request frame. UTF-8 can expand a character to four bytes, and
+     * the limit must cover the full JSON-RPC envelope that wraps the largest accepted line.
+     */
+    private static final int MAX_BUFFERED_FRAME_BYTES = AcpClient.MAX_ACP_LINE_CHARS * 4;
+    /** Frames the reader may lag behind before the producer blocks instead of dropping output. */
+    private static final int MESSAGE_QUEUE_CAPACITY = 256;
+    /** Bounded wait for queue space; a stalled consumer must not block the producer forever. */
+    private static final long MESSAGE_QUEUE_OFFER_MILLIS = 30_000L;
+
     private final AgentLaunchSpec launch;
     private final ProcessStarter starter;
     private final MessageStream output = new MessageStream();
@@ -52,25 +64,59 @@ final class NativeAgentTransport implements AcpTransport {
 
         @Override
         public synchronized void write(final int value) throws IOException {
+            // The separator ends a frame; it is never part of the parsed payload.
+            if (value == NEWLINE) dispatchLine();
+            else appendByte(value);
+        }
+
+        /**
+         * Buffers a caller chunk in bulk and dispatches every complete line it carries.
+         *
+         * <p>A prompt can embed a multi-megabyte Base64 image, so handling one byte per call would
+         * pay a monitor re-entry and a bounds check for each byte. The byte scan keeps the cost
+         * proportional to the chunk and still enforces the per-frame size limit.</p>
+         */
+        @Override
+        public synchronized void write(final byte[] bytes, final int offset, final int length) throws IOException {
+            java.util.Objects.checkFromIndexSize(offset, length, bytes.length);
             if (closed.get()) throw new IOException("Native provider is closed");
-            if (value == '\n') {
-                final var message = object(Json.parseObject(line.toByteArray()));
-                line.reset();
-                try {
-                    requests.execute(() -> dispatch(message));
-                } catch (java.util.concurrent.RejectedExecutionException failure) {
-                    throw new IOException("Native request queue is full or closed", failure);
+            int start = offset;
+            final int end = offset + length;
+            while (start < end) {
+                final int separator = indexOf(bytes, start, end, NEWLINE);
+                if (separator < 0) {
+                    appendBytes(bytes, start, end - start);
+                    return;
                 }
-            } else {
-                if (line.size() >= AcpClient.MAX_ACP_LINE_CHARS * 4)
-                    throw new IOException("Native request exceeds size limit");
-                line.write(value);
+                appendBytes(bytes, start, separator - start);
+                dispatchLine();
+                start = separator + 1;
             }
         }
 
-        @Override
-        public synchronized void write(final byte[] bytes, final int offset, final int length) throws IOException {
-            for (int index = offset; index < offset + length; index++) write(bytes[index] & 0xff);
+        private void appendByte(final int value) throws IOException {
+            if (closed.get()) throw new IOException("Native provider is closed");
+            if (line.size() >= MAX_BUFFERED_FRAME_BYTES) throw new IOException("Native request exceeds size limit");
+            line.write(value);
+        }
+
+        private void appendBytes(final byte[] bytes, final int offset, final int length) throws IOException {
+            if (closed.get()) throw new IOException("Native provider is closed");
+            if (length > MAX_BUFFERED_FRAME_BYTES - line.size()) {
+                throw new IOException("Native request exceeds size limit");
+            }
+            line.write(bytes, offset, length);
+        }
+
+        /** Parses one complete JSONL frame and hands it to the dispatch queue. */
+        private void dispatchLine() throws IOException {
+            final var message = object(Json.parseObject(line.toByteArray()));
+            line.reset();
+            try {
+                requests.execute(() -> dispatch(message));
+            } catch (java.util.concurrent.RejectedExecutionException failure) {
+                throw new IOException("Native request queue is full or closed", failure);
+            }
         }
     };
     private volatile NativeAgentProvider provider;
@@ -408,6 +454,14 @@ final class NativeAgentTransport implements AcpTransport {
         errors.close();
     }
 
+    /** Returns the index of {@code target} in {@code bytes[start, end)}, or -1 when absent. */
+    private static int indexOf(final byte[] bytes, final int start, final int end, final int target) {
+        for (int index = start; index < end; index++) {
+            if ((bytes[index] & 0xff) == target) return index;
+        }
+        return -1;
+    }
+
     static Map<String, Object> object(final Object value) {
         if (value == null) return Map.of();
         if (!(value instanceof Map<?, ?> map))
@@ -449,15 +503,28 @@ final class NativeAgentTransport implements AcpTransport {
     /** Bounded pipe without PipedInputStream's last-writer-thread lifetime coupling. */
     private static final class MessageStream extends InputStream {
         private final java.util.concurrent.BlockingQueue<byte[]> queue =
-                new java.util.concurrent.ArrayBlockingQueue<>(64);
+                new java.util.concurrent.ArrayBlockingQueue<>(MESSAGE_QUEUE_CAPACITY);
         private volatile boolean ended;
         private byte[] current = new byte[0];
         private int position;
 
+        /**
+         * Queues one frame, blocking while the reader is behind.
+         *
+         * <p>A brief consumer stall is normal during paint or a large image decode, so the producer
+         * waits instead of abandoning the session. The wait stays bounded and reports the loss
+         * explicitly: memory remains capped, and a silent loss cannot look like a protocol error.</p>
+         */
         void offer(final byte[] bytes) {
             if (ended) return;
             try {
-                if (!queue.offer(bytes, 2, TimeUnit.SECONDS)) close();
+                if (queue.offer(bytes, MESSAGE_QUEUE_OFFER_MILLIS, TimeUnit.MILLISECONDS)) return;
+                System.getLogger(NativeAgentTransport.class.getName())
+                        .log(
+                                System.Logger.Level.WARNING,
+                                "Native agent reader stalled for {0} ms; closing the message stream",
+                                MESSAGE_QUEUE_OFFER_MILLIS);
+                close();
             } catch (InterruptedException failure) {
                 Thread.currentThread().interrupt();
                 close();
