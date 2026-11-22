@@ -140,3 +140,5 @@ dev.turboism.bootstrap.SortingInfoCacheHookContributor
 @verified-render-pass-traversal
 # Constant-time sibling lookup and dirty-checked extended-interpolation updates.
 @verified-extended-interpolation-sibling-elision
+# Warp deformer reinit buffer reuse, inverse-quad/Bezier fast paths, overlay dirty-gating, and deform-brush float loops.
+@verified-warp-deform-edit-acceleration

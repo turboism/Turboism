@@ -863,7 +863,7 @@ final class ConfigMerge {
             "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision",
             "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass",
             "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache",
-            "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint");
+            "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration");
     private static final Set<String> TEXTURE_ATLAS_FIELDS = Set.of(
             "algorithmId", "parallel");
     private static final Set<String> LEGACY_ROOT_LAUNCHER_FIELDS = Set.of(
@@ -874,7 +874,7 @@ final class ConfigMerge {
             "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision",
             "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass",
             "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache",
-            "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint");
+            "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration");
     private static final Set<String> MEMORY_PROFILES =
             Set.of("system", "balanced4g", "balanced4gFastSoft");
     private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");

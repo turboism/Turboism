@@ -288,9 +288,20 @@ class OptimizationPlanTest {
                 OptimizationCatalog.PARAMETER_ROW_REPAINT);
 
         writeConfig(Map.of(), Map.of());
+        final OptimizationPlan defaultEnabledPlan = plan();
+        for (final Optimization optimization : hotpath) {
+            assertTrue(defaultEnabledPlan.admitted(optimization), optimization.key() + " is enabled by default");
+            assertEquals("platform-default", defaultEnabledPlan.choice(optimization).source());
+        }
+
+        final Map<String, Boolean> disabledLauncher = new LinkedHashMap<>();
+        for (final Optimization optimization : hotpath) {
+            disabledLauncher.put(optimization.key(), false);
+        }
+        writeConfig(disabledLauncher, Map.of());
         final OptimizationPlan disabledPlan = plan();
         for (final Optimization optimization : hotpath) {
-            assertFalse(disabledPlan.admitted(optimization), optimization.key() + " stays off by default");
+            assertFalse(disabledPlan.admitted(optimization), optimization.key() + " opts out from config.json");
             assertEquals(
                     OptimizationPlan.Decision.PREFERENCE_DISABLED,
                     refusal(disabledPlan, optimization).reasonCode());

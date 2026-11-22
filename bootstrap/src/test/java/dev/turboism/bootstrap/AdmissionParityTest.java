@@ -275,7 +275,7 @@ class AdmissionParityTest {
                 new Row(
                         "warp-position-projection",
                         VerifiedWarpPositionProjectionInstaller.ADMISSION,
-                        new Frozen(true, "EXACTLY_17"),
+                        new Frozen(true, "AT_LEAST_17"),
                         (policy, requested, jvm) ->
                                 VerifiedWarpPositionProjectionInstaller.admitted(artifact(), policy, requested, jvm)),
                 new Row(
@@ -376,6 +376,18 @@ class AdmissionParityTest {
                         (policy, requested, jvm) -> {
                             try {
                                 return VerifiedExtendedInterpolationSiblingInstaller.admitted(
+                                        artifact(), policy, requested);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
+                        }),
+                new Row(
+                        "warp-deform-edit-acceleration",
+                        VerifiedWarpDeformEditAccelerationInstaller.ADMISSION,
+                        new Frozen(true, "ANY"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedWarpDeformEditAccelerationInstaller.admitted(
                                         artifact(), policy, requested);
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);

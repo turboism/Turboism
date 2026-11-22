@@ -568,6 +568,19 @@ public final class OptimizationCatalog {
             "settings.optimization.triangulation-spatial-index.tooltip",
             List.of());
 
+    /** Speeds up edit-mode warp deformer transforms, overlays, bezier grids, and deform brush loops. */
+    public static final Optimization WARP_DEFORM_EDIT_ACCELERATION = new Optimization(
+            "warpDeformEditAcceleration",
+            "warp-deform-edit-acceleration",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.warpDeformEditAcceleration"),
+            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION"),
+            Set.of("cubism.deformer.warp-deform-edit-acceleration"),
+            Optional.of(new Optimization.Placement("mesh", 109)),
+            "settings.optimization.warp-deform-edit-acceleration",
+            "settings.optimization.warp-deform-edit-acceleration.tooltip",
+            List.of());
+
     /** Speeds up opening Cubism model documents cleanly alongside texture upload preparation. */
     public static final Optimization MODEL_OPEN_ACCELERATION = new Optimization(
             "modelOpenAcceleration",
@@ -712,6 +725,7 @@ public final class OptimizationCatalog {
             ATLAS_CACHE_REUSE,
             ATLAS_LOADING,
             TRIANGULATION_SPATIAL_INDEX,
+            WARP_DEFORM_EDIT_ACCELERATION,
             MODEL_OPEN_ACCELERATION,
             RUNTIME_EXPORT_ACCELERATION,
             CANVAS_COMPOSITE_ELISION,

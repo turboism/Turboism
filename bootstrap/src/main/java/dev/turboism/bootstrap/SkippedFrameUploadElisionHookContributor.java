@@ -10,7 +10,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
  * Validation mode: {@code -Dturboism.validation.skippedFrameUploadElision=true},
  * a per-leg diagnostic whose gate and compare mode are driven by the workload;
  * the hook policy is not consulted. Production mode:
- * {@code -Dturboism.optimization.uploadElision=true} (default off), content
+ * {@code -Dturboism.optimization.uploadElision=true} (default on; disable with {@code =false}), content
  * compare armed unconditionally, gated by the persisted preference, the
  * startup hook policy ({@code cubism.render.upload-elision}) and the two
  * declared relations of its catalogue row: the model-update-skip dependency and

@@ -56,7 +56,10 @@ final class DeclarativeHooks {
             DeclarativeHook.of(OptimizationCatalog.RENDER_PASS_TRAVERSAL, VerifiedRenderPassTraversalInstaller::new),
             DeclarativeHook.of(
                     OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION,
-                    VerifiedExtendedInterpolationSiblingInstaller::new));
+                    VerifiedExtendedInterpolationSiblingInstaller::new),
+            DeclarativeHook.of(
+                    OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
+                    VerifiedWarpDeformEditAccelerationInstaller::new));
 
     private DeclarativeHooks() {}
 

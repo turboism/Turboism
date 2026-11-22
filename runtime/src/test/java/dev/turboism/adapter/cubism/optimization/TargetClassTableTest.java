@@ -33,6 +33,7 @@ class TargetClassTableTest {
             "texture-upload-preparation",
             "uniform-location-lifecycle",
             "warp-alt-mirror",
+            "warp-deform-edit-acceleration",
             "warp-position-projection");
 
     @Test
