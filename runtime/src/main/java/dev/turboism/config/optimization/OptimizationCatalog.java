@@ -576,7 +576,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.warpDeformEditAcceleration"),
             List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION"),
             Set.of("cubism.deformer.warp-deform-edit-acceleration"),
-            Optional.of(new Optimization.Placement("mesh", 109)),
+            Optional.of(new Optimization.Placement("rendering", 85)),
             "settings.optimization.warp-deform-edit-acceleration",
             "settings.optimization.warp-deform-edit-acceleration.tooltip",
             List.of());
@@ -605,6 +605,19 @@ public final class OptimizationCatalog {
             Optional.of(new Optimization.Placement("model", 76)),
             "settings.optimization.runtime-export-acceleration",
             "settings.optimization.runtime-export-acceleration.tooltip",
+            List.of());
+
+    /** Speeds up interactive pan, zoom, and tile drag in the Texture Atlas Editor window. */
+    public static final Optimization ATLAS_INTERACTIVE_RENDER = new Optimization(
+            "atlasInteractiveRender",
+            "atlas-interactive-render",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.atlasInteractiveRender"),
+            List.of("TURBOISM_ATLAS_INTERACTIVE_RENDER"),
+            Set.of("cubism.textureatlas.interactive-render"),
+            Optional.of(new Optimization.Placement("rendering", 86)),
+            "settings.optimization.atlas-interactive-render",
+            "settings.optimization.atlas-interactive-render.tooltip",
             List.of());
 
     // ---------------------------------------------------------------- diagnostic-only probe hooks
@@ -726,6 +739,7 @@ public final class OptimizationCatalog {
             ATLAS_LOADING,
             TRIANGULATION_SPATIAL_INDEX,
             WARP_DEFORM_EDIT_ACCELERATION,
+            ATLAS_INTERACTIVE_RENDER,
             MODEL_OPEN_ACCELERATION,
             RUNTIME_EXPORT_ACCELERATION,
             CANVAS_COMPOSITE_ELISION,

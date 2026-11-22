@@ -35,6 +35,8 @@ performance 81 toggle uniform-location-cache
 performance 82 toggle shader-uniform
 performance 83 toggle matrix-scratch
 performance 84 toggle warp-position-projection
+performance 85 toggle warp-deform-edit-acceleration
+performance 86 toggle atlas-interactive-render
 performance 90 note performance.section.upload
 performance 91 toggle upload-elision
 performance 92 toggle input-path-elision
@@ -48,7 +50,6 @@ performance 105 toggle image-archive-reuse
 performance 106 toggle float-array-parse-cache
 performance 107 toggle atlas-loading
 performance 108 toggle triangulation-spatial-index
-performance 109 toggle warp-deform-edit-acceleration
 performance 110 note performance.section.jvm
 performance 111 toggle cubism-zgc
 performance 112 toggle cubism-disable-auto-backup

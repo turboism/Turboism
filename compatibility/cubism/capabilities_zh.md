@@ -323,6 +323,7 @@ Cubism Editor 本身缺少相应功能的已确认宿主边界，均经官方更
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/interactive/AtlasInteractiveRenderTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 
 ## 版本单调性原则
 

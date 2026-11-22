@@ -392,6 +392,18 @@ class AdmissionParityTest {
                             } catch (final java.io.IOException impossible) {
                                 throw new AssertionError(impossible);
                             }
+                        }),
+                new Row(
+                        "atlas-interactive-render",
+                        VerifiedAtlasInteractiveRenderInstaller.ADMISSION,
+                        new Frozen(true, "AT_LEAST_17"),
+                        (policy, requested, jvm) -> {
+                            try {
+                                return VerifiedAtlasInteractiveRenderInstaller.admitted(
+                                        artifact(), policy, requested, jvm);
+                            } catch (final java.io.IOException impossible) {
+                                throw new AssertionError(impossible);
+                            }
                         }));
     }
 

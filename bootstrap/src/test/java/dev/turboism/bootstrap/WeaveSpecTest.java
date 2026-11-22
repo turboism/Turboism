@@ -100,6 +100,10 @@ class WeaveSpecTest {
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_MATCHES,
                 VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
         assertEquals(1, VerifiedRedundantStateElisionInstaller.EXPECTED_MATCHES, "TURBOISM_STATE_ELISION");
+        assertEquals(
+                6,
+                VerifiedAtlasInteractiveRenderInstaller.EXPECTED_MATCHES,
+                VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
     }
 
     @Test
@@ -180,6 +184,10 @@ class WeaveSpecTest {
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,
                 VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
         assertEquals(1, VerifiedRedundantStateElisionInstaller.EXPECTED_OWNERS, "TURBOISM_STATE_ELISION");
+        assertEquals(
+                6,
+                VerifiedAtlasInteractiveRenderInstaller.EXPECTED_OWNERS,
+                VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
     }
 
     @Test
@@ -217,6 +225,7 @@ class WeaveSpecTest {
         assertRow(VerifiedRenderPassTraversalInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedExtendedInterpolationSiblingInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         assertRow(VerifiedRedundantStateElisionInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
+        assertRow(VerifiedAtlasInteractiveRenderInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

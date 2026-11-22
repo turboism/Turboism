@@ -323,6 +323,7 @@ Selector contracts and target-class tables that narrow verified capabilities to 
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/interactive/AtlasInteractiveRenderTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 
 ## Version monotonicity
 

@@ -41,6 +41,7 @@ class PerformanceSettingsConfigTest {
             Field.ATLAS_TILE_BBOX,
             Field.ATLAS_CACHE_REUSE,
             Field.ATLAS_LOADING,
+            Field.ATLAS_INTERACTIVE_RENDER,
             Field.TRIANGULATION_SPATIAL_INDEX,
             Field.MODEL_OPEN_ACCELERATION,
             Field.RUNTIME_EXPORT_ACCELERATION);

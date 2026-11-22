@@ -247,7 +247,7 @@ function Assert-RuntimeConfigV1 {
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-        "atlasLoading", "triangulationSpatialIndex",
+        "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
         "modelOpenAcceleration", "runtimeExportAcceleration"
     ) "config.json"
 
@@ -317,7 +317,7 @@ function Assert-RuntimeConfigV1 {
     }
     foreach ($name in @(
         "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-        "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+        "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
         "modelOpenAcceleration", "runtimeExportAcceleration"
     )) {
         $property = $Document.PSObject.Properties[$name]
@@ -453,7 +453,7 @@ function Convert-RuntimeConfigToV1 {
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-        "atlasLoading", "triangulationSpatialIndex",
+        "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
         "modelOpenAcceleration", "runtimeExportAcceleration",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
@@ -522,7 +522,7 @@ function Convert-RuntimeConfigToV1 {
     foreach ($name in @(
         "safeMode", "useTextIcon", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-            "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+            "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
             "modelOpenAcceleration", "runtimeExportAcceleration"
     )) {
         $property = $Document.PSObject.Properties[$name]

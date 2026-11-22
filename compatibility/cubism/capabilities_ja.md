@@ -323,6 +323,7 @@ Cubism Editor 自体に機能が存在しない確認済みホスト境界。公
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/interactive/AtlasInteractiveRenderTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 
 ## バージョン単調性の原則
 

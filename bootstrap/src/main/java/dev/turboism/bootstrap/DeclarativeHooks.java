@@ -59,7 +59,10 @@ final class DeclarativeHooks {
                     VerifiedExtendedInterpolationSiblingInstaller::new),
             DeclarativeHook.of(
                     OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
-                    VerifiedWarpDeformEditAccelerationInstaller::new));
+                    VerifiedWarpDeformEditAccelerationInstaller::new),
+            DeclarativeHook.of(
+                    OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
+                    VerifiedAtlasInteractiveRenderInstaller::new));
 
     private DeclarativeHooks() {}
 

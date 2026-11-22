@@ -53,6 +53,7 @@ public final class PerformanceSettingsConfig {
         ATLAS_TILE_BBOX("atlasTileBbox", false, "true"),
         ATLAS_CACHE_REUSE("atlasCacheReuse", false, "true"),
         ATLAS_LOADING("atlasLoading", false, "true"),
+        ATLAS_INTERACTIVE_RENDER("atlasInteractiveRender", false, "true"),
         TRIANGULATION_SPATIAL_INDEX("triangulationSpatialIndex", false, "true"),
         MODEL_OPEN_ACCELERATION("modelOpenAcceleration", false, "true"),
         RUNTIME_EXPORT_ACCELERATION("runtimeExportAcceleration", false, "true"),

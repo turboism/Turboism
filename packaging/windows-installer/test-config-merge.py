@@ -134,7 +134,7 @@ V1_FIELDS = {
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
     "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
     "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-    "atlasLoading", "triangulationSpatialIndex",
+    "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
     "modelOpenAcceleration", "runtimeExportAcceleration",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
@@ -151,7 +151,7 @@ LEGACY_ROOT_LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
 BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration"}
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-    "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+    "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
     "modelOpenAcceleration", "runtimeExportAcceleration",
 }
 CUBISM_JVMS = {"graalvm", "bundled"}
@@ -569,7 +569,7 @@ def check_config_migration_contract():
           all(name in configure for name in (
               "reduceAutoBackup", "meshTriangulationHashFix",
               "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-              "atlasLoading", "triangulationSpatialIndex",
+              "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
               "modelOpenAcceleration", "runtimeExportAcceleration",
           ))
           and '"zgc", "modelUpdateSkip", "incrementalUpdate"' in configure)
@@ -579,7 +579,7 @@ def check_config_migration_contract():
               "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
               "reduceAutoBackup": True, "meshTriangulationHashFix": False,
               "atlasTileBbox": True, "atlasCacheReuse": False,
-              "meshTriangulationEdgeIndex": False, "atlasLoading": False,
+              "meshTriangulationEdgeIndex": False, "atlasLoading": False, "atlasInteractiveRender": True,
               "triangulationSpatialIndex": False,
               "modelOpenAcceleration": True, "runtimeExportAcceleration": False,
               "launcher": {"cubismJvm": "bundled", "zgc": False,

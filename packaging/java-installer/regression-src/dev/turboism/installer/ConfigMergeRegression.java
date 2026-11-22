@@ -393,6 +393,7 @@ public final class ConfigMergeRegression {
             Map<String, Object> source = validRuntimeConfig();
             source.put("meshTriangulationEdgeIndex", value);
             source.put("atlasLoading", value);
+            source.put("atlasInteractiveRender", value);
             source.put("triangulationSpatialIndex", value);
             source.put("modelOpenAcceleration", value);
             source.put("runtimeExportAcceleration", value);
@@ -403,6 +404,8 @@ public final class ConfigMergeRegression {
             check("meshTriangulationEdgeIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("meshTriangulationEdgeIndex")));
             check("atlasLoading " + value + " survives installer upgrade", value.equals(merged.get("atlasLoading")));
+            check("atlasInteractiveRender " + value + " survives installer upgrade",
+                    value.equals(merged.get("atlasInteractiveRender")));
             check("triangulationSpatialIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("triangulationSpatialIndex")));
             check("modelOpenAcceleration " + value + " survives installer upgrade",
