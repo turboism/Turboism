@@ -8,27 +8,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [0.70.2] - 2026-11-20
+## [0.70.2] - 2026-11-22
+
+Changes since the previous stable release, **0.70.1**. This release includes the intervening beta changes.
 
 ### Added
 
-- Turboism supports the reviewed Cubism Editor 5.3.05 release.
+- Turboism supports the reviewed Cubism Editor 5.3.05 release across runtime compatibility checks and optimization hooks.
+- Settings -> Performance adds default-on toggles for Model Open & Texture Loading acceleration and Runtime Export acceleration, integrated with optimization presets and Windows installer configuration merge.
 - Users can export ArtMesh display information and lock texture atlas scale for individual model images.
 
 ### Changed
 
-- Texture Atlas shows loading progress and enables parallel mesh triangulation by default. Users can turn off the loading optimization.
-- Texture Atlas loads large models faster and uses spatial indexing to speed up mesh triangulation.
-- The MCP connection window uses a plain agent prompt label and shows the full prompt in a three-row field.
+- Model opening and texture loading run faster with direct OpenGL texture upload, direct RGBA PNG decoding, unchecked JDOM XML parsing, zero-copy archive reads, zero-split float deserialization, and parallel initial extended-interpolation setup.
+- Export for Runtime runs faster and avoids out-of-memory failures on large models through direct in-memory JDOM and float-array cloning, parallel atlas rebuilds, striped edge processing, parallel lossless PNG encoding, and linear-time MOC3 indexing.
+- Texture Atlas shows loading progress, enables parallel mesh triangulation by default, and uses spatial indexing to speed up large-model loading. Users can turn off the loading optimization.
+- MCP and ACP improve tool schema efficiency, stdio bridge transport latency, parallel harness probing, and session cleanup. The MCP connection window uses a plain agent prompt label and shows the full prompt in a three-row field.
 
 ### Fixed
 
+- Atlas cache reuse clears dirty state and records content-matched pages so runtime export avoids repeated full-page hashing.
+- ACP terminates full Windows process trees cleanly on teardown and aligns Pi bridge timeout and cancellation handling.
 - Texture Atlas saves image scale locks when users save the model and discards unsaved lock edits when the document closes.
 - Cubism restores workspace controls on reviewed hosts and keeps supported features available when optional adapters are unavailable.
 - Warp deformer mirroring follows native control-point drags. Recent Project Board preserves row height when users cycle layouts.
 - The updater preserves the selected channel. Windows launchers handle Unicode paths and Cubism BAT backup conflicts.
 - The Windows installer lets the UAC prompt appear during final configuration and clears stale framework update state on reinstall.
 - Unsigned installers skip receipt refresh. The Windows uninstaller places the keep-configuration option below the installation path.
+
+[Full changes since 0.70.1](https://github.com/turboism/Turboism/compare/v0.70.1...v0.70.2)
 
 ## [0.70.1] - 2026-11-18
 
