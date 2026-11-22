@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.modelopen;
 
+import dev.turboism.adapter.cubism.exportperf.RuntimeExportScope;
+
 /**
  * Single-pass zero-substring deserializer for serialized Cubism float array elements.
  *
@@ -32,6 +34,10 @@ public final class FloatArrayDeserializerBridge {
      * @return parsed float array of length {@code count}
      */
     public static float[] parseFloatArray(final int count, final String text, final boolean assertionsEnabled) {
+        final float[] scopedClone = RuntimeExportScope.tryTakeFloatArray(text);
+        if (scopedClone != null) {
+            return scopedClone;
+        }
         if (assertionsEnabled) {
             verifyTokenCount(count, text);
         }

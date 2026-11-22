@@ -58,6 +58,8 @@ final class RuntimeExportRealHostPatchVerificationTest {
     private static final String IMAGE_RESOURCE_CLASS = "com/live2d/graphics/CImageResource";
     private static final String WRITABLE_IMAGE_CLASS = "com/live2d/graphics/CWritableImage";
     private static final String TEXTURE_ATLAS_CLASS = "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas";
+    private static final String UU_SERIALIZE_CLASS = "com/live2d/serialize/UUSerialize";
+    private static final String FLOAT_ARRAY_SERIALIZER_CLASS = "com/live2d/serialize/impl/G";
     private static final String PNG_EXPORTER_CLASS = "com/live2d/cubism/doc/model/exporter/b$a";
     private static final String BYTE_SINK_CLASS = "com/live2d/util/c/b";
     private static final String EDGE_CLEAN_CLASS = "jp/noids/graphics/h";
@@ -145,6 +147,8 @@ final class RuntimeExportRealHostPatchVerificationTest {
         assertTrue(patchedNames.contains(IMAGE_RESOURCE_CLASS), version + " missing CImageResource");
         assertTrue(patchedNames.contains(WRITABLE_IMAGE_CLASS), version + " missing CWritableImage");
         assertTrue(patchedNames.contains(TEXTURE_ATLAS_CLASS), version + " missing CTextureAtlas");
+        assertTrue(patchedNames.contains(UU_SERIALIZE_CLASS), version + " missing UUSerialize");
+        assertTrue(patchedNames.contains(FLOAT_ARRAY_SERIALIZER_CLASS), version + " missing serialize/impl/G");
         assertTrue(patchedNames.contains(PNG_EXPORTER_CLASS), version + " missing exporter/b$a");
         assertTrue(patchedNames.contains(BYTE_SINK_CLASS), version + " missing util/c/b");
         assertTrue(patchedNames.contains(EDGE_CLEAN_CLASS), version + " missing graphics/h");

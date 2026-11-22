@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
 public final class EdgeExtendFastOp {
 
     private static final int TRANSPARENT_GREY_RGB = 0x00808080;
-    private static final int MAX_DIST_SENTINEL = 0x00FFFFFF;
+    private static final short SHORT_MAX_DIST = Short.MAX_VALUE;
     private static final int ALPHA_OPAQUE = 255;
     private static final int MIN_DIMENSION = 2;
     private static final int INITIAL_SEED_ALPHA = 1;
@@ -68,6 +68,9 @@ public final class EdgeExtendFastOp {
         if (width < MIN_DIMENSION || height < MIN_DIMENSION) {
             return true;
         }
+        if (Math.max(width, height) >= SHORT_MAX_DIST) {
+            return false;
+        }
         final DataBuffer buffer = image.getRaster().getDataBuffer();
         if (!(buffer instanceof DataBufferInt intBuf) || intBuf.getNumBanks() != 1 || intBuf.getOffset() != 0) {
             return false;
@@ -83,8 +86,12 @@ public final class EdgeExtendFastOp {
         reportProgress(progress, 0, MSG_BACKUP_ALPHA);
 
         final byte[] origAlpha = new byte[pixelCount];
-        final int[] dist = new int[pixelCount];
-        prepareWorkingPixels(pixels, origAlpha, pixelCount, alphaThreshold);
+        final short[] dist = new short[pixelCount];
+        final boolean[] rowIncomplete = new boolean[height];
+        final int strips = (width + COL_STRIP_WIDTH - 1) / COL_STRIP_WIDTH;
+        final boolean[] colStripIncomplete = new boolean[strips];
+        Arrays.fill(colStripIncomplete, true);
+        prepareWorkingPixels(pixels, origAlpha, rowIncomplete, width, height, alphaThreshold);
 
         final int steps = (int) (Math.log(Math.max(width, height)) / Math.log(STEP_GROWTH_BASE));
         double stepFloat = 1.0d;
@@ -94,14 +101,15 @@ public final class EdgeExtendFastOp {
                 reportProgress(progress, (step * PERCENT_SCALE) / steps, MSG_SPREAD_PREFIX + maxDist);
             }
             final int writeAlpha = step + STEP_ALPHA_OFFSET;
-            if (!runPropagationPass(pixels, dist, width, height, maxDist, writeAlpha)) {
+            if (!runPropagationPass(
+                    pixels, dist, rowIncomplete, colStripIncomplete, width, height, maxDist, writeAlpha)) {
                 break;
             }
             stepFloat *= STEP_GROWTH_BASE;
         }
 
         reportProgress(progress, PERCENT_SCALE, MSG_RESTORE_ALPHA);
-        restoreAlpha(pixels, origAlpha, pixelCount);
+        restoreAlpha(pixels, origAlpha, width, height);
         reportProgress(progress, PERCENT_SCALE, MSG_WRITE_PIXELS);
         image.flush();
         reportProgress(progress, PERCENT_SCALE, MSG_COMPLETE);
@@ -109,46 +117,98 @@ public final class EdgeExtendFastOp {
     }
 
     private static void prepareWorkingPixels(
-            final int[] pixels, final byte[] origAlpha, final int pixelCount, final int alphaThreshold) {
-        for (int i = 0; i < pixelCount; i++) {
-            final int px = pixels[i];
-            final int a = (px >>> SHIFT_ALPHA) & BYTE_MASK;
-            origAlpha[i] = (byte) a;
-            final int rgb = a == 0 ? TRANSPARENT_GREY_RGB : (px & RGB_MASK);
-            final int workA = a > alphaThreshold ? INITIAL_SEED_ALPHA : 0;
-            pixels[i] = (workA << SHIFT_ALPHA) | rgb;
+            final int[] pixels,
+            final byte[] origAlpha,
+            final boolean[] rowIncomplete,
+            final int width,
+            final int height,
+            final int alphaThreshold) {
+        if ((long) width * height < PARALLEL_PIXEL_THRESHOLD) {
+            prepareWorkingRowRange(pixels, origAlpha, rowIncomplete, width, 0, height, alphaThreshold);
+            return;
+        }
+        final int chunks = (height + PARALLEL_CHUNK_SIZE - 1) / PARALLEL_CHUNK_SIZE;
+        IntStream.range(0, chunks).parallel().forEach(chunk -> {
+            final int y0 = chunk * PARALLEL_CHUNK_SIZE;
+            final int y1 = Math.min(height, y0 + PARALLEL_CHUNK_SIZE);
+            prepareWorkingRowRange(pixels, origAlpha, rowIncomplete, width, y0, y1, alphaThreshold);
+        });
+    }
+
+    private static void prepareWorkingRowRange(
+            final int[] pixels,
+            final byte[] origAlpha,
+            final boolean[] rowIncomplete,
+            final int width,
+            final int yStart,
+            final int yEnd,
+            final int alphaThreshold) {
+        for (int y = yStart; y < yEnd; y++) {
+            final int rowBase = y * width;
+            boolean hasZero = false;
+            for (int x = 0; x < width; x++) {
+                final int i = rowBase + x;
+                final int px = pixels[i];
+                final int a = (px >>> SHIFT_ALPHA) & BYTE_MASK;
+                origAlpha[i] = (byte) a;
+                final int rgb = a == 0 ? TRANSPARENT_GREY_RGB : (px & RGB_MASK);
+                final int workA;
+                if (a > alphaThreshold) {
+                    workA = INITIAL_SEED_ALPHA;
+                } else {
+                    workA = 0;
+                    hasZero = true;
+                }
+                pixels[i] = (workA << SHIFT_ALPHA) | rgb;
+            }
+            rowIncomplete[y] = hasZero;
         }
     }
 
-    private static void restoreAlpha(final int[] pixels, final byte[] origAlpha, final int pixelCount) {
-        for (int i = 0; i < pixelCount; i++) {
-            pixels[i] = ((origAlpha[i] & BYTE_MASK) << SHIFT_ALPHA) | (pixels[i] & RGB_MASK);
+    private static void restoreAlpha(final int[] pixels, final byte[] origAlpha, final int width, final int height) {
+        final int pixelCount = width * height;
+        if (pixelCount < PARALLEL_PIXEL_THRESHOLD) {
+            for (int i = 0; i < pixelCount; i++) {
+                pixels[i] = ((origAlpha[i] & BYTE_MASK) << SHIFT_ALPHA) | (pixels[i] & RGB_MASK);
+            }
+            return;
         }
+        final int chunks = (height + PARALLEL_CHUNK_SIZE - 1) / PARALLEL_CHUNK_SIZE;
+        IntStream.range(0, chunks).parallel().forEach(chunk -> {
+            final int start = chunk * PARALLEL_CHUNK_SIZE * width;
+            final int end = Math.min(pixelCount, start + PARALLEL_CHUNK_SIZE * width);
+            for (int i = start; i < end; i++) {
+                pixels[i] = ((origAlpha[i] & BYTE_MASK) << SHIFT_ALPHA) | (pixels[i] & RGB_MASK);
+            }
+        });
     }
 
     private static boolean runPropagationPass(
             final int[] pixels,
-            final int[] dist,
+            final short[] dist,
+            final boolean[] rowIncomplete,
+            final boolean[] colStripIncomplete,
             final int width,
             final int height,
             final int maxDist,
             final int writeAlpha) {
-        Arrays.fill(dist, MAX_DIST_SENTINEL);
         final boolean rowChanged;
         final boolean colChanged;
         if ((long) width * height < PARALLEL_PIXEL_THRESHOLD) {
-            rowChanged = sweepRowRange(0, height, pixels, dist, width, maxDist, writeAlpha);
-            colChanged = sweepColRange(0, width, pixels, dist, width, height, maxDist, writeAlpha);
+            rowChanged = sweepRowRange(0, height, pixels, dist, rowIncomplete, width, maxDist, writeAlpha);
+            colChanged =
+                    sweepColRange(0, width, 0, pixels, dist, colStripIncomplete, width, height, maxDist, writeAlpha);
         } else {
-            rowChanged = parallelSweepRows(pixels, dist, width, height, maxDist, writeAlpha);
-            colChanged = parallelSweepCols(pixels, dist, width, height, maxDist, writeAlpha);
+            rowChanged = parallelSweepRows(pixels, dist, rowIncomplete, width, height, maxDist, writeAlpha);
+            colChanged = parallelSweepCols(pixels, dist, colStripIncomplete, width, height, maxDist, writeAlpha);
         }
         return rowChanged || colChanged;
     }
 
     private static boolean parallelSweepRows(
             final int[] pixels,
-            final int[] dist,
+            final short[] dist,
+            final boolean[] rowIncomplete,
             final int width,
             final int height,
             final int maxDist,
@@ -159,7 +219,9 @@ public final class EdgeExtendFastOp {
                         .map(chunk -> {
                             final int y0 = chunk * PARALLEL_CHUNK_SIZE;
                             final int y1 = Math.min(height, y0 + PARALLEL_CHUNK_SIZE);
-                            return sweepRowRange(y0, y1, pixels, dist, width, maxDist, writeAlpha) ? 1 : 0;
+                            return sweepRowRange(y0, y1, pixels, dist, rowIncomplete, width, maxDist, writeAlpha)
+                                    ? 1
+                                    : 0;
                         })
                         .sum()
                 > 0;
@@ -167,21 +229,34 @@ public final class EdgeExtendFastOp {
 
     private static boolean parallelSweepCols(
             final int[] pixels,
-            final int[] dist,
+            final short[] dist,
+            final boolean[] colStripIncomplete,
             final int width,
             final int height,
             final int maxDist,
             final int writeAlpha) {
-        final int strips = (width + COL_STRIP_WIDTH - 1) / COL_STRIP_WIDTH;
+        final int strips = colStripIncomplete.length;
         if (strips <= 1) {
-            return sweepColRange(0, width, pixels, dist, width, height, maxDist, writeAlpha);
+            return sweepColRange(0, width, 0, pixels, dist, colStripIncomplete, width, height, maxDist, writeAlpha);
         }
         return IntStream.range(0, strips)
                         .parallel()
                         .map(strip -> {
                             final int x0 = strip * COL_STRIP_WIDTH;
                             final int x1 = Math.min(width, x0 + COL_STRIP_WIDTH);
-                            return sweepColRange(x0, x1, pixels, dist, width, height, maxDist, writeAlpha) ? 1 : 0;
+                            return sweepColRange(
+                                            x0,
+                                            x1,
+                                            strip,
+                                            pixels,
+                                            dist,
+                                            colStripIncomplete,
+                                            width,
+                                            height,
+                                            maxDist,
+                                            writeAlpha)
+                                    ? 1
+                                    : 0;
                         })
                         .sum()
                 > 0;
@@ -191,14 +266,19 @@ public final class EdgeExtendFastOp {
             final int yStart,
             final int yEnd,
             final int[] pixels,
-            final int[] dist,
+            final short[] dist,
+            final boolean[] rowIncomplete,
             final int width,
             final int maxDist,
             final int writeAlpha) {
         boolean changed = false;
         final int writeMask = writeAlpha << SHIFT_ALPHA;
         for (int y = yStart; y < yEnd; y++) {
+            if (!rowIncomplete[y]) {
+                continue;
+            }
             final int rowBase = y * width;
+            Arrays.fill(dist, rowBase, rowBase + width, SHORT_MAX_DIST);
             int seedRgb = 0;
             int seedX = -1;
             boolean hasSeed = false;
@@ -213,14 +293,18 @@ public final class EdgeExtendFastOp {
                 } else if (hasSeed) {
                     final int d = x - seedX;
                     if (d <= maxDist && dist[idx] > d) {
-                        dist[idx] = d;
+                        dist[idx] = (short) d;
                         pixels[idx] = writeMask | seedRgb;
                         changed = true;
                     }
                 }
             }
+            if (!hasSeed) {
+                continue;
+            }
 
             hasSeed = false;
+            boolean stillHasZero = false;
             for (int x = width - 1; x >= 0; x--) {
                 final int idx = rowBase + x;
                 final int px = pixels[idx];
@@ -232,11 +316,18 @@ public final class EdgeExtendFastOp {
                 } else if (hasSeed) {
                     final int d = seedX - x;
                     if (d <= maxDist && dist[idx] > d) {
-                        dist[idx] = d;
+                        dist[idx] = (short) d;
                         pixels[idx] = writeMask | seedRgb;
                         changed = true;
+                    } else if (a == 0) {
+                        stillHasZero = true;
                     }
+                } else if (a == 0) {
+                    stillHasZero = true;
                 }
+            }
+            if (!stillHasZero) {
+                rowIncomplete[y] = false;
             }
         }
         return changed;
@@ -245,12 +336,17 @@ public final class EdgeExtendFastOp {
     private static boolean sweepColRange(
             final int xStart,
             final int xEnd,
+            final int stripIndex,
             final int[] pixels,
-            final int[] dist,
+            final short[] dist,
+            final boolean[] colStripIncomplete,
             final int width,
             final int height,
             final int maxDist,
             final int writeAlpha) {
+        if (!colStripIncomplete[stripIndex]) {
+            return false;
+        }
         final int stripWidth = xEnd - xStart;
         if (stripWidth <= 0) {
             return false;
@@ -276,7 +372,7 @@ public final class EdgeExtendFastOp {
                     if (sy >= 0) {
                         final int d = y - sy;
                         if (d <= maxDist && dist[idx] > d) {
-                            dist[idx] = d;
+                            dist[idx] = (short) d;
                             pixels[idx] = writeMask | seedRgb[i];
                             changed = true;
                         }
@@ -286,6 +382,7 @@ public final class EdgeExtendFastOp {
         }
 
         Arrays.fill(seedY, -1);
+        boolean stillHasZero = false;
         for (int y = height - 1; y >= 0; y--) {
             final int rowBase = y * width + xStart;
             for (int i = 0; i < stripWidth; i++) {
@@ -300,13 +397,20 @@ public final class EdgeExtendFastOp {
                     if (sy >= 0) {
                         final int d = sy - y;
                         if (d <= maxDist && dist[idx] > d) {
-                            dist[idx] = d;
+                            dist[idx] = (short) d;
                             pixels[idx] = writeMask | seedRgb[i];
                             changed = true;
+                        } else if (a == 0) {
+                            stillHasZero = true;
                         }
+                    } else if (a == 0) {
+                        stillHasZero = true;
                     }
                 }
             }
+        }
+        if (!stillHasZero) {
+            colStripIncomplete[stripIndex] = false;
         }
         return changed;
     }

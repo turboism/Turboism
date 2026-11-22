@@ -18,6 +18,8 @@ final class ExportCloneBypassPatcher {
     static final String IMAGE_RESOURCE_TARGET = "com/live2d/graphics/CImageResource";
     static final String WRITABLE_IMAGE_TARGET = "com/live2d/graphics/CWritableImage";
     static final String TEXTURE_ATLAS_TARGET = "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas";
+    static final String UU_SERIALIZE_TARGET = "com/live2d/serialize/UUSerialize";
+    static final String FLOAT_ARRAY_SERIALIZER_TARGET = "com/live2d/serialize/impl/G";
 
     private static final String EXPORTER_PKG_PREFIX = "com/live2d/cubism/doc/model/exporter/";
     private static final String CLONER_METHOD = "a";
@@ -30,6 +32,33 @@ final class ExportCloneBypassPatcher {
     private static final String FORCE_COPY_DESC = "(Ljava/awt/image/BufferedImage;I)Ljava/awt/image/BufferedImage;";
     private static final String CREATE_REDUCED_DESC = "(II)Lcom/live2d/graphics/CWritableImage;";
     private static final String WRITE_PNG_DESC = "(Ljava/io/OutputStream;)V";
+    private static final String SERIALIZE_TO_BYTES_NAME = "serializeToBytes";
+    private static final String SERIALIZE_TO_BYTES_DESC =
+            "(Ljava/lang/Object;ZLcom/live2d/serialize/CompressOption;Lcom/live2d/graphics/CWritableImage;"
+                    + "Ljava/util/HashMap;ZI)[B";
+    private static final String DESERIALIZE_FROM_BYTES_NAME = "deserializeFromBytes";
+    private static final String DESERIALIZE_FROM_BYTES_DESC = "([BLjava/util/HashMap;IZ)Ljava/lang/Object;";
+    private static final String SERIALIZE_TO_DOC_NAME = "serializeToDoc_exe";
+    private static final String SERIALIZE_TO_DOC_DESC =
+            "(Ljava/lang/Object;Lcom/live2d/serialize/XmlWriter;)Lorg/jdom/Document;";
+    private static final String DESERIALIZE_DOC_NAME = "deserializeDoc_exe";
+    private static final String DESERIALIZE_DOC_DESC =
+            "(Lorg/jdom/Document;Lcom/live2d/serialize/XmlReader;)Ljava/lang/Object;";
+    private static final String XML_WRITER_INTERNAL = "com/live2d/serialize/XmlWriter";
+    private static final String XML_WRITER_DEFAULT_CTOR_DESC =
+            "(Z[C[ILjava/util/HashMap;ILkotlin/jvm/internal/DefaultConstructorMarker;)V";
+    private static final String XML_READER_INTERNAL = "com/live2d/serialize/XmlReader";
+    private static final String XML_READER_CTOR_DESC =
+            "(Lcom/live2d/serialize/archiver/ArchiveReader;Ljava/util/HashMap;)V";
+    private static final String JDOM_DOCUMENT_INTERNAL = "org/jdom/Document";
+    private static final int XML_WRITER_DEFAULT_MASK = 6;
+    private static final String CREATE_ELEMENT_NAME = "createElement";
+    private static final String CREATE_ELEMENT_DESC =
+            "(Ljava/lang/String;Ljava/lang/Object;Lcom/live2d/serialize/XmlWriter;)Lorg/jdom/Element;";
+    private static final String CREATE_ELEMENT_HELPER_DESC =
+            "(Ljava/lang/String;Ljava/lang/Object;ILjava/lang/String;Lcom/live2d/serialize/XmlWriter;)Lorg/jdom/Element;";
+    private static final String FLOAT_LIST_DECODE_NAME = "a";
+    private static final String FLOAT_LIST_DECODE_DESC = "(ILjava/util/List;)Ljava/lang/Object;";
 
     private static final String SCOPE_HELPER = Type.getInternalName(RuntimeExportScope.class);
     private static final String PNG_EXPORTER_HELPER = Type.getInternalName(FastPngExporter.class);
@@ -45,6 +74,8 @@ final class ExportCloneBypassPatcher {
         return IMAGE_RESOURCE_TARGET.equals(internalName)
                 || WRITABLE_IMAGE_TARGET.equals(internalName)
                 || TEXTURE_ATLAS_TARGET.equals(internalName)
+                || UU_SERIALIZE_TARGET.equals(internalName)
+                || FLOAT_ARRAY_SERIALIZER_TARGET.equals(internalName)
                 || isClonerCandidate(internalName);
     }
 
@@ -57,6 +88,12 @@ final class ExportCloneBypassPatcher {
         }
         if (TEXTURE_ATLAS_TARGET.equals(internalName)) {
             return patchTextureAtlas(classBytes);
+        }
+        if (UU_SERIALIZE_TARGET.equals(internalName)) {
+            return patchUuSerialize(classBytes);
+        }
+        if (FLOAT_ARRAY_SERIALIZER_TARGET.equals(internalName)) {
+            return patchFloatArraySerializer(classBytes);
         }
         if (isClonerCandidate(internalName)) {
             return patchExporterCloner(internalName, classBytes);
@@ -214,6 +251,244 @@ final class ExportCloneBypassPatcher {
                 },
                 ClassReader.EXPAND_FRAMES);
         return writer.toByteArray();
+    }
+
+    private static byte[] patchUuSerialize(final byte[] classBytes) {
+        final ClassReader reader = new ClassReader(classBytes);
+        if (!UU_SERIALIZE_TARGET.equals(reader.getClassName())) {
+            return null;
+        }
+        final UuSerializeScan scan = new UuSerializeScan();
+        reader.accept(scan, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
+        if (scan.alreadyPatched || !scan.matches()) {
+            return null;
+        }
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
+        reader.accept(
+                new ClassVisitor(ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String desc,
+                            final String sig,
+                            final String[] ex) {
+                        final MethodVisitor mv = super.visitMethod(access, name, desc, sig, ex);
+                        if (SERIALIZE_TO_BYTES_NAME.equals(name) && SERIALIZE_TO_BYTES_DESC.equals(desc)) {
+                            return wrapFastSerializeToBytes(mv);
+                        }
+                        if (DESERIALIZE_FROM_BYTES_NAME.equals(name) && DESERIALIZE_FROM_BYTES_DESC.equals(desc)) {
+                            return wrapFastDeserializeFromBytes(mv);
+                        }
+                        return mv;
+                    }
+                },
+                ClassReader.EXPAND_FRAMES);
+        return writer.toByteArray();
+    }
+
+    private static byte[] patchFloatArraySerializer(final byte[] classBytes) {
+        final ClassReader reader = new ClassReader(classBytes);
+        if (!FLOAT_ARRAY_SERIALIZER_TARGET.equals(reader.getClassName())) {
+            return null;
+        }
+        final FloatArrayScan scan = new FloatArrayScan();
+        reader.accept(scan, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
+        if (scan.alreadyPatched || !scan.matches()) {
+            return null;
+        }
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
+        reader.accept(
+                new ClassVisitor(ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String desc,
+                            final String sig,
+                            final String[] ex) {
+                        final MethodVisitor mv = super.visitMethod(access, name, desc, sig, ex);
+                        if (CREATE_ELEMENT_NAME.equals(name) && CREATE_ELEMENT_DESC.equals(desc)) {
+                            return wrapFastFloatCreateElement(mv);
+                        }
+                        if (FLOAT_LIST_DECODE_NAME.equals(name) && FLOAT_LIST_DECODE_DESC.equals(desc)) {
+                            return wrapFastFloatDecodeList(mv);
+                        }
+                        return mv;
+                    }
+                },
+                ClassReader.EXPAND_FRAMES);
+        return writer.toByteArray();
+    }
+
+    private static MethodVisitor wrapFastSerializeToBytes(final MethodVisitor delegate) {
+        final Object[] entryLocals = new Object[] {
+            UU_SERIALIZE_TARGET,
+            "java/lang/Object",
+            INTEGER,
+            "com/live2d/serialize/CompressOption",
+            WRITABLE_IMAGE_TARGET,
+            "java/util/HashMap",
+            INTEGER,
+            INTEGER
+        };
+        return new MethodVisitor(ASM9, delegate) {
+            @Override
+            public void visitCode() {
+                super.visitCode();
+                final Label popFallback = new Label();
+                final Label fallback = new Label();
+                super.visitMethodInsn(INVOKESTATIC, SCOPE_HELPER, "isActive", "()Z", false);
+                super.visitJumpInsn(IFEQ, fallback);
+                super.visitVarInsn(ALOAD, 1);
+                super.visitJumpInsn(IFNULL, fallback);
+                super.visitVarInsn(ALOAD, 4);
+                super.visitJumpInsn(IFNONNULL, fallback);
+                super.visitVarInsn(ALOAD, 5);
+                super.visitJumpInsn(IFNULL, fallback);
+                super.visitVarInsn(ILOAD, 6);
+                super.visitJumpInsn(IFNE, fallback);
+                super.visitVarInsn(ILOAD, 7);
+                super.visitJumpInsn(IFGE, fallback);
+
+                super.visitTypeInsn(NEW, XML_WRITER_INTERNAL);
+                super.visitInsn(DUP);
+                super.visitVarInsn(ILOAD, 2);
+                super.visitInsn(ACONST_NULL);
+                super.visitInsn(ACONST_NULL);
+                super.visitVarInsn(ALOAD, 5);
+                super.visitIntInsn(BIPUSH, XML_WRITER_DEFAULT_MASK);
+                super.visitInsn(ACONST_NULL);
+                super.visitMethodInsn(
+                        INVOKESPECIAL, XML_WRITER_INTERNAL, "<init>", XML_WRITER_DEFAULT_CTOR_DESC, false);
+                super.visitInsn(DUP);
+                super.visitVarInsn(ALOAD, 0);
+                super.visitInsn(SWAP);
+                super.visitVarInsn(ALOAD, 1);
+                super.visitInsn(SWAP);
+                super.visitMethodInsn(
+                        INVOKESPECIAL, UU_SERIALIZE_TARGET, SERIALIZE_TO_DOC_NAME, SERIALIZE_TO_DOC_DESC, false);
+                super.visitMethodInsn(
+                        INVOKESTATIC,
+                        SCOPE_HELPER,
+                        "tryStashClonedDocument",
+                        "(Ljava/lang/Object;Ljava/lang/Object;)[B",
+                        false);
+                super.visitInsn(DUP);
+                super.visitJumpInsn(IFNULL, popFallback);
+                super.visitInsn(ARETURN);
+
+                super.visitLabel(popFallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 1, new Object[] {"[B"});
+                super.visitInsn(POP);
+
+                super.visitLabel(fallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 0, new Object[0]);
+            }
+        };
+    }
+
+    private static MethodVisitor wrapFastDeserializeFromBytes(final MethodVisitor delegate) {
+        final Object[] entryLocals = new Object[] {UU_SERIALIZE_TARGET, "[B", "java/util/HashMap", INTEGER, INTEGER};
+        return new MethodVisitor(ASM9, delegate) {
+            @Override
+            public void visitCode() {
+                super.visitCode();
+                final Label popFallback = new Label();
+                final Label fallback = new Label();
+                super.visitVarInsn(ALOAD, 2);
+                super.visitJumpInsn(IFNULL, fallback);
+                super.visitVarInsn(ALOAD, 1);
+                super.visitMethodInsn(
+                        INVOKESTATIC, SCOPE_HELPER, "tryTakeClonedDocument", "([B)Ljava/lang/Object;", false);
+                super.visitInsn(DUP);
+                super.visitJumpInsn(IFNULL, popFallback);
+                super.visitTypeInsn(CHECKCAST, JDOM_DOCUMENT_INTERNAL);
+                super.visitVarInsn(ALOAD, 0);
+                super.visitInsn(SWAP);
+                super.visitTypeInsn(NEW, XML_READER_INTERNAL);
+                super.visitInsn(DUP);
+                super.visitInsn(ACONST_NULL);
+                super.visitVarInsn(ALOAD, 2);
+                super.visitMethodInsn(INVOKESPECIAL, XML_READER_INTERNAL, "<init>", XML_READER_CTOR_DESC, false);
+                super.visitMethodInsn(
+                        INVOKESPECIAL, UU_SERIALIZE_TARGET, DESERIALIZE_DOC_NAME, DESERIALIZE_DOC_DESC, false);
+                super.visitInsn(ARETURN);
+
+                super.visitLabel(popFallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 1, new Object[] {"java/lang/Object"});
+                super.visitInsn(POP);
+
+                super.visitLabel(fallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 0, new Object[0]);
+            }
+        };
+    }
+
+    private static MethodVisitor wrapFastFloatCreateElement(final MethodVisitor delegate) {
+        final Object[] entryLocals =
+                new Object[] {FLOAT_ARRAY_SERIALIZER_TARGET, "java/lang/String", "java/lang/Object", XML_WRITER_INTERNAL
+                };
+        return new MethodVisitor(ASM9, delegate) {
+            @Override
+            public void visitCode() {
+                super.visitCode();
+                final Label fallback = new Label();
+                super.visitMethodInsn(INVOKESTATIC, SCOPE_HELPER, "isActive", "()Z", false);
+                super.visitJumpInsn(IFEQ, fallback);
+                super.visitVarInsn(ALOAD, 3);
+                super.visitJumpInsn(IFNULL, fallback);
+                super.visitVarInsn(ALOAD, 2);
+                super.visitTypeInsn(INSTANCEOF, "[F");
+                super.visitJumpInsn(IFEQ, fallback);
+                super.visitVarInsn(ALOAD, 2);
+                super.visitTypeInsn(CHECKCAST, "[F");
+                super.visitInsn(ARRAYLENGTH);
+                super.visitJumpInsn(IFEQ, fallback);
+
+                super.visitVarInsn(ALOAD, 0);
+                super.visitVarInsn(ALOAD, 1);
+                super.visitVarInsn(ALOAD, 2);
+                super.visitVarInsn(ALOAD, 2);
+                super.visitTypeInsn(CHECKCAST, "[F");
+                super.visitInsn(ARRAYLENGTH);
+                super.visitVarInsn(ALOAD, 2);
+                super.visitMethodInsn(
+                        INVOKESTATIC, SCOPE_HELPER, "storeFloatArray", "(Ljava/lang/Object;)Ljava/lang/String;", false);
+                super.visitVarInsn(ALOAD, 3);
+                super.visitMethodInsn(
+                        INVOKEVIRTUAL, FLOAT_ARRAY_SERIALIZER_TARGET, "a", CREATE_ELEMENT_HELPER_DESC, false);
+                super.visitInsn(ARETURN);
+
+                super.visitLabel(fallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 0, new Object[0]);
+            }
+        };
+    }
+
+    private static MethodVisitor wrapFastFloatDecodeList(final MethodVisitor delegate) {
+        final Object[] entryLocals = new Object[] {FLOAT_ARRAY_SERIALIZER_TARGET, INTEGER, "java/util/List"};
+        return new MethodVisitor(ASM9, delegate) {
+            @Override
+            public void visitCode() {
+                super.visitCode();
+                final Label popFallback = new Label();
+                final Label fallback = new Label();
+                super.visitVarInsn(ALOAD, 2);
+                super.visitMethodInsn(
+                        INVOKESTATIC, SCOPE_HELPER, "tryTakeFloatArrayFromList", "(Ljava/util/List;)[F", false);
+                super.visitInsn(DUP);
+                super.visitJumpInsn(IFNULL, popFallback);
+                super.visitInsn(ARETURN);
+
+                super.visitLabel(popFallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 1, new Object[] {"[F"});
+                super.visitInsn(POP);
+
+                super.visitLabel(fallback);
+                super.visitFrame(F_NEW, entryLocals.length, entryLocals, 0, new Object[0]);
+            }
+        };
     }
 
     private static byte[] patchExporterCloner(final String internalName, final byte[] classBytes) {
@@ -662,6 +937,92 @@ final class ExportCloneBypassPatcher {
                 return null;
             }
             hasOnDeserialized = true;
+            return new MethodVisitor(ASM9) {
+                @Override
+                public void visitMethodInsn(
+                        final int opcode,
+                        final String owner,
+                        final String mName,
+                        final String mDesc,
+                        final boolean itf) {
+                    if (opcode == INVOKESTATIC && SCOPE_HELPER.equals(owner)) {
+                        alreadyPatched = true;
+                    }
+                }
+            };
+        }
+    }
+
+    private static final class UuSerializeScan extends ClassVisitor {
+        private boolean hasSerializeToBytes;
+        private boolean hasDeserializeFromBytes;
+        private boolean hasSerializeToDoc;
+        private boolean hasDeserializeDoc;
+        private boolean alreadyPatched;
+
+        UuSerializeScan() {
+            super(ASM9);
+        }
+
+        boolean matches() {
+            return hasSerializeToBytes && hasDeserializeFromBytes && hasSerializeToDoc && hasDeserializeDoc;
+        }
+
+        @Override
+        public MethodVisitor visitMethod(
+                final int access, final String name, final String desc, final String sig, final String[] ex) {
+            if (SERIALIZE_TO_BYTES_NAME.equals(name) && SERIALIZE_TO_BYTES_DESC.equals(desc)) {
+                hasSerializeToBytes = true;
+            } else if (DESERIALIZE_FROM_BYTES_NAME.equals(name) && DESERIALIZE_FROM_BYTES_DESC.equals(desc)) {
+                hasDeserializeFromBytes = true;
+            } else if (SERIALIZE_TO_DOC_NAME.equals(name) && SERIALIZE_TO_DOC_DESC.equals(desc)) {
+                hasSerializeToDoc = true;
+                return null;
+            } else if (DESERIALIZE_DOC_NAME.equals(name) && DESERIALIZE_DOC_DESC.equals(desc)) {
+                hasDeserializeDoc = true;
+                return null;
+            } else {
+                return null;
+            }
+            return new MethodVisitor(ASM9) {
+                @Override
+                public void visitMethodInsn(
+                        final int opcode,
+                        final String owner,
+                        final String mName,
+                        final String mDesc,
+                        final boolean itf) {
+                    if (opcode == INVOKESTATIC && SCOPE_HELPER.equals(owner)) {
+                        alreadyPatched = true;
+                    }
+                }
+            };
+        }
+    }
+
+    private static final class FloatArrayScan extends ClassVisitor {
+        private boolean hasCreateElement;
+        private boolean hasDecodeList;
+        private boolean alreadyPatched;
+
+        FloatArrayScan() {
+            super(ASM9);
+        }
+
+        boolean matches() {
+            return hasCreateElement && hasDecodeList;
+        }
+
+        @Override
+        public MethodVisitor visitMethod(
+                final int access, final String name, final String desc, final String sig, final String[] ex) {
+            if (CREATE_ELEMENT_NAME.equals(name) && CREATE_ELEMENT_DESC.equals(desc)) {
+                hasCreateElement = true;
+            } else if (FLOAT_LIST_DECODE_NAME.equals(name) && FLOAT_LIST_DECODE_DESC.equals(desc)) {
+                hasDecodeList = true;
+            } else {
+                return null;
+            }
             return new MethodVisitor(ASM9) {
                 @Override
                 public void visitMethodInsn(

@@ -7,6 +7,7 @@ import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferInt;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,10 @@ public final class RuntimeExportScope {
     private static final String ATTR_WIDTH = "width";
     private static final String ATTR_HEIGHT = "height";
     private static final String ATTR_TYPE = "type";
+    private static final String FLOAT_TOKEN_PREFIX = "@t";
+    private static final int FLOAT_TOKEN_PREFIX_LEN = 2;
+    private static final int RADIX_TEN = 10;
+    private static final byte[] FAST_CLONE_MARKER = new byte[0];
 
     private static final ThreadLocal<ScopeState> ACTIVE_SCOPE = new ThreadLocal<>();
     private static final ThreadLocal<Object> PENDING_ATLAS = new ThreadLocal<>();
@@ -44,6 +49,7 @@ public final class RuntimeExportScope {
     private static volatile ElementHandles elementHandles;
     private static volatile AtlasHandles atlasHandles;
     private static volatile ModelSourceHandles modelSourceHandles;
+    private static volatile ArchiveWriterHandles archiveWriterHandles;
 
     private RuntimeExportScope() {}
 
@@ -88,6 +94,111 @@ public final class RuntimeExportScope {
      */
     public static boolean isActive() {
         return ACTIVE_SCOPE.get() != null;
+    }
+
+    /**
+     * Stashes an in-memory JDOM {@code Document} produced during export cloning when no external
+     * archive entries were written, allowing {@code deserializeFromBytes} to consume it directly.
+     *
+     * @param xmlWriter active host {@code XmlWriter}
+     * @param document serialized JDOM {@code Document}
+     * @return opaque marker byte array when stashed, or {@code null} to run stock archive serialization
+     */
+    public static byte[] tryStashClonedDocument(final Object xmlWriter, final Object document) {
+        final ScopeState state = ACTIVE_SCOPE.get();
+        if (state == null || xmlWriter == null || document == null) {
+            return null;
+        }
+        try {
+            final ArchiveWriterHandles handles = resolveArchiveWriterHandles(xmlWriter.getClass());
+            final Object fileWriter = handles.getFileWriter.invoke(xmlWriter);
+            if (fileWriter == null) {
+                return null;
+            }
+            final Object fileNames = handles.fileNameSet.get(fileWriter);
+            if (!(fileNames instanceof Set<?> set) || !set.isEmpty()) {
+                return null;
+            }
+            state.stashedDocument = document;
+            return FAST_CLONE_MARKER;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
+    /**
+     * Consumes the stashed in-memory JDOM {@code Document} when {@code bytes} matches the marker
+     * returned by {@link #tryStashClonedDocument(Object, Object)}.
+     *
+     * @param bytes serialized payload passed to {@code UUSerialize.deserializeFromBytes}
+     * @return stashed JDOM {@code Document}, or {@code null} for stock archive deserialization
+     */
+    public static Object tryTakeClonedDocument(final byte[] bytes) {
+        if (bytes != FAST_CLONE_MARKER) {
+            return null;
+        }
+        final ScopeState state = ACTIVE_SCOPE.get();
+        if (state == null || state.stashedDocument == null) {
+            return null;
+        }
+        final Object doc = state.stashedDocument;
+        state.stashedDocument = null;
+        return doc;
+    }
+
+    /**
+     * Stores a defensive clone of a non-empty {@code float[]} during active export cloning and
+     * returns a compact token string to avoid decimal formatting and XML escaping.
+     *
+     * @param value host {@code float[]} instance
+     * @return compact token string referencing the stored clone
+     */
+    public static String storeFloatArray(final Object value) {
+        final ScopeState state = ACTIVE_SCOPE.get();
+        final float[] source = (float[]) value;
+        final int index = state.floatArrays.size();
+        state.floatArrays.add(source.clone());
+        return FLOAT_TOKEN_PREFIX + index;
+    }
+
+    /**
+     * Resolves a compact float-array token emitted by {@link #storeFloatArray(Object)}.
+     *
+     * @param text XML element text
+     * @return cloned {@code float[]} when {@code text} is an active scope token, otherwise {@code null}
+     */
+    public static float[] tryTakeFloatArray(final String text) {
+        if (text == null || text.length() <= FLOAT_TOKEN_PREFIX_LEN || text.charAt(0) != '@' || text.charAt(1) != 't') {
+            return null;
+        }
+        final ScopeState state = ACTIVE_SCOPE.get();
+        if (state == null) {
+            return null;
+        }
+        try {
+            final int index = Integer.parseInt(text, FLOAT_TOKEN_PREFIX_LEN, text.length(), RADIX_TEN);
+            if (index >= 0 && index < state.floatArrays.size()) {
+                return state.floatArrays.get(index);
+            }
+            return null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolves a compact float-array token from a split token list when stock deserialization runs.
+     *
+     * @param tokens split XML text tokens passed to {@code com.live2d.serialize.impl.G.a(int, List)}
+     * @return cloned {@code float[]} when {@code tokens} contains a single active scope token
+     */
+    public static float[] tryTakeFloatArrayFromList(final List<?> tokens) {
+        if (tokens == null || tokens.size() != 1) {
+            return null;
+        }
+        final Object first = tokens.get(0);
+        return first instanceof String s ? tryTakeFloatArray(s) : null;
     }
 
     /**
@@ -475,6 +586,22 @@ public final class RuntimeExportScope {
         }
     }
 
+    private static ArchiveWriterHandles resolveArchiveWriterHandles(final Class<?> xmlWriterClass) throws Exception {
+        ArchiveWriterHandles cached = archiveWriterHandles;
+        if (cached != null && cached.owner == xmlWriterClass) {
+            return cached;
+        }
+        synchronized (RuntimeExportScope.class) {
+            cached = archiveWriterHandles;
+            if (cached != null && cached.owner == xmlWriterClass) {
+                return cached;
+            }
+            cached = new ArchiveWriterHandles(xmlWriterClass);
+            archiveWriterHandles = cached;
+            return cached;
+        }
+    }
+
     private static Field openField(final Class<?> owner, final String name) throws NoSuchFieldException {
         final Field field = owner.getDeclaredField(name);
         ReflectAccess.open(field);
@@ -484,6 +611,8 @@ public final class RuntimeExportScope {
     private static final class ScopeState {
         private int depth = 1;
         private long nextTokenId = 1L;
+        private Object stashedDocument;
+        private final List<float[]> floatArrays = new ArrayList<>();
         private final Map<Long, ResourceSnapshot> resources = new HashMap<>();
         private final Map<Long, WritableSnapshot> writables = new HashMap<>();
         private final Set<String> cleanAtlasGuids = new HashSet<>();
@@ -648,6 +777,18 @@ public final class RuntimeExportScope {
             final Class<?> controllableClass = Class.forName(
                     "com.live2d.cubism.doc.model.ACParameterControllableSource", false, owner.getClassLoader());
             this.getExtensions = controllableClass.getMethod("getExtensions");
+        }
+    }
+
+    private static final class ArchiveWriterHandles {
+        private final Class<?> owner;
+        private final Method getFileWriter;
+        private final Field fileNameSet;
+
+        ArchiveWriterHandles(final Class<?> xmlWriterClass) throws NoSuchMethodException, NoSuchFieldException {
+            this.owner = xmlWriterClass;
+            this.getFileWriter = xmlWriterClass.getMethod("getFileWriter");
+            this.fileNameSet = openField(this.getFileWriter.getReturnType(), "fileNameSet");
         }
     }
 }
