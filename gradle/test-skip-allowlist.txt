@@ -120,5 +120,6 @@ dev.turboism.automesh.host.AutoMeshWriteContractTest.everyReviewedArtifactCarrie
 dev.turboism.adapter.cubism.textureatlas.TextureAtlasPipelineParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.textureatlas.TextureAtlasRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 20 reviewed versions); the licensed archive is never committed.
 dev.turboism.adapter.cubism.modelopen.ModelOpenRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.meshedit.MeshEditRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 21 reviewed versions); the licensed archive is never committed.
 dev.turboism.adapter.cubism.exportperf.RuntimeExportRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.exportperf.EdgeAndDownscaleParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.

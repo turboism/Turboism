@@ -135,7 +135,7 @@ V1_FIELDS = {
     "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
     "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
     "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-    "modelOpenAcceleration", "runtimeExportAcceleration",
+    "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
@@ -152,7 +152,7 @@ BOOLEAN_LAUNCHER_FIELDS = {"zgc", "modelUpdateSkip", "incrementalUpdate", "incre
 BOOLEAN_V1_FIELDS = {
     "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
     "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-    "modelOpenAcceleration", "runtimeExportAcceleration",
+    "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
 }
 CUBISM_JVMS = {"graalvm", "bundled"}
 MEMORY_PROFILES = {"system", "balanced4g", "balanced4gFastSoft"}
@@ -570,7 +570,7 @@ def check_config_migration_contract():
               "reduceAutoBackup", "meshTriangulationHashFix",
               "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
               "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-              "modelOpenAcceleration", "runtimeExportAcceleration",
+              "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
           ))
           and '"zgc", "modelUpdateSkip", "incrementalUpdate"' in configure)
     check("CM6c merged documents with runtime boolean fields pass v1",

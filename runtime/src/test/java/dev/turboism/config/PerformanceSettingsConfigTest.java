@@ -44,7 +44,8 @@ class PerformanceSettingsConfigTest {
             Field.ATLAS_INTERACTIVE_RENDER,
             Field.TRIANGULATION_SPATIAL_INDEX,
             Field.MODEL_OPEN_ACCELERATION,
-            Field.RUNTIME_EXPORT_ACCELERATION);
+            Field.RUNTIME_EXPORT_ACCELERATION,
+            Field.MESH_EDIT_ACCELERATION);
 
     @Test
     void nativeOptimizationsUseTheirReviewedDefaultsOnBothPlatforms() {

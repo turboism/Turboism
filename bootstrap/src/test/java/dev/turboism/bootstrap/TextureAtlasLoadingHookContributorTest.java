@@ -161,6 +161,10 @@ final class TextureAtlasLoadingHookContributorTest {
                 new RuntimeExportAccelerationHookContributor(),
                 RuntimeExportAccelerationHookContributor.HOOK_POLICY_ID,
                 OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION);
+        assertAccelerationContributorLifecycle(
+                new MeshEditAccelerationHookContributor(),
+                MeshEditAccelerationHookContributor.HOOK_POLICY_ID,
+                OptimizationCatalog.MESH_EDIT_ACCELERATION);
     }
 
     private void assertAccelerationContributorLifecycle(

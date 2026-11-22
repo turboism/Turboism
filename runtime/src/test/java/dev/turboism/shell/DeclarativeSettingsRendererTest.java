@@ -1146,7 +1146,7 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(41, boxes.size());
+                assertEquals(42, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
@@ -1264,6 +1264,10 @@ class DeclarativeSettingsRendererTest {
                             checkboxes(form), OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION.contributionId());
                     assertTrue(runtimeExport.isSelected(), "missing preference enables runtime export acceleration");
                     runtimeExport.doClick();
+                    final JCheckBox meshEdit = findCheckBoxByName(
+                            checkboxes(form), OptimizationCatalog.MESH_EDIT_ACCELERATION.contributionId());
+                    assertTrue(meshEdit.isSelected(), "missing preference enables mesh edit acceleration");
+                    meshEdit.doClick();
                     final JPanel topSection = findCollapsibleSection(form);
                     assertTrue(topSection != null, "top collapsible section must render");
                     assertTrue(
@@ -1324,6 +1328,12 @@ class DeclarativeSettingsRendererTest {
             assertTrue(persistedRoot.path(runtimeExportKey).isBoolean());
             assertFalse(nativeReloaded
                     .choice(OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION)
+                    .enabled());
+            final String meshEditKey = OptimizationCatalog.MESH_EDIT_ACCELERATION.key();
+            assertEquals(Boolean.FALSE, persistedRoot.path(meshEditKey).booleanValue());
+            assertTrue(persistedRoot.path(meshEditKey).isBoolean());
+            assertFalse(nativeReloaded
+                    .choice(OptimizationCatalog.MESH_EDIT_ACCELERATION)
                     .enabled());
             for (final Optimization optimization : hotpath) {
                 assertEquals(

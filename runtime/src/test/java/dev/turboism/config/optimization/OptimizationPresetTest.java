@@ -39,22 +39,22 @@ final class OptimizationPresetTest {
     Path home;
 
     @Test
-    void balancedEnablesAllThirtySevenUniversalOptimizationsAndLeavesFourTradeOffsOff() {
+    void balancedEnablesAllThirtyEightUniversalOptimizationsAndLeavesFourTradeOffsOff() {
         final Map<String, Boolean> balanced = OptimizationPreset.BALANCED.flags();
-        assertEquals(41, balanced.size());
+        assertEquals(42, balanced.size());
         assertEquals(
-                37, balanced.values().stream().filter(Boolean::booleanValue).count());
+                38, balanced.values().stream().filter(Boolean::booleanValue).count());
         for (final Optimization optimization : OptimizationCatalog.persisted()) {
             final boolean expected = !TRADE_OFF_KEYS.contains(optimization.key());
             assertEquals(expected, balanced.get(optimization.key()), optimization.key());
         }
 
         final Map<String, Boolean> off = OptimizationPreset.OFF.flags();
-        assertEquals(41, off.size());
+        assertEquals(42, off.size());
         assertTrue(off.values().stream().noneMatch(Boolean::booleanValue));
 
         final Map<String, Boolean> heavy = OptimizationPreset.HEAVY_EDITING.flags();
-        assertEquals(41, heavy.size());
+        assertEquals(42, heavy.size());
         assertTrue(heavy.values().stream().allMatch(Boolean::booleanValue));
     }
 

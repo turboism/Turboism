@@ -846,7 +846,7 @@ final class ConfigMerge {
             "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
             "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
             "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-            "modelOpenAcceleration", "runtimeExportAcceleration");
+            "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> LOCALES = Set.of(
@@ -969,7 +969,7 @@ final class ConfigMerge {
                 "reduceAutoBackup", "meshTriangulationHashFix",
                 "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
                 "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-                "modelOpenAcceleration", "runtimeExportAcceleration")) {
+                "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration")) {
             if (map.containsKey(field) && !(map.get(field) instanceof Boolean)) {
                 throw new ConfigException("existing config.json " + field + " must be a boolean");
             }
@@ -1184,8 +1184,9 @@ final class ConfigMerge {
         for (String field : List.of(
                 "safeMode", "useTextIcon", "reduceAutoBackup",
                 "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-                "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-                "modelOpenAcceleration", "runtimeExportAcceleration")) {
+                "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender",
+                "triangulationSpatialIndex", "modelOpenAcceleration", "runtimeExportAcceleration",
+                "meshEditAcceleration")) {
             if (source.get(field) instanceof Boolean) {
                 normalized.put(field, source.get(field));
             }

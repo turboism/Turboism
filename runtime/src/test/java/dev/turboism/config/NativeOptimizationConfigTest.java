@@ -62,7 +62,8 @@ class NativeOptimizationConfigTest {
                 OptimizationCatalog.ATLAS_LOADING,
                 OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX,
                 OptimizationCatalog.MODEL_OPEN_ACCELERATION,
-                OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION)) {
+                OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION,
+                OptimizationCatalog.MESH_EDIT_ACCELERATION)) {
             assertTrue(service.enabled(option.key()));
             assertTrue(NativeOptimizationConfig.load(home, ignored -> {})
                     .choice(option)

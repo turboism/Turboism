@@ -581,6 +581,19 @@ public final class OptimizationCatalog {
             "settings.optimization.warp-deform-edit-acceleration.tooltip",
             List.of());
 
+    /** Accelerates interactive mesh editing, point-in-triangle lookups, overlays, and topology updates. */
+    public static final Optimization MESH_EDIT_ACCELERATION = new Optimization(
+            "meshEditAcceleration",
+            "mesh-edit-acceleration",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.meshEditAcceleration"),
+            List.of("TURBOISM_MESH_EDIT_ACCELERATION"),
+            Set.of("cubism.mesh.edit-acceleration"),
+            Optional.of(new Optimization.Placement("mesh", 109)),
+            "settings.optimization.mesh-edit-acceleration",
+            "settings.optimization.mesh-edit-acceleration.tooltip",
+            List.of());
+
     /** Speeds up opening Cubism model documents cleanly alongside texture upload preparation. */
     public static final Optimization MODEL_OPEN_ACCELERATION = new Optimization(
             "modelOpenAcceleration",
@@ -740,6 +753,7 @@ public final class OptimizationCatalog {
             TRIANGULATION_SPATIAL_INDEX,
             WARP_DEFORM_EDIT_ACCELERATION,
             ATLAS_INTERACTIVE_RENDER,
+            MESH_EDIT_ACCELERATION,
             MODEL_OPEN_ACCELERATION,
             RUNTIME_EXPORT_ACCELERATION,
             CANVAS_COMPOSITE_ELISION,

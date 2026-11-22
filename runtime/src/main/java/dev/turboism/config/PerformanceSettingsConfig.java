@@ -55,6 +55,7 @@ public final class PerformanceSettingsConfig {
         ATLAS_LOADING("atlasLoading", false, "true"),
         ATLAS_INTERACTIVE_RENDER("atlasInteractiveRender", false, "true"),
         TRIANGULATION_SPATIAL_INDEX("triangulationSpatialIndex", false, "true"),
+        MESH_EDIT_ACCELERATION("meshEditAcceleration", false, "true"),
         MODEL_OPEN_ACCELERATION("modelOpenAcceleration", false, "true"),
         RUNTIME_EXPORT_ACCELERATION("runtimeExportAcceleration", false, "true"),
         CUBISM_JVM("cubismJvm", true, "graalvm"),
