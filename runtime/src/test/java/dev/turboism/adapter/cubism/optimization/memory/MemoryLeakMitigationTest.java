@@ -286,6 +286,47 @@ class MemoryLeakMitigationTest {
             assertTrue(glImplCls.getField("deletes").getInt(gl1) >= 1);
             assertTrue(activeBridge.snapshot().get("vbosDeleted") >= 1L);
 
+            // Multi-batch drain (> 64 queued VBOs) deletes and counts both full 64-batches and the tail batch.
+            final long queuedBeforeBatch = activeBridge.snapshot().get("vbosQueued");
+            final long deletedBeforeBatch = activeBridge.snapshot().get("vbosDeleted");
+            final List<Object> batchVbos = new ArrayList<>();
+            for (int k = 0; k < 70; k++) {
+                final Object bv = floatBufCls.getConstructor().newInstance();
+                uploadMethod.invoke(bv, gl1, 1);
+                floatBufCls.getMethod("a", host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER)).invoke(bv, gl1);
+                batchVbos.add(bv);
+            }
+            currentCtxField.set(null, ctx2);
+            for (final Object bv : batchVbos) {
+                uploadMethod.invoke(bv, gl2, 1);
+            }
+            assertEquals(70L, activeBridge.snapshot().get("vbosQueued") - queuedBeforeBatch);
+            assertEquals(deletedBeforeBatch, activeBridge.snapshot().get("vbosDeleted"));
+            currentCtxField.set(null, ctx1);
+            uploadMethod.invoke(otherVbo, gl1, 1);
+            assertEquals(70L, activeBridge.snapshot().get("vbosDeleted") - deletedBeforeBatch);
+
+            // Empty and populated Entities.removeAll() cleanly release subtree buffers without throwing.
+            final Class<?> entitiesCls = host.load(MemoryLeakMitigationTarget.ENTITIES_OWNER);
+            final Object entitiesObj = entitiesCls.getConstructor().newInstance();
+            entitiesCls.getMethod("removeAll").invoke(entitiesObj);
+            final Object subVbo = floatBufCls.getConstructor().newInstance();
+            floatBufCls.getMethod("a", host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER)).invoke(subVbo, gl1);
+            ((IntBuffer) floatBufCls.getMethod("i").invoke(subVbo)).put(0, 73);
+            final Object subEntity = host.load(MemoryLeakMitigationTarget.G_ENTITY_OWNER).getConstructor().newInstance();
+            final Object subMesh = host.load("com/live2d/graphics3d/mesh/GMesh2").getConstructor().newInstance();
+            subMesh.getClass().getField("posBuffer").set(subMesh, subVbo);
+            final Object subCont = host.load("com/live2d/graphics3d/component/GMeshContainer")
+                    .getConstructor(host.load("com/live2d/graphics3d/mesh/a"))
+                    .newInstance(subMesh);
+            final Object subRend = host.load(MemoryLeakMitigationTarget.G_MESH_RENDERER_OWNER)
+                    .getConstructor(subCont.getClass())
+                    .newInstance(subCont);
+            ((List<Object>) subEntity.getClass().getMethod("getComponents").invoke(subEntity)).add(subRend);
+            ((List<Object>) entitiesObj).add(subEntity);
+            entitiesCls.getMethod("removeAll").invoke(entitiesObj);
+            assertEquals(0, ((IntBuffer) floatBufCls.getMethod("i").invoke(subVbo)).get(0));
+
             // Entity subtree disposal under CEViewContext_MeshEditor releases nested mesh VBO.
             final Object entityVbo = floatBufCls.getConstructor().newInstance();
             floatBufCls.getMethod("a", host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER)).invoke(entityVbo, gl1);
@@ -360,6 +401,22 @@ class MemoryLeakMitigationTest {
             assertTrue(undoableCls.getField("died").getBoolean(added.get(1)));
             assertFalse(undoableCls.getField("died").getBoolean(added.get(2)));
             assertEquals(2L, activeBridge.snapshot().get("undoEntriesEvicted"));
+
+            // Unbounded CUndoManager (limit <= 0, matching MeshEditor -1) falls back to DEFAULT_UNDO_LIMIT (100).
+            final Object unboundedMgr = undoCls.getConstructor().newInstance();
+            undoCls.getField("limit").setInt(unboundedMgr, -1);
+            final List<Object> unboundedItems = new ArrayList<>();
+            for (int i = 0; i < 103; i++) {
+                final Object item = undoableCls.getConstructor().newInstance();
+                unboundedItems.add(item);
+                addEdit.invoke(unboundedMgr, item);
+            }
+            assertEquals(100, ((List<?>) undoCls.getField("_undoList").get(unboundedMgr)).size());
+            assertEquals(100, undoCls.getField("currentPos").getInt(unboundedMgr));
+            assertTrue(undoableCls.getField("died").getBoolean(unboundedItems.get(0)));
+            assertTrue(undoableCls.getField("died").getBoolean(unboundedItems.get(2)));
+            assertFalse(undoableCls.getField("died").getBoolean(unboundedItems.get(3)));
+            assertEquals(5L, activeBridge.snapshot().get("undoEntriesEvicted"));
 
             // 2. Cancelled closeFile(false, false) keeps undo and holders; confirmed closeFile(true, false) clears matching only.
             final Class<?> modelDocCls = host.load(MemoryLeakMitigationTarget.MODELING_DOC_OWNER);

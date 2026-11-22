@@ -188,9 +188,9 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
             }
 
             @Override
-            public void onVboDeleted() {
+            public void onVboDeleted(final int count) {
                 synchronized (statsLock) {
-                    vbosDeleted++;
+                    vbosDeleted += count;
                 }
             }
 

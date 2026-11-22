@@ -33,6 +33,8 @@ final class LifecycleCleanupHelper {
     private static final String CWIDGET_TEXTFIELD_CLASS = "com/live2d/ui/control/CTextField";
     private static final String UNDOABLE_CLASS = "com/live2d/undo/ACUndoable";
     private static final String RENAMING_LISTENER_CLIENT_KEY = "turboism.memoryLeak.renameHierarchyGuard";
+    // Matches CUndoManager.DEFAULT_UNDO_LIMIT when an editor mode passes an unbounded limit (e.g. MeshEditor -1).
+    private static final int DEFAULT_UNDO_LIMIT_FALLBACK = 100;
 
     private final Listener statsListener;
 
@@ -168,16 +170,14 @@ final class LifecycleCleanupHelper {
                 cWidgetClass, "getJComponent", "()Ljavax/swing/JComponent;", MethodType.methodType(JComponent.class, Object.class));
     }
 
-    /** Enforces {@code CUndoManager.limit} by calling {@code die()} on and evicting oldest entries. */
+    /** Enforces {@code CUndoManager.limit} (falling back to 100 when unbounded) by calling {@code die()} and evicting oldest entries. */
     void enforceUndoLimit(final Object undoManager) {
         if (undoManager == null) {
             return;
         }
         try {
-            final int limit = ((Number) undoLimitField.get(undoManager)).intValue();
-            if (limit <= 0) {
-                return;
-            }
+            final int configuredLimit = ((Number) undoLimitField.get(undoManager)).intValue();
+            final int limit = configuredLimit > 0 ? configuredLimit : DEFAULT_UNDO_LIMIT_FALLBACK;
             @SuppressWarnings("unchecked")
             final List<Object> undoList = (List<Object>) undoListField.get(undoManager);
             final int currentPos = ((Number) undoPosField.get(undoManager)).intValue();
