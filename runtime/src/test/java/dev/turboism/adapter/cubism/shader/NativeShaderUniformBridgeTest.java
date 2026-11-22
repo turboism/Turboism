@@ -172,4 +172,36 @@ final class NativeShaderUniformBridgeTest {
         assertEquals(before + 1, gl.calls);
         gl.failure = null;
     }
+
+    public interface PublicGlApi {
+        Context getContext();
+
+        int glGetUniformLocation(int program, String name);
+    }
+
+    private static final class PackagePrivateGlImpl implements PublicGlApi {
+        final Context context = new Context();
+        int calls;
+
+        @Override
+        public Context getContext() {
+            return context;
+        }
+
+        @Override
+        public int glGetUniformLocation(final int program, final String name) {
+            calls++;
+            return program * 100 + name.length();
+        }
+    }
+
+    @Test
+    void supportsPackagePrivateConcreteImplementationsBehindPublicInterfaces() {
+        final PackagePrivateGlImpl gl = new PackagePrivateGlImpl();
+        final Shader shader = new Shader();
+        Context.current = gl.context;
+        assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+        assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+        assertEquals(1, gl.calls);
+    }
 }
