@@ -70,16 +70,26 @@ final class TurboismAgentMeshInterpolationPolicyTest {
         assertEquals("cubism.mesh.interpolation", contributor.policyId());
         assertTrue(contributor.closesOnProcessExit());
 
-        // 1. Default config: not requested, admitted is false, diagnostic recorded
+        // 1. Default config: meshInterpolation is promoted to default-ON
         HookEnvironment defaultEnv = HookEnvironment.builder()
                 .options(AgentOptions.parse("home=" + home, home))
                 .startupPolicy(policy(false, Set.of()))
                 .build();
-        assertFalse(contributor.admitted(defaultEnv));
-        var defaultDiag = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
-        assertNotNull(defaultDiag);
-        assertEquals("not-installed", defaultDiag.state());
-        assertEquals("preference-disabled", defaultDiag.reason());
+        assertTrue(contributor.admitted(defaultEnv));
+
+        // 1b. Explicit false config disables meshInterpolation and records diagnostic
+        Files.writeString(
+                home.resolve("config.json"),
+                "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,\"worktreeId\":\"test-worktree\",\"launcher\":{\"meshInterpolation\":false}}");
+        HookEnvironment disabledConfigEnv = HookEnvironment.builder()
+                .options(AgentOptions.parse("home=" + home, home))
+                .startupPolicy(policy(false, Set.of()))
+                .build();
+        assertFalse(contributor.admitted(disabledConfigEnv));
+        var disabledConfigDiag = NativeOptimizationDiagnostics.snapshot().get(OptimizationCatalog.MESH_INTERPOLATION);
+        assertNotNull(disabledConfigDiag);
+        assertEquals("not-installed", disabledConfigDiag.state());
+        assertEquals("preference-disabled", disabledConfigDiag.reason());
 
         // 2. Global config enables meshInterpolation
         Files.writeString(

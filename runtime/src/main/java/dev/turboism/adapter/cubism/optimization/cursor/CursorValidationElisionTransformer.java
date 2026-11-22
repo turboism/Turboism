@@ -285,6 +285,11 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
 
     private static MethodVisitor wrapGetMousePosition(final MethodVisitor downstream, final int[] localSites) {
         return new MethodVisitor(Opcodes.ASM9, downstream) {
+            private static final String MOUSE_INFO_OWNER = "java/awt/MouseInfo";
+            private static final String GET_POINTER_INFO_METHOD = "getPointerInfo";
+            private static final String GET_POINTER_INFO_DESCRIPTOR = "()Ljava/awt/PointerInfo;";
+            private static final String PREDICATE_TEST_METHOD = "test";
+            private static final String PREDICATE_TEST_DESCRIPTOR = "(Ljava/lang/Object;)Z";
             private boolean injected;
 
             @Override
@@ -292,25 +297,54 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                 if (!injected
                         && opcode == Opcodes.NEW
                         && type.startsWith(CursorValidationElisionTarget.CONTAINER_POINTER_ACTION_PREFIX)) {
-                    injected = true;
-                    localSites[0]++;
-                    SlotBridgeEmitter.emitGetSlot(mv, CursorValidationElisionBridge.OUTSIDE_PROPERTY);
-                    super.visitInsn(Opcodes.DUP);
-                    super.visitTypeInsn(Opcodes.INSTANCEOF, PREDICATE);
-                    final Label fallback = new Label();
-                    final Label proceed = new Label();
-                    super.visitJumpInsn(Opcodes.IFEQ, fallback);
-                    super.visitTypeInsn(Opcodes.CHECKCAST, PREDICATE);
-                    super.visitVarInsn(Opcodes.ALOAD, 0);
-                    super.visitMethodInsn(Opcodes.INVOKEINTERFACE, PREDICATE, "test", "(Ljava/lang/Object;)Z", true);
-                    super.visitJumpInsn(Opcodes.IFEQ, proceed);
-                    super.visitInsn(Opcodes.ACONST_NULL);
-                    super.visitInsn(Opcodes.ARETURN);
-                    super.visitLabel(fallback);
-                    super.visitInsn(Opcodes.POP);
-                    super.visitLabel(proceed);
+                    emitOutsideFastNull();
                 }
                 super.visitTypeInsn(opcode, type);
+            }
+
+            @Override
+            public void visitMethodInsn(
+                    final int opcode,
+                    final String owner,
+                    final String name,
+                    final String descriptor,
+                    final boolean isInterface) {
+                // JDK 25 removes SecurityManager, so Container.getMousePosition calls
+                // MouseInfo.getPointerInfo directly instead of creating a PrivilegedAction.
+                if (!injected
+                        && opcode == Opcodes.INVOKESTATIC
+                        && !isInterface
+                        && MOUSE_INFO_OWNER.equals(owner)
+                        && GET_POINTER_INFO_METHOD.equals(name)
+                        && GET_POINTER_INFO_DESCRIPTOR.equals(descriptor)) {
+                    emitOutsideFastNull();
+                }
+                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+            }
+
+            private void emitOutsideFastNull() {
+                injected = true;
+                localSites[0]++;
+                SlotBridgeEmitter.emitGetSlot(mv, CursorValidationElisionBridge.OUTSIDE_PROPERTY);
+                super.visitInsn(Opcodes.DUP);
+                super.visitTypeInsn(Opcodes.INSTANCEOF, PREDICATE);
+                final Label fallback = new Label();
+                final Label proceed = new Label();
+                super.visitJumpInsn(Opcodes.IFEQ, fallback);
+                super.visitTypeInsn(Opcodes.CHECKCAST, PREDICATE);
+                super.visitVarInsn(Opcodes.ALOAD, 0);
+                super.visitMethodInsn(
+                        Opcodes.INVOKEINTERFACE,
+                        PREDICATE,
+                        PREDICATE_TEST_METHOD,
+                        PREDICATE_TEST_DESCRIPTOR,
+                        true);
+                super.visitJumpInsn(Opcodes.IFEQ, proceed);
+                super.visitInsn(Opcodes.ACONST_NULL);
+                super.visitInsn(Opcodes.ARETURN);
+                super.visitLabel(fallback);
+                super.visitInsn(Opcodes.POP);
+                super.visitLabel(proceed);
             }
         };
     }

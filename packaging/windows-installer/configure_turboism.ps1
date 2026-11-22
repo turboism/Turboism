@@ -247,8 +247,8 @@ function Assert-RuntimeConfigV1 {
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-        "atlasLoading", "triangulationSpatialIndex",
-        "modelOpenAcceleration", "runtimeExportAcceleration"
+        "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -317,8 +317,8 @@ function Assert-RuntimeConfigV1 {
     }
     foreach ($name in @(
         "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-        "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
-        "modelOpenAcceleration", "runtimeExportAcceleration"
+        "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property -and $property.Value -isnot [bool]) {
@@ -357,7 +357,7 @@ function Assert-RuntimeConfigV1 {
     if ($null -ne $launcherProperty) {
         $launcher = $launcherProperty.Value
         Assert-RuntimeAllowedProperties $launcher @(
-            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint"
+            "cubismJvm", "graalVmPath", "zgc", "memoryProfile", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration"
         ) "launcher"
         $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
         if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
@@ -369,7 +369,7 @@ function Assert-RuntimeConfigV1 {
             -or @("system", "balanced4g", "balanced4gFastSoft") -cnotcontains $memoryProfile.Value)) {
             throw "launcher.memoryProfile is invalid"
         }
-        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint")) {
+        foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration")) {
             $property = $launcher.PSObject.Properties[$name]
             if ($null -ne $property -and $property.Value -isnot [bool]) {
                 throw "launcher.$name must be a boolean"
@@ -453,8 +453,8 @@ function Convert-RuntimeConfigToV1 {
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-        "atlasLoading", "triangulationSpatialIndex",
-        "modelOpenAcceleration", "runtimeExportAcceleration",
+        "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
@@ -522,8 +522,8 @@ function Convert-RuntimeConfigToV1 {
     foreach ($name in @(
         "safeMode", "useTextIcon", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-            "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
-            "modelOpenAcceleration", "runtimeExportAcceleration"
+            "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+            "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property) {
@@ -648,7 +648,7 @@ function Convert-RuntimeConfigToV1 {
             else { [void]$dropped.Add("launcher.memoryProfile") }
         }
         foreach ($name in @("zgc", "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters",
-            "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint")) {
+            "uniformLocationCache", "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration")) {
             $property = $source.PSObject.Properties[$name]
             if ($null -ne $property) {
                 if ($property.Value -is [bool]) { $launcher[$name] = $property.Value }
@@ -658,7 +658,7 @@ function Convert-RuntimeConfigToV1 {
         foreach ($property in $source.PSObject.Properties) {
             if (@("cubismJvm", "graalVmPath", "zgc", "memoryProfile",
                 "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache",
-                "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint") -cnotcontains $property.Name) {
+                "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback", "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection", "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear", "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass", "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration") -cnotcontains $property.Name) {
                 [void]$dropped.Add("launcher." + $property.Name)
             }
         }

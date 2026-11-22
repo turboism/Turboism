@@ -26,6 +26,7 @@ dev.turboism.bootstrap.MeshTriangulationHashHookContributor
 dev.turboism.bootstrap.TextureAtlasLoadingHookContributor
 dev.turboism.bootstrap.TriangulationEdgeIndexHookContributor
 dev.turboism.bootstrap.TriangulationSpatialIndexHookContributor
+dev.turboism.bootstrap.MeshEditAccelerationHookContributor
 dev.turboism.bootstrap.AtlasTileBboxHookContributor
 dev.turboism.bootstrap.AtlasCacheReuseHookContributor
 dev.turboism.bootstrap.ModelOpenAccelerationHookContributor
@@ -140,3 +141,9 @@ dev.turboism.bootstrap.SortingInfoCacheHookContributor
 @verified-render-pass-traversal
 # Constant-time sibling lookup and dirty-checked extended-interpolation updates.
 @verified-extended-interpolation-sibling-elision
+# Warp deformer reinit buffer reuse, inverse-quad/Bezier fast paths, overlay dirty-gating, and deform-brush float loops.
+@verified-warp-deform-edit-acceleration
+# Cached atlas overlay sprites, viewport clipping, drag UI coalescing, and wheel/tab elisions.
+@verified-atlas-interactive-render
+# Memory, OpenGL buffer/texture, undo, image cache, and UI lifecycle leak mitigations.
+@verified-memory-leak-mitigation

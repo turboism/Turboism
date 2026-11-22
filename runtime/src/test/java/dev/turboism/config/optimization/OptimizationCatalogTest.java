@@ -46,34 +46,52 @@ final class OptimizationCatalogTest {
 
     @Test
     void everyDeclaredOptimizationIsTheOneTheProductShips() {
-        assertEquals(44, OptimizationCatalog.all().size());
-        assertEquals(39, OptimizationCatalog.persisted().size());
+        assertEquals(48, OptimizationCatalog.all().size());
+        assertEquals(43, OptimizationCatalog.persisted().size());
         assertEquals(
                 5,
                 OptimizationCatalog.all().size()
                         - OptimizationCatalog.persisted().size());
-        assertEquals(39, OptimizationCatalog.placed().size());
-        assertEquals(31, OptimizationCatalog.launcherFieldNames().size());
-        assertEquals(31, OptimizationCatalog.booleanLauncherFieldNames().size());
-        assertEquals(8, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(45, OptimizationCatalog.protocols().size(), "40 reported protocols plus 5 probe protocols");
+        assertEquals(43, OptimizationCatalog.placed().size());
+        assertEquals(32, OptimizationCatalog.launcherFieldNames().size());
+        assertEquals(32, OptimizationCatalog.booleanLauncherFieldNames().size());
+        assertEquals(11, OptimizationCatalog.rootFieldNames().size());
+        assertEquals(49, OptimizationCatalog.protocols().size(), "44 reported protocols plus 5 probe protocols");
     }
 
     private static final java.util.Set<Optimization> DEFAULT_ON = java.util.Set.of(
             OptimizationCatalog.MODEL_UPDATE_SKIP,
             OptimizationCatalog.UPLOAD_ELISION,
             OptimizationCatalog.MESH_SETUP_ELISION,
+            OptimizationCatalog.MESH_INTERPOLATION,
+            OptimizationCatalog.SHADER_UNIFORM,
+            OptimizationCatalog.MATRIX_SCRATCH,
+            OptimizationCatalog.WARP_POSITION_PROJECTION,
             OptimizationCatalog.CLIP_MASK_DEDUPLICATION,
             OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR,
             OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
+            OptimizationCatalog.MODEL_INSTANCE_COALESCE,
+            OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION,
+            OptimizationCatalog.WARP_GRID_INTERPOLATION,
+            OptimizationCatalog.WARP_NORMAL_POINT_ELISION,
+            OptimizationCatalog.CAMERA_MATRIX_CACHE,
+            OptimizationCatalog.RENDER_PASS_TRAVERSAL,
+            OptimizationCatalog.MESH_HIT_TEST,
+            OptimizationCatalog.SCENE_HANDLER_CACHE,
+            OptimizationCatalog.CURSOR_VALIDATION_ELISION,
+            OptimizationCatalog.PARAMETER_ROW_REPAINT,
+            OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
             OptimizationCatalog.MESH_TRIANGULATION_HASH,
             OptimizationCatalog.TRIANGULATION_EDGE_INDEX,
             OptimizationCatalog.ATLAS_TILE_BBOX,
             OptimizationCatalog.ATLAS_CACHE_REUSE,
             OptimizationCatalog.ATLAS_LOADING,
+            OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
             OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX,
             OptimizationCatalog.MODEL_OPEN_ACCELERATION,
-            OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION);
+            OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION,
+            OptimizationCatalog.MESH_EDIT_ACCELERATION,
+            OptimizationCatalog.MEMORY_LEAK_MITIGATION);
 
     /**
      * I1: every persisted entry keeps the {@code config.json} key, the {@code launcher.} vs root
@@ -130,7 +148,7 @@ final class OptimizationCatalogTest {
                 .map(optimization -> optimization.contributionId() + " "
                         + optimization.placement().orElseThrow().index())
                 .toList();
-        assertEquals(39, layout.size(), "settings-layout.txt renders every persisted optimization");
+        assertEquals(43, layout.size(), "settings-layout.txt renders every persisted optimization");
         assertEquals(layout, actual, "settings-layout.txt order changed");
     }
 

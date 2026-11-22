@@ -1,8 +1,12 @@
 package dev.turboism.adapter.cubism.shader;
 
+import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -23,6 +27,22 @@ public final class NativeShaderUniformBridge {
     private static final AtomicLong INVALIDATIONS = new AtomicLong();
     static final int MAX_SHADERS = 1024;
     static final int MAX_NAMES = 4096;
+
+    private static final String METHOD_GL_GET_UNIFORM_LOCATION = "glGetUniformLocation";
+    private static final String METHOD_GET_CONTEXT = "getContext";
+    private static final String METHOD_GET_HANDLE = "getHandle";
+    private static final String METHOD_IS_CREATED = "isCreated";
+    private static final String METHOD_GET_CURRENT = "getCurrent";
+    private static final String METHOD_GET_GL_PROGRAM_ID = "getGlProgramID";
+    private static final String METHOD_GET_UNIFORM_MAP = "getUniformMap";
+
+    private static final MethodType GL_QUERY_TYPE =
+            MethodType.methodType(int.class, Object.class, int.class, String.class);
+    private static final MethodType OBJ_UNARY_TYPE = MethodType.methodType(Object.class, Object.class);
+    private static final MethodType LONG_UNARY_TYPE = MethodType.methodType(long.class, Object.class);
+    private static final MethodType BOOL_UNARY_TYPE = MethodType.methodType(boolean.class, Object.class);
+    private static final MethodType OBJ_ZERO_TYPE = MethodType.methodType(Object.class);
+    private static final MethodType INT_UNARY_TYPE = MethodType.methodType(int.class, Object.class);
 
     private NativeShaderUniformBridge() {}
 
@@ -92,20 +112,24 @@ public final class NativeShaderUniformBridge {
         long handle = 0;
         boolean eligible = false;
         try {
-            context = invoke(GL.get(gl.getClass())[1], gl);
+            final GlAccess glApi = GL.get(gl.getClass());
+            context = (Object) glApi.getContext().invokeExact(gl);
             if (context != null) {
-                var api = CONTEXT.get(context.getClass());
-                handle = ((Number) invoke(api[0], context)).longValue();
-                var shaderApi = SHADER.get(shader.getClass());
+                final ContextAccess ctxApi = CONTEXT.get(context.getClass());
+                handle = (long) ctxApi.getHandle().invokeExact(context);
+                final ShaderAccess shaderApi = SHADER.get(shader.getClass());
                 eligible = handle != 0
-                        && Boolean.TRUE.equals(invoke(api[1], context))
-                        && invoke(api[2], null) == context
-                        && ((Number) invoke(shaderApi[0], shader)).intValue() == program
-                        && invoke(shaderApi[1], shader) instanceof Map<?, ?> uniforms
+                        && (boolean) ctxApi.isCreated().invokeExact(context)
+                        && (Object) ctxApi.getCurrent().invokeExact() == context
+                        && (int) shaderApi.getProgramId().invokeExact(shader) == program
+                        && (Object) shaderApi.getUniformMap().invokeExact(shader) instanceof Map<?, ?> uniforms
                         && !uniforms.isEmpty();
             }
         } catch (IllegalStateException rejected) {
             eligible = false;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw wrapOrRethrow(failure);
         }
         if (!eligible) return original(gl, program, name);
         State state;
@@ -168,51 +192,98 @@ public final class NativeShaderUniformBridge {
         }
     }
 
-    private static Method method(Class<?> type, String name, Class<?>... args) {
+    private record GlAccess(MethodHandle glGetUniformLocation, MethodHandle getContext) {}
+
+    private record ContextAccess(MethodHandle getHandle, MethodHandle isCreated, MethodHandle getCurrent) {}
+
+    private record ShaderAccess(MethodHandle getProgramId, MethodHandle getUniformMap) {}
+
+    private static MethodHandle unreflectHandle(
+            final Class<?> type, final String name, final MethodType exactType, final Class<?>... args) {
         try {
-            return type.getMethod(name, args);
+            final Method target = findPublicMethod(type, name, args);
+            final MethodHandle raw;
+            if (target != null) {
+                raw = MethodHandles.publicLookup().unreflect(target);
+            } else {
+                final Method fallback = type.getMethod(name, args);
+                fallback.setAccessible(true);
+                raw = MethodHandles.lookup().unreflect(fallback);
+            }
+            return raw.asType(exactType);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException(failure);
         }
     }
 
-    private static final ClassValue<Method[]> GL = new ClassValue<>() {
-        @Override
-        protected Method[] computeValue(Class<?> type) {
-            return new Method[] {
-                method(type, "glGetUniformLocation", int.class, String.class), method(type, "getContext")
-            };
+    private static Method findPublicMethod(final Class<?> type, final String name, final Class<?>... args) {
+        if (type == null) {
+            return null;
         }
-    };
-
-    private static final ClassValue<Method[]> CONTEXT = new ClassValue<>() {
-        @Override
-        protected Method[] computeValue(Class<?> type) {
-            return new Method[] {method(type, "getHandle"), method(type, "isCreated"), method(type, "getCurrent")};
+        if (Modifier.isPublic(type.getModifiers())) {
+            try {
+                final Method method = type.getMethod(name, args);
+                if (Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
+                    return method;
+                }
+            } catch (NoSuchMethodException ignored) {
+                return null;
+            }
         }
-    };
-
-    private static final ClassValue<Method[]> SHADER = new ClassValue<>() {
-        @Override
-        protected Method[] computeValue(Class<?> type) {
-            return new Method[] {method(type, "getGlProgramID"), method(type, "getUniformMap")};
+        for (final Class<?> iface : type.getInterfaces()) {
+            final Method candidate = findPublicMethod(iface, name, args);
+            if (candidate != null) {
+                return candidate;
+            }
         }
-    };
-
-    private static Object invoke(Method method, Object receiver, Object... args) {
-        try {
-            return method.invoke(receiver, args);
-        } catch (InvocationTargetException failure) {
-            if (failure.getCause() instanceof RuntimeException runtime) throw runtime;
-            if (failure.getCause() instanceof Error error) throw error;
-            throw new IllegalStateException(failure.getCause());
-        } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException(failure);
-        }
+        return findPublicMethod(type.getSuperclass(), name, args);
     }
 
-    private static int original(Object gl, int program, String name) {
+    private static final ClassValue<GlAccess> GL = new ClassValue<>() {
+        @Override
+        protected GlAccess computeValue(final Class<?> type) {
+            return new GlAccess(
+                    unreflectHandle(type, METHOD_GL_GET_UNIFORM_LOCATION, GL_QUERY_TYPE, int.class, String.class),
+                    unreflectHandle(type, METHOD_GET_CONTEXT, OBJ_UNARY_TYPE));
+        }
+    };
+
+    private static final ClassValue<ContextAccess> CONTEXT = new ClassValue<>() {
+        @Override
+        protected ContextAccess computeValue(final Class<?> type) {
+            return new ContextAccess(
+                    unreflectHandle(type, METHOD_GET_HANDLE, LONG_UNARY_TYPE),
+                    unreflectHandle(type, METHOD_IS_CREATED, BOOL_UNARY_TYPE),
+                    unreflectHandle(type, METHOD_GET_CURRENT, OBJ_ZERO_TYPE));
+        }
+    };
+
+    private static final ClassValue<ShaderAccess> SHADER = new ClassValue<>() {
+        @Override
+        protected ShaderAccess computeValue(final Class<?> type) {
+            return new ShaderAccess(
+                    unreflectHandle(type, METHOD_GET_GL_PROGRAM_ID, INT_UNARY_TYPE),
+                    unreflectHandle(type, METHOD_GET_UNIFORM_MAP, OBJ_UNARY_TYPE));
+        }
+    };
+
+    private static RuntimeException wrapOrRethrow(final Throwable failure) {
+        if (failure instanceof RuntimeException runtime) {
+            return runtime;
+        }
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        return new IllegalStateException(failure);
+    }
+
+    private static int original(final Object gl, final int program, final String name) {
         QUERIES.incrementAndGet();
-        return (int) invoke(GL.get(gl.getClass())[0], gl, program, name);
+        try {
+            return (int) GL.get(gl.getClass()).glGetUniformLocation().invokeExact(gl, program, name);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw wrapOrRethrow(failure);
+        }
     }
 }

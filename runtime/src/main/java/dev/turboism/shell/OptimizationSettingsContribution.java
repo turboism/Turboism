@@ -22,10 +22,9 @@ import java.util.OptionalInt;
  *
  * <p>The rows are derived from {@link OptimizationCatalog#placed()} instead of being listed here,
  * so the page order, the row ids, the label and tooltip keys and the persisted preference all come
- * from the one declaration of each optimization. Unchanged-frame reuse and incremental updates
- * require explicit opt-in: every row starts from the persisted value and stays off until the user
- * ticks it, and a running hook keeps the startup configuration so a dependent optimization cannot
- * enter a partially switched state.</p>
+ * from the one declaration of each optimization. Every row starts from its persisted preference
+ * (with each optimization's catalog default when unset), and a running hook keeps its startup
+ * configuration so a dependent optimization cannot enter a partially switched state.</p>
  */
 final class OptimizationSettingsContribution {
 

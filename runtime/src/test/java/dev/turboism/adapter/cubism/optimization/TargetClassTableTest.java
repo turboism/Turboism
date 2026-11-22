@@ -23,6 +23,7 @@ class TargetClassTableTest {
             "image-archive-reuse",
             "incremental-update",
             "matrix-scratch",
+            "memory-leak-mitigation",
             "mesh-interpolation",
             "mesh-mirror",
             "mesh-triangulation-hash",
@@ -33,6 +34,7 @@ class TargetClassTableTest {
             "texture-upload-preparation",
             "uniform-location-lifecycle",
             "warp-alt-mirror",
+            "warp-deform-edit-acceleration",
             "warp-position-projection");
 
     @Test

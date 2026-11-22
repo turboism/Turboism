@@ -100,6 +100,10 @@ class WeaveSpecTest {
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_MATCHES,
                 VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
         assertEquals(1, VerifiedRedundantStateElisionInstaller.EXPECTED_MATCHES, "TURBOISM_STATE_ELISION");
+        assertEquals(
+                6,
+                VerifiedAtlasInteractiveRenderInstaller.EXPECTED_MATCHES,
+                VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
     }
 
     @Test
@@ -180,13 +184,17 @@ class WeaveSpecTest {
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,
                 VerifiedExtendedInterpolationSiblingInstaller.HOOK_ID);
         assertEquals(1, VerifiedRedundantStateElisionInstaller.EXPECTED_OWNERS, "TURBOISM_STATE_ELISION");
+        assertEquals(
+                6,
+                VerifiedAtlasInteractiveRenderInstaller.EXPECTED_OWNERS,
+                VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
     }
 
     @Test
     void everyMigratedHookKeepsItsAdmissionRow() {
         // Policy id, kill-switch semantics and JVM predicate: the three facts the migration must not move.
         assertRow(VerifiedModelUpdateSkipInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
-        assertRow(VerifiedWarpPositionProjectionInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
+        assertRow(VerifiedWarpPositionProjectionInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedImageArchiveReuseInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         // The pipelined readback never consulted the startup policy: its only switch is the preference.
         assertRow(VerifiedAsyncReadbackInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
@@ -217,6 +225,7 @@ class WeaveSpecTest {
         assertRow(VerifiedRenderPassTraversalInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedExtendedInterpolationSiblingInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.ANY);
         assertRow(VerifiedRedundantStateElisionInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
+        assertRow(VerifiedAtlasInteractiveRenderInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

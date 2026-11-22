@@ -18,15 +18,13 @@ import java.util.Optional;
  * Exact native pure-accessor/consumer admission and verified restoration.
  *
  * <p>The protocol itself lives in {@link VerifiedInstall}; this class keeps the hook's reviewed
- * contract table and its dependency-body proof. Its JVM predicate stays {@code == 17} rather than
- * {@code >= 17}: the launcher can start a user-supplied GraalVM, and this weave was never measured on
- * one.</p>
+ * contract table and its dependency-body proof. It requires Java 17 or newer.</p>
  */
 final class VerifiedWarpPositionProjectionInstaller implements VerifiedHookInstaller {
     static final String HOOK_ID = "cubism.warp-position-projection";
 
     /** The admission row this hook froze: policy id, kill-switch semantics and JVM predicate. */
-    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.EXACTLY_17);
+    static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
 
     /** The one consumer method this hook rewrites; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_MATCHES = 1;

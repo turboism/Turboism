@@ -38,6 +38,7 @@ final class HookManifestTest {
                         TextureAtlasLoadingHookContributor.class,
                         TriangulationEdgeIndexHookContributor.class,
                         TriangulationSpatialIndexHookContributor.class,
+                        MeshEditAccelerationHookContributor.class,
                         AtlasTileBboxHookContributor.class,
                         AtlasCacheReuseHookContributor.class,
                         ModelOpenAccelerationHookContributor.class,
@@ -95,6 +96,9 @@ final class HookManifestTest {
                         // Skipped-frame sorting-info reuse and indexed GMeshContainer lookup.
                         SortingInfoCacheHookContributor.class,
                         // Declarative hot-path family: one token per install.
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
+                        DeclarativeHookContributor.class,
                         DeclarativeHookContributor.class,
                         DeclarativeHookContributor.class,
                         DeclarativeHookContributor.class,

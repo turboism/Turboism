@@ -393,9 +393,12 @@ public final class ConfigMergeRegression {
             Map<String, Object> source = validRuntimeConfig();
             source.put("meshTriangulationEdgeIndex", value);
             source.put("atlasLoading", value);
+            source.put("atlasInteractiveRender", value);
             source.put("triangulationSpatialIndex", value);
             source.put("modelOpenAcceleration", value);
             source.put("runtimeExportAcceleration", value);
+            source.put("meshEditAcceleration", value);
+            source.put("memoryLeakMitigation", value);
             ConfigMerge.validateCurrent(source);
             Map<String, Object> merged = ConfigMerge.applyPolicy(
                     source, ConfigMerge.mergeDisabled(source, Set.of(), Set.of(), false));
@@ -403,12 +406,18 @@ public final class ConfigMergeRegression {
             check("meshTriangulationEdgeIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("meshTriangulationEdgeIndex")));
             check("atlasLoading " + value + " survives installer upgrade", value.equals(merged.get("atlasLoading")));
+            check("atlasInteractiveRender " + value + " survives installer upgrade",
+                    value.equals(merged.get("atlasInteractiveRender")));
             check("triangulationSpatialIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("triangulationSpatialIndex")));
             check("modelOpenAcceleration " + value + " survives installer upgrade",
                     value.equals(merged.get("modelOpenAcceleration")));
             check("runtimeExportAcceleration " + value + " survives installer upgrade",
                     value.equals(merged.get("runtimeExportAcceleration")));
+            check("meshEditAcceleration " + value + " survives installer upgrade",
+                    value.equals(merged.get("meshEditAcceleration")));
+            check("memoryLeakMitigation " + value + " survives installer upgrade",
+                    value.equals(merged.get("memoryLeakMitigation")));
         }
 
         List<Map<String, Object>> invalid = new java.util.ArrayList<>();
@@ -466,6 +475,12 @@ public final class ConfigMergeRegression {
         Map<String, Object> badRuntimeExport = validRuntimeConfig();
         badRuntimeExport.put("runtimeExportAcceleration", "true");
         invalid.add(badRuntimeExport);
+        Map<String, Object> badMeshEdit = validRuntimeConfig();
+        badMeshEdit.put("meshEditAcceleration", "true");
+        invalid.add(badMeshEdit);
+        Map<String, Object> badMemoryLeak = validRuntimeConfig();
+        badMemoryLeak.put("memoryLeakMitigation", "true");
+        invalid.add(badMemoryLeak);
         Map<String, Object> badTextureAtlas = validRuntimeConfig();
         badTextureAtlas.put("textureAtlas", Map.of("algorithmId", 7L));
         invalid.add(badTextureAtlas);
@@ -558,6 +573,20 @@ public final class ConfigMergeRegression {
                 loadedOpt, ConfigMerge.mergeDisabled(loadedOpt, Set.of(), Set.of(), false));
         Object preservedOpt = ((Map<?, ?>) relaunchedOpt.get("launcher")).get("meshInterpolation");
         check("launcher.meshInterpolation survives installer upgrade", Boolean.TRUE.equals(preservedOpt));
+
+        Map<String, Object> persistedWarpOpt = validRuntimeConfig();
+        persistedWarpOpt.put(
+                "launcher", Map.of("cubismJvm", "bundled", "warpDeformEditAcceleration", Boolean.FALSE));
+        Path warpOptHome = Files.createTempDirectory("cfg-warp-opt-");
+        ConfigMerge.write(warpOptHome, persistedWarpOpt);
+        Map<String, Object> loadedWarpOpt = ConfigMerge.loadExisting(warpOptHome);
+        ConfigMerge.validateCurrent(loadedWarpOpt);
+        Map<String, Object> relaunchedWarpOpt = ConfigMerge.applyPolicy(
+                loadedWarpOpt, ConfigMerge.mergeDisabled(loadedWarpOpt, Set.of(), Set.of(), false));
+        Object preservedWarpOpt = ((Map<?, ?>) relaunchedWarpOpt.get("launcher")).get("warpDeformEditAcceleration");
+        check(
+                "launcher.warpDeformEditAcceleration survives installer upgrade",
+                Boolean.FALSE.equals(preservedWarpOpt));
 
         for (int index = 0; index < invalid.size(); index++) {
             try {

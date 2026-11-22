@@ -18,17 +18,35 @@ class PerformanceSettingsConfigTest {
             Field.MODEL_UPDATE_SKIP,
             Field.UPLOAD_ELISION,
             Field.MESH_SETUP_ELISION,
+            Field.MESH_INTERPOLATION,
+            Field.SHADER_UNIFORM,
+            Field.MATRIX_SCRATCH,
+            Field.WARP_POSITION_PROJECTION,
             Field.CLIP_MASK_DEDUPLICATION,
             Field.CLIP_MASK_SCISSOR_CLEAR,
             Field.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
+            Field.MODEL_INSTANCE_COALESCE,
+            Field.EXTENDED_INTERPOLATION_SIBLING_ELISION,
+            Field.WARP_GRID_INTERPOLATION,
+            Field.WARP_NORMAL_POINT_ELISION,
+            Field.CAMERA_MATRIX_CACHE,
+            Field.RENDER_PASS_TRAVERSAL,
+            Field.MESH_HIT_TEST,
+            Field.SCENE_HANDLER_CACHE,
+            Field.CURSOR_VALIDATION_ELISION,
+            Field.PARAMETER_ROW_REPAINT,
+            Field.WARP_DEFORM_EDIT_ACCELERATION,
             Field.MESH_TRIANGULATION_HASH,
             Field.TRIANGULATION_EDGE_INDEX,
             Field.ATLAS_TILE_BBOX,
             Field.ATLAS_CACHE_REUSE,
             Field.ATLAS_LOADING,
+            Field.ATLAS_INTERACTIVE_RENDER,
             Field.TRIANGULATION_SPATIAL_INDEX,
             Field.MODEL_OPEN_ACCELERATION,
-            Field.RUNTIME_EXPORT_ACCELERATION);
+            Field.RUNTIME_EXPORT_ACCELERATION,
+            Field.MESH_EDIT_ACCELERATION,
+            Field.MEMORY_LEAK_MITIGATION);
 
     @Test
     void nativeOptimizationsUseTheirReviewedDefaultsOnBothPlatforms() {
@@ -84,7 +102,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(44, Field.values().length);
+        assertEquals(48, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(

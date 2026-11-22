@@ -385,6 +385,8 @@ tasks.named<Test>("test") {
     // CI enables it via -PruntimeTestForks=2 after the isolation audit. Lanes that
     // must stay serial pin maxParallelForks on their own tasks and are unaffected.
     maxParallelForks = (findProperty("runtimeTestForks") as String?)?.toInt()?.coerceAtLeast(1) ?: 1
+    // Host-structure AST inspection and 128 MiB user-file tests exceed Gradle's 512 MiB default heap.
+    maxHeapSize = "2g"
     // Optional real-host evidence paths for gated sample tests; absent means skip.
     listOf(
         "turboism.test.cubismEditorJar",

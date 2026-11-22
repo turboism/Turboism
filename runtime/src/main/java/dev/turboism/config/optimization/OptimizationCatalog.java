@@ -568,6 +568,32 @@ public final class OptimizationCatalog {
             "settings.optimization.triangulation-spatial-index.tooltip",
             List.of());
 
+    /** Speeds up edit-mode warp deformer transforms, overlays, bezier grids, and deform brush loops. */
+    public static final Optimization WARP_DEFORM_EDIT_ACCELERATION = new Optimization(
+            "warpDeformEditAcceleration",
+            "warp-deform-edit-acceleration",
+            Optimization.Access.PERSISTED_LAUNCHER,
+            List.of("turboism.optimization.warpDeformEditAcceleration"),
+            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION"),
+            Set.of("cubism.deformer.warp-deform-edit-acceleration"),
+            Optional.of(new Optimization.Placement("rendering", 85)),
+            "settings.optimization.warp-deform-edit-acceleration",
+            "settings.optimization.warp-deform-edit-acceleration.tooltip",
+            List.of());
+
+    /** Accelerates interactive mesh editing, point-in-triangle lookups, overlays, and topology updates. */
+    public static final Optimization MESH_EDIT_ACCELERATION = new Optimization(
+            "meshEditAcceleration",
+            "mesh-edit-acceleration",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.meshEditAcceleration"),
+            List.of("TURBOISM_MESH_EDIT_ACCELERATION"),
+            Set.of("cubism.mesh.edit-acceleration"),
+            Optional.of(new Optimization.Placement("mesh", 109)),
+            "settings.optimization.mesh-edit-acceleration",
+            "settings.optimization.mesh-edit-acceleration.tooltip",
+            List.of());
+
     /** Speeds up opening Cubism model documents cleanly alongside texture upload preparation. */
     public static final Optimization MODEL_OPEN_ACCELERATION = new Optimization(
             "modelOpenAcceleration",
@@ -592,6 +618,32 @@ public final class OptimizationCatalog {
             Optional.of(new Optimization.Placement("model", 76)),
             "settings.optimization.runtime-export-acceleration",
             "settings.optimization.runtime-export-acceleration.tooltip",
+            List.of());
+
+    /** Speeds up interactive pan, zoom, and tile drag in the Texture Atlas Editor window. */
+    public static final Optimization ATLAS_INTERACTIVE_RENDER = new Optimization(
+            "atlasInteractiveRender",
+            "atlas-interactive-render",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.atlasInteractiveRender"),
+            List.of("TURBOISM_ATLAS_INTERACTIVE_RENDER"),
+            Set.of("cubism.textureatlas.interactive-render"),
+            Optional.of(new Optimization.Placement("rendering", 86)),
+            "settings.optimization.atlas-interactive-render",
+            "settings.optimization.atlas-interactive-render.tooltip",
+            List.of());
+
+    /** Mitigates native memory, listener, undo history, image, and OpenGL resource leaks. */
+    public static final Optimization MEMORY_LEAK_MITIGATION = new Optimization(
+            "memoryLeakMitigation",
+            "memory-leak-mitigation",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.memoryLeakMitigation"),
+            List.of("TURBOISM_MEMORY_LEAK_MITIGATION"),
+            Set.of("cubism.memory-leak-mitigation"),
+            Optional.of(new Optimization.Placement("model", 77)),
+            "settings.optimization.memory-leak-mitigation",
+            "settings.optimization.memory-leak-mitigation.tooltip",
             List.of());
 
     // ---------------------------------------------------------------- diagnostic-only probe hooks
@@ -712,8 +764,12 @@ public final class OptimizationCatalog {
             ATLAS_CACHE_REUSE,
             ATLAS_LOADING,
             TRIANGULATION_SPATIAL_INDEX,
+            WARP_DEFORM_EDIT_ACCELERATION,
+            ATLAS_INTERACTIVE_RENDER,
+            MESH_EDIT_ACCELERATION,
             MODEL_OPEN_ACCELERATION,
             RUNTIME_EXPORT_ACCELERATION,
+            MEMORY_LEAK_MITIGATION,
             CANVAS_COMPOSITE_ELISION,
             CLIP_MASK_PROBE,
             GL_GET_ERROR_ELISION,

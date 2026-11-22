@@ -1146,7 +1146,7 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(39, boxes.size());
+                assertEquals(43, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
@@ -1264,6 +1264,10 @@ class DeclarativeSettingsRendererTest {
                             checkboxes(form), OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION.contributionId());
                     assertTrue(runtimeExport.isSelected(), "missing preference enables runtime export acceleration");
                     runtimeExport.doClick();
+                    final JCheckBox meshEdit = findCheckBoxByName(
+                            checkboxes(form), OptimizationCatalog.MESH_EDIT_ACCELERATION.contributionId());
+                    assertTrue(meshEdit.isSelected(), "missing preference enables mesh edit acceleration");
+                    meshEdit.doClick();
                     final JPanel topSection = findCollapsibleSection(form);
                     assertTrue(topSection != null, "top collapsible section must render");
                     assertTrue(
@@ -1293,6 +1297,7 @@ class DeclarativeSettingsRendererTest {
                     assertEquals(expectedUri, openedUri.get(), "clicking reference link must open Comment_4556 URL");
 
                     for (final JCheckBox box : sectionBoxes) {
+                        assertTrue(box.isSelected(), "promoted hotpath toggle must start enabled by default: " + box.getName());
                         box.doClick();
                     }
                     assertTrue(rendered.save().getAsBoolean());
@@ -1324,15 +1329,22 @@ class DeclarativeSettingsRendererTest {
             assertFalse(nativeReloaded
                     .choice(OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION)
                     .enabled());
+            final String meshEditKey = OptimizationCatalog.MESH_EDIT_ACCELERATION.key();
+            assertEquals(Boolean.FALSE, persistedRoot.path(meshEditKey).booleanValue());
+            assertTrue(persistedRoot.path(meshEditKey).isBoolean());
+            assertFalse(nativeReloaded
+                    .choice(OptimizationCatalog.MESH_EDIT_ACCELERATION)
+                    .enabled());
             for (final Optimization optimization : hotpath) {
-                assertTrue(
-                        persistedRoot.path("launcher").path(optimization.key()).asBoolean(false),
-                        "config.json launcher." + optimization.key() + " must persist true");
+                assertEquals(
+                        Boolean.FALSE,
+                        persistedRoot.path("launcher").path(optimization.key()).booleanValue(),
+                        "config.json launcher." + optimization.key() + " must persist false");
                 final PerformanceSettingsConfig.Field field =
                         PerformanceSettingsConfig.Field.forKey(optimization.key());
-                assertEquals("true", reloaded.value(field).value());
+                assertEquals("false", reloaded.value(field).value());
                 assertEquals("global-config", reloaded.value(field).source());
-                assertTrue(nativeReloaded.choice(optimization).enabled());
+                assertFalse(nativeReloaded.choice(optimization).enabled());
                 assertEquals(
                         "global-config", nativeReloaded.choice(optimization).source());
             }

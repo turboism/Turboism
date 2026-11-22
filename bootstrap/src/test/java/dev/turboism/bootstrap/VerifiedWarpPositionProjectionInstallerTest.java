@@ -16,7 +16,7 @@ class VerifiedWarpPositionProjectionInstallerTest {
     void rejectsUnrequestedWrongJvmSafeModeDisabledHookAndUnboundArtifact() {
         var normal = new RuntimeStartupConfig(false, false, false, false);
         assertFalse(VerifiedWarpPositionProjectionInstaller.admitted(MISSING_ARTIFACT, normal, false, 17));
-        assertFalse(VerifiedWarpPositionProjectionInstaller.admitted(MISSING_ARTIFACT, normal, true, 25));
+        assertFalse(VerifiedWarpPositionProjectionInstaller.admitted(MISSING_ARTIFACT, normal, false, 25));
         assertFalse(VerifiedWarpPositionProjectionInstaller.admitted(MISSING_ARTIFACT, normal, true, 16));
         assertFalse(VerifiedWarpPositionProjectionInstaller.admitted(
                 MISSING_ARTIFACT, new RuntimeStartupConfig(true, false, false, false), true, 17));
@@ -48,6 +48,8 @@ class VerifiedWarpPositionProjectionInstallerTest {
                 "no turboism.test.cubismEditorJar evidence supplied");
         assertTrue(VerifiedWarpPositionProjectionInstaller.admitted(
                 artifact, new RuntimeStartupConfig(false, false, false, false), true, 17));
+        assertTrue(VerifiedWarpPositionProjectionInstaller.admitted(
+                artifact, new RuntimeStartupConfig(false, false, false, false), true, 25));
     }
 
     @Test
