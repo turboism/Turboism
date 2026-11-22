@@ -30,7 +30,9 @@ dev.turboism.bootstrap.VerifiedModelUpdateSkipInstallerTest.* # exact reference 
 dev.turboism.bootstrap.VerifiedReinitPairElisionInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedTextureUploadPreparationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedUniformLocationInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedWarpDeformEditAccelerationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpPositionProjectionInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedMemoryLeakMitigationInstallerTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design
 # Registered per the lane-C contract (commit 16809b349): the Robot screen tier needs
 # a visible X11 desktop. Under Wayland the capture blocks on the screen-share portal
 # and hangs the suite, so the case skips there instead of failing. The real-host
@@ -121,5 +123,7 @@ dev.turboism.adapter.cubism.textureatlas.TextureAtlasPipelineParityTest.* # requ
 dev.turboism.adapter.cubism.textureatlas.TextureAtlasRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 20 reviewed versions); the licensed archive is never committed.
 dev.turboism.adapter.cubism.modelopen.ModelOpenRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.meshedit.MeshEditRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 21 reviewed versions); the licensed archive is never committed.
+dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderArtifactTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.memory.MemoryLeakMitigationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.exportperf.RuntimeExportRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.exportperf.EdgeAndDownscaleParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.

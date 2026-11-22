@@ -102,7 +102,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(45, Field.values().length);
+        assertEquals(48, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(
