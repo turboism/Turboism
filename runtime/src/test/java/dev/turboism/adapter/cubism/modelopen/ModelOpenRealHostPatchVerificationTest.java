@@ -50,7 +50,9 @@ final class ModelOpenRealHostPatchVerificationTest {
                     + JAR_NAME;
     private static final String CLASS_SUFFIX = ".class";
     private static final String SHADER_PKG = "com/live2d/graphics3d/shader/";
+    private static final String UTIL_PKG = "com/live2d/util/";
     private static final String STUB_PACKAGE_PREFIX = "org.jdom.";
+    private static final int DYNAMIC_TARGETS_PER_JAR = 3;
     private static final int EXPECTED_TOTAL_JARS = 21;
     private static final long VERIFY_TIMEOUT_SECONDS = 60L;
 
@@ -62,7 +64,9 @@ final class ModelOpenRealHostPatchVerificationTest {
             FloatArrayDeserializerPatcher.TARGET_INTERNAL_NAME,
             ArchiveReadPatcher.ARCHIVE_READER,
             ArchiveReadPatcher.GRAPHICS_READ_LAMBDA,
-            ArchiveReadPatcher.SERIALIZE_READ_LAMBDA);
+            ArchiveReadPatcher.SERIALIZE_READ_LAMBDA,
+            ExtendedInterpolationParallelPatcher.GAME_MOTION_SET,
+            ExtendedInterpolationParallelPatcher.EXT_INTERP_EXTENSION);
 
     @Test
     void patchesVerifyAllTargetsAndIsIdempotentAcrossAllTwentyOneCubismJars(@TempDir final Path tempDir)
@@ -88,6 +92,12 @@ final class ModelOpenRealHostPatchVerificationTest {
                 final String shaderFactory = findShaderFactory(jar);
                 assertNotNull(shaderFactory, "Shader texture factory not found in " + version);
                 targets.add(shaderFactory);
+                final String saxBuilderUtil = findSaxBuilderUtil(jar, hostLoader);
+                assertNotNull(saxBuilderUtil, "JDOM SAXBuilder util not found in " + version);
+                targets.add(saxBuilderUtil);
+                final String stopwatchUtil = findStopwatchUtil(jar, hostLoader);
+                assertNotNull(stopwatchUtil, "Stopwatch util not found in " + version);
+                targets.add(stopwatchUtil);
 
                 for (final String internalName : targets) {
                     final JarEntry entry = jar.getJarEntry(internalName + CLASS_SUFFIX);
@@ -269,6 +279,48 @@ final class ModelOpenRealHostPatchVerificationTest {
         return null;
     }
 
+    private static String findSaxBuilderUtil(final JarFile jar, final ClassLoader loader) throws IOException {
+        final var entries = jar.entries();
+        while (entries.hasMoreElements()) {
+            final JarEntry entry = entries.nextElement();
+            final String name = entry.getName();
+            if (!name.startsWith(UTIL_PKG) || !name.endsWith(CLASS_SUFFIX)) {
+                continue;
+            }
+            final String internalName = name.substring(0, name.length() - CLASS_SUFFIX.length());
+            if (!SaxBuilderFastPatcher.isCandidateTarget(internalName)) {
+                continue;
+            }
+            try (InputStream in = jar.getInputStream(entry)) {
+                if (SaxBuilderFastPatcher.tryPatch(internalName, loader, in.readAllBytes()) != null) {
+                    return internalName;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String findStopwatchUtil(final JarFile jar, final ClassLoader loader) throws IOException {
+        final var entries = jar.entries();
+        while (entries.hasMoreElements()) {
+            final JarEntry entry = entries.nextElement();
+            final String name = entry.getName();
+            if (!name.startsWith(UTIL_PKG) || !name.endsWith(CLASS_SUFFIX)) {
+                continue;
+            }
+            final String internalName = name.substring(0, name.length() - CLASS_SUFFIX.length());
+            if (!ExtendedInterpolationParallelPatcher.isSupportedTarget(internalName)) {
+                continue;
+            }
+            try (InputStream in = jar.getInputStream(entry)) {
+                if (ExtendedInterpolationParallelPatcher.tryPatch(internalName, loader, in.readAllBytes()) != null) {
+                    return internalName;
+                }
+            }
+        }
+        return null;
+    }
+
     private static List<Path> discoverAllTwentyOneJars() throws IOException {
         final List<Path> jars = new ArrayList<>();
         final Path home = Path.of(System.getProperty("user.home"));
@@ -317,7 +369,10 @@ final class ModelOpenRealHostPatchVerificationTest {
         }
         assertTrue(process.waitFor(VERIFY_TIMEOUT_SECONDS, TimeUnit.SECONDS), "Verifier subprocess timed out");
         assertEquals(0, process.exitValue(), "Strict -Xverify:all failed:\n" + output);
-        assertTrue(output.contains("VERIFIED_TARGETS=" + (EXPECTED_TOTAL_JARS * (FIXED_TARGETS.size() + 1))), output);
+        assertTrue(
+                output.contains(
+                        "VERIFIED_TARGETS=" + (EXPECTED_TOTAL_JARS * (FIXED_TARGETS.size() + DYNAMIC_TARGETS_PER_JAR))),
+                output);
     }
 
     /** Child entrypoint launched under {@code -Xverify:all} to link all patched host classes. */
@@ -388,6 +443,8 @@ final class ModelOpenRealHostPatchVerificationTest {
             final List<URL> urls = new ArrayList<>();
             boolean hasGluegen = false;
             boolean hasJogl = false;
+            boolean hasJdom = false;
+            boolean hasLog4j = false;
             try (var files = Files.walk(jarPath.getParent(), 2)) {
                 for (final Path file : files.toList()) {
                     if (Files.isRegularFile(file) && file.toString().endsWith(JAR_SUFFIX) && !file.equals(jarPath)) {
@@ -395,6 +452,8 @@ final class ModelOpenRealHostPatchVerificationTest {
                         final String fname = file.getFileName().toString();
                         hasGluegen |= fname.contains("gluegen");
                         hasJogl |= fname.contains("jogl");
+                        hasJdom |= fname.contains("jdom");
+                        hasLog4j |= fname.contains("log4j");
                     }
                 }
             }
@@ -406,7 +465,7 @@ final class ModelOpenRealHostPatchVerificationTest {
                     urls.add(fallbackJogl.toUri().toURL());
                 }
             }
-            if (!hasGluegen || !hasJogl) {
+            if (!hasGluegen || !hasJogl || !hasJdom || !hasLog4j) {
                 final Path libDir = home.resolve(JAR_5305_REL).getParent();
                 if (Files.isDirectory(libDir)) {
                     try (var files = Files.walk(libDir, 2)) {
@@ -414,7 +473,10 @@ final class ModelOpenRealHostPatchVerificationTest {
                             final String fname = file.getFileName().toString();
                             if (Files.isRegularFile(file)
                                     && fname.endsWith(JAR_SUFFIX)
-                                    && (fname.contains("gluegen") || fname.contains("jogl"))) {
+                                    && (fname.contains("gluegen")
+                                            || fname.contains("jogl")
+                                            || fname.contains("jdom")
+                                            || fname.contains("log4j"))) {
                                 urls.add(file.toUri().toURL());
                             }
                         }

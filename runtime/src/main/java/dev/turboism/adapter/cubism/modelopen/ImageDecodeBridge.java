@@ -82,7 +82,33 @@ public final class ImageDecodeBridge {
      */
     public static BufferedImage readBufferedImage(final InputStream activeStream, final InputStream originalStream)
             throws IOException {
+        return readBufferedImage(activeStream, originalStream, -1);
+    }
+
+    /**
+     * Decodes a buffered image directly into {@code TYPE_INT_ARGB} for eligible in-memory PNG
+     * streams, falling back to {@link ImageIO} with memory-cached streams otherwise.
+     *
+     * @param activeStream effective stream (possibly progress-wrapped) passed to ImageIO
+     * @param originalStream original input stream argument supplied to {@code getBufferedImage}
+     * @param targetType requested {@link BufferedImage} type, or {@code -1} to preserve source type
+     * @return decoded {@code BufferedImage}, or {@code null} if no reader matched
+     * @throws IOException when decoding fails
+     */
+    public static BufferedImage readBufferedImage(
+            final InputStream activeStream, final InputStream originalStream, final int targetType) throws IOException {
         if (originalStream instanceof ByteArrayInputStream && activeStream != null) {
+            if (targetType == BufferedImage.TYPE_INT_ARGB) {
+                final byte[] rawBytes = activeStream.readAllBytes();
+                final BufferedImage direct = FastPngDecoder.tryDecodeToIntArgb(rawBytes);
+                if (direct != null) {
+                    return direct;
+                }
+                try (MemoryCacheImageInputStream memoryStream =
+                        new TrackedMemoryImageInputStream(new ByteArrayInputStream(rawBytes))) {
+                    return ImageIO.read(memoryStream);
+                }
+            }
             try (MemoryCacheImageInputStream memoryStream = new TrackedMemoryImageInputStream(activeStream)) {
                 return ImageIO.read(memoryStream);
             }

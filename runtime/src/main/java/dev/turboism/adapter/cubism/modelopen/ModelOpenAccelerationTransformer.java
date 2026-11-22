@@ -47,6 +47,16 @@ public final class ModelOpenAccelerationTransformer implements ClassFileTransfor
                     || ArchiveReadPatcher.SERIALIZE_READ_LAMBDA.equals(className)) {
                 return ArchiveReadPatcher.tryPatch(className, loader, classfileBuffer);
             }
+            if (ExtendedInterpolationParallelPatcher.isSupportedTarget(className)) {
+                final byte[] extPatched =
+                        ExtendedInterpolationParallelPatcher.tryPatch(className, loader, classfileBuffer);
+                if (extPatched != null) {
+                    return extPatched;
+                }
+            }
+            if (SaxBuilderFastPatcher.isCandidateTarget(className)) {
+                return SaxBuilderFastPatcher.tryPatch(className, loader, classfileBuffer);
+            }
             return null;
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);

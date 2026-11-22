@@ -48,7 +48,7 @@ final class ImageDecodePatcher {
     private static final String BRIDGE_OWNER = "dev/turboism/adapter/cubism/modelopen/ImageDecodeBridge";
     private static final String READ_BUFFERED_IMAGE_NAME = "readBufferedImage";
     private static final String READ_BUFFERED_IMAGE_DESC =
-            "(Ljava/io/InputStream;Ljava/io/InputStream;)Ljava/awt/image/BufferedImage;";
+            "(Ljava/io/InputStream;Ljava/io/InputStream;I)Ljava/awt/image/BufferedImage;";
     private static final String TRY_CONVERT_NAME = "tryConvertToIntArgb";
     private static final String TRY_CONVERT_DESC = "(Ljava/awt/image/BufferedImage;I)Ljava/awt/image/BufferedImage;";
 
@@ -123,6 +123,7 @@ final class ImageDecodePatcher {
                                     && IMAGEIO_READ_STREAM_DESC.equals(mDesc)) {
                                 patchedStreamRead[0] = true;
                                 super.visitVarInsn(ALOAD, 0);
+                                super.visitVarInsn(ILOAD, 1);
                                 super.visitMethodInsn(
                                         INVOKESTATIC,
                                         BRIDGE_OWNER,

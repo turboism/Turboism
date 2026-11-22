@@ -55,13 +55,14 @@ public final class ModelOpenFlowBridge {
 
     /**
      * Records that factory deserialization finished invoking {@code CModelSource.setup()} cleanly on
-     * {@code modelSource}.
+     * {@code modelSource} and schedules background PNG pre-decoding to overlap verify and UI build.
      *
      * @param modelSource initialized {@code CModelSource} instance
      */
     public static void markFactorySetupCompleted(final Object modelSource) {
         if (modelSource != null) {
             COMPLETED_FACTORY_SETUP.set(new WeakReference<>(modelSource));
+            beforeFactorySetup(modelSource);
         }
     }
 
