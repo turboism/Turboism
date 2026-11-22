@@ -46,6 +46,7 @@ final class MeshEditRealHostPatchVerificationTest {
     private static final long VERIFY_TIMEOUT_SECONDS = 60L;
 
     private static final int GRID_SIZE = 7;
+    private static final int STRESS_GRID_DIM = 100;
     private static final int STRIDE_XY = 2;
     private static final int TRI_STRIDE = 3;
     private static final int QUERY_STEPS = 8;
@@ -162,6 +163,119 @@ final class MeshEditRealHostPatchVerificationTest {
                 verifyEditableMeshRenderAndSelectionHelpers(optLoader);
             }
         }
+    }
+
+    @Test
+    void incrementalTenThousandPlusEdgesAvoidFullRebuildsAndMatchParity(@TempDir final Path tempDir)
+            throws Exception {
+        final List<Path> jars = discoverAllTwentyOneJars();
+        Assumptions.assumeTrue(
+                jars.size() == EXPECTED_TOTAL_JARS,
+                "All 21 Cubism JARs (5.0.00-5.3.05) must exist locally; found " + jars.size());
+
+        final Path jarPath = jars.get(jars.size() - 1);
+        final Path patchedDir = tempDir.resolve("patched-stress");
+        final Path rawDir = tempDir.resolve("raw-stress");
+        Files.createDirectories(patchedDir);
+        Files.createDirectories(rawDir);
+
+        final MeshEditAccelerationTransformer transformer = new MeshEditAccelerationTransformer();
+        try (JarFile jar = new JarFile(jarPath.toFile(), false)) {
+            for (final String internalName : List.of(
+                    MeshEditTopologyPatcher.G_EDITABLE_MESH_INTERNAL,
+                    MeshEditTopologyPatcher.EDITABLE_MESH_HELPER_INTERNAL)) {
+                final byte[] original =
+                        jar.getInputStream(jar.getJarEntry(internalName + CLASS_SUFFIX)).readAllBytes();
+                final byte[] patched = transformer.transform(null, internalName, null, null, original);
+                assertNotNull(patched);
+                final Path out = patchedDir.resolve(internalName + CLASS_SUFFIX);
+                Files.createDirectories(out.getParent());
+                Files.write(out, patched);
+            }
+        }
+
+        try (PatchedJarLoader rawLoader = new PatchedJarLoader(jarPath, rawDir, getClass().getClassLoader());
+                PatchedJarLoader optLoader =
+                        new PatchedJarLoader(jarPath, patchedDir, getClass().getClassLoader())) {
+            EditableMeshTopologyOptimizer.resetBuildCountForTest();
+            final List<Integer> optChecks = runTenThousandEdgeIncrementalLoop(optLoader, true);
+            final int fullBuilds = EditableMeshTopologyOptimizer.fullBuildCountForTest();
+            assertTrue(fullBuilds <= 2, "Expected <= 2 full MeshIndex builds across 11k+ edge adds, got " + fullBuilds);
+
+            final List<Integer> rawChecks = runTenThousandEdgeIncrementalLoop(rawLoader, false);
+            assertEquals(rawChecks, optChecks, "Incremental edge lookup and promotion parity mismatch");
+        }
+    }
+
+    private static List<Integer> runTenThousandEdgeIncrementalLoop(final ClassLoader loader, final boolean exerciseAll)
+            throws Exception {
+        final Class<?> meshCls = Class.forName("com.live2d.graphics3d.editableMesh.GEditableMesh2", true, loader);
+        final Class<?> ptType = Class.forName("com.live2d.graphics3d.editableMesh.MPoint2$PointType", true, loader);
+        final Class<?> edgeType = Class.forName("com.live2d.graphics3d.editableMesh.MEdge$EdgeType", true, loader);
+        final Object normalPt = enumConstant(ptType, "NORMAL");
+        final Object normalEdge = enumConstant(edgeType, "NORMAL");
+        final Object autoEdge = enumConstant(edgeType, "AUTO_TRIANGULATION");
+        final Object userEdge = enumConstant(edgeType, "USER_TRIANGULATION");
+
+        final Object mesh = meshCls.getConstructor().newInstance();
+        final Method addPoint = meshCls.getMethod("addPoint", float.class, float.class, ptType, long.class);
+        final Method addEdge =
+                meshCls.getMethod("addEdge", int.class, int.class, edgeType, boolean.class, boolean.class);
+        final Method getEdgeIndex = meshCls.getMethod("getEdgeIndex", int.class, int.class);
+        final Method checkExisting =
+                meshCls.getDeclaredMethod("chechExistingEdge_exe", int.class, int.class, boolean.class);
+        checkExisting.setAccessible(true);
+
+        for (int r = 0; r < STRESS_GRID_DIM; r++) {
+            for (int c = 0; c < STRESS_GRID_DIM; c++) {
+                addPoint.invoke(mesh, (float) c, (float) r, normalPt, TEST_UID_BASE + (long) r * STRESS_GRID_DIM + c);
+            }
+        }
+
+        // Prime initial MeshIndex once after vertex creation.
+        assertEquals(-1, (int) getEdgeIndex.invoke(mesh, 0, 1));
+
+        // 1. Add ~6,000 AUTO_TRIANGULATION diagonal edges incrementally, checking existence before each add.
+        final int cells = STRESS_GRID_DIM - 1;
+        int addedAuto = 0;
+        for (int r = 0; r < cells && addedAuto < 6000; r++) {
+            for (int c = 0; c < cells && addedAuto < 6000; c++) {
+                final int v00 = r * STRESS_GRID_DIM + c;
+                final int v11 = v00 + STRESS_GRID_DIM + 1;
+                if (exerciseAll) {
+                    assertNull(checkExisting.invoke(mesh, v00, v11, false));
+                }
+                addEdge.invoke(mesh, v00, v11, autoEdge, true, false);
+                addedAuto++;
+            }
+        }
+
+        // 2. Add ~5,500 non-auto NORMAL / USER_TRIANGULATION edges (exercising allowCross=false & checkSimilarEdge_exe).
+        int addedNonAuto = 0;
+        for (int r = 0; r < STRESS_GRID_DIM && addedNonAuto < 5500; r++) {
+            for (int c = 0; c < cells && addedNonAuto < 5500; c++) {
+                final int v = r * STRESS_GRID_DIM + c;
+                if (exerciseAll) {
+                    assertNull(checkExisting.invoke(mesh, v, v + 1, true));
+                }
+                final boolean allowCross = addedNonAuto >= 1000;
+                addEdge.invoke(mesh, v, v + 1, (c & 1) == 0 ? normalEdge : userEdge, allowCross, false);
+                addedNonAuto++;
+            }
+        }
+
+        // 3. Promote an existing AUTO_TRIANGULATION edge to NORMAL via checkExitingTypedEdge path.
+        final Integer promoted = (Integer) addEdge.invoke(mesh, 0, STRESS_GRID_DIM + 1, normalEdge, true, false);
+        assertNotNull(promoted);
+
+        // Compare deterministic spot queries matching both raw and patched meshes.
+        return List.of(
+                (int) getEdgeIndex.invoke(mesh, 0, STRESS_GRID_DIM + 1),
+                boxOrMinusOne(checkExisting.invoke(mesh, 0, STRESS_GRID_DIM + 1, true)),
+                boxOrMinusOne(checkExisting.invoke(mesh, 1, STRESS_GRID_DIM + 2, true)),
+                boxOrMinusOne(checkExisting.invoke(mesh, 1, STRESS_GRID_DIM + 2, false)),
+                (int) getEdgeIndex.invoke(mesh, 0, 1),
+                boxOrMinusOne(checkExisting.invoke(mesh, 0, 1, true)));
     }
 
     private static void verifyPointInTriangleParity(

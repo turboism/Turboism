@@ -78,6 +78,8 @@ final class MeshEditTopologyPatcher {
 
     private static final String CLEAR_AUTO_TRI_NAME = "clearAutoTriangulation";
     private static final String CHECK_TYPED_EDGE_NAME = "checkExitingTypedEdge";
+    private static final String CHECK_TYPED_EDGE_DESC =
+            "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer;";
     private static final String REMOVE_EDGE_NAME = "removeEdge";
     private static final String REMOVE_ALL_EDGES_NAME = "removeAllEdges";
     private static final String ADD_POINT_NAME = "addPoint";
@@ -94,7 +96,8 @@ final class MeshEditTopologyPatcher {
     private static final String BRIDGE_CHECK_CROSS_DESC =
             "(Ljava/lang/Object;Ljava/lang/Object;IIZZLjava/lang/Object;ZF)I";
     private static final String ON_EDGE_ADDED_NAME = "onEdgeAdded";
-    private static final String ON_EDGE_ADDED_DESC = "(Ljava/lang/Object;Ljava/lang/Integer;)V";
+    private static final String ON_TYPED_EDGE_CHECKED_NAME = "onTypedEdgeChecked";
+    private static final String ON_EDGE_OBSERVER_DESC = "(Ljava/lang/Object;Ljava/lang/Integer;)V";
     private static final String INVALIDATE_MESH_NAME = "invalidateMesh";
     private static final String INVALIDATE_MESH_DESC = "(Ljava/lang/Object;)V";
 
@@ -323,7 +326,10 @@ final class MeshEditTopologyPatcher {
                             return new CheckCrossPatcher(mv, survey.checkCrossUsesMinDeg);
                         }
                         if (ADD_EDGE_NAME.equals(name) && ADD_EDGE_DESC.equals(desc)) {
-                            return new AddEdgeObserverPatcher(mv);
+                            return new EdgeResultObserverPatcher(mv, ON_EDGE_ADDED_NAME);
+                        }
+                        if (CHECK_TYPED_EDGE_NAME.equals(name) && CHECK_TYPED_EDGE_DESC.equals(desc)) {
+                            return new EdgeResultObserverPatcher(mv, ON_TYPED_EDGE_CHECKED_NAME);
                         }
                         if (isCacheInvalidatingMutator(name)) {
                             return new InvalidateOnReturnPatcher(mv);
@@ -442,7 +448,6 @@ final class MeshEditTopologyPatcher {
 
     private static boolean isCacheInvalidatingMutator(final String name) {
         return CLEAR_AUTO_TRI_NAME.equals(name)
-                || CHECK_TYPED_EDGE_NAME.equals(name)
                 || REMOVE_EDGE_NAME.equals(name)
                 || REMOVE_ALL_EDGES_NAME.equals(name)
                 || ADD_POINT_NAME.equals(name)
@@ -978,10 +983,13 @@ final class MeshEditTopologyPatcher {
         }
     }
 
-    private static final class AddEdgeObserverPatcher extends MethodVisitor {
+    private static final class EdgeResultObserverPatcher extends MethodVisitor {
 
-        private AddEdgeObserverPatcher(final MethodVisitor mv) {
+        private final String bridgeMethodName;
+
+        private EdgeResultObserverPatcher(final MethodVisitor mv, final String bridgeMethodName) {
             super(MeshEditAsmSupport.ASM_API, mv);
+            this.bridgeMethodName = bridgeMethodName;
         }
 
         @Override
@@ -993,8 +1001,8 @@ final class MeshEditTopologyPatcher {
                 super.visitMethodInsn(
                         Opcodes.INVOKESTATIC,
                         TOPOLOGY_OPT_INTERNAL,
-                        ON_EDGE_ADDED_NAME,
-                        ON_EDGE_ADDED_DESC,
+                        bridgeMethodName,
+                        ON_EDGE_OBSERVER_DESC,
                         false);
             }
             super.visitInsn(opcode);

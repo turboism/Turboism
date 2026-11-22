@@ -8,10 +8,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Replaces quadratic edge, duplicate-point, intersection, and triangle-enumeration loops across
- * editable meshes with indexed lookups and spatial grids.
+ * editable meshes with indexed lookups, incremental edge maintenance, and spatial grids.
  */
 public final class EditableMeshTopologyOptimizer {
 
@@ -25,6 +26,8 @@ public final class EditableMeshTopologyOptimizer {
     private static final int PACK_SHIFT = 32;
     private static final int COORD_BITS_PER_VAL = 32;
     private static final int HASH_INITIAL_CAP = 16;
+    private static final int INITIAL_CELL_CAP = 4;
+    private static final int INITIAL_ADJ_CAP = 4;
     private static final int LOAD_FACTOR_NUM = 3;
     private static final int LOAD_FACTOR_DEN = 4;
     private static final int MIN_EDGES_FOR_CROSS_GRID = 24;
@@ -46,6 +49,8 @@ public final class EditableMeshTopologyOptimizer {
 
     private static final String EDGE_TYPE_AUTO = "AUTO_TRIANGULATION";
     private static final String EDGE_TYPE_USER = "USER_TRIANGULATION";
+
+    private static final AtomicInteger FULL_BUILD_COUNT = new AtomicInteger();
 
     private static final MeshArrayFingerprint.WeakIdentityCache<MeshIndex> MESH_INDICES =
             new MeshArrayFingerprint.WeakIdentityCache<>();
@@ -86,6 +91,14 @@ public final class EditableMeshTopologyOptimizer {
 
     private EditableMeshTopologyOptimizer() {}
 
+    static void resetBuildCountForTest() {
+        FULL_BUILD_COUNT.set(0);
+    }
+
+    static int fullBuildCountForTest() {
+        return FULL_BUILD_COUNT.get();
+    }
+
     /**
      * Builds the per-vertex incident edge index matrix in {@code O(P + E)} time preserving exact
      * input edge ordering.
@@ -101,18 +114,21 @@ public final class EditableMeshTopologyOptimizer {
         }
         final int pointCount = points.size();
         final int edgeCount = edges.size();
-        final int[] degrees = new int[pointCount];
-        final int[] edgeU = new int[edgeCount];
-        final int[] edgeV = new int[edgeCount];
+        if (edgeCount == 0 || pointCount == 0) {
+            return new int[pointCount][0];
+        }
         try {
+            final int[] edgeU = new int[edgeCount];
+            final int[] edgeV = new int[edgeCount];
+            final int[] degrees = new int[pointCount];
             EdgeHandles eh = null;
             for (int e = 0; e < edgeCount; e++) {
                 final Object edge = edges.get(e);
                 if (eh == null) {
                     eh = EDGE_HANDLES.get(edge.getClass());
                 }
-                final int u = (int) eh.index1.invoke(edge);
-                final int v = (int) eh.index2.invoke(edge);
+                final int u = (int) eh.index1.invokeExact(edge);
+                final int v = (int) eh.index2.invokeExact(edge);
                 edgeU[e] = u;
                 edgeV[e] = v;
                 if (u >= 0 && u < pointCount) {
@@ -156,20 +172,23 @@ public final class EditableMeshTopologyOptimizer {
             return null;
         }
         try {
-            final int size = edges.size();
-            final int cap = tableCapacity(size);
+            final int count = edges.size();
+            final int cap = tableCapacity(count);
             final long[] table = new long[cap];
             Arrays.fill(table, EMPTY_LONG_KEY);
+            if (count == 0) {
+                return table;
+            }
             final int mask = cap - 1;
             EdgeHandles eh = null;
-            for (int i = 0; i < size; i++) {
-                final Object edge = edges.get(i);
+            for (int e = 0; e < count; e++) {
+                final Object edge = edges.get(e);
                 if (eh == null) {
                     eh = EDGE_HANDLES.get(edge.getClass());
                 }
-                final int a = (int) eh.index1.invoke(edge);
-                final int b = (int) eh.index2.invoke(edge);
-                insertUndirectedKey(table, mask, packUndirected(a, b));
+                final int u = (int) eh.index1.invokeExact(edge);
+                final int v = (int) eh.index2.invokeExact(edge);
+                insertUndirectedKey(table, mask, packUndirected(u, v));
             }
             return table;
         } catch (final Throwable failure) {
@@ -218,7 +237,7 @@ public final class EditableMeshTopologyOptimizer {
         }
         try {
             final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
-            final List<?> points = (List<?>) mh.getPoints.invoke(mesh);
+            final List<?> points = (List<?>) mh.getPoints.invokeExact(mesh);
             final int count = points.size();
             final List<List<Integer>> groups = new ArrayList<>();
             if (count <= 1) {
@@ -231,8 +250,8 @@ public final class EditableMeshTopologyOptimizer {
                 if (ph == null) {
                     ph = POINT_HANDLES.get(pt.getClass());
                 }
-                final float x = (float) ph.getX.invoke(pt);
-                final float y = (float) ph.getY.invoke(pt);
+                final float x = (float) ph.getX.invokeExact(pt);
+                final float y = (float) ph.getY.invokeExact(pt);
                 if (Float.isNaN(x) || Float.isNaN(y)) {
                     continue;
                 }
@@ -240,18 +259,18 @@ public final class EditableMeshTopologyOptimizer {
                 final float cy = y == ZERO_NEG_CANONICAL ? ZERO_NEG_CANONICAL : y;
                 final long key = (Float.floatToRawIntBits(cx) & LOW_INT_MASK)
                         | ((Float.floatToRawIntBits(cy) & LOW_INT_MASK) << COORD_BITS_PER_VAL);
-                final int pointIdx = (int) ph.getIndex.invoke(pt);
+                final int pointIdx = (int) ph.getIndex.invokeExact(pt);
                 byCoord.computeIfAbsent(key, ignored -> new ArrayList<>(2)).add(pointIdx);
             }
             final boolean[] emitted = new boolean[count];
             for (int i = 0; i < count; i++) {
                 final Object pt = points.get(i);
-                final float x = (float) ph.getX.invoke(pt);
-                final float y = (float) ph.getY.invoke(pt);
+                final float x = (float) ph.getX.invokeExact(pt);
+                final float y = (float) ph.getY.invokeExact(pt);
                 if (Float.isNaN(x) || Float.isNaN(y)) {
                     continue;
                 }
-                final int pointIdx = (int) ph.getIndex.invoke(pt);
+                final int pointIdx = (int) ph.getIndex.invokeExact(pt);
                 if (pointIdx >= 0 && pointIdx < count && emitted[pointIdx]) {
                     continue;
                 }
@@ -277,56 +296,57 @@ public final class EditableMeshTopologyOptimizer {
     }
 
     /**
-     * Enumerates unique unordered triangles matching {@code GEditableMeshHandler.a} in
-     * {@code O(E * deg)} time while deduplicating by vertex coordinates via {@code TriPoint.equals}.
+     * Enumerates unique mesh triangles in {@code O(E * deg)} time while matching Cubism's
+     * coordinate-based {@code TriPoint.equals} deduplication semantics.
      *
      * @param mesh {@code GEditableMesh2} instance
-     * @return list of {@code triangulation.l} triangles, or {@code null} to run native fallback
+     * @return list of {@code triangulation.l} triangles or {@code null} to run host fallback
      */
     public static List<Object> findMeshTriangles(final Object mesh) {
         if (mesh == null) {
             return null;
         }
         try {
-            final Class<?> meshClass = mesh.getClass();
-            final TriangleHandles th = TRIANGLE_HANDLES.get(meshClass);
+            final TriangleHandles th = TRIANGLE_HANDLES.get(mesh.getClass());
             if (!th.available) {
                 return null;
             }
-            final MeshHandles mh = MESH_HANDLES.get(meshClass);
-            final List<?> edges = (List<?>) mh.getEdges.invoke(mesh);
-            final List<?> points = (List<?>) mh.getPoints.invoke(mesh);
-            final int edgeCount = edges.size();
+            final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
+            final List<?> points = (List<?>) mh.getPoints.invokeExact(mesh);
+            final List<?> edges = (List<?>) mh.getEdges.invokeExact(mesh);
             final int pointCount = points.size();
+            final int edgeCount = edges.size();
             final List<Object> triangles = new ArrayList<>();
             if (edgeCount < 3 || pointCount < 3) {
                 return triangles;
             }
+            if (pointCount > MAX_PACKABLE_VERTEX) {
+                return null;
+            }
 
             final int[] eU = new int[edgeCount];
             final int[] eV = new int[edgeCount];
-            EdgeHandles eh = null;
-            final int[] degrees = new int[pointCount];
-            final int cap = tableCapacity(edgeCount);
-            final long[] edgeTable = new long[cap];
+            final int[] deg = new int[pointCount];
+            final int tableCap = tableCapacity(edgeCount);
+            final long[] edgeTable = new long[tableCap];
             Arrays.fill(edgeTable, EMPTY_LONG_KEY);
-            final int mask = cap - 1;
-
+            final int mask = tableCap - 1;
+            EdgeHandles eh = null;
             for (int e = 0; e < edgeCount; e++) {
                 final Object edge = edges.get(e);
                 if (eh == null) {
                     eh = EDGE_HANDLES.get(edge.getClass());
                 }
-                final int u = (int) eh.index1.invoke(edge);
-                final int v = (int) eh.index2.invoke(edge);
+                final int u = (int) eh.index1.invokeExact(edge);
+                final int v = (int) eh.index2.invokeExact(edge);
                 if (u < 0 || u >= pointCount || v < 0 || v >= pointCount) {
                     return null;
                 }
                 eU[e] = u;
                 eV[e] = v;
-                degrees[u]++;
+                deg[u]++;
                 if (v != u) {
-                    degrees[v]++;
+                    deg[v]++;
                 }
                 insertUndirectedKey(edgeTable, mask, packUndirected(u, v));
             }
@@ -334,7 +354,7 @@ public final class EditableMeshTopologyOptimizer {
             final int[][] inc = new int[pointCount][];
             final int[] fill = new int[pointCount];
             for (int p = 0; p < pointCount; p++) {
-                inc[p] = new int[degrees[p]];
+                inc[p] = new int[deg[p]];
             }
             for (int e = 0; e < edgeCount; e++) {
                 final int u = eU[e];
@@ -354,8 +374,8 @@ public final class EditableMeshTopologyOptimizer {
                 if (ph == null) {
                     ph = POINT_HANDLES.get(pt.getClass());
                 }
-                final float x = (float) ph.getX.invoke(pt);
-                final float y = (float) ph.getY.invoke(pt);
+                final float x = (float) ph.getX.invokeExact(pt);
+                final float y = (float) ph.getY.invokeExact(pt);
                 if (Float.isNaN(x) || Float.isNaN(y)) {
                     return null;
                 }
@@ -389,7 +409,7 @@ public final class EditableMeshTopologyOptimizer {
                     final Object tpU = getOrCreateTriPoint(th, triPoints, points, u);
                     final Object tpV = getOrCreateTriPoint(th, triPoints, points, v);
                     final Object tpW = getOrCreateTriPoint(th, triPoints, points, w);
-                    triangles.add(th.triCtor.invoke(tpU, tpV, tpW));
+                    triangles.add(th.triCtor.invokeExact(tpU, tpV, tpW));
                 }
             }
             return triangles;
@@ -416,7 +436,7 @@ public final class EditableMeshTopologyOptimizer {
             return null;
         }
         try {
-            final MeshIndex index = ensureIndex(mesh, false);
+            final MeshIndex index = ensureIndex(mesh, false, false);
             if (index == null) {
                 return null;
             }
@@ -446,7 +466,7 @@ public final class EditableMeshTopologyOptimizer {
             return EMPTY_SLOT;
         }
         try {
-            final MeshIndex index = ensureIndex(mesh, false);
+            final MeshIndex index = ensureIndex(mesh, false, false);
             return index == null ? Integer.MIN_VALUE : index.lookupFirstOrderedEdge(min, max, false);
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -473,7 +493,7 @@ public final class EditableMeshTopologyOptimizer {
             return NO_MATCH_SENTINEL;
         }
         try {
-            final MeshIndex index = ensureIndex(mesh, false);
+            final MeshIndex index = ensureIndex(mesh, false, false);
             if (index == null) {
                 return null;
             }
@@ -500,7 +520,7 @@ public final class EditableMeshTopologyOptimizer {
             return Integer.MIN_VALUE;
         }
         try {
-            final MeshIndex index = ensureIndex(mesh, false);
+            final MeshIndex index = ensureIndex(mesh, false, false);
             return index == null ? Integer.MIN_VALUE : index.lookupPointByUid(uid);
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -524,7 +544,7 @@ public final class EditableMeshTopologyOptimizer {
             return null;
         }
         try {
-            final MeshIndex index = ensureIndex(mesh, false);
+            final MeshIndex index = ensureIndex(mesh, true, false);
             if (index == null || i2 >= index.pointCount) {
                 return null;
             }
@@ -566,13 +586,13 @@ public final class EditableMeshTopologyOptimizer {
         }
         try {
             final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
-            final MeshIndex index = ensureIndex(mesh, true);
+            final MeshIndex index = ensureIndex(mesh, true, true);
             if (index == null || i2 >= index.pointCount || index.nonAutoCount < MIN_EDGES_FOR_CROSS_GRID) {
                 return EMPTY_SLOT;
             }
             final VectorHandles vh = VECTOR_HANDLES.get(p1.getClass());
-            final float p1x = (float) vh.getX.invoke(p1);
-            final float p1y = (float) vh.getY.invoke(p1);
+            final float p1x = (float) vh.getX.invokeExact(p1);
+            final float p1y = (float) vh.getY.invokeExact(p1);
             final float p2x = index.pointX[i2];
             final float p2y = index.pointY[i2];
             final int[] candidates = index.queryCrossCandidates(
@@ -626,7 +646,7 @@ public final class EditableMeshTopologyOptimizer {
                 for (int k = candidateCount - 1; k >= 0; k--) {
                     if (toRemove[k]) {
                         final int eIdx = index.nonAutoOriginalIndices[candidates[k]];
-                        mh.removeEdge.invoke(mesh, index.edgeObjects[eIdx]);
+                        mh.removeEdge.invokeExact(mesh, index.edgeObjects[eIdx]);
                         removedAny = true;
                     }
                 }
@@ -657,9 +677,37 @@ public final class EditableMeshTopologyOptimizer {
         }
         try {
             final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
-            final List<?> edges = (List<?>) mh.getEdges.invoke(mesh);
-            final int edgeVer = (int) mh.edgeVersion.invoke(mesh);
-            if (!index.tryAppendEdge(edges, edgeVer, returnedIndex)) {
+            final List<?> edges = (List<?>) mh.getEdges.invokeExact(mesh);
+            final int edgeVer = (int) mh.edgeVersion.invokeExact(mesh);
+            if (!index.tryAppendOrRefreshEdge(edges, edgeVer, returnedIndex)) {
+                MESH_INDICES.remove(mesh);
+            }
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            MESH_INDICES.remove(mesh);
+        }
+    }
+
+    /**
+     * Refreshes cached edge metadata when {@code checkExitingTypedEdge} returns an existing edge
+     * whose type may have been promoted, ignoring {@code null} misses.
+     *
+     * @param mesh {@code GEditableMesh2} instance
+     * @param returnedIndex boxed index returned by {@code checkExitingTypedEdge}
+     */
+    public static void onTypedEdgeChecked(final Object mesh, final Integer returnedIndex) {
+        if (mesh == null || returnedIndex == null || returnedIndex < 0) {
+            return;
+        }
+        final MeshIndex index = MESH_INDICES.get(mesh);
+        if (index == null) {
+            return;
+        }
+        try {
+            final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
+            final List<?> edges = (List<?>) mh.getEdges.invokeExact(mesh);
+            final int edgeVer = (int) mh.edgeVersion.invokeExact(mesh);
+            if (!index.tryRefreshEdge(edges, edgeVer, returnedIndex)) {
                 MESH_INDICES.remove(mesh);
             }
         } catch (final Throwable failure) {
@@ -679,26 +727,24 @@ public final class EditableMeshTopologyOptimizer {
         }
     }
 
-    private static MeshIndex ensureIndex(final Object mesh, final boolean needSpatialGrid) throws Throwable {
+    private static MeshIndex ensureIndex(
+            final Object mesh, final boolean needCoordinates, final boolean needSpatialGrid)
+            throws Throwable {
         final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
-        final List<?> points = (List<?>) mh.getPoints.invoke(mesh);
-        final List<?> edges = (List<?>) mh.getEdges.invoke(mesh);
-        final int edgeVer = (int) mh.edgeVersion.invoke(mesh);
-        final int posVer = (int) mh.posVersion.invoke(mesh);
-        final long edgeDigest = computeEdgeEndpointsDigest(edges);
-        final long pointDigest = computePointDigest(points);
+        final List<?> points = (List<?>) mh.getPoints.invokeExact(mesh);
+        final List<?> edges = (List<?>) mh.getEdges.invokeExact(mesh);
+        final int edgeVer = (int) mh.edgeVersion.invokeExact(mesh);
+        final int posVer = (int) mh.posVersion.invokeExact(mesh);
 
         final MeshIndex existing = MESH_INDICES.get(mesh);
-        if (existing != null
-                && existing.matchesTopology(edgeVer, edges.size(), edgeDigest, points.size(), pointDigest)) {
-            if (needSpatialGrid && !existing.hasGridForPosVersion(posVer, pointDigest)) {
-                existing.ensureCrossGrid(points, posVer, pointDigest);
+        if (existing != null && existing.matchesTopology(edgeVer, edges, points)) {
+            if (needCoordinates || needSpatialGrid) {
+                existing.ensureCoordinatesAndGrid(points, posVer, needSpatialGrid);
             }
             return existing;
         }
 
-        final MeshIndex built = MeshIndex.build(
-                points, edges, edgeVer, posVer, edgeDigest, pointDigest, needSpatialGrid);
+        final MeshIndex built = MeshIndex.build(points, edges, edgeVer, posVer, needCoordinates, needSpatialGrid);
         MESH_INDICES.remove(mesh);
         MESH_INDICES.computeIfAbsent(mesh, ignored -> built);
         return built;
@@ -785,28 +831,6 @@ public final class EditableMeshTopologyOptimizer {
         return diff < 0.0f ? -diff : diff;
     }
 
-    private static long computeEdgeEndpointsDigest(final List<?> edges) throws Throwable {
-        final int size = edges.size();
-        if (size == 0) {
-            return 0L;
-        }
-        final EdgeHandles eh = EDGE_HANDLES.get(edges.get(0).getClass());
-        final Object first = edges.get(0);
-        final Object mid = edges.get(size >>> 1);
-        final Object last = edges.get(size - 1);
-        return MeshArrayFingerprint.mix(size
-                ^ edgeSig(eh, first)
-                ^ (edgeSig(eh, mid) * 31L)
-                ^ (edgeSig(eh, last) * 997L));
-    }
-
-    private static long edgeSig(final EdgeHandles eh, final Object edge) throws Throwable {
-        final long u = (int) eh.index1.invoke(edge);
-        final long v = (int) eh.index2.invoke(edge);
-        final int typeId = System.identityHashCode(eh.type.invoke(edge));
-        return (u << PACK_SHIFT) ^ (v & LOW_INT_MASK) ^ typeId;
-    }
-
     private static long computePointDigest(final List<?> points) throws Throwable {
         final int size = points.size();
         if (size == 0) {
@@ -822,17 +846,20 @@ public final class EditableMeshTopologyOptimizer {
     }
 
     private static long pointSig(final PointHandles ph, final Object pt) throws Throwable {
-        final float x = (float) ph.getX.invoke(pt);
-        final float y = (float) ph.getY.invoke(pt);
-        final long uid = (long) ph.getUid.invoke(pt);
-        return uid ^ (Float.floatToRawIntBits(x) & LOW_INT_MASK) ^ ((Float.floatToRawIntBits(y) & LOW_INT_MASK) << PACK_SHIFT);
+        final float x = (float) ph.getX.invokeExact(pt);
+        final float y = (float) ph.getY.invokeExact(pt);
+        final long uid = (long) ph.getUid.invokeExact(pt);
+        return uid
+                ^ (Float.floatToRawIntBits(x) & LOW_INT_MASK)
+                ^ ((Float.floatToRawIntBits(y) & LOW_INT_MASK) << PACK_SHIFT);
     }
 
     private static Object getOrCreateTriPoint(
-            final TriangleHandles th, final Object[] cache, final List<?> points, final int index) throws Throwable {
+            final TriangleHandles th, final Object[] cache, final List<?> points, final int index)
+            throws Throwable {
         Object existing = cache[index];
         if (existing == null) {
-            existing = th.triPointCtor.invoke(points.get(index), index);
+            existing = th.triPointCtor.invokeExact(points.get(index), index);
             cache[index] = existing;
         }
         return existing;
@@ -884,9 +911,9 @@ public final class EditableMeshTopologyOptimizer {
 
         int edgeVer;
         int edgeCount;
-        long edgeDigest;
         final int pointCount;
-        long pointDigest;
+        final Object firstPointObj;
+        final Object lastPointObj;
 
         Object[] edgeObjects;
         int[] edgeU;
@@ -894,22 +921,29 @@ public final class EditableMeshTopologyOptimizer {
         boolean[] edgeIsAuto;
         boolean[] edgeIsTri;
         boolean[] edgeIsUserTri;
-        final float[] pointX;
-        final float[] pointY;
+
+        float[] pointX;
+        float[] pointY;
+        int coordPosVer = Integer.MIN_VALUE;
+        long coordPointDigest;
+        boolean coordinatesLoaded;
 
         private long[] orderedEdgeKeys;
         private int[] orderedFirstIdx;
         private int[] orderedNonTriFirstIdx;
         private int orderedMask;
+        private int orderedUsed;
 
         private long[] uidKeys;
         private int[] uidPointIdx;
         private int uidMask;
 
         private int[][] nonAutoIncidentEdges;
+        private int[] nonAutoDegree;
 
         int nonAutoCount;
         int[] nonAutoOriginalIndices;
+        int nonAutoGridCount;
         private int gridPosVer = Integer.MIN_VALUE;
         private long gridPointDigest;
         private double gMinX;
@@ -921,35 +955,33 @@ public final class EditableMeshTopologyOptimizer {
         private double invCellW;
         private double invCellH;
         private int[][] gridCells;
+        private int[] gridCellLens;
         private int[] gridOverflow;
+        private int gridOverflowLen;
 
         private MeshIndex(
                 final int edgeVer,
                 final int edgeCount,
-                final long edgeDigest,
                 final int pointCount,
-                final long pointDigest,
+                final Object firstPointObj,
+                final Object lastPointObj,
                 final Object[] edgeObjects,
                 final int[] edgeU,
                 final int[] edgeV,
                 final boolean[] edgeIsAuto,
                 final boolean[] edgeIsTri,
-                final boolean[] edgeIsUserTri,
-                final float[] pointX,
-                final float[] pointY) {
+                final boolean[] edgeIsUserTri) {
             this.edgeVer = edgeVer;
             this.edgeCount = edgeCount;
-            this.edgeDigest = edgeDigest;
             this.pointCount = pointCount;
-            this.pointDigest = pointDigest;
+            this.firstPointObj = firstPointObj;
+            this.lastPointObj = lastPointObj;
             this.edgeObjects = edgeObjects;
             this.edgeU = edgeU;
             this.edgeV = edgeV;
             this.edgeIsAuto = edgeIsAuto;
             this.edgeIsTri = edgeIsTri;
             this.edgeIsUserTri = edgeIsUserTri;
-            this.pointX = pointX;
-            this.pointY = pointY;
         }
 
         static MeshIndex build(
@@ -957,14 +989,15 @@ public final class EditableMeshTopologyOptimizer {
                 final List<?> edges,
                 final int edgeVer,
                 final int posVer,
-                final long edgeDigest,
-                final long pointDigest,
+                final boolean loadCoordinates,
                 final boolean buildGrid)
                 throws Throwable {
+            FULL_BUILD_COUNT.incrementAndGet();
             final int pCount = points.size();
             final int eCount = edges.size();
-            final float[] px = new float[pCount];
-            final float[] py = new float[pCount];
+            final Object firstPt = pCount > 0 ? points.get(0) : null;
+            final Object lastPt = pCount > 0 ? points.get(pCount - 1) : null;
+
             final long[] uids = new long[pCount];
             PointHandles ph = null;
             for (int p = 0; p < pCount; p++) {
@@ -972,9 +1005,7 @@ public final class EditableMeshTopologyOptimizer {
                 if (ph == null) {
                     ph = POINT_HANDLES.get(pt.getClass());
                 }
-                px[p] = (float) ph.getX.invoke(pt);
-                py[p] = (float) ph.getY.invoke(pt);
-                uids[p] = (long) ph.getUid.invoke(pt);
+                uids[p] = (long) ph.getUid.invokeExact(pt);
             }
 
             final int edgeCap = Math.max(INITIAL_EDGE_BUF, eCount + INITIAL_EDGE_BUF);
@@ -992,12 +1023,11 @@ public final class EditableMeshTopologyOptimizer {
                     eh = EDGE_HANDLES.get(edge.getClass());
                 }
                 eObjs[e] = edge;
-                eU[e] = (int) eh.index1.invoke(edge);
-                eV[e] = (int) eh.index2.invoke(edge);
-                final Enum<?> type = (Enum<?>) eh.type.invoke(edge);
-                final String typeName = type.name();
-                final boolean isAuto = EDGE_TYPE_AUTO.equals(typeName);
-                final boolean isUser = EDGE_TYPE_USER.equals(typeName);
+                eU[e] = (int) eh.index1.invokeExact(edge);
+                eV[e] = (int) eh.index2.invokeExact(edge);
+                final Object typeObj = eh.type.invokeExact(edge);
+                final boolean isAuto = typeObj == eh.autoEnum;
+                final boolean isUser = typeObj == eh.userEnum;
                 eAuto[e] = isAuto;
                 eUser[e] = isUser;
                 eTri[e] = isAuto || isUser;
@@ -1007,73 +1037,93 @@ public final class EditableMeshTopologyOptimizer {
             }
 
             final MeshIndex index = new MeshIndex(
-                    edgeVer, edgeCountFromList(eCount), edgeDigest, pCount, pointDigest, eObjs, eU, eV, eAuto, eTri, eUser, px, py);
+                    edgeVer, eCount, pCount, firstPt, lastPt, eObjs, eU, eV, eAuto, eTri, eUser);
             index.nonAutoCount = nonAuto;
             index.buildUidTable(uids);
             index.rebuildEdgeTables();
-            index.rebuildNonAutoAdjacency();
-            if (buildGrid) {
-                index.buildCrossGrid(posVer, pointDigest);
+            if (loadCoordinates || buildGrid) {
+                index.ensureCoordinatesAndGrid(points, posVer, buildGrid);
             }
             return index;
         }
 
-        private static int edgeCountFromList(final int count) {
-            return count;
-        }
-
-        boolean matchesTopology(
-                final int edgeVer,
-                final int currentEdgeCount,
-                final long currentEdgeDigest,
-                final int currentPointCount,
-                final long currentPointDigest) {
-            return this.edgeVer == edgeVer
-                    && this.edgeCount == currentEdgeCount
-                    && this.edgeDigest == currentEdgeDigest
-                    && this.pointCount == currentPointCount
-                    && this.pointDigest == currentPointDigest;
-        }
-
-        boolean hasGridForPosVersion(final int posVer, final long currentPointDigest) {
-            return gridCells != null && gridPosVer == posVer && gridPointDigest == currentPointDigest;
-        }
-
-        void ensureCrossGrid(final List<?> points, final int posVer, final long currentPointDigest) throws Throwable {
-            PointHandles ph = null;
-            for (int p = 0; p < pointCount; p++) {
-                final Object pt = points.get(p);
-                if (ph == null) {
-                    ph = POINT_HANDLES.get(pt.getClass());
+        boolean matchesTopology(final int currentEdgeVer, final List<?> edges, final List<?> points) {
+            if (currentEdgeVer < this.edgeVer
+                    || this.edgeCount != edges.size()
+                    || this.pointCount != points.size()) {
+                return false;
+            }
+            if (this.edgeCount > 0) {
+                final int mid = this.edgeCount >>> 1;
+                if (edges.get(0) != edgeObjects[0]
+                        || edges.get(mid) != edgeObjects[mid]
+                        || edges.get(this.edgeCount - 1) != edgeObjects[this.edgeCount - 1]) {
+                    return false;
                 }
-                pointX[p] = (float) ph.getX.invoke(pt);
-                pointY[p] = (float) ph.getY.invoke(pt);
             }
-            buildCrossGrid(posVer, currentPointDigest);
+            if (this.pointCount > 0) {
+                if (points.get(0) != firstPointObj || points.get(this.pointCount - 1) != lastPointObj) {
+                    return false;
+                }
+            }
+            // GEditableMesh2.addEdge bumps _edge_edit_version before validation; adopt unchanged topology versions in O(1).
+            this.edgeVer = currentEdgeVer;
+            return true;
         }
 
-        boolean tryAppendEdge(final List<?> edges, final int newEdgeVer, final int addedIndex) throws Throwable {
-            if (addedIndex < 0 || addedIndex >= edges.size()) {
+        void ensureCoordinatesAndGrid(
+                final List<?> points, final int posVer, final boolean needSpatialGrid) throws Throwable {
+            boolean coordsChanged = !coordinatesLoaded || coordPosVer != posVer;
+            long currentDigest = coordPointDigest;
+            if (!coordsChanged) {
+                currentDigest = computePointDigest(points);
+                if (currentDigest != coordPointDigest) {
+                    coordsChanged = true;
+                }
+            } else {
+                currentDigest = computePointDigest(points);
+            }
+            if (coordsChanged) {
+                if (pointX == null || pointX.length < pointCount) {
+                    pointX = new float[pointCount];
+                    pointY = new float[pointCount];
+                }
+                PointHandles ph = null;
+                for (int p = 0; p < pointCount; p++) {
+                    final Object pt = points.get(p);
+                    if (ph == null) {
+                        ph = POINT_HANDLES.get(pt.getClass());
+                    }
+                    pointX[p] = (float) ph.getX.invokeExact(pt);
+                    pointY[p] = (float) ph.getY.invokeExact(pt);
+                }
+                coordPosVer = posVer;
+                coordPointDigest = currentDigest;
+                coordinatesLoaded = true;
+                gridCells = null;
+            }
+            if (needSpatialGrid && (gridCells == null || gridPosVer != posVer || gridPointDigest != coordPointDigest)) {
+                buildCrossGrid(posVer, coordPointDigest);
+            }
+        }
+
+        boolean tryAppendOrRefreshEdge(final List<?> edges, final int newEdgeVer, final int index) throws Throwable {
+            if (index < edgeCount && edges.size() == edgeCount) {
+                return tryRefreshEdge(edges, newEdgeVer, index);
+            }
+            if (index != edgeCount || edges.size() != edgeCount + 1) {
                 return false;
             }
-            if (addedIndex != edgeCount || edges.size() != edgeCount + 1) {
-                return false;
-            }
-            final Object edge = edges.get(addedIndex);
+            final Object edge = edges.get(index);
             final EdgeHandles eh = EDGE_HANDLES.get(edge.getClass());
-            final int u = (int) eh.index1.invoke(edge);
-            final int v = (int) eh.index2.invoke(edge);
-            final Enum<?> type = (Enum<?>) eh.type.invoke(edge);
-            final String typeName = type.name();
-            final boolean isAuto = EDGE_TYPE_AUTO.equals(typeName);
-            final boolean isUser = EDGE_TYPE_USER.equals(typeName);
+            final int u = (int) eh.index1.invokeExact(edge);
+            final int v = (int) eh.index2.invokeExact(edge);
+            final Object typeObj = eh.type.invokeExact(edge);
+            final boolean isAuto = typeObj == eh.autoEnum;
+            final boolean isUser = typeObj == eh.userEnum;
             final boolean isTri = isAuto || isUser;
-            if (!isAuto) {
-                // Non-auto additions alter crossing and adjacency topology, so invalidate rather than mutating grid state.
-                return false;
-            }
-            if (addedIndex >= edgeObjects.length) {
-                final int nextCap = edgeObjects.length << 1;
+            if (index >= edgeObjects.length) {
+                final int nextCap = Math.max(edgeObjects.length << 1, index + 1);
                 edgeObjects = Arrays.copyOf(edgeObjects, nextCap);
                 edgeU = Arrays.copyOf(edgeU, nextCap);
                 edgeV = Arrays.copyOf(edgeV, nextCap);
@@ -1081,16 +1131,139 @@ public final class EditableMeshTopologyOptimizer {
                 edgeIsTri = Arrays.copyOf(edgeIsTri, nextCap);
                 edgeIsUserTri = Arrays.copyOf(edgeIsUserTri, nextCap);
             }
-            edgeObjects[addedIndex] = edge;
-            edgeU[addedIndex] = u;
-            edgeV[addedIndex] = v;
-            edgeIsAuto[addedIndex] = true;
-            edgeIsTri[addedIndex] = isTri;
-            edgeIsUserTri[addedIndex] = isUser;
+            edgeObjects[index] = edge;
+            edgeU[index] = u;
+            edgeV[index] = v;
+            edgeIsAuto[index] = isAuto;
+            edgeIsTri[index] = isTri;
+            edgeIsUserTri[index] = isUser;
             edgeCount++;
             edgeVer = newEdgeVer;
-            edgeDigest = computeEdgeEndpointsDigest(edges);
-            insertOrderedEdgeEntry(u, v, addedIndex, isTri);
+            insertOrderedEdgeEntry(u, v, index, isTri);
+            if (!isAuto) {
+                nonAutoCount++;
+                if (nonAutoIncidentEdges != null) {
+                    appendAdjacencyVertex(u, index);
+                    if (v != u) {
+                        appendAdjacencyVertex(v, index);
+                    }
+                }
+                if (gridCells != null && !tryInsertNonAutoIntoGrid(index, u, v)) {
+                    gridCells = null;
+                }
+            }
+            return true;
+        }
+
+        boolean tryRefreshEdge(final List<?> edges, final int newEdgeVer, final int index) throws Throwable {
+            if (index < 0 || index >= edgeCount || edges.size() != edgeCount) {
+                return false;
+            }
+            final Object edge = edges.get(index);
+            final EdgeHandles eh = EDGE_HANDLES.get(edge.getClass());
+            final int u = (int) eh.index1.invokeExact(edge);
+            final int v = (int) eh.index2.invokeExact(edge);
+            if (u != edgeU[index] || v != edgeV[index]) {
+                return false;
+            }
+            final Object typeObj = eh.type.invokeExact(edge);
+            final boolean isAuto = typeObj == eh.autoEnum;
+            final boolean isUser = typeObj == eh.userEnum;
+            final boolean isTri = isAuto || isUser;
+            final boolean wasAuto = edgeIsAuto[index];
+            final boolean wasTri = edgeIsTri[index];
+            edgeObjects[index] = edge;
+            edgeIsAuto[index] = isAuto;
+            edgeIsUserTri[index] = isUser;
+            edgeIsTri[index] = isTri;
+            edgeVer = newEdgeVer;
+            if (wasTri && !isTri) {
+                updateOrderedNonTriIdx(u, v, index);
+            } else if (!wasTri && isTri) {
+                rebuildEdgeTables();
+            }
+            if (wasAuto != isAuto) {
+                nonAutoCount += isAuto ? -1 : 1;
+                nonAutoIncidentEdges = null;
+                nonAutoDegree = null;
+                gridCells = null;
+            }
+            return true;
+        }
+
+        private void appendAdjacencyVertex(final int vertex, final int edgeIdx) {
+            if (vertex < 0 || vertex >= pointCount) {
+                return;
+            }
+            final int deg = nonAutoDegree[vertex];
+            int[] bucket = nonAutoIncidentEdges[vertex];
+            if (bucket.length == 0) {
+                bucket = new int[INITIAL_ADJ_CAP];
+                nonAutoIncidentEdges[vertex] = bucket;
+            } else if (deg == bucket.length) {
+                bucket = Arrays.copyOf(bucket, bucket.length << 1);
+                nonAutoIncidentEdges[vertex] = bucket;
+            }
+            bucket[deg] = edgeIdx;
+            nonAutoDegree[vertex] = deg + 1;
+        }
+
+        private boolean tryInsertNonAutoIntoGrid(final int edgeIdx, final int u, final int v) {
+            if (!coordinatesLoaded || u < 0 || u >= pointCount || v < 0 || v >= pointCount) {
+                return false;
+            }
+            final float ux = pointX[u];
+            final float uy = pointY[u];
+            final float vx = pointX[v];
+            final float vy = pointY[v];
+            if (!Float.isFinite(ux) || !Float.isFinite(uy) || !Float.isFinite(vx) || !Float.isFinite(vy)) {
+                return false;
+            }
+            final double eMinX = Math.min(ux, vx);
+            final double eMaxX = Math.max(ux, vx);
+            final double eMinY = Math.min(uy, vy);
+            final double eMaxY = Math.max(uy, vy);
+            if (eMinX < gMinX || eMaxX > gMaxX || eMinY < gMinY || eMaxY > gMaxY) {
+                return false;
+            }
+            if (nonAutoGridCount == nonAutoOriginalIndices.length) {
+                nonAutoOriginalIndices = Arrays.copyOf(
+                        nonAutoOriginalIndices, Math.max(INITIAL_EDGE_BUF, nonAutoOriginalIndices.length << 1));
+            }
+            final int k = nonAutoGridCount++;
+            nonAutoOriginalIndices[k] = edgeIdx;
+
+            final double segMargin = Math.max(
+                    GRID_MIN_MARGIN, Math.hypot(vx - ux, vy - uy) * GRID_MARGIN_RATIO + UTIL_EPSILON * 2.0);
+            final int c0 = clampCell((int) Math.floor((eMinX - segMargin - gMinX) * invCellW), gridW);
+            final int c1 = clampCell((int) Math.floor((eMaxX + segMargin - gMinX) * invCellW), gridW);
+            final int r0 = clampCell((int) Math.floor((eMinY - segMargin - gMinY) * invCellH), gridH);
+            final int r1 = clampCell((int) Math.floor((eMaxY + segMargin - gMinY) * invCellH), gridH);
+            if ((c1 - c0 + 1) * (r1 - r0 + 1) > MAX_CELLS_PER_EDGE) {
+                if (gridOverflowLen == gridOverflow.length) {
+                    gridOverflow = Arrays.copyOf(
+                            gridOverflow, Math.max(INITIAL_CELL_CAP, gridOverflow.length << 1));
+                }
+                gridOverflow[gridOverflowLen++] = k;
+                return true;
+            }
+            for (int r = r0; r <= r1; r++) {
+                final int row = r * gridW;
+                for (int c = c0; c <= c1; c++) {
+                    final int cellIdx = row + c;
+                    int[] bucket = gridCells[cellIdx];
+                    final int len = gridCellLens[cellIdx];
+                    if (bucket == null) {
+                        bucket = new int[INITIAL_CELL_CAP];
+                        gridCells[cellIdx] = bucket;
+                    } else if (len == bucket.length) {
+                        bucket = Arrays.copyOf(bucket, bucket.length << 1);
+                        gridCells[cellIdx] = bucket;
+                    }
+                    bucket[len] = k;
+                    gridCellLens[cellIdx] = len + 1;
+                }
+            }
             return true;
         }
 
@@ -1148,14 +1321,14 @@ public final class EditableMeshTopologyOptimizer {
             Arrays.fill(orderedFirstIdx, EMPTY_SLOT);
             Arrays.fill(orderedNonTriFirstIdx, EMPTY_SLOT);
             orderedMask = cap - 1;
+            orderedUsed = 0;
             for (int e = 0; e < edgeCount; e++) {
                 insertOrderedEdgeEntry(edgeU[e], edgeV[e], e, edgeIsTri[e]);
             }
         }
 
         private void insertOrderedEdgeEntry(final int u, final int v, final int edgeIdx, final boolean isTri) {
-            final int used = countUsedOrdered();
-            if ((used + 2) * LOAD_FACTOR_DEN >= orderedEdgeKeys.length * LOAD_FACTOR_NUM) {
+            if ((orderedUsed + 2) * LOAD_FACTOR_DEN >= orderedEdgeKeys.length * LOAD_FACTOR_NUM) {
                 rehashOrderedTable();
             }
             final long key = (((long) u) << PACK_SHIFT) | (v & LOW_INT_MASK);
@@ -1166,6 +1339,7 @@ public final class EditableMeshTopologyOptimizer {
                     orderedEdgeKeys[slot] = key;
                     orderedFirstIdx[slot] = edgeIdx;
                     orderedNonTriFirstIdx[slot] = isTri ? EMPTY_SLOT : edgeIdx;
+                    orderedUsed++;
                     return;
                 }
                 if (cur == key) {
@@ -1181,8 +1355,22 @@ public final class EditableMeshTopologyOptimizer {
             }
         }
 
-        private int countUsedOrdered() {
-            return edgeCount;
+        private void updateOrderedNonTriIdx(final int u, final int v, final int edgeIdx) {
+            final long key = (((long) u) << PACK_SHIFT) | (v & LOW_INT_MASK);
+            int slot = ((int) MeshArrayFingerprint.mix(key)) & orderedMask;
+            while (true) {
+                final long cur = orderedEdgeKeys[slot];
+                if (cur == key) {
+                    if (orderedNonTriFirstIdx[slot] < 0 || edgeIdx < orderedNonTriFirstIdx[slot]) {
+                        orderedNonTriFirstIdx[slot] = edgeIdx;
+                    }
+                    return;
+                }
+                if (cur == EMPTY_LONG_KEY) {
+                    return;
+                }
+                slot = (slot + 1) & orderedMask;
+            }
         }
 
         private void rehashOrderedTable() {
@@ -1228,7 +1416,10 @@ public final class EditableMeshTopologyOptimizer {
             }
         }
 
-        private void rebuildNonAutoAdjacency() {
+        private void ensureNonAutoAdjacency() {
+            if (nonAutoIncidentEdges != null) {
+                return;
+            }
             final int[] deg = new int[pointCount];
             for (int e = 0; e < edgeCount; e++) {
                 if (edgeIsAuto[e]) {
@@ -1246,7 +1437,7 @@ public final class EditableMeshTopologyOptimizer {
             final int[][] inc = new int[pointCount][];
             final int[] pos = new int[pointCount];
             for (int p = 0; p < pointCount; p++) {
-                inc[p] = new int[deg[p]];
+                inc[p] = deg[p] == 0 ? new int[0] : new int[Math.max(INITIAL_ADJ_CAP, deg[p])];
             }
             for (int e = 0; e < edgeCount; e++) {
                 if (edgeIsAuto[e]) {
@@ -1262,14 +1453,15 @@ public final class EditableMeshTopologyOptimizer {
                 }
             }
             nonAutoIncidentEdges = inc;
+            nonAutoDegree = pos;
         }
 
         int findSimilarEdge(final int i1, final int i2, final float minRequiredDeg) {
-            // Original checkSimilarEdge_exe visits _edges in ascending order and tests edges where
-            // index1 == i1 || index2 == i2 || index2 == i1. Merging incident[i1] and incident[i2]
-            // in ascending order preserves exact match priority.
+            ensureNonAutoAdjacency();
             final int[] inc1 = nonAutoIncidentEdges[i1];
             final int[] inc2 = nonAutoIncidentEdges[i2];
+            final int len1 = nonAutoDegree[i1];
+            final int len2 = nonAutoDegree[i2];
             int p1 = 0;
             int p2 = 0;
             final float p1x = pointX[i1];
@@ -1281,11 +1473,11 @@ public final class EditableMeshTopologyOptimizer {
             final float bax = p1x - p2x;
             final float bay = p1y - p2y;
 
-            while (p1 < inc1.length || p2 < inc2.length) {
+            while (p1 < len1 || p2 < len2) {
                 final int eIdx;
-                if (p2 >= inc2.length || (p1 < inc1.length && inc1[p1] < inc2[p2])) {
+                if (p2 >= len2 || (p1 < len1 && inc1[p1] < inc2[p2])) {
                     eIdx = inc1[p1++];
-                } else if (p1 >= inc1.length || inc2[p2] < inc1[p1]) {
+                } else if (p1 >= len1 || inc2[p2] < inc1[p1]) {
                     eIdx = inc2[p2++];
                 } else {
                     eIdx = inc1[p1++];
@@ -1318,16 +1510,30 @@ public final class EditableMeshTopologyOptimizer {
         private void buildCrossGrid(final int posVer, final long currentPointDigest) {
             this.gridPosVer = posVer;
             this.gridPointDigest = currentPointDigest;
-            final int[] nonAutoMap = new int[nonAutoCount];
+            final int mapCap = Math.max(INITIAL_EDGE_BUF, nonAutoCount << 1);
+            final int[] nonAutoMap = new int[mapCap];
             int naIdx = 0;
             double minX = Double.POSITIVE_INFINITY;
             double minY = Double.POSITIVE_INFINITY;
             double maxX = Double.NEGATIVE_INFINITY;
             double maxY = Double.NEGATIVE_INFINITY;
+            for (int p = 0; p < pointCount; p++) {
+                final float px = pointX[p];
+                final float py = pointY[p];
+                if (Float.isFinite(px) && Float.isFinite(py)) {
+                    minX = Math.min(minX, px);
+                    maxX = Math.max(maxX, px);
+                    minY = Math.min(minY, py);
+                    maxY = Math.max(maxY, py);
+                }
+            }
             int finiteCount = 0;
             for (int e = 0; e < edgeCount; e++) {
                 if (edgeIsAuto[e]) {
                     continue;
+                }
+                if (naIdx == nonAutoMap.length) {
+                    break;
                 }
                 nonAutoMap[naIdx++] = e;
                 final int u = edgeU[e];
@@ -1343,43 +1549,42 @@ public final class EditableMeshTopologyOptimizer {
                     continue;
                 }
                 finiteCount++;
-                minX = Math.min(minX, Math.min(ux, vx));
-                maxX = Math.max(maxX, Math.max(ux, vx));
-                minY = Math.min(minY, Math.min(uy, vy));
-                maxY = Math.max(maxY, Math.max(uy, vy));
             }
             this.nonAutoOriginalIndices = nonAutoMap;
-            if (finiteCount == 0) {
-                this.gMinX = 0.0;
-                this.gMaxX = 0.0;
-                this.gMinY = 0.0;
-                this.gMaxY = 0.0;
+            this.nonAutoGridCount = naIdx;
+            if (finiteCount < MIN_EDGES_FOR_CROSS_GRID || naIdx == 0) {
                 this.gridW = 1;
                 this.gridH = 1;
+                this.gMinX = 0.0;
+                this.gMaxX = Double.NEGATIVE_INFINITY;
+                this.gMinY = 0.0;
+                this.gMaxY = Double.NEGATIVE_INFINITY;
                 this.invCellW = 1.0;
                 this.invCellH = 1.0;
-                this.gridCells = new int[1][];
-                this.gridOverflow = sequentialArray(nonAutoMap.length);
+                this.gridCells = new int[][] {sequentialArray(naIdx)};
+                this.gridCellLens = new int[] {naIdx};
+                this.gridOverflow = new int[0];
+                this.gridOverflowLen = 0;
                 return;
             }
-            final double spanX = Math.max(maxX - minX, MIN_CELL_SPAN);
-            final double spanY = Math.max(maxY - minY, MIN_CELL_SPAN);
-            final double padX = Math.max(GRID_MIN_MARGIN, spanX * GRID_MARGIN_RATIO);
-            final double padY = Math.max(GRID_MIN_MARGIN, spanY * GRID_MARGIN_RATIO);
-            this.gMinX = minX - padX;
-            this.gMaxX = maxX + padX;
-            this.gMinY = minY - padY;
-            this.gMaxY = maxY + padY;
-            final int[] dims = MeshArrayFingerprint.gridDimensions(gMaxX - gMinX, gMaxY - gMinY, finiteCount);
+            final double margin = Math.max(GRID_MIN_MARGIN, Math.max(maxX - minX, maxY - minY) * GRID_MARGIN_RATIO);
+            this.gMinX = minX - margin;
+            this.gMaxX = maxX + margin;
+            this.gMinY = minY - margin;
+            this.gMaxY = maxY + margin;
+            final double spanX = Math.max(gMaxX - gMinX, MIN_CELL_SPAN);
+            final double spanY = Math.max(gMaxY - gMinY, MIN_CELL_SPAN);
+            final int[] dims = MeshArrayFingerprint.gridDimensions(spanX, spanY, naIdx);
             this.gridW = dims[0];
             this.gridH = dims[1];
-            this.invCellW = gridW / (gMaxX - gMinX);
-            this.invCellH = gridH / (gMaxY - gMinY);
+            this.invCellW = gridW / spanX;
+            this.invCellH = gridH / spanY;
+
             final int totalCells = gridW * gridH;
             final int[] counts = new int[totalCells];
             int overflowCount = 0;
 
-            for (int k = 0; k < nonAutoMap.length; k++) {
+            for (int k = 0; k < naIdx; k++) {
                 final int e = nonAutoMap[k];
                 final int u = edgeU[e];
                 final int v = edgeV[e];
@@ -1421,13 +1626,13 @@ public final class EditableMeshTopologyOptimizer {
             final int[] writePos = new int[totalCells];
             for (int c = 0; c < totalCells; c++) {
                 if (counts[c] > 0) {
-                    cells[c] = new int[counts[c]];
+                    cells[c] = new int[Math.max(INITIAL_CELL_CAP, counts[c])];
                 }
             }
             final int[] overflow = new int[overflowCount];
             int overPos = 0;
 
-            for (int k = 0; k < nonAutoMap.length; k++) {
+            for (int k = 0; k < naIdx; k++) {
                 final int e = nonAutoMap[k];
                 final int u = edgeU[e];
                 final int v = edgeV[e];
@@ -1466,7 +1671,9 @@ public final class EditableMeshTopologyOptimizer {
                 }
             }
             this.gridCells = cells;
+            this.gridCellLens = writePos;
             this.gridOverflow = overflow;
+            this.gridOverflowLen = overPos;
         }
 
         int[] queryCrossCandidates(
@@ -1487,7 +1694,6 @@ public final class EditableMeshTopologyOptimizer {
             double qMinY = Math.min(p1y, p2y);
             double qMaxY = Math.max(p1y, p2y);
             if (checkCollinear) {
-                // Any vertex forming an obtuse angle with (p1, p2) lies inside its diameter circle.
                 final double midX = ((double) p1x + (double) p2x) * HALF;
                 final double midY = ((double) p1y + (double) p2y) * HALF;
                 final double radius = segLen * HALF;
@@ -1507,17 +1713,19 @@ public final class EditableMeshTopologyOptimizer {
             final int r0 = clampCell((int) Math.floor((qMinY - gMinY) * invCellH), gridH);
             final int r1 = clampCell((int) Math.floor((qMaxY - gMinY) * invCellH), gridH);
 
-            scratch.reset(nonAutoOriginalIndices.length);
-            for (final int k : gridOverflow) {
-                scratch.addUnique(k);
+            scratch.reset(nonAutoGridCount);
+            for (int i = 0; i < gridOverflowLen; i++) {
+                scratch.addUnique(gridOverflow[i]);
             }
             for (int r = r0; r <= r1; r++) {
                 final int row = r * gridW;
                 for (int c = c0; c <= c1; c++) {
-                    final int[] cell = gridCells[row + c];
+                    final int cellIdx = row + c;
+                    final int[] cell = gridCells[cellIdx];
                     if (cell != null) {
-                        for (final int k : cell) {
-                            scratch.addUnique(k);
+                        final int len = gridCellLens[cellIdx];
+                        for (int i = 0; i < len; i++) {
+                            scratch.addUnique(cell[i]);
                         }
                     }
                 }
@@ -1584,10 +1792,14 @@ public final class EditableMeshTopologyOptimizer {
             this.a = a;
             this.b = b;
             this.c = c;
-            this.hash = Long.hashCode(MeshArrayFingerprint.mix(a) ^ (MeshArrayFingerprint.mix(b) * 31L) ^ c);
+            final long mixed = MeshArrayFingerprint.mix(a) ^ (MeshArrayFingerprint.mix(b) * 31L) ^ (c * 997L);
+            this.hash = (int) (mixed ^ (mixed >>> PACK_SHIFT));
         }
 
-        static CoordTriangleKey of(long k0, long k1, long k2) {
+        static CoordTriangleKey of(final long u, final long v, final long w) {
+            long k0 = u;
+            long k1 = v;
+            long k2 = w;
             if (k0 > k1) {
                 final long t = k0;
                 k0 = k1;
@@ -1650,11 +1862,16 @@ public final class EditableMeshTopologyOptimizer {
                 final Class<?> mEdgeClass =
                         Class.forName("com.live2d.graphics3d.editableMesh.MEdge", false, type.getClassLoader());
                 return new MeshHandles(
-                        lookup.findVirtual(type, "getPoints", MethodType.methodType(List.class)),
-                        lookup.findVirtual(type, "getEdges", MethodType.methodType(List.class)),
-                        lookup.findVirtual(type, "get_edge_edit_version", MethodType.methodType(int.class)),
-                        lookup.findVirtual(type, "get_postion_edit_version", MethodType.methodType(int.class)),
-                        lookup.findVirtual(type, "removeEdge", MethodType.methodType(void.class, mEdgeClass)));
+                        lookup.findVirtual(type, "getPoints", MethodType.methodType(List.class))
+                                .asType(MethodType.methodType(List.class, Object.class)),
+                        lookup.findVirtual(type, "getEdges", MethodType.methodType(List.class))
+                                .asType(MethodType.methodType(List.class, Object.class)),
+                        lookup.findVirtual(type, "get_edge_edit_version", MethodType.methodType(int.class))
+                                .asType(MethodType.methodType(int.class, Object.class)),
+                        lookup.findVirtual(type, "get_postion_edit_version", MethodType.methodType(int.class))
+                                .asType(MethodType.methodType(int.class, Object.class)),
+                        lookup.findVirtual(type, "removeEdge", MethodType.methodType(void.class, mEdgeClass))
+                                .asType(MethodType.methodType(void.class, Object.class, Object.class)));
             } catch (final ReflectiveOperationException failure) {
                 throw new IllegalStateException("Failed to bind mesh topology handles for " + type, failure);
             }
@@ -1666,22 +1883,39 @@ public final class EditableMeshTopologyOptimizer {
         final MethodHandle index1;
         final MethodHandle index2;
         final MethodHandle type;
+        final Object autoEnum;
+        final Object userEnum;
 
-        private EdgeHandles(final MethodHandle index1, final MethodHandle index2, final MethodHandle type) {
+        private EdgeHandles(
+                final MethodHandle index1,
+                final MethodHandle index2,
+                final MethodHandle type,
+                final Object autoEnum,
+                final Object userEnum) {
             this.index1 = index1;
             this.index2 = index2;
             this.type = type;
+            this.autoEnum = autoEnum;
+            this.userEnum = userEnum;
         }
 
+        @SuppressWarnings({"unchecked", "rawtypes"})
         static EdgeHandles resolve(final Class<?> type) {
             try {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
                 final Class<?> edgeTypeClass =
                         Class.forName("com.live2d.graphics3d.editableMesh.MEdge$EdgeType", false, type.getClassLoader());
+                final Object autoVal = Enum.valueOf((Class<Enum>) edgeTypeClass.asSubclass(Enum.class), EDGE_TYPE_AUTO);
+                final Object userVal = Enum.valueOf((Class<Enum>) edgeTypeClass.asSubclass(Enum.class), EDGE_TYPE_USER);
                 return new EdgeHandles(
-                        lookup.findVirtual(type, "getIndex1", MethodType.methodType(int.class)),
-                        lookup.findVirtual(type, "getIndex2", MethodType.methodType(int.class)),
-                        lookup.findVirtual(type, "getType", MethodType.methodType(edgeTypeClass)));
+                        lookup.findVirtual(type, "getIndex1", MethodType.methodType(int.class))
+                                .asType(MethodType.methodType(int.class, Object.class)),
+                        lookup.findVirtual(type, "getIndex2", MethodType.methodType(int.class))
+                                .asType(MethodType.methodType(int.class, Object.class)),
+                        lookup.findVirtual(type, "getType", MethodType.methodType(edgeTypeClass))
+                                .asType(MethodType.methodType(Object.class, Object.class)),
+                        autoVal,
+                        userVal);
             } catch (final ReflectiveOperationException failure) {
                 throw new IllegalStateException("Failed to bind edge handles for " + type, failure);
             }
@@ -1710,10 +1944,14 @@ public final class EditableMeshTopologyOptimizer {
             try {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
                 return new PointHandles(
-                        lookup.findVirtual(type, "getX", MethodType.methodType(float.class)),
-                        lookup.findVirtual(type, "getY", MethodType.methodType(float.class)),
-                        lookup.findVirtual(type, "getIndex", MethodType.methodType(int.class)),
-                        lookup.findVirtual(type, "getPointUid", MethodType.methodType(long.class)));
+                        lookup.findVirtual(type, "getX", MethodType.methodType(float.class))
+                                .asType(MethodType.methodType(float.class, Object.class)),
+                        lookup.findVirtual(type, "getY", MethodType.methodType(float.class))
+                                .asType(MethodType.methodType(float.class, Object.class)),
+                        lookup.findVirtual(type, "getIndex", MethodType.methodType(int.class))
+                                .asType(MethodType.methodType(int.class, Object.class)),
+                        lookup.findVirtual(type, "getPointUid", MethodType.methodType(long.class))
+                                .asType(MethodType.methodType(long.class, Object.class)));
             } catch (final ReflectiveOperationException failure) {
                 throw new IllegalStateException("Failed to bind point handles for " + type, failure);
             }
@@ -1734,8 +1972,10 @@ public final class EditableMeshTopologyOptimizer {
             try {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
                 return new VectorHandles(
-                        lookup.findVirtual(type, "getX", MethodType.methodType(float.class)),
-                        lookup.findVirtual(type, "getY", MethodType.methodType(float.class)));
+                        lookup.findVirtual(type, "getX", MethodType.methodType(float.class))
+                                .asType(MethodType.methodType(float.class, Object.class)),
+                        lookup.findVirtual(type, "getY", MethodType.methodType(float.class))
+                                .asType(MethodType.methodType(float.class, Object.class)));
             } catch (final ReflectiveOperationException failure) {
                 throw new IllegalStateException("Failed to bind vector handles for " + type, failure);
             }
@@ -1767,9 +2007,11 @@ public final class EditableMeshTopologyOptimizer {
                         Class.forName("com.live2d.graphics3d.editableMesh.triangulation.l", false, loader);
                 return new TriangleHandles(
                         true,
-                        lookup.findConstructor(triPoint, MethodType.methodType(void.class, gVec2, int.class)),
+                        lookup.findConstructor(triPoint, MethodType.methodType(void.class, gVec2, int.class))
+                                .asType(MethodType.methodType(Object.class, Object.class, int.class)),
                         lookup.findConstructor(
-                                triClass, MethodType.methodType(void.class, triPoint, triPoint, triPoint)));
+                                        triClass, MethodType.methodType(void.class, triPoint, triPoint, triPoint))
+                                .asType(MethodType.methodType(Object.class, Object.class, Object.class, Object.class)));
             } catch (final ReflectiveOperationException | RuntimeException failure) {
                 return new TriangleHandles(false, null, null);
             }
