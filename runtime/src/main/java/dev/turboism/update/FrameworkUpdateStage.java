@@ -55,11 +55,11 @@ final class FrameworkUpdateStage {
                     UpdateManifestVerifier.MAX_ENVELOPE_BYTES);
             for (final FrameworkDeltaPlanner.Decision decision :
                     downloaded.plan().decisions()) {
-                if (decision.action() != FrameworkDeltaPlanner.Action.DOWNLOAD) continue;
+                if (decision.action() == FrameworkDeltaPlanner.Action.REUSE) continue;
                 if (Thread.currentThread().isInterrupted()) throw new InterruptedException("Staging cancelled");
                 final UpdateManifestEntry entry = decision.entry();
                 final Path object = downloaded.objects().get(entry.sha256());
-                if (object == null) throw new IOException("Downloaded object missing for " + entry.relativePath());
+                if (object == null) throw new IOException("Staged object missing for " + entry.relativePath());
                 final Path file =
                         building.resolve("files").resolve(entry.relativePath()).normalize();
                 if (!file.startsWith(building.resolve("files"))) throw new IOException("Path escapes stage");
@@ -85,7 +85,7 @@ final class FrameworkUpdateStage {
     static Map<String, String> expectedFiles(final FrameworkUpdateDownloader.Downloaded downloaded) {
         final var result = new java.util.TreeMap<String, String>();
         for (final var decision : downloaded.plan().decisions()) {
-            if (decision.action() == FrameworkDeltaPlanner.Action.DOWNLOAD) {
+            if (decision.action() != FrameworkDeltaPlanner.Action.REUSE) {
                 result.put(decision.entry().relativePath(), decision.entry().sha256());
             }
         }

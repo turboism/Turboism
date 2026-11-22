@@ -243,6 +243,8 @@ public final class RuntimeFrameworkUpdates implements CoreFrameworkUpdates, Auto
                 status.version(),
                 status.bytesVerified(),
                 status.bytesTotal(),
+                status.bytesDownloaded(),
+                status.bytesToDownload(),
                 status.message().orElse(""));
     }
 
