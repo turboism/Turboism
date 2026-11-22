@@ -1146,7 +1146,7 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(42, boxes.size());
+                assertEquals(43, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.

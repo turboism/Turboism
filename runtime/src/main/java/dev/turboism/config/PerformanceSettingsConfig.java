@@ -58,6 +58,7 @@ public final class PerformanceSettingsConfig {
         MESH_EDIT_ACCELERATION("meshEditAcceleration", false, "true"),
         MODEL_OPEN_ACCELERATION("modelOpenAcceleration", false, "true"),
         RUNTIME_EXPORT_ACCELERATION("runtimeExportAcceleration", false, "true"),
+        MEMORY_LEAK_MITIGATION("memoryLeakMitigation", false, "true"),
         CUBISM_JVM("cubismJvm", true, "graalvm"),
         GRAAL_VM_PATH("graalVmPath", true, ""),
         REDUCE_AUTO_BACKUP("reduceAutoBackup", false, "false"),

@@ -398,6 +398,7 @@ public final class ConfigMergeRegression {
             source.put("modelOpenAcceleration", value);
             source.put("runtimeExportAcceleration", value);
             source.put("meshEditAcceleration", value);
+            source.put("memoryLeakMitigation", value);
             ConfigMerge.validateCurrent(source);
             Map<String, Object> merged = ConfigMerge.applyPolicy(
                     source, ConfigMerge.mergeDisabled(source, Set.of(), Set.of(), false));
@@ -415,6 +416,8 @@ public final class ConfigMergeRegression {
                     value.equals(merged.get("runtimeExportAcceleration")));
             check("meshEditAcceleration " + value + " survives installer upgrade",
                     value.equals(merged.get("meshEditAcceleration")));
+            check("memoryLeakMitigation " + value + " survives installer upgrade",
+                    value.equals(merged.get("memoryLeakMitigation")));
         }
 
         List<Map<String, Object>> invalid = new java.util.ArrayList<>();
@@ -475,6 +478,9 @@ public final class ConfigMergeRegression {
         Map<String, Object> badMeshEdit = validRuntimeConfig();
         badMeshEdit.put("meshEditAcceleration", "true");
         invalid.add(badMeshEdit);
+        Map<String, Object> badMemoryLeak = validRuntimeConfig();
+        badMemoryLeak.put("memoryLeakMitigation", "true");
+        invalid.add(badMemoryLeak);
         Map<String, Object> badTextureAtlas = validRuntimeConfig();
         badTextureAtlas.put("textureAtlas", Map.of("algorithmId", 7L));
         invalid.add(badTextureAtlas);

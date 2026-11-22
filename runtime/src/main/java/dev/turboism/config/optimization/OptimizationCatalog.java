@@ -633,6 +633,19 @@ public final class OptimizationCatalog {
             "settings.optimization.atlas-interactive-render.tooltip",
             List.of());
 
+    /** Mitigates native memory, listener, undo history, image, and OpenGL resource leaks. */
+    public static final Optimization MEMORY_LEAK_MITIGATION = new Optimization(
+            "memoryLeakMitigation",
+            "memory-leak-mitigation",
+            Optimization.Access.PERSISTED_ROOT,
+            List.of("turboism.optimization.memoryLeakMitigation"),
+            List.of("TURBOISM_MEMORY_LEAK_MITIGATION"),
+            Set.of("cubism.memory-leak-mitigation"),
+            Optional.of(new Optimization.Placement("model", 77)),
+            "settings.optimization.memory-leak-mitigation",
+            "settings.optimization.memory-leak-mitigation.tooltip",
+            List.of());
+
     // ---------------------------------------------------------------- diagnostic-only probe hooks
 
     /**
@@ -756,6 +769,7 @@ public final class OptimizationCatalog {
             MESH_EDIT_ACCELERATION,
             MODEL_OPEN_ACCELERATION,
             RUNTIME_EXPORT_ACCELERATION,
+            MEMORY_LEAK_MITIGATION,
             CANVAS_COMPOSITE_ELISION,
             CLIP_MASK_PROBE,
             GL_GET_ERROR_ELISION,

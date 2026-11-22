@@ -45,7 +45,8 @@ class PerformanceSettingsConfigTest {
             Field.TRIANGULATION_SPATIAL_INDEX,
             Field.MODEL_OPEN_ACCELERATION,
             Field.RUNTIME_EXPORT_ACCELERATION,
-            Field.MESH_EDIT_ACCELERATION);
+            Field.MESH_EDIT_ACCELERATION,
+            Field.MEMORY_LEAK_MITIGATION);
 
     @Test
     void nativeOptimizationsUseTheirReviewedDefaultsOnBothPlatforms() {

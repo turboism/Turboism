@@ -248,7 +248,7 @@ function Assert-RuntimeConfigV1 {
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
         "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration"
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -318,7 +318,7 @@ function Assert-RuntimeConfigV1 {
     foreach ($name in @(
         "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
         "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration"
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property -and $property.Value -isnot [bool]) {
@@ -454,7 +454,7 @@ function Convert-RuntimeConfigToV1 {
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
         "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
@@ -523,7 +523,7 @@ function Convert-RuntimeConfigToV1 {
         "safeMode", "useTextIcon", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
             "meshTriangulationEdgeIndex", "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
-            "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration"
+            "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property) {

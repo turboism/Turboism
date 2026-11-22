@@ -145,3 +145,5 @@ dev.turboism.bootstrap.SortingInfoCacheHookContributor
 @verified-warp-deform-edit-acceleration
 # Cached atlas overlay sprites, viewport clipping, drag UI coalescing, and wheel/tab elisions.
 @verified-atlas-interactive-render
+# Memory, OpenGL buffer/texture, undo, image cache, and UI lifecycle leak mitigations.
+@verified-memory-leak-mitigation

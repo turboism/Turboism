@@ -23,6 +23,7 @@ class TargetClassTableTest {
             "image-archive-reuse",
             "incremental-update",
             "matrix-scratch",
+            "memory-leak-mitigation",
             "mesh-interpolation",
             "mesh-mirror",
             "mesh-triangulation-hash",

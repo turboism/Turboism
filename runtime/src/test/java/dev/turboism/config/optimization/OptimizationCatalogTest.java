@@ -46,17 +46,17 @@ final class OptimizationCatalogTest {
 
     @Test
     void everyDeclaredOptimizationIsTheOneTheProductShips() {
-        assertEquals(47, OptimizationCatalog.all().size());
-        assertEquals(42, OptimizationCatalog.persisted().size());
+        assertEquals(48, OptimizationCatalog.all().size());
+        assertEquals(43, OptimizationCatalog.persisted().size());
         assertEquals(
                 5,
                 OptimizationCatalog.all().size()
                         - OptimizationCatalog.persisted().size());
-        assertEquals(42, OptimizationCatalog.placed().size());
+        assertEquals(43, OptimizationCatalog.placed().size());
         assertEquals(32, OptimizationCatalog.launcherFieldNames().size());
         assertEquals(32, OptimizationCatalog.booleanLauncherFieldNames().size());
-        assertEquals(10, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(48, OptimizationCatalog.protocols().size(), "43 reported protocols plus 5 probe protocols");
+        assertEquals(11, OptimizationCatalog.rootFieldNames().size());
+        assertEquals(49, OptimizationCatalog.protocols().size(), "44 reported protocols plus 5 probe protocols");
     }
 
     private static final java.util.Set<Optimization> DEFAULT_ON = java.util.Set.of(
@@ -90,7 +90,8 @@ final class OptimizationCatalogTest {
             OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX,
             OptimizationCatalog.MODEL_OPEN_ACCELERATION,
             OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION,
-            OptimizationCatalog.MESH_EDIT_ACCELERATION);
+            OptimizationCatalog.MESH_EDIT_ACCELERATION,
+            OptimizationCatalog.MEMORY_LEAK_MITIGATION);
 
     /**
      * I1: every persisted entry keeps the {@code config.json} key, the {@code launcher.} vs root
@@ -147,7 +148,7 @@ final class OptimizationCatalogTest {
                 .map(optimization -> optimization.contributionId() + " "
                         + optimization.placement().orElseThrow().index())
                 .toList();
-        assertEquals(42, layout.size(), "settings-layout.txt renders every persisted optimization");
+        assertEquals(43, layout.size(), "settings-layout.txt renders every persisted optimization");
         assertEquals(layout, actual, "settings-layout.txt order changed");
     }
 
