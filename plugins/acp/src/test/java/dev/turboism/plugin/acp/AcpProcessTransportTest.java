@@ -328,19 +328,28 @@ final class AcpProcessTransportTest {
                             + "ping -n 300 127.0.0.1 >nul\r\n");
             return fixture;
         }
+        final String escapedChild = shellQuote(child.toAbsolutePath().toString());
+        final String escapedHeartbeat = shellQuote(heartbeat.toAbsolutePath().toString());
         Files.writeString(
                 child,
                 "#!/bin/sh\n"
                         + "trap '' TERM\n"
                         + "while :; do\n"
-                        + "  printf '.' >> \"$1\"\n"
+                        + "  printf '.' >> "
+                        + escapedHeartbeat
+                        + "\n"
                         + "  sleep 0.05\n"
                         + "done\n");
         child.toFile().setExecutable(true, true);
         Files.writeString(
-                fixture, "#!/bin/sh\n" + "trap '' TERM\n" + "sh \"$1\" \"$2\" &\n" + "while :; do sleep 1; done\n");
+                fixture,
+                "#!/bin/sh\n" + "trap '' TERM\n" + "sh " + escapedChild + " &\n" + "while :; do sleep 1; done\n");
         fixture.toFile().setExecutable(true, true);
         return fixture;
+    }
+
+    private static String shellQuote(final String value) {
+        return "'" + value.replace("'", "'\"'\"'") + "'";
     }
 
     /** Waits until the heartbeat file exists and holds at least one byte. */
