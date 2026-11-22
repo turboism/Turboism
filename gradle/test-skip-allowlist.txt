@@ -125,5 +125,7 @@ dev.turboism.adapter.cubism.modelopen.ModelOpenRealHostPatchVerificationTest.* #
 dev.turboism.adapter.cubism.meshedit.MeshEditRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 21 reviewed versions); the licensed archive is never committed.
 dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderArtifactTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.optimization.memory.MemoryLeakMitigationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.warpdeform.WarpDeformEditAccelerationTest.transformsAndDefinesBytecodeAcrossAllAvailableReviewedCubismJars() # requires local reviewed Cubism Editor JARs or -Dturboism.test.cubismEditorJar; offline CI runs skip by design.
+dev.turboism.adapter.cubism.optimization.warpdeform.WarpDeformEditAccelerationTest.verifiesLiveExecutionParityAndOverlayDirtyGatingOnCubismJar() # requires local reviewed Cubism Editor JARs or -Dturboism.test.cubismEditorJar; offline CI runs skip by design.
 dev.turboism.adapter.cubism.exportperf.RuntimeExportRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.exportperf.EdgeAndDownscaleParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
