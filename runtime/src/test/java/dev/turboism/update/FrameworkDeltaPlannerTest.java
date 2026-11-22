@@ -372,6 +372,23 @@ final class FrameworkDeltaPlannerTest {
         assertEquals(true, interrupted.get(1));
     }
 
+    @Test
+    void reusesRenamedIdenticalFileViaCopyLocalWithoutDownloading() throws Exception {
+        Files.createDirectories(home.resolve("graal/lib"));
+        Files.writeString(home.resolve("graal/lib/sdk-0.70.2-beta.4.jar"), "identical-sdk-bytes");
+        final var renamedEntry = entry("graal/lib/sdk-0.70.2.jar", "identical-sdk-bytes");
+        withReceipts(Map.of("graal/lib/sdk-0.70.2-beta.4.jar", renamedEntry.sha256()));
+
+        final TrustedUpdateManifest trusted = createTrustedManifest(List.of(renamedEntry));
+        final FrameworkDeltaPlanner.Plan plan = FrameworkDeltaPlanner.plan(home, trusted);
+
+        assertEquals(1, plan.decisions().size());
+        final var decision = plan.decisions().get(0);
+        assertEquals(FrameworkDeltaPlanner.Action.COPY_LOCAL, decision.action());
+        assertEquals(java.util.Optional.of("graal/lib/sdk-0.70.2-beta.4.jar"), decision.sourceRelativePath());
+        assertEquals(0L, plan.bytesToDownload());
+    }
+
     private void withReceipts(final Map<String, String> receipts) {
         defaultContext = new UpdateVerificationContext(
                 defaultContext.expectedVersion(),

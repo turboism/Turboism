@@ -57,9 +57,26 @@ public final class FrameworkUpdateDownloader {
         TASK
     }
 
-    /** Per-resource extent plus verified target bytes; totals are zero until signature/plan validation. */
+    private static final int CONNECT_TIMEOUT_MS = 5000;
+    private static final int READ_TIMEOUT_MS = 5000;
+    private static final int REQUEST_DEADLINE_SECONDS = 30;
+    private static final int STREAM_BUFFER_BYTES = 32768;
+    private static final int MAX_TRANSIENT_RETRIES = 2;
+    private static final String JAR_SUFFIX = ".jar";
+    private static final String OBJECT_KIND = "object";
+    private static final Set<Integer> TRANSIENT_HTTP_STATUSES = Set.of(408, 429, 500, 502, 503, 504);
+
+    /** Per-resource extent plus verified target bytes and network delta progress; totals are zero until plan validation. */
     public record Progress(
-            Phase phase, String sha256, long received, long total, long verified, long taskVerified, long taskTotal) {}
+            Phase phase,
+            String sha256,
+            long received,
+            long total,
+            long verified,
+            long taskVerified,
+            long taskTotal,
+            long downloadReceived,
+            long downloadTotal) {}
 
     /** A verified staging observation, never installation or future apply authority. */
     public record StagedTask(String id, boolean directoryDurabilityConfirmed) {}
@@ -71,15 +88,26 @@ public final class FrameworkUpdateDownloader {
      * @param manifest on-disk copy of the authenticated manifest
      * @param envelope on-disk copy of the signature envelope that authenticated it
      * @param plan delta plan computed against the installed files
-     * @param objects manifest entry path to the verified staged object that holds its bytes
+     * @param objects manifest entry hash to the verified staged object that holds its bytes
      * @param staged staged-task observation when the caller asked for one
+     * @param downloadedBytes total network bytes planned and transferred for this download
      */
     public record Downloaded(
             Path manifest,
             Path envelope,
             FrameworkDeltaPlanner.Plan plan,
             Map<String, Path> objects,
-            Optional<StagedTask> staged) {
+            Optional<StagedTask> staged,
+            long downloadedBytes) {
+        public Downloaded(
+                final Path manifest,
+                final Path envelope,
+                final FrameworkDeltaPlanner.Plan plan,
+                final Map<String, Path> objects,
+                final Optional<StagedTask> staged) {
+            this(manifest, envelope, plan, objects, staged, plan.bytesToDownload());
+        }
+
         public Downloaded {
             objects = Map.copyOf(objects);
         }
@@ -218,8 +246,13 @@ public final class FrameworkUpdateDownloader {
         private final FrameworkUpdateTaskStore task;
         private final boolean recovery;
         private final Set<String> verifiedObjects = new HashSet<>();
+        private final Map<String, Long> plannedDownloadBytes = new LinkedHashMap<>();
+        private final Set<String> completedDownloads = new HashSet<>();
         private FrameworkDeltaPlanner.Plan targetPlan;
         private long taskTotal;
+        private long totalDownloadBytes;
+        private String activeDownloadHash = "";
+        private long activeDownloadReceived;
         private Future<?> worker;
         private ScheduledFuture<?> timeout;
         private HttpURLConnection connection;
@@ -302,24 +335,54 @@ public final class FrameworkUpdateDownloader {
                     final FrameworkDeltaPlanner.Plan plan = FrameworkDeltaPlanner.plan(installation, trusted);
                     targetPlan = plan;
                     taskTotal = total;
-                    emit(Phase.TASK, "", 0, 0);
                     final Map<String, Long> needed = new LinkedHashMap<>();
+                    final Map<String, LocalCopySource> localCopies = new LinkedHashMap<>();
+                    final Map<String, String> deltaBasePaths = new LinkedHashMap<>();
                     for (final FrameworkDeltaPlanner.Decision decision : plan.decisions()) {
+                        final UpdateManifestEntry entry = decision.entry();
                         if (decision.action() == FrameworkDeltaPlanner.Action.DOWNLOAD) {
-                            needed.put(
-                                    decision.entry().sha256(), decision.entry().bytes());
+                            needed.put(entry.sha256(), entry.bytes());
+                            if (entry.relativePath().endsWith(JAR_SUFFIX)
+                                    && context.installedFrameworkHashes().containsKey(entry.relativePath())) {
+                                deltaBasePaths.putIfAbsent(entry.sha256(), entry.relativePath());
+                            }
+                        } else if (decision.action() == FrameworkDeltaPlanner.Action.COPY_LOCAL) {
+                            localCopies.putIfAbsent(
+                                    entry.sha256(),
+                                    new LocalCopySource(
+                                            entry.bytes(),
+                                            decision.sourceRelativePath().orElseThrow()));
                         }
                     }
+                    plannedDownloadBytes.clear();
+                    plannedDownloadBytes.putAll(needed);
+                    recomputeDownloadTotal();
+                    emit(Phase.TASK, "", 0, 0);
+                    final Map<String, Long> requiredObjects = new LinkedHashMap<>();
+                    localCopies.forEach((hash, sourceItem) -> requiredObjects.put(hash, sourceItem.bytes()));
+                    requiredObjects.putAll(needed);
                     long growth = 0;
-                    for (final var item : needed.entrySet())
-                        growth += additional(cache, "object", item.getKey(), item.getValue());
+                    for (final var item : requiredObjects.entrySet()) {
+                        growth += additional(cache, OBJECT_KIND, item.getKey(), item.getValue());
+                    }
                     cache.preflight(growth);
                     final Map<String, Path> objects = new LinkedHashMap<>();
+                    for (final var item : localCopies.entrySet()) {
+                        objects.put(
+                                item.getKey(),
+                                seedLocalObject(
+                                        cache,
+                                        item.getKey(),
+                                        item.getValue().bytes(),
+                                        item.getValue().sourceRelativePath()));
+                    }
                     for (final var item : needed.entrySet()) {
-                        objects.put(item.getKey(), fetch(cache, "object", item.getKey(), item.getValue()));
+                        objects.put(
+                                item.getKey(),
+                                fetchObject(cache, item.getKey(), item.getValue(), deltaBasePaths.get(item.getKey())));
                     }
                     // Rehash every result before returning; no local status marker can bypass this.
-                    for (final var item : needed.entrySet()) {
+                    for (final var item : requiredObjects.entrySet()) {
                         active();
                         if (!cache.verified(objects.get(item.getKey()), item.getValue(), item.getKey())) {
                             throw new IOException("Cached object changed during session");
@@ -327,7 +390,7 @@ public final class FrameworkUpdateDownloader {
                     }
                     active();
                     emit(Phase.TASK, "", 0, 0);
-                    completed = new Downloaded(manifest, envelope, plan, objects, Optional.empty());
+                    completed = new Downloaded(manifest, envelope, plan, objects, Optional.empty(), totalDownloadBytes);
                     if (task != null) {
                         // Rebuild everything from exact documents/current installation, never serialized actions or
                         // paths.
@@ -366,7 +429,7 @@ public final class FrameworkUpdateDownloader {
                                 .equals(plan)) {
                             throw new IOException("Installation changed during commit preparation");
                         }
-                        for (final var item : needed.entrySet()) {
+                        for (final var item : requiredObjects.entrySet()) {
                             if (!cache.verified(objects.get(item.getKey()), item.getValue(), item.getKey())) {
                                 throw new IOException("Object changed during commit preparation");
                             }
@@ -424,7 +487,324 @@ public final class FrameworkUpdateDownloader {
                     completed.envelope(),
                     completed.plan(),
                     completed.objects(),
-                    Optional.of(new StagedTask(task.id, durable)));
+                    Optional.of(new StagedTask(task.id, durable)),
+                    completed.downloadedBytes());
+        }
+
+        private void recomputeDownloadTotal() {
+            long sum = 0L;
+            for (final long bytes : plannedDownloadBytes.values()) sum += bytes;
+            totalDownloadBytes = sum;
+        }
+
+        /** Seeds an unchanged renamed file into the content-addressed cache without network IO. */
+        private Path seedLocalObject(
+                final FrameworkUpdateCache cache, final String hash, final long size, final String sourceRelativePath)
+                throws IOException, InterruptedException {
+            active();
+            cache.pin(OBJECT_KIND, hash);
+            final Path verified = cache.path(OBJECT_KIND, hash, "verified");
+            if (cache.verified(verified, size, hash)) {
+                emit(Phase.VERIFIED, hash, size, size);
+                return verified;
+            }
+            if (recovery) throw new IOException("Recovery resource missing or corrupt");
+            cache.remove(verified);
+            final Path sourceFile = installation.resolve(sourceRelativePath).normalize();
+            if (!sourceFile.startsWith(installation)) {
+                throw new IOException("Local reuse path escapes installation");
+            }
+            FrameworkUpdateCache.installationAncestors(sourceFile.getParent());
+            final var attrs = FrameworkUpdateCache.attributes(sourceFile);
+            if (attrs == null
+                    || !attrs.isRegularFile()
+                    || attrs.isSymbolicLink()
+                    || attrs.isOther()
+                    || attrs.size() != size
+                    || !FrameworkUpdateCache.singleLink(sourceFile)) {
+                throw new IOException("Local reuse source is missing or invalid: " + sourceRelativePath);
+            }
+            final Path part = cache.path(OBJECT_KIND, hash, "part");
+            final Path validator = cache.path(OBJECT_KIND, hash, "etag");
+            cache.remove(part);
+            cache.remove(validator);
+            cache.preflight(size);
+            cache.create(part);
+            final var digest = Sha256.digest();
+            long count = 0L;
+            try (InputStream input = Files.newInputStream(sourceFile, LinkOption.NOFOLLOW_LINKS);
+                    OutputStream output =
+                            Files.newOutputStream(part, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
+                final byte[] buffer = new byte[STREAM_BUFFER_BYTES];
+                for (int read; (read = input.read(buffer)) != -1; ) {
+                    active();
+                    if (read > size - count) {
+                        throw new IOException("Local reuse source grew beyond expected length");
+                    }
+                    output.write(buffer, 0, read);
+                    digest.update(buffer, 0, read);
+                    count += read;
+                }
+            } catch (IOException | RuntimeException failure) {
+                cache.remove(part);
+                throw failure;
+            }
+            if (count != size || !Sha256.hex(digest).equals(hash) || !cache.verified(part, size, hash)) {
+                cache.remove(part);
+                throw new IOException("Local reuse digest mismatch: " + sourceRelativePath);
+            }
+            cache.replace(part, verified);
+            emit(Phase.VERIFIED, hash, size, size);
+            return verified;
+        }
+
+        private Path fetchObject(
+                final FrameworkUpdateCache cache,
+                final String hash,
+                final long size,
+                final String localBaseRelativePath)
+                throws IOException, InterruptedException {
+            active();
+            cache.pin(OBJECT_KIND, hash);
+            final Path verified = cache.path(OBJECT_KIND, hash, "verified");
+            if (cache.verified(verified, size, hash)) {
+                emit(Phase.VERIFIED, hash, size, size);
+                return verified;
+            }
+            if (recovery) throw new IOException("Recovery resource missing or corrupt");
+            if (localBaseRelativePath != null && size >= ZipRangeDeltaAssembler.MIN_DELTA_OBJECT_BYTES) {
+                final Path part = cache.path(OBJECT_KIND, hash, "part");
+                if (!cache.present(part) || Files.size(part) == 0L) {
+                    final Optional<Path> deltaResult = tryFetchZipRangeDelta(
+                            cache, hash, size, installation.resolve(localBaseRelativePath), verified);
+                    if (deltaResult.isPresent()) return deltaResult.get();
+                }
+            }
+            return fetch(cache, OBJECT_KIND, hash, size);
+        }
+
+        private Optional<Path> tryFetchZipRangeDelta(
+                final FrameworkUpdateCache cache,
+                final String hash,
+                final long size,
+                final Path localBase,
+                final Path verified)
+                throws IOException, InterruptedException {
+            final Path part = cache.path(OBJECT_KIND, hash, "part");
+            final Path validator = cache.path(OBJECT_KIND, hash, "etag");
+            cache.remove(verified);
+            cache.remove(part);
+            cache.remove(validator);
+            cache.preflight(size);
+            cache.create(part);
+            try {
+                final Optional<ZipRangeDeltaAssembler.Result> assembled = ZipRangeDeltaAssembler.assemble(
+                        localBase,
+                        size,
+                        hash,
+                        part,
+                        (start, end, expectedEtag) -> fetchBoundedRangeBytes(hash, size, start, end, expectedEtag),
+                        (start, end, expectedEtag, sink) ->
+                                streamBoundedRange(hash, size, start, end, expectedEtag, sink),
+                        new ZipRangeDeltaAssembler.ProgressListener() {
+                            @Override
+                            public void onPlan(final long totalNetworkBytes) {
+                                plannedDownloadBytes.put(hash, totalNetworkBytes);
+                                recomputeDownloadTotal();
+                            }
+
+                            @Override
+                            public void onNetworkProgress(
+                                    final long receivedNetworkBytes, final long totalNetworkBytes) {
+                                emit(Phase.RECEIVING, hash, receivedNetworkBytes, totalNetworkBytes);
+                            }
+                        },
+                        this::active);
+                if (assembled.isPresent() && cache.verified(part, size, hash)) {
+                    cache.replace(part, verified);
+                    cache.remove(validator);
+                    final long networkBytes = assembled.get().networkBytes();
+                    plannedDownloadBytes.put(hash, networkBytes);
+                    recomputeDownloadTotal();
+                    emit(Phase.VERIFIED, hash, networkBytes, networkBytes);
+                    return Optional.of(verified);
+                }
+            } catch (CancellationException | InterruptedException cancellation) {
+                cache.remove(part);
+                cache.remove(validator);
+                throw cancellation;
+            } catch (IOException fallbackFailure) {
+                // Any range-protocol incompatibility or transient delta fault falls back cleanly to full fetch.
+            }
+            cache.remove(part);
+            cache.remove(validator);
+            plannedDownloadBytes.put(hash, size);
+            recomputeDownloadTotal();
+            if (hash.equals(activeDownloadHash)) {
+                activeDownloadHash = "";
+                activeDownloadReceived = 0L;
+            }
+            return Optional.empty();
+        }
+
+        private Optional<ZipRangeDeltaAssembler.RangeChunk> fetchBoundedRangeBytes(
+                final String hash,
+                final long totalSize,
+                final long start,
+                final long endInclusive,
+                final String expectedEtag)
+                throws IOException, InterruptedException {
+            final long expectedLength = endInclusive - start + 1L;
+            if (expectedLength <= 0L || expectedLength > ZipRangeDeltaAssembler.MAX_CENTRAL_DIRECTORY_BYTES) {
+                return Optional.empty();
+            }
+            final byte[] resultBytes = new byte[Math.toIntExact(expectedLength)];
+            final String[] returnedEtag = new String[1];
+            final int[] written = {0};
+            final boolean ok = executeBoundedRange(
+                    hash,
+                    totalSize,
+                    start,
+                    endInclusive,
+                    expectedEtag,
+                    etag -> {
+                        returnedEtag[0] = etag;
+                        written[0] = 0;
+                    },
+                    (buf, off, len) -> {
+                        System.arraycopy(buf, off, resultBytes, written[0], len);
+                        written[0] += len;
+                    });
+            if (!ok || written[0] != expectedLength || returnedEtag[0] == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new ZipRangeDeltaAssembler.RangeChunk(resultBytes, returnedEtag[0]));
+        }
+
+        private boolean streamBoundedRange(
+                final String hash,
+                final long totalSize,
+                final long start,
+                final long endInclusive,
+                final String expectedEtag,
+                final ZipRangeDeltaAssembler.ChunkSink sink)
+                throws IOException, InterruptedException {
+            return executeBoundedRange(hash, totalSize, start, endInclusive, expectedEtag, ignored -> {}, sink);
+        }
+
+        private boolean executeBoundedRange(
+                final String hash,
+                final long totalSize,
+                final long start,
+                final long endInclusive,
+                final String expectedEtag,
+                final Consumer<String> onValidatedResponse,
+                final ZipRangeDeltaAssembler.ChunkSink sink)
+                throws IOException, InterruptedException {
+            final long expectedLength = endInclusive - start + 1L;
+            final String expectedContentRange = "bytes " + start + "-" + endInclusive + "/" + totalSize;
+            int retries = 0;
+            for (int attempt = 0; attempt <= MAX_TRANSIENT_RETRIES; attempt++) {
+                active();
+                final HttpURLConnection opened = source.open(OBJECT_KIND, hash);
+                synchronized (control) {
+                    if (cancelled) {
+                        opened.disconnect();
+                        active();
+                    }
+                    connection = opened;
+                }
+                final long requestEnd = System.nanoTime() + TimeUnit.SECONDS.toNanos(REQUEST_DEADLINE_SECONDS);
+                final ScheduledFuture<?> requestTimeout =
+                        timer.schedule(() -> stop(true), REQUEST_DEADLINE_SECONDS, TimeUnit.SECONDS);
+                boolean streamedAnyBytes = false;
+                boolean completedCleanly = false;
+                try {
+                    opened.setInstanceFollowRedirects(false);
+                    opened.setUseCaches(false);
+                    opened.setConnectTimeout(CONNECT_TIMEOUT_MS);
+                    opened.setReadTimeout(READ_TIMEOUT_MS);
+                    opened.setRequestMethod("GET");
+                    opened.setRequestProperty("Accept-Encoding", "identity");
+                    opened.setRequestProperty("Range", "bytes=" + start + "-" + endInclusive);
+                    if (expectedEtag != null) {
+                        opened.setRequestProperty("If-Range", expectedEtag);
+                    }
+                    active();
+                    final int status;
+                    try {
+                        status = opened.getResponseCode();
+                    } catch (IOException failure) {
+                        throw transientNetwork(failure);
+                    }
+                    active();
+                    final String encoding = opened.getHeaderField("Content-Encoding");
+                    if (encoding != null && !"identity".equalsIgnoreCase(encoding)) {
+                        return false;
+                    }
+                    if (TRANSIENT_HTTP_STATUSES.contains(status)) {
+                        throw new TransientFailure(
+                                "Temporary HTTP status " + status, retryAfter(opened.getHeaderField("Retry-After")));
+                    }
+                    final String returnedEtag = opened.getHeaderField("ETag");
+                    if (status != 206
+                            || !strong(returnedEtag)
+                            || (expectedEtag != null && !expectedEtag.equals(returnedEtag))
+                            || !expectedContentRange.equals(opened.getHeaderField("Content-Range"))
+                            || opened.getContentLengthLong() != expectedLength) {
+                        return false;
+                    }
+                    final InputStream input;
+                    try {
+                        input = opened.getInputStream();
+                    } catch (IOException failure) {
+                        throw transientNetwork(failure);
+                    }
+                    synchronized (control) {
+                        if (cancelled) {
+                            input.close();
+                            active();
+                        }
+                        responseBody = input;
+                    }
+                    onValidatedResponse.accept(returnedEtag);
+                    final boolean[] receivedBytes = {false};
+                    try (input) {
+                        final boolean exact = ZipRangeDeltaAssembler.copyStreamExact(
+                                input,
+                                expectedLength,
+                                requestEnd,
+                                (buf, off, len) -> {
+                                    receivedBytes[0] = true;
+                                    sink.write(buf, off, len);
+                                },
+                                this::active);
+                        streamedAnyBytes = receivedBytes[0];
+                        completedCleanly = exact;
+                        return exact;
+                    } catch (IOException failure) {
+                        streamedAnyBytes = receivedBytes[0];
+                        if (!streamedAnyBytes) throw transientNetwork(failure);
+                        return false;
+                    }
+                } catch (TransientFailure failure) {
+                    requestTimeout.cancel(false);
+                    closeResponse();
+                    if (streamedAnyBytes || ++retries > MAX_TRANSIENT_RETRIES || attempt == MAX_TRANSIENT_RETRIES) {
+                        return false;
+                    }
+                    backoff(Math.max(100L << (retries - 1), failure.delayMillis));
+                } finally {
+                    requestTimeout.cancel(false);
+                    if (completedCleanly) {
+                        detachResponse();
+                    } else {
+                        closeResponse();
+                        opened.disconnect();
+                    }
+                }
+            }
+            return false;
         }
 
         private long additional(final FrameworkUpdateCache cache, final String kind, final String hash, final long size)
@@ -621,6 +1001,19 @@ public final class FrameworkUpdateDownloader {
         private void emit(final Phase phase, final String hash, final long received, final long total) {
             active();
             if (phase == Phase.VERIFIED && targetPlan != null) verifiedObjects.add(hash);
+            if (plannedDownloadBytes.containsKey(hash)) {
+                final long planned = plannedDownloadBytes.get(hash);
+                if (phase == Phase.VERIFIED) {
+                    completedDownloads.add(hash);
+                    if (hash.equals(activeDownloadHash)) {
+                        activeDownloadHash = "";
+                        activeDownloadReceived = 0L;
+                    }
+                } else if (phase == Phase.RECEIVING || phase == Phase.RESTARTING || phase == Phase.RETRYING) {
+                    activeDownloadHash = hash;
+                    activeDownloadReceived = Math.min(Math.max(0L, received), planned);
+                }
+            }
             long verified = 0;
             if (targetPlan != null) {
                 for (final var decision : targetPlan.decisions()) {
@@ -630,8 +1023,25 @@ public final class FrameworkUpdateDownloader {
                     }
                 }
             }
+            long downloaded = 0L;
+            for (final String completedHash : completedDownloads) {
+                downloaded += plannedDownloadBytes.getOrDefault(completedHash, 0L);
+            }
+            if (!activeDownloadHash.isEmpty() && !completedDownloads.contains(activeDownloadHash)) {
+                downloaded +=
+                        Math.min(activeDownloadReceived, plannedDownloadBytes.getOrDefault(activeDownloadHash, 0L));
+            }
+            downloaded = Math.min(downloaded, totalDownloadBytes);
             progress.accept(new Progress(
-                    phase, hash, received, total, phase == Phase.VERIFIED ? total : 0, verified, taskTotal));
+                    phase,
+                    hash,
+                    received,
+                    total,
+                    phase == Phase.VERIFIED ? total : 0,
+                    verified,
+                    taskTotal,
+                    downloaded,
+                    totalDownloadBytes));
             active();
         }
 
@@ -654,6 +1064,14 @@ public final class FrameworkUpdateDownloader {
             // concurrently here can make it wait on the JDK keep-alive cleaner's second socket read,
             // and blocking teardown on the caller's timer delays other deadlines as well.
             return true;
+        }
+
+        /** Releases active references without closing a drained keep-alive socket. */
+        private void detachResponse() {
+            synchronized (control) {
+                responseBody = null;
+                connection = null;
+            }
         }
 
         private void closeResponse() {
@@ -686,6 +1104,8 @@ public final class FrameworkUpdateDownloader {
             }
         }
     }
+
+    private record LocalCopySource(long bytes, String sourceRelativePath) {}
 
     private static final class TransientFailure extends IOException {
         private final long delayMillis;

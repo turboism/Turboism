@@ -10,8 +10,12 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
 
 /**
  * Offline, read-only delta selection. Existing eligible files require trusted installation hashes.
@@ -22,14 +26,18 @@ import java.util.Objects;
  * helper must revalidate platform-specific paths, ownership and bytes at application time.
  */
 public final class FrameworkDeltaPlanner {
+    private static final int HASH_BUFFER_BYTES = 8192;
+
     private FrameworkDeltaPlanner() {}
 
     /**
      * What an apply step must do with one manifest entry: {@code REUSE} keeps the verified installed
-     * bytes, {@code DOWNLOAD} fetches the entry from the authenticated source.
+     * bytes at the same path, {@code COPY_LOCAL} copies verified bytes from another authenticated
+     * installed path, and {@code DOWNLOAD} fetches the entry from the authenticated source.
      */
     public enum Action {
         REUSE,
+        COPY_LOCAL,
         DOWNLOAD
     }
 
@@ -37,12 +45,25 @@ public final class FrameworkDeltaPlanner {
      * One planned entry and the action selected for it.
      *
      * @param entry authenticated manifest entry the decision belongs to
-     * @param action whether apply reuses the installed bytes or downloads the entry
+     * @param action whether apply reuses the installed bytes, copies another installed file, or downloads
+     * @param sourceRelativePath authenticated local source path when {@code action} is {@link Action#COPY_LOCAL}
      */
-    public record Decision(UpdateManifestEntry entry, Action action) {
+    public record Decision(UpdateManifestEntry entry, Action action, Optional<String> sourceRelativePath) {
+        public Decision(final UpdateManifestEntry entry, final Action action) {
+            this(entry, action, Optional.empty());
+        }
+
         public Decision {
             Objects.requireNonNull(entry, "entry");
             Objects.requireNonNull(action, "action");
+            Objects.requireNonNull(sourceRelativePath, "sourceRelativePath");
+            if (action == Action.COPY_LOCAL
+                    && sourceRelativePath.filter(p -> !p.isBlank()).isEmpty()) {
+                throw new IllegalArgumentException("COPY_LOCAL decision requires a source relative path");
+            }
+            if (action != Action.COPY_LOCAL && sourceRelativePath.isPresent()) {
+                throw new IllegalArgumentException("Only COPY_LOCAL decisions may specify a source relative path");
+            }
         }
     }
 
@@ -70,6 +91,9 @@ public final class FrameworkDeltaPlanner {
         checkInterrupted();
         final Path root = installationRoot.toAbsolutePath().normalize();
         validateSafeRootAndAncestors(root);
+        final Map<String, List<String>> installedPathsByHash =
+                indexInstalledPathsByHash(trustedManifest.installedFrameworkHashes());
+        final Map<String, String> verifiedLocalHashes = new HashMap<>();
         final List<Decision> decisions = new ArrayList<>();
         long bytesToDownload = 0;
         for (final UpdateManifestEntry entry : trustedManifest.entries()) {
@@ -91,15 +115,68 @@ public final class FrameworkDeltaPlanner {
                     throw new IOException(
                             "FRAMEWORK_OWNERSHIP_VIOLATION: local file conflicts with installation receipt: " + target);
                 }
+                verifiedLocalHashes.put(entry.relativePath(), actualHash);
                 unchanged = attrs.size() == entry.bytes() && actualHash.equals(entry.sha256());
             }
             checkInterrupted();
-            final Action action = unchanged ? Action.REUSE : Action.DOWNLOAD;
-            decisions.add(new Decision(entry, action));
-            if (action == Action.DOWNLOAD) bytesToDownload += entry.bytes();
+            if (unchanged) {
+                decisions.add(new Decision(entry, Action.REUSE));
+                continue;
+            }
+            final Optional<String> localSource =
+                    findReusableLocalSource(root, entry, installedPathsByHash, verifiedLocalHashes);
+            checkInterrupted();
+            if (localSource.isPresent()) {
+                decisions.add(new Decision(entry, Action.COPY_LOCAL, localSource));
+            } else {
+                decisions.add(new Decision(entry, Action.DOWNLOAD));
+                bytesToDownload += entry.bytes();
+            }
         }
         checkInterrupted();
         return new Plan(decisions, bytesToDownload);
+    }
+
+    /** Indexes authenticated receipt paths in deterministic sorted order for cross-path reuse. */
+    private static Map<String, List<String>> indexInstalledPathsByHash(final Map<String, String> installedHashes) {
+        final Map<String, List<String>> byHash = new HashMap<>();
+        for (final var item : new TreeMap<>(installedHashes).entrySet()) {
+            byHash.computeIfAbsent(item.getValue(), ignored -> new ArrayList<>())
+                    .add(item.getKey());
+        }
+        return byHash;
+    }
+
+    /** Finds a verified local receipt file with identical bytes to avoid redownloading renamed files. */
+    private static Optional<String> findReusableLocalSource(
+            final Path root,
+            final UpdateManifestEntry entry,
+            final Map<String, List<String>> installedPathsByHash,
+            final Map<String, String> verifiedLocalHashes)
+            throws IOException, InterruptedException {
+        final List<String> candidates = installedPathsByHash.get(entry.sha256());
+        if (candidates == null) return Optional.empty();
+        for (final String candidatePath : candidates) {
+            checkInterrupted();
+            if (candidatePath.equals(entry.relativePath())) continue;
+            final Path source = root.resolve(candidatePath);
+            final BasicFileAttributes sourceAttrs = targetAttributes(root, source);
+            if (sourceAttrs == null
+                    || !sourceAttrs.isRegularFile()
+                    || sourceAttrs.isSymbolicLink()
+                    || sourceAttrs.isOther()
+                    || sourceAttrs.size() != entry.bytes()
+                    || sourceAttrs.size() > UpdateManifest.MAX_FILE_BYTES) {
+                continue;
+            }
+            final String cachedHash = verifiedLocalHashes.get(candidatePath);
+            final String actualHash = cachedHash != null ? cachedHash : sha256(source);
+            verifiedLocalHashes.putIfAbsent(candidatePath, actualHash);
+            if (actualHash.equals(entry.sha256())) {
+                return Optional.of(candidatePath);
+            }
+        }
+        return Optional.empty();
     }
 
     private static void checkInterrupted() throws InterruptedException {
@@ -154,7 +231,7 @@ public final class FrameworkDeltaPlanner {
         checkInterrupted();
         final MessageDigest digest = Sha256.digest();
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
-            final byte[] buffer = new byte[8192];
+            final byte[] buffer = new byte[HASH_BUFFER_BYTES];
             long total = 0;
             int read;
             while ((read = input.read(buffer)) != -1) {

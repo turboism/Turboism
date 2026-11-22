@@ -366,6 +366,30 @@ class FrameworkUpdatesWindowTest {
     }
 
     @Test
+    void progressBarDisplaysActualDeltaDownloadBytesInsteadOfFullManifestTotal() throws Exception {
+        try (Fixture f = new Fixture(target -> List.of(ROW))) {
+            f.planned();
+            f.service.reportedProgress = new PluginCatalogClient.DownloadProgress(500_000, 1_710_000);
+            f.framework.downloadingState = new CoreFrameworkUpdates.Snapshot(
+                    CoreFrameworkUpdates.Phase.DOWNLOADING,
+                    "0.70.2",
+                    88_080_000,
+                    104_410_000,
+                    1_500_000,
+                    16_340_000,
+                    "");
+            f.framework.pendingDownload = new CompletableFuture<>();
+            final var pending = edt(f.window::triggerDownload);
+            await(() -> f.window.progressBar().getString().equals("2.00 / 18.05 MB"));
+            edt(() -> {
+                f.window.triggerCancel();
+                return null;
+            });
+            pending.get(10, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
     void showsMegabytesAndFreezesElapsedTimeOnCancelAndSuccessThenResetsOnRetry() throws Exception {
         try (Fixture f = new Fixture(target -> List.of())) {
             f.planned();
@@ -896,6 +920,7 @@ class FrameworkUpdatesWindowTest {
         volatile boolean failDownload;
         volatile boolean failQueue;
         volatile CompletableFuture<Snapshot> pendingDownload;
+        volatile Snapshot downloadingState;
 
         public Snapshot snapshot() {
             return state;
@@ -908,7 +933,9 @@ class FrameworkUpdatesWindowTest {
                 return CompletableFuture.completedFuture(state);
             }
             if (pendingDownload != null) {
-                state = new Snapshot(Phase.DOWNLOADING, "0.44.0", 1_250_000, 10_000_000, "");
+                state = downloadingState != null
+                        ? downloadingState
+                        : new Snapshot(Phase.DOWNLOADING, "0.44.0", 1_250_000, 10_000_000, "");
                 return pendingDownload;
             }
             state = new Snapshot(Phase.STAGED, "0.44.0", 100, 100, "");

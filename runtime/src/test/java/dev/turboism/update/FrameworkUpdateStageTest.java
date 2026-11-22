@@ -61,6 +61,31 @@ final class FrameworkUpdateStageTest {
     }
 
     @Test
+    void stagesCopyLocalEntriesAlongsideDownloads() throws Exception {
+        final byte[] copied = "identical-renamed-sdk".getBytes(StandardCharsets.UTF_8);
+        final var copyEntry = entry("graal/lib/sdk-0.70.2.jar", copied);
+        final Path manifest = temporary.resolve("copy-manifest");
+        final Path envelope = temporary.resolve("copy-envelope");
+        final Path object = temporary.resolve("copy-object");
+        Files.writeString(manifest, "{manifest}");
+        Files.writeString(envelope, "{envelope}");
+        Files.write(object, copied);
+        final var plan = new FrameworkDeltaPlanner.Plan(
+                List.of(new FrameworkDeltaPlanner.Decision(
+                        copyEntry,
+                        FrameworkDeltaPlanner.Action.COPY_LOCAL,
+                        Optional.of("graal/lib/sdk-0.70.2-beta.4.jar"))),
+                0L);
+        final var downloaded = new FrameworkUpdateDownloader.Downloaded(
+                manifest, envelope, plan, Map.of(copyEntry.sha256(), object), Optional.empty(), 0L);
+
+        final Path stage = FrameworkUpdateStage.materialize(downloaded, temporary.resolve("copy-stage"));
+        assertArrayEquals(copied, Files.readAllBytes(stage.resolve("files/graal/lib/sdk-0.70.2.jar")));
+        assertEquals(
+                Map.of("graal/lib/sdk-0.70.2.jar", copyEntry.sha256()), FrameworkUpdateStage.expectedFiles(downloaded));
+    }
+
+    @Test
     void cacheObjectChangedAfterDownloadIsRejectedAndLeavesNoStage() throws Exception {
         final Built built = downloaded();
         Files.writeString(built.downloaded().objects().values().iterator().next(), "agent-evl");

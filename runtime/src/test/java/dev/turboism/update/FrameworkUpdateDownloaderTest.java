@@ -1364,6 +1364,248 @@ final class FrameworkUpdateDownloaderTest {
         }
     }
 
+    @Test
+    void downloadProgressTracksStreamingDeltaBytesExcludingReusedFiles() throws Exception {
+        try (Fixture f = new Fixture();
+                var c = coordinator(f, command -> null);
+                var ui = new RuntimeFrameworkUpdates(
+                        c, f.io, () -> () -> c.download(f.downloader(), f.candidate, f.context))) {
+            final List<dev.turboism.internal.core.CoreFrameworkUpdates.Snapshot> snapshots =
+                    new java.util.concurrent.CopyOnWriteArrayList<>();
+            ui.subscribe(snapshots::add);
+            final var result = ui.download().get(20, TimeUnit.SECONDS);
+            assertEquals(dev.turboism.internal.core.CoreFrameworkUpdates.Phase.STAGED, result.phase());
+            assertEquals(f.payload.length, result.downloadTotalBytes());
+            assertEquals(f.payload.length, result.downloadedBytes());
+            assertEquals(f.payload.length * 2L + f.unchanged.length, result.totalBytes());
+            assertTrue(
+                    snapshots.stream()
+                            .anyMatch(
+                                    s -> s.phase() == dev.turboism.internal.core.CoreFrameworkUpdates.Phase.DOWNLOADING
+                                            && s.downloadTotalBytes() == f.payload.length
+                                            && s.downloadedBytes() > 0
+                                            && s.downloadedBytes() < s.downloadTotalBytes()),
+                    "streaming progress should report partial delta bytes excluding reused files");
+        }
+    }
+
+    @Test
+    void copiesRenamedIdenticalInstalledFileLocallyWithoutHttpRequest() throws Exception {
+        try (Fixture f = new Fixture()) {
+            final byte[] renamedBytes = "identical-sdk-payload".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            final String renamedHash = sha(renamedBytes);
+            Files.write(f.install.resolve("graal/lib/sdk-0.70.2-beta.4.jar"), renamedBytes);
+            final var entries = List.of(
+                    entry("graal/lib/sdk-0.70.2.jar", renamedBytes), entry("graal/lib/unchanged.jar", f.unchanged));
+            final var pair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+            final var verifier = new UpdateManifestVerifier(Map.of("ephemeral", pair.getPublic()));
+            final byte[] manifestBytes = new UpdateManifest(
+                            1, "ephemeral", "2.0.0", "stable", 50, "a".repeat(40), "1.0.0", "windows-x64", entries)
+                    .toCanonicalBytes();
+            final Signature sign = Signature.getInstance("Ed25519");
+            sign.initSign(pair.getPrivate());
+            sign.update(manifestBytes);
+            final byte[] envelopeBytes = UpdateFileSupport.JSON.writeValueAsBytes(UpdateFileSupport.JSON
+                    .createObjectNode()
+                    .put("format", UpdateManifestVerifier.SIGNATURE_FORMAT)
+                    .put("schemaVersion", 1)
+                    .put("algorithm", "Ed25519")
+                    .put("keyId", "ephemeral")
+                    .put("manifestSha256", sha(manifestBytes))
+                    .put("signature", Base64.getEncoder().encodeToString(sign.sign())));
+            final ArrayNode closure = UpdateFileSupport.JSON.createArrayNode();
+            new java.util.TreeMap<>(Map.of(renamedHash, renamedBytes.length, f.unchangedHash, f.unchanged.length))
+                    .forEach((h, n) -> closure.addObject().put("bytes", n).put("sha256", h));
+            final String closureHash = sha(UpdateFileSupport.JSON.writeValueAsBytes(closure));
+            final String manifestHash = sha(manifestBytes);
+            final String envelopeHash = sha(envelopeBytes);
+            final var capability = new UpdateIncrementalDiscovery(
+                    "2.0.0",
+                    "stable",
+                    50,
+                    "a".repeat(40),
+                    new UpdateIncrementalDiscovery.Reference(manifestBytes.length, manifestHash),
+                    new UpdateIncrementalDiscovery.Reference(envelopeBytes.length, envelopeHash),
+                    closureHash);
+            final var candidate = new UpdateDiscovery.Candidate(
+                    UpdateVersion.parseInstalled("2.0.0"),
+                    "2.0.0",
+                    OptionalLong.of(50),
+                    Optional.empty(),
+                    List.of(),
+                    Optional.of("a".repeat(40)),
+                    Optional.of(capability));
+            final var context = f.context(
+                    Map.of("graal/lib/sdk-0.70.2-beta.4.jar", renamedHash, "graal/lib/unchanged.jar", f.unchangedHash));
+            final HttpServer localServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            final AtomicInteger localObjects = new AtomicInteger();
+            localServer.setExecutor(f.serverThreads);
+            localServer.createContext("/", exchange -> {
+                final String path = exchange.getRequestURI().getPath();
+                if (path.equals("/documents/" + manifestHash)) send(exchange, 200, manifestBytes);
+                else if (path.equals("/documents/" + envelopeHash)) send(exchange, 200, envelopeBytes);
+                else {
+                    localObjects.incrementAndGet();
+                    send(exchange, 404, new byte[0]);
+                }
+            });
+            localServer.start();
+            try {
+                final var src = FrameworkUpdateSource.loopbackForTest(URI.create(
+                        "http://127.0.0.1:" + localServer.getAddress().getPort() + "/"));
+                final var downloader = new FrameworkUpdateDownloader(f.cache, src, verifier, f.io, f.timer);
+                final var staged = downloader
+                        .stage(candidate, context, f.install, ignored -> {})
+                        .get(5, TimeUnit.SECONDS);
+                assertEquals(0, localObjects.get(), "renamed identical file must be reused locally");
+                assertEquals(0L, staged.downloadedBytes());
+                assertArrayEquals(
+                        renamedBytes, Files.readAllBytes(staged.objects().get(renamedHash)));
+                final Path stageDir = FrameworkUpdateStage.materialize(
+                        staged, f.install.getParent().resolve("stage"));
+                assertArrayEquals(renamedBytes, Files.readAllBytes(stageDir.resolve("files/graal/lib/sdk-0.70.2.jar")));
+                final var recovered = downloader
+                        .recover(staged.staged().orElseThrow().id(), candidate, context, f.install, ignored -> {})
+                        .get(5, TimeUnit.SECONDS);
+                assertEquals(0, localObjects.get());
+                assertArrayEquals(
+                        renamedBytes, Files.readAllBytes(recovered.objects().get(renamedHash)));
+            } finally {
+                localServer.stop(0);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void reconstructsChangedJarViaZipRangeDeltaAndFallsBackSafelyWhenRangeUnsupported(final boolean supportRange)
+            throws Exception {
+        final byte[] oldJar = buildSyntheticJar("version-1");
+        final byte[] newJar = buildSyntheticJar("version-2");
+        assertTrue(newJar.length >= ZipRangeDeltaAssembler.MIN_DELTA_OBJECT_BYTES);
+        final String oldHash = sha(oldJar);
+        final String newHash = sha(newJar);
+        try (Fixture f = new Fixture()) {
+            Files.write(f.install.resolve("turboism-agent.jar"), oldJar);
+            final var entries = List.of(entry("turboism-agent.jar", newJar));
+            final var pair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+            final var verifier = new UpdateManifestVerifier(Map.of("ephemeral", pair.getPublic()));
+            final byte[] manifestBytes = new UpdateManifest(
+                            1, "ephemeral", "2.0.0", "stable", 50, "a".repeat(40), "1.0.0", "windows-x64", entries)
+                    .toCanonicalBytes();
+            final Signature sign = Signature.getInstance("Ed25519");
+            sign.initSign(pair.getPrivate());
+            sign.update(manifestBytes);
+            final byte[] envelopeBytes = UpdateFileSupport.JSON.writeValueAsBytes(UpdateFileSupport.JSON
+                    .createObjectNode()
+                    .put("format", UpdateManifestVerifier.SIGNATURE_FORMAT)
+                    .put("schemaVersion", 1)
+                    .put("algorithm", "Ed25519")
+                    .put("keyId", "ephemeral")
+                    .put("manifestSha256", sha(manifestBytes))
+                    .put("signature", Base64.getEncoder().encodeToString(sign.sign())));
+            final ArrayNode closure = UpdateFileSupport.JSON.createArrayNode();
+            closure.addObject().put("bytes", newJar.length).put("sha256", newHash);
+            final String closureHash = sha(UpdateFileSupport.JSON.writeValueAsBytes(closure));
+            final String manifestHash = sha(manifestBytes);
+            final String envelopeHash = sha(envelopeBytes);
+            final var capability = new UpdateIncrementalDiscovery(
+                    "2.0.0",
+                    "stable",
+                    50,
+                    "a".repeat(40),
+                    new UpdateIncrementalDiscovery.Reference(manifestBytes.length, manifestHash),
+                    new UpdateIncrementalDiscovery.Reference(envelopeBytes.length, envelopeHash),
+                    closureHash);
+            final var candidate = new UpdateDiscovery.Candidate(
+                    UpdateVersion.parseInstalled("2.0.0"),
+                    "2.0.0",
+                    OptionalLong.of(50),
+                    Optional.empty(),
+                    List.of(),
+                    Optional.of("a".repeat(40)),
+                    Optional.of(capability));
+            final var context = f.context(Map.of("turboism-agent.jar", oldHash));
+            final var bytesServed = new java.util.concurrent.atomic.AtomicLong();
+            final HttpServer localServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            localServer.setExecutor(f.serverThreads);
+            localServer.createContext("/", exchange -> {
+                final String path = exchange.getRequestURI().getPath();
+                if (path.equals("/documents/" + manifestHash)) {
+                    send(exchange, 200, manifestBytes);
+                } else if (path.equals("/documents/" + envelopeHash)) {
+                    send(exchange, 200, envelopeBytes);
+                } else if (path.equals("/objects/" + newHash + "/payload")) {
+                    exchange.getResponseHeaders().set("ETag", "\"" + newHash + "\"");
+                    final String range = exchange.getRequestHeaders().getFirst("Range");
+                    if (supportRange && range != null && range.startsWith("bytes=")) {
+                        final String[] bounds =
+                                range.substring("bytes=".length()).split("-", 2);
+                        final int start = Integer.parseInt(bounds[0]);
+                        final int end = bounds[1].isEmpty() ? newJar.length - 1 : Integer.parseInt(bounds[1]);
+                        final byte[] slice = Arrays.copyOfRange(newJar, start, end + 1);
+                        bytesServed.addAndGet(slice.length);
+                        exchange.getResponseHeaders()
+                                .set("Content-Range", "bytes " + start + "-" + end + "/" + newJar.length);
+                        send(exchange, 206, slice);
+                    } else {
+                        bytesServed.addAndGet(newJar.length);
+                        send(exchange, 200, newJar);
+                    }
+                } else {
+                    send(exchange, 404, new byte[0]);
+                }
+            });
+            localServer.start();
+            try {
+                final var src = FrameworkUpdateSource.loopbackForTest(URI.create(
+                        "http://127.0.0.1:" + localServer.getAddress().getPort() + "/"));
+                final var downloader = new FrameworkUpdateDownloader(f.cache, src, verifier, f.io, f.timer);
+                final List<FrameworkUpdateDownloader.Progress> progress = new ArrayList<>();
+                final var result = downloader
+                        .stage(candidate, context, f.install, progress::add)
+                        .get(10, TimeUnit.SECONDS);
+                assertArrayEquals(newJar, Files.readAllBytes(result.objects().get(newHash)));
+                assertTrue(progress.stream()
+                        .allMatch(p -> p.received() <= p.total()
+                                && p.verified() <= p.received()
+                                && p.downloadReceived() <= p.downloadTotal()));
+                if (supportRange) {
+                    assertTrue(
+                            bytesServed.get() < newJar.length / 4L,
+                            "ZIP range delta should transfer under 25% of archive bytes, got " + bytesServed.get());
+                    assertEquals(bytesServed.get(), result.downloadedBytes());
+                } else {
+                    assertEquals(newJar.length, result.downloadedBytes());
+                }
+            } finally {
+                localServer.stop(0);
+            }
+        }
+    }
+
+    private static byte[] buildSyntheticJar(final String marker) throws IOException {
+        final var out = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(out)) {
+            zip.setLevel(java.util.zip.Deflater.NO_COMPRESSION);
+            for (int i = 0; i < 24; i++) {
+                final var entry = new java.util.zip.ZipEntry(String.format("dev/turboism/module/Class%02d.class", i));
+                entry.setTime(0L);
+                zip.putNextEntry(entry);
+                final byte[] body = new byte[16 * 1024];
+                Arrays.fill(body, (byte) (i + 1));
+                zip.write(body);
+                zip.closeEntry();
+            }
+            final var changed = new java.util.zip.ZipEntry("META-INF/turboism/framework-version.properties");
+            changed.setTime(0L);
+            zip.putNextEntry(changed);
+            zip.write(("version=" + marker + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return out.toByteArray();
+    }
+
     private final class Fixture implements AutoCloseable {
         final Path cache;
         final Path install;

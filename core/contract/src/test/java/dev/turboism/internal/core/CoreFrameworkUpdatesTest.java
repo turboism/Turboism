@@ -19,12 +19,20 @@ final class CoreFrameworkUpdatesTest {
     }
 
     @Test
-    void verifiedProgressCannotExceedAuthenticatedTotal() {
+    void verifiedAndDownloadProgressCannotExceedTotals() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new CoreFrameworkUpdates.Snapshot(CoreFrameworkUpdates.Phase.DOWNLOADING, "1.0.0", 2, 1, ""));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new CoreFrameworkUpdates.Snapshot(CoreFrameworkUpdates.Phase.DOWNLOADING, "1.0.0", -1, 1, ""));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CoreFrameworkUpdates.Snapshot(
+                        CoreFrameworkUpdates.Phase.DOWNLOADING, "1.0.0", 5, 10, 3, 2, ""));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CoreFrameworkUpdates.Snapshot(
+                        CoreFrameworkUpdates.Phase.DOWNLOADING, "1.0.0", 5, 10, -1, 2, ""));
     }
 }

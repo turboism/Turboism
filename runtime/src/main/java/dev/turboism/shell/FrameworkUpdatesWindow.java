@@ -457,12 +457,28 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         phase.setVisible(!phaseName.equals("idle"));
         final boolean frameworkProgress =
                 activeJob == null ? pluginTableModel.frameworkSelected() : activeJob.framework;
-        final long totalBytes = (frameworkProgress ? state.totalBytes() : 0)
-                + (activeJob == null ? completedPluginTotalBytes : activeJob.pluginTotalBytes);
-        final long receivedBytes = (frameworkProgress ? state.verifiedBytes() : 0)
-                + (activeJob == null ? completedPluginBytes : activeJob.pluginBytes);
-        progress.setIndeterminate(busy && totalBytes == 0);
-        progress.setValue(totalBytes == 0 ? 0 : (int) Math.min(100, 100.0 * receivedBytes / totalBytes));
+        final long frameworkTotal = frameworkProgress ? state.downloadTotalBytes() : 0;
+        final long frameworkReceived = frameworkProgress ? state.downloadedBytes() : 0;
+        final long pluginTotal = activeJob == null ? completedPluginTotalBytes : activeJob.pluginTotalBytes;
+        final long pluginReceived = activeJob == null ? completedPluginBytes : activeJob.pluginBytes;
+        final long totalBytes = frameworkTotal + pluginTotal;
+        final long receivedBytes = frameworkReceived + pluginReceived;
+        final boolean planPending = frameworkProgress && state.totalBytes() == 0 && pluginTotal == 0;
+        progress.setIndeterminate(busy && planPending);
+        final int percent;
+        if (totalBytes > 0) {
+            percent = (int) Math.min(100, 100.0 * receivedBytes / totalBytes);
+        } else if (!busy
+                && !planPending
+                && (state.phase() == CoreFrameworkUpdates.Phase.STAGED
+                        || state.phase() == CoreFrameworkUpdates.Phase.APPLY_PENDING
+                        || batchState == BatchState.PREPARED
+                        || pluginQueued)) {
+            percent = 100;
+        } else {
+            percent = 0;
+        }
+        progress.setValue(percent);
         progress.setString(megabytes(receivedBytes) + " / " + megabytes(totalBytes) + " MB");
         renderElapsed();
         renderNotes();

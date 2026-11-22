@@ -30,15 +30,36 @@ public interface CoreFrameworkUpdates extends AutoCloseable {
      * @param version target version, or an empty string before a target is known
      * @param verifiedBytes bytes verified against the authenticated target, never greater than the total
      * @param totalBytes authenticated target size, zero before the plan is available
+     * @param downloadedBytes network bytes received for this update, never greater than the download total
+     * @param downloadTotalBytes total network bytes planned for download, zero before the plan is available
      * @param detail diagnostic or status text, empty when none is available
      */
-    record Snapshot(Phase phase, String version, long verifiedBytes, long totalBytes, String detail) {
+    record Snapshot(
+            Phase phase,
+            String version,
+            long verifiedBytes,
+            long totalBytes,
+            long downloadedBytes,
+            long downloadTotalBytes,
+            String detail) {
+        public Snapshot(
+                final Phase phase,
+                final String version,
+                final long verifiedBytes,
+                final long totalBytes,
+                final String detail) {
+            this(phase, version, verifiedBytes, totalBytes, verifiedBytes, totalBytes, detail);
+        }
+
         public Snapshot {
             Objects.requireNonNull(phase, "phase");
             Objects.requireNonNull(version, "version");
             Objects.requireNonNull(detail, "detail");
             if (verifiedBytes < 0 || totalBytes < 0 || verifiedBytes > totalBytes) {
                 throw new IllegalArgumentException("Invalid verified progress");
+            }
+            if (downloadedBytes < 0 || downloadTotalBytes < 0 || downloadedBytes > downloadTotalBytes) {
+                throw new IllegalArgumentException("Invalid download progress");
             }
         }
     }

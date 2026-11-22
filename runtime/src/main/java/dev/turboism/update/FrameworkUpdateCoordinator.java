@@ -53,6 +53,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
     public record Status(
             State state,
             String version,
+            long bytesDownloaded,
             long bytesToDownload,
             long bytesVerified,
             long bytesTotal,
@@ -82,7 +83,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
     private final CopyOnWriteArrayList<Consumer<Status>> listeners = new CopyOnWriteArrayList<>();
     private final Object lock = new Object();
 
-    private Status status = new Status(State.IDLE, "", 0, 0, 0, Optional.empty());
+    private Status status = new Status(State.IDLE, "", 0, 0, 0, 0, Optional.empty());
     private CompletableFuture<?> inFlight;
     /** The downloader's own future: cancelling THIS stops the transfer; {@link #inFlight} then completes normally. */
     private CompletableFuture<?> transfer;
@@ -168,14 +169,15 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             if (status.state() == State.APPLY_PENDING) return CompletableFuture.completedFuture(status);
             final long requestGeneration = ++generation;
             final String version = candidate.incremental().orElseThrow().version();
-            publish(new Status(State.DOWNLOADING, version, 0, 0, 0, Optional.empty()));
+            publish(new Status(State.DOWNLOADING, version, 0, 0, 0, 0, Optional.empty()));
             final var download = downloader.stage(candidate, context, root, progress -> {
                 synchronized (lock) {
                     if (!closed && generation == requestGeneration && status.state() == State.DOWNLOADING) {
                         publish(new Status(
                                 State.DOWNLOADING,
                                 version,
-                                0,
+                                progress.downloadReceived(),
+                                progress.downloadTotal(),
                                 progress.taskVerified(),
                                 progress.taskTotal(),
                                 Optional.empty()));
@@ -196,6 +198,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                                         0,
                                         0,
                                         0,
+                                        0,
                                         Optional.of(cancelled ? "Download cancelled" : describe(failure))));
                             } else {
                                 staged = downloaded;
@@ -205,7 +208,8 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                                 publish(new Status(
                                         State.STAGED,
                                         version,
-                                        downloaded.plan().bytesToDownload(),
+                                        downloaded.downloadedBytes(),
+                                        downloaded.downloadedBytes(),
                                         total,
                                         total,
                                         Optional.empty()));
@@ -232,6 +236,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                 publish(new Status(
                         State.CANCELLED,
                         status.version(),
+                        status.bytesDownloaded(),
                         status.bytesToDownload(),
                         status.bytesVerified(),
                         status.bytesTotal(),
@@ -319,6 +324,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
                 return publish(new Status(
                         State.APPLY_PENDING,
                         version,
+                        status.bytesDownloaded(),
                         status.bytesToDownload(),
                         status.bytesVerified(),
                         status.bytesTotal(),
@@ -327,7 +333,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
         } catch (IOException | InterruptedException | RuntimeException failure) {
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
             synchronized (lock) {
-                return publish(new Status(State.FAILED, version, 0, 0, 0, Optional.of(describe(failure))));
+                return publish(new Status(State.FAILED, version, 0, 0, 0, 0, Optional.of(describe(failure))));
             }
         }
     }
@@ -338,7 +344,7 @@ public final class FrameworkUpdateCoordinator implements AutoCloseable {
             if (status.state() == State.DOWNLOADING || status.state() == State.APPLY_PENDING) return status;
             ++generation;
             staged = null;
-            return publish(new Status(State.IDLE, "", 0, 0, 0, Optional.empty()));
+            return publish(new Status(State.IDLE, "", 0, 0, 0, 0, Optional.empty()));
         }
     }
 
