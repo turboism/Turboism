@@ -35,8 +35,7 @@ public final class ModelOpenAccelerationTransformer implements ClassFileTransfor
             if (ImageDecodePatcher.UT_IMAGE.equals(className) || ImageDecodePatcher.IMAGE_RESOURCE.equals(className)) {
                 return ImageDecodePatcher.tryPatch(className, loader, classfileBuffer);
             }
-            if (ModelOpenFlowPatcher.MODEL_SOURCE.equals(className)
-                    || ModelOpenFlowPatcher.MODEL_SOURCE_COMPANION.equals(className)
+            if (ModelOpenFlowPatcher.MODEL_SOURCE_COMPANION.equals(className)
                     || ModelOpenFlowPatcher.DOCUMENT_LOADER.equals(className)) {
                 return ModelOpenFlowPatcher.tryPatch(className, loader, classfileBuffer);
             }

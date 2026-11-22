@@ -54,6 +54,7 @@ final class RuntimeExportRealHostPatchVerificationTest {
             Set.of("org.jdom.", "org.apache.logging.", "org.apache.commons.", "com.jogamp.");
     private static final String ARCHIVE_WRITER_CLASS = "com/live2d/serialize/archiver/ArchiveWriter";
     private static final String ATLAS_BUILDER_CLASS = "com/live2d/cubism/doc/model/texture/G";
+    private static final String TEXTURE_MANAGER_CLASS = "com/live2d/cubism/doc/model/texture/CTextureManager";
     private static final String IMAGE_RESOURCE_CLASS = "com/live2d/graphics/CImageResource";
     private static final String WRITABLE_IMAGE_CLASS = "com/live2d/graphics/CWritableImage";
     private static final String TEXTURE_ATLAS_CLASS = "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas";
@@ -140,6 +141,7 @@ final class RuntimeExportRealHostPatchVerificationTest {
     private static void assertExpectedReleaseCoverage(final String version, final Set<String> patchedNames) {
         assertTrue(patchedNames.contains(ARCHIVE_WRITER_CLASS), version + " missing ArchiveWriter");
         assertTrue(patchedNames.contains(ATLAS_BUILDER_CLASS), version + " missing texture/G");
+        assertTrue(patchedNames.contains(TEXTURE_MANAGER_CLASS), version + " missing CTextureManager");
         assertTrue(patchedNames.contains(IMAGE_RESOURCE_CLASS), version + " missing CImageResource");
         assertTrue(patchedNames.contains(WRITABLE_IMAGE_CLASS), version + " missing CWritableImage");
         assertTrue(patchedNames.contains(TEXTURE_ATLAS_CLASS), version + " missing CTextureAtlas");

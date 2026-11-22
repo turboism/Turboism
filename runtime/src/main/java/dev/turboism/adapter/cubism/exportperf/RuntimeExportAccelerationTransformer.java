@@ -39,8 +39,8 @@ public final class RuntimeExportAccelerationTransformer implements ClassFileTran
         if (ArchiveWriterPatcher.TARGET.equals(className)) {
             return ArchiveWriterPatcher.patch(classfileBuffer);
         }
-        if (AtlasParallelPatcher.TARGET.equals(className)) {
-            return AtlasParallelPatcher.patch(classfileBuffer);
+        if (AtlasParallelPatcher.isSupportedTarget(className)) {
+            return AtlasParallelPatcher.patch(className, classfileBuffer);
         }
         if (PngExportPatcher.TARGET.equals(className)) {
             return PngExportPatcher.patch(classfileBuffer);

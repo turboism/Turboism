@@ -57,7 +57,6 @@ final class ModelOpenRealHostPatchVerificationTest {
     private static final List<String> FIXED_TARGETS = List.of(
             ImageDecodePatcher.UT_IMAGE,
             ImageDecodePatcher.IMAGE_RESOURCE,
-            ModelOpenFlowPatcher.MODEL_SOURCE,
             ModelOpenFlowPatcher.MODEL_SOURCE_COMPANION,
             ModelOpenFlowPatcher.DOCUMENT_LOADER,
             FloatArrayDeserializerPatcher.TARGET_INTERNAL_NAME,

@@ -72,6 +72,18 @@ final class ArchiveAndMocRuntimeParityTest {
         assertSame(canonical, MocExportIndexAccelerator.intern(internList, canonical));
         assertSame(canonical, MocExportIndexAccelerator.intern(internList, duplicate));
         assertEquals(26, internList.size());
+
+        // Verify mutated list identity caching remains O(1) without rehashing the entire list.
+        final List<String> growing = new ArrayList<>();
+        final long startNs = System.nanoTime();
+        for (int i = 0; i < 4_000; i++) {
+            final String unique = "entry-" + i;
+            assertSame(unique, MocExportIndexAccelerator.intern(growing, unique));
+            assertEquals(i, MocExportIndexAccelerator.indexOf(growing, unique));
+        }
+        final long elapsedMs = (System.nanoTime() - startNs) / 1_000_000L;
+        assertTrue(elapsedMs < 1_000L, "Expected O(1) identity-cached intern/indexOf, took " + elapsedMs + "ms");
+        MocExportIndexAccelerator.exitMocBufferScope();
     }
 
     @Test

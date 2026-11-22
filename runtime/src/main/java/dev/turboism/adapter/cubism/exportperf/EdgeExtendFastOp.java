@@ -30,6 +30,7 @@ public final class EdgeExtendFastOp {
     private static final int PERCENT_SCALE = 100;
     private static final int PARALLEL_PIXEL_THRESHOLD = 65_536;
     private static final int PARALLEL_CHUNK_SIZE = 64;
+    private static final int COL_STRIP_WIDTH = 512;
 
     private static final String MSG_READ_PIXELS = "read pixels.";
     private static final String MSG_FILL_TRANSPARENT = "fill transparent color.";
@@ -171,12 +172,15 @@ public final class EdgeExtendFastOp {
             final int height,
             final int maxDist,
             final int writeAlpha) {
-        final int chunks = (width + PARALLEL_CHUNK_SIZE - 1) / PARALLEL_CHUNK_SIZE;
-        return IntStream.range(0, chunks)
+        final int strips = (width + COL_STRIP_WIDTH - 1) / COL_STRIP_WIDTH;
+        if (strips <= 1) {
+            return sweepColRange(0, width, pixels, dist, width, height, maxDist, writeAlpha);
+        }
+        return IntStream.range(0, strips)
                         .parallel()
-                        .map(chunk -> {
-                            final int x0 = chunk * PARALLEL_CHUNK_SIZE;
-                            final int x1 = Math.min(width, x0 + PARALLEL_CHUNK_SIZE);
+                        .map(strip -> {
+                            final int x0 = strip * COL_STRIP_WIDTH;
+                            final int x1 = Math.min(width, x0 + COL_STRIP_WIDTH);
                             return sweepColRange(x0, x1, pixels, dist, width, height, maxDist, writeAlpha) ? 1 : 0;
                         })
                         .sum()
@@ -247,45 +251,59 @@ public final class EdgeExtendFastOp {
             final int height,
             final int maxDist,
             final int writeAlpha) {
+        final int stripWidth = xEnd - xStart;
+        if (stripWidth <= 0) {
+            return false;
+        }
         boolean changed = false;
         final int writeMask = writeAlpha << SHIFT_ALPHA;
-        for (int x = xStart; x < xEnd; x++) {
-            int seedRgb = 0;
-            int seedY = -1;
-            boolean hasSeed = false;
-            int idx = x;
-            for (int y = 0; y < height; y++, idx += width) {
+        final int[] seedRgb = new int[stripWidth];
+        final int[] seedY = new int[stripWidth];
+        Arrays.fill(seedY, -1);
+
+        // Sweep rows sequentially inside each column strip to avoid power-of-2 L1 cache-set thrashing.
+        for (int y = 0; y < height; y++) {
+            final int rowBase = y * width + xStart;
+            for (int i = 0; i < stripWidth; i++) {
+                final int idx = rowBase + i;
                 final int px = pixels[idx];
                 final int a = (px >>> SHIFT_ALPHA) & BYTE_MASK;
                 if (a > 0 && a < writeAlpha) {
-                    seedRgb = px & RGB_MASK;
-                    seedY = y;
-                    hasSeed = true;
-                } else if (hasSeed) {
-                    final int d = y - seedY;
-                    if (d <= maxDist && dist[idx] > d) {
-                        dist[idx] = d;
-                        pixels[idx] = writeMask | seedRgb;
-                        changed = true;
+                    seedRgb[i] = px & RGB_MASK;
+                    seedY[i] = y;
+                } else {
+                    final int sy = seedY[i];
+                    if (sy >= 0) {
+                        final int d = y - sy;
+                        if (d <= maxDist && dist[idx] > d) {
+                            dist[idx] = d;
+                            pixels[idx] = writeMask | seedRgb[i];
+                            changed = true;
+                        }
                     }
                 }
             }
+        }
 
-            hasSeed = false;
-            idx = (height - 1) * width + x;
-            for (int y = height - 1; y >= 0; y--, idx -= width) {
+        Arrays.fill(seedY, -1);
+        for (int y = height - 1; y >= 0; y--) {
+            final int rowBase = y * width + xStart;
+            for (int i = 0; i < stripWidth; i++) {
+                final int idx = rowBase + i;
                 final int px = pixels[idx];
                 final int a = (px >>> SHIFT_ALPHA) & BYTE_MASK;
                 if (a > 0 && a < writeAlpha) {
-                    seedRgb = px & RGB_MASK;
-                    seedY = y;
-                    hasSeed = true;
-                } else if (hasSeed) {
-                    final int d = seedY - y;
-                    if (d <= maxDist && dist[idx] > d) {
-                        dist[idx] = d;
-                        pixels[idx] = writeMask | seedRgb;
-                        changed = true;
+                    seedRgb[i] = px & RGB_MASK;
+                    seedY[i] = y;
+                } else {
+                    final int sy = seedY[i];
+                    if (sy >= 0) {
+                        final int d = sy - y;
+                        if (d <= maxDist && dist[idx] > d) {
+                            dist[idx] = d;
+                            pixels[idx] = writeMask | seedRgb[i];
+                            changed = true;
+                        }
                     }
                 }
             }

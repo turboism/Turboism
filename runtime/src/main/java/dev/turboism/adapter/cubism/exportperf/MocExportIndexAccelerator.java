@@ -1,17 +1,19 @@
 package dev.turboism.adapter.cubism.exportperf;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 
 /**
  * Replaces quadratic list scans during MOC3 assembly with amortized O(1) index/intern lookups.
  *
- * <p>Preserves exact first-occurrence equality semantics of {@code List.indexOf} and
- * {@code com.live2d.util.l.b} while falling back to linear search on tiny collections.</p>
+ * <p>Uses object-identity weak keys instead of {@code List.hashCode}/{@code equals} so mutating
+ * append-only collections never invalidates the cache or incurs O(N) key hashing per lookup.</p>
  */
 public final class MocExportIndexAccelerator {
 
@@ -19,10 +21,10 @@ public final class MocExportIndexAccelerator {
     private static final int INITIAL_INDEX_CAPACITY = 64;
     private static final int DEFAULT_MOC_BUFFER_BYTES = 4 * 1024 * 1024;
 
-    private static final ThreadLocal<Map<List<?>, IndexedList>> LIST_INDEX_CACHE =
-            ThreadLocal.withInitial(WeakHashMap::new);
-    private static final ThreadLocal<Map<Collection<?>, InternedCollection>> INTERN_CACHE =
-            ThreadLocal.withInitial(WeakHashMap::new);
+    private static final ThreadLocal<IdentityWeakCache<List<?>, IndexedList>> LIST_INDEX_CACHE =
+            ThreadLocal.withInitial(IdentityWeakCache::new);
+    private static final ThreadLocal<IdentityWeakCache<Collection<?>, InternedCollection>> INTERN_CACHE =
+            ThreadLocal.withInitial(IdentityWeakCache::new);
     private static final ThreadLocal<Integer> BUFFER_CAPACITY_DEPTH = ThreadLocal.withInitial(() -> 0);
 
     private MocExportIndexAccelerator() {}
@@ -82,7 +84,7 @@ public final class MocExportIndexAccelerator {
         if (size < MIN_INDEXED_SIZE) {
             return list.indexOf(target);
         }
-        final Map<List<?>, IndexedList> cache = LIST_INDEX_CACHE.get();
+        final IdentityWeakCache<List<?>, IndexedList> cache = LIST_INDEX_CACHE.get();
         IndexedList indexed = cache.get(list);
         if (indexed == null || indexed.indexedCount > size) {
             indexed = new IndexedList(Math.max(INITIAL_INDEX_CAPACITY, size));
@@ -128,7 +130,7 @@ public final class MocExportIndexAccelerator {
             collection.add(candidate);
             return candidate;
         }
-        final Map<Collection<?>, InternedCollection> cache = INTERN_CACHE.get();
+        final IdentityWeakCache<Collection<?>, InternedCollection> cache = INTERN_CACHE.get();
         InternedCollection interned = cache.get(collection);
         if (interned == null || interned.indexedCount != size) {
             if (interned == null || interned.indexedCount > size) {
@@ -158,6 +160,99 @@ public final class MocExportIndexAccelerator {
         interned.map.putIfAbsent(candidate, candidate);
         interned.indexedCount = collection.size();
         return candidate;
+    }
+
+    private static final class IdentityWeakCache<K, V> {
+        private final Map<IdentityKey, V> entries = new HashMap<>();
+        private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
+        private final ProbeKey probe = new ProbeKey();
+        private WeakReference<K> lastKeyRef;
+        private V lastValue;
+
+        V get(final K key) {
+            if (lastKeyRef != null && lastKeyRef.get() == key) {
+                return lastValue;
+            }
+            probe.target = key;
+            probe.hash = System.identityHashCode(key);
+            final V found = entries.get(probe);
+            probe.target = null;
+            if (found != null) {
+                lastKeyRef = new WeakReference<>(key);
+                lastValue = found;
+            }
+            return found;
+        }
+
+        void put(final K key, final V value) {
+            expungeStale();
+            final WeakIdentityKey weakKey = new WeakIdentityKey(key, queue);
+            entries.put(weakKey, value);
+            lastKeyRef = new WeakReference<>(key);
+            lastValue = value;
+        }
+
+        private void expungeStale() {
+            Reference<?> ref;
+            while ((ref = queue.poll()) != null) {
+                entries.remove(ref);
+            }
+        }
+    }
+
+    private interface IdentityKey {
+        Object referent();
+    }
+
+    private static final class ProbeKey implements IdentityKey {
+        private Object target;
+        private int hash;
+
+        @Override
+        public Object referent() {
+            return target;
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            return obj instanceof IdentityKey other && other.referent() == target;
+        }
+    }
+
+    private static final class WeakIdentityKey extends WeakReference<Object> implements IdentityKey {
+        private final int hash;
+
+        WeakIdentityKey(final Object referent, final ReferenceQueue<Object> queue) {
+            super(referent, queue);
+            this.hash = System.identityHashCode(referent);
+        }
+
+        @Override
+        public Object referent() {
+            return get();
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof IdentityKey other)) {
+                return false;
+            }
+            final Object mine = get();
+            return mine != null && mine == other.referent();
+        }
     }
 
     private static final class IndexedList {

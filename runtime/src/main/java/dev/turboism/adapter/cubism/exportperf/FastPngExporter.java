@@ -149,31 +149,30 @@ public final class FastPngExporter {
             return null;
         }
 
-        final int dstW;
-        final int dstH;
-        final int[] workPixels;
-        if (scale == 1) {
-            dstW = srcW;
-            dstH = srcH;
-            workPixels = new int[srcW * srcH];
-            System.arraycopy(srcPixels, 0, workPixels, 0, workPixels.length);
-        } else {
-            dstW = (srcW / scale) + (srcW % scale != 0 ? 1 : 0);
-            dstH = (srcH / scale) + (srcH % scale != 0 ? 1 : 0);
-            workPixels = new int[dstW * dstH];
-            DownscaleFastOp.downscaleBox(scale, srcPixels, srcW, srcH, workPixels, dstW, dstH, 0);
+        final int dstW = scale == 1 ? srcW : (srcW / scale) + (srcW % scale != 0 ? 1 : 0);
+        final int dstH = scale == 1 ? srcH : (srcH / scale) + (srcH % scale != 0 ? 1 : 0);
+
+        if (extendEdgeColor && dstW >= 2 && dstH >= 2) {
+            final BufferedImage workingImage = new BufferedImage(dstW, dstH, BufferedImage.TYPE_INT_ARGB);
+            final int[] backing = ((DataBufferInt) workingImage.getRaster().getDataBuffer()).getData();
+            if (scale == 1) {
+                System.arraycopy(srcPixels, 0, backing, 0, backing.length);
+            } else {
+                DownscaleFastOp.downscaleBox(scale, srcPixels, srcW, srcH, backing, dstW, dstH, 0);
+            }
+            EdgeExtendFastOp.tryExtendEdgeColor(workingImage, EDGE_EXTEND_THRESHOLD, null);
+            final byte[] bytes = FastPngEncoder.encodeArgbToBytes(backing, dstW, dstH);
+            workingImage.flush();
+            return bytes;
         }
 
+        final int[] workPixels = new int[dstW * dstH];
+        if (scale == 1) {
+            System.arraycopy(srcPixels, 0, workPixels, 0, workPixels.length);
+        } else {
+            DownscaleFastOp.downscaleBox(scale, srcPixels, srcW, srcH, workPixels, dstW, dstH, 0);
+        }
         if (extendEdgeColor) {
-            if (dstW >= 2 && dstH >= 2) {
-                final BufferedImage workingImage = new BufferedImage(dstW, dstH, BufferedImage.TYPE_INT_ARGB);
-                final int[] backing = ((DataBufferInt) workingImage.getRaster().getDataBuffer()).getData();
-                System.arraycopy(workPixels, 0, backing, 0, backing.length);
-                EdgeExtendFastOp.tryExtendEdgeColor(workingImage, EDGE_EXTEND_THRESHOLD, null);
-                final byte[] bytes = FastPngEncoder.encodeArgbToBytes(backing, dstW, dstH);
-                workingImage.flush();
-                return bytes;
-            }
             return FastPngEncoder.encodeArgbToBytes(workPixels, dstW, dstH);
         }
 

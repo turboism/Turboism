@@ -146,7 +146,11 @@ public final class AtlasCacheReuseDelegate {
             }
             if (stored != null) {
                 if (stored.cache != cache) return report(atlas, "miss:cache-replaced");
-                return report(atlas, current.equals(stored.signature) ? "reuse" : "miss:signature-changed");
+                if (current.equals(stored.signature)) {
+                    host.setDirty.invoke(atlas, false);
+                    return report(atlas, "reuse");
+                }
+                return report(atlas, "miss:signature-changed");
             }
             // Unknown instance with an installed cache — a deep copy carrying the
             // source's pixels. Reuse when the installed pixels already equal the
@@ -159,6 +163,8 @@ public final class AtlasCacheReuseDelegate {
                 return report(atlas, "miss:first-build installed=" + shortDigest(installedDigest));
             }
             if (output.digest != null && output.digest.equals(installedDigest)) {
+                RECORDS.put(atlas, new Record(cache, current));
+                host.setDirty.invoke(atlas, false);
                 return report(atlas, "reuse:content");
             }
             if (output.image != null && supply(host, atlas, output.image)) {
