@@ -179,9 +179,9 @@ class RepackedHostHookAdmissionTest {
         return patched;
     }
 
+    private static final int CORRUPTED_CLASS_TRUNCATED_BYTES = 8;
+
     private static byte[] alterClass(final byte[] bytes) {
-        final byte[] corrupted = bytes.clone();
-        corrupted[corrupted.length - 1] ^= 1;
-        return corrupted;
+        return java.util.Arrays.copyOf(bytes, Math.min(bytes.length, CORRUPTED_CLASS_TRUNCATED_BYTES));
     }
 }

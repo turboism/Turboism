@@ -93,6 +93,21 @@ public final class ReviewedHostContract {
     }
 
     /**
+     * One reviewed class method signature required during structural candidate selection.
+     *
+     * @param owner internal class name, such as {@code "com/live2d/cubism/foo"}
+     * @param method method name
+     * @param descriptor JVM method descriptor
+     */
+    public record MethodSignatureSpec(String owner, String method, String descriptor) {
+        public MethodSignatureSpec {
+            owner = Requirements.text(owner, "owner");
+            method = Requirements.text(method, "method");
+            descriptor = Requirements.text(descriptor, "descriptor");
+        }
+    }
+
+    /**
      * One reviewed generation of a hook contract.
      *
      * @param version reviewed Cubism version this contract was recovered from
@@ -100,14 +115,20 @@ public final class ReviewedHostContract {
      * @param targetClasses internal names of every host class the hook rewrites or reads
      * @param methodShapes reviewed target-method shapes that gate the weave on an unreviewed
      *     build; empty keeps the declared-release rule
+     * @param requiredMethods exact method declarations disambiguating obfuscated class collisions
      */
     public record Candidate<T>(
-            String version, T contract, List<String> targetClasses, List<MethodShapeSpec> methodShapes) {
+            String version,
+            T contract,
+            List<String> targetClasses,
+            List<MethodShapeSpec> methodShapes,
+            List<MethodSignatureSpec> requiredMethods) {
         public Candidate {
             Objects.requireNonNull(version, "version");
             Objects.requireNonNull(contract, "contract");
             targetClasses = List.copyOf(Objects.requireNonNull(targetClasses, "targetClasses"));
             methodShapes = List.copyOf(Objects.requireNonNull(methodShapes, "methodShapes"));
+            requiredMethods = List.copyOf(Objects.requireNonNull(requiredMethods, "requiredMethods"));
             if (targetClasses.isEmpty()) {
                 throw new IllegalArgumentException("a candidate must name at least one target class");
             }
@@ -117,11 +138,26 @@ public final class ReviewedHostContract {
                             "method shape owner " + shape.owner() + " is not a declared target class");
                 }
             }
+            for (final MethodSignatureSpec required : requiredMethods) {
+                if (!targetClasses.contains(required.owner())) {
+                    throw new IllegalArgumentException(
+                            "required method owner " + required.owner() + " is not a declared target class");
+                }
+            }
         }
 
         /** A candidate that binds on its declared generation alone. */
         public Candidate(final String version, final T contract, final List<String> targetClasses) {
-            this(version, contract, targetClasses, List.of());
+            this(version, contract, targetClasses, List.of(), List.of());
+        }
+
+        /** A candidate that pairs declared targets with reviewed method shapes. */
+        public Candidate(
+                final String version,
+                final T contract,
+                final List<String> targetClasses,
+                final List<MethodShapeSpec> methodShapes) {
+            this(version, contract, targetClasses, methodShapes, List.of());
         }
     }
 
@@ -207,6 +243,33 @@ public final class ReviewedHostContract {
                         contract,
                         entry.getValue(),
                         Objects.requireNonNull(methodShapesFor.apply(entry.getKey()), "methodShapesFor result")));
+            }
+        }
+        return List.copyOf(candidates);
+    }
+
+    /**
+     * Builds one candidate per reviewed version with required disambiguating method declarations.
+     *
+     * @param targets version to declared target internal names
+     * @param contractFor contract factory for each version
+     * @param requiredMethodsFor required method factory for each version; must not return null
+     * @return candidates in the table's iteration order
+     */
+    public static <T> List<Candidate<T>> candidatesWithMethods(
+            final Map<String, List<String>> targets,
+            final Function<String, T> contractFor,
+            final Function<String, List<MethodSignatureSpec>> requiredMethodsFor) {
+        final List<Candidate<T>> candidates = new ArrayList<>(targets.size());
+        for (final Map.Entry<String, List<String>> entry : targets.entrySet()) {
+            final T contract = contractFor.apply(entry.getKey());
+            if (contract != null) {
+                candidates.add(new Candidate<>(
+                        entry.getKey(),
+                        contract,
+                        entry.getValue(),
+                        List.of(),
+                        Objects.requireNonNull(requiredMethodsFor.apply(entry.getKey()), "requiredMethodsFor result")));
             }
         }
         return List.copyOf(candidates);
@@ -336,7 +399,8 @@ public final class ReviewedHostContract {
         final List<Candidate<T>> matched = new ArrayList<>();
         final List<String> mismatch = new ArrayList<>();
         for (final Candidate<T> candidate : own) {
-            final String failed = firstMissingTarget(jar, candidate.targetClasses());
+            final String missing = firstMissingTarget(jar, candidate.targetClasses());
+            final String failed = missing != null ? missing : firstContractMismatch(jar, candidate);
             if (failed == null) {
                 matched.add(candidate);
             } else {
@@ -368,21 +432,21 @@ public final class ReviewedHostContract {
                 mismatch.add(candidate.version() + ":" + missing);
                 continue;
             }
-            // An unreviewed declaration must also prove every method shape it declares, so a
-            // changed hook body refuses that hook alone instead of riding the class names.
-            final String shapeFailed = firstMethodShapeMismatch(jar, candidate);
-            if (shapeFailed == null) {
+            // An unreviewed declaration must prove both declared method signatures and method shapes,
+            // refusing renamed obfuscation collisions or changed hook bodies per hook.
+            final String contractFailed = firstContractMismatch(jar, candidate);
+            if (contractFailed == null) {
                 matched.add(candidate);
             } else {
-                mismatch.add(candidate.version() + ":" + shapeFailed);
+                mismatch.add(candidate.version() + ":" + contractFailed);
             }
         }
-        // Candidates that name different target sets cannot merge; equal contracts
-        // behind the same evidence describe one bound feature, so they merge.
+        // Candidates that name different target sets cannot merge; behaviorally equivalent
+        // contracts behind equal target sets describe one bound feature, so they merge.
         final List<Candidate<T>> distinct = new ArrayList<>();
         for (final Candidate<T> candidate : matched) {
             final boolean duplicate = distinct.stream()
-                    .anyMatch(other -> Objects.equals(other.contract(), candidate.contract())
+                    .anyMatch(other -> sameContract(other.contract(), candidate.contract())
                             && other.targetClasses().equals(candidate.targetClasses()));
             if (!duplicate) {
                 distinct.add(candidate);
@@ -473,6 +537,49 @@ public final class ReviewedHostContract {
     }
 
     /**
+     * Checks candidate equivalence, delegating to {@link EquivalentContract} when present so builds
+     * with distinct metadata but identical selectors collapse cleanly.
+     */
+    private static <T> boolean sameContract(final T left, final T right) {
+        if (left instanceof EquivalentContract<?> equivalent && right != null && left.getClass() == right.getClass()) {
+            @SuppressWarnings("unchecked")
+            final EquivalentContract<T> typed = (EquivalentContract<T>) equivalent;
+            return typed.sameContract(right);
+        }
+        return Objects.equals(left, right);
+    }
+
+    /** Verifies required method declarations and reviewed method shapes before binding. */
+    private static String firstContractMismatch(final JarFile jar, final Candidate<?> candidate) {
+        final String requiredFailed = firstMissingRequiredMethod(jar, candidate.requiredMethods());
+        if (requiredFailed != null) {
+            return requiredFailed;
+        }
+        return firstMethodShapeMismatch(jar, candidate);
+    }
+
+    private static String firstMissingRequiredMethod(
+            final JarFile jar, final List<MethodSignatureSpec> requiredMethods) {
+        for (final MethodSignatureSpec required : requiredMethods) {
+            final byte[] bytes = readClassEntry(jar, required.owner());
+            if (bytes == null) {
+                return required.owner() + " method contract unreadable";
+            }
+            final boolean present;
+            try {
+                present = ReviewedMethodShape.declaresMethod(
+                        bytes, required.owner(), required.method(), required.descriptor());
+            } catch (RuntimeException failure) {
+                return required.owner() + " method contract unreadable";
+            }
+            if (!present) {
+                return required.owner() + "#" + required.method() + required.descriptor() + " absent";
+            }
+        }
+        return null;
+    }
+
+    /**
      * Verifies the candidate's reviewed method shapes. Every declared shape must match, so an
      * unreviewed build is admitted only when the exact bodies the hook rewrites are identical.
      * A candidate that declares no shape binds on its target classes alone.
@@ -483,16 +590,8 @@ public final class ReviewedHostContract {
             return null;
         }
         for (final MethodShapeSpec shape : shapes) {
-            final byte[] bytes;
-            try {
-                final JarEntry entry = jar.getJarEntry(shape.owner() + ".class");
-                if (entry == null) {
-                    return shape.owner() + " absent";
-                }
-                try (InputStream input = jar.getInputStream(entry)) {
-                    bytes = input.readAllBytes();
-                }
-            } catch (IOException | RuntimeException failure) {
+            final byte[] bytes = readClassEntry(jar, shape.owner());
+            if (bytes == null) {
                 return shape.owner() + " method shape unreadable";
             }
             final List<String> observed;
@@ -506,5 +605,17 @@ public final class ReviewedHostContract {
             }
         }
         return null;
+    }
+
+    private static byte[] readClassEntry(final JarFile jar, final String owner) {
+        final JarEntry entry = jar.getJarEntry(owner + ".class");
+        if (entry == null) {
+            return null;
+        }
+        try (InputStream input = jar.getInputStream(entry)) {
+            return input.readAllBytes();
+        } catch (IOException | RuntimeException failure) {
+            return null;
+        }
     }
 }

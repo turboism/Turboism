@@ -247,7 +247,8 @@ function Assert-RuntimeConfigV1 {
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-        "atlasLoading", "triangulationSpatialIndex"
+        "atlasLoading", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration"
     ) "config.json"
 
     $format = $Document.PSObject.Properties["format"]
@@ -316,7 +317,8 @@ function Assert-RuntimeConfigV1 {
     }
     foreach ($name in @(
         "reduceAutoBackup", "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-        "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex"
+        "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property -and $property.Value -isnot [bool]) {
@@ -452,6 +454,7 @@ function Convert-RuntimeConfigToV1 {
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
         "atlasLoading", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration",
         "cubismJvm", "graalVmPath"
     )) { [void]$known.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
@@ -519,7 +522,8 @@ function Convert-RuntimeConfigToV1 {
     foreach ($name in @(
         "safeMode", "useTextIcon", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-            "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex"
+            "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+            "modelOpenAcceleration", "runtimeExportAcceleration"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property) {

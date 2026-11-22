@@ -394,6 +394,8 @@ public final class ConfigMergeRegression {
             source.put("meshTriangulationEdgeIndex", value);
             source.put("atlasLoading", value);
             source.put("triangulationSpatialIndex", value);
+            source.put("modelOpenAcceleration", value);
+            source.put("runtimeExportAcceleration", value);
             ConfigMerge.validateCurrent(source);
             Map<String, Object> merged = ConfigMerge.applyPolicy(
                     source, ConfigMerge.mergeDisabled(source, Set.of(), Set.of(), false));
@@ -403,6 +405,10 @@ public final class ConfigMergeRegression {
             check("atlasLoading " + value + " survives installer upgrade", value.equals(merged.get("atlasLoading")));
             check("triangulationSpatialIndex " + value + " survives installer upgrade",
                     value.equals(merged.get("triangulationSpatialIndex")));
+            check("modelOpenAcceleration " + value + " survives installer upgrade",
+                    value.equals(merged.get("modelOpenAcceleration")));
+            check("runtimeExportAcceleration " + value + " survives installer upgrade",
+                    value.equals(merged.get("runtimeExportAcceleration")));
         }
 
         List<Map<String, Object>> invalid = new java.util.ArrayList<>();
@@ -454,6 +460,12 @@ public final class ConfigMergeRegression {
         Map<String, Object> badSpatialIndex = validRuntimeConfig();
         badSpatialIndex.put("triangulationSpatialIndex", "true");
         invalid.add(badSpatialIndex);
+        Map<String, Object> badModelOpen = validRuntimeConfig();
+        badModelOpen.put("modelOpenAcceleration", "true");
+        invalid.add(badModelOpen);
+        Map<String, Object> badRuntimeExport = validRuntimeConfig();
+        badRuntimeExport.put("runtimeExportAcceleration", "true");
+        invalid.add(badRuntimeExport);
         Map<String, Object> badTextureAtlas = validRuntimeConfig();
         badTextureAtlas.put("textureAtlas", Map.of("algorithmId", 7L));
         invalid.add(badTextureAtlas);

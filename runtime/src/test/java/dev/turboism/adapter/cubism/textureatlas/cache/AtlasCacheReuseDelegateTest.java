@@ -198,9 +198,14 @@ final class AtlasCacheReuseDelegateTest {
         buildAndRecord();
         final CTextureAtlas copy =
                 copyWithCache(copyOf(atlas.getCachedAtlasImage().getImage().getJBufferedImage()));
+        copy.setDirty_cachedAtlasImage(true);
         assertTrue(
                 AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, copy, true),
                 "a deep copy whose cache already holds the recorded output needs no rebuild");
+        assertFalse(
+                copy.isDirty_cachedAtlasImage(),
+                "content-verified reuse must clear isDirty_cachedAtlasImage to prevent repeated hashing");
+        assertEquals(2, AtlasCacheReuseDelegate.recordCount(), "content-verified reuse must record the copy instance");
     }
 
     @Test

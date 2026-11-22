@@ -43,7 +43,7 @@ final class ExportSettingsHookContributor implements HookContributor {
      * release requirement.
      *
      * <p>The shared gate admits every reviewed build, but the export-settings selectors are only
-     * pinned for the exact reviewed 5.1.00–5.3.04 builds. Narrowing here keeps the
+     * pinned for the exact reviewed 5.1.00–5.3.05 builds. Narrowing here keeps the
      * gate and the capability in agreement, so an admitted-but-unsupported build never even
      * attempts installation.</p>
      */

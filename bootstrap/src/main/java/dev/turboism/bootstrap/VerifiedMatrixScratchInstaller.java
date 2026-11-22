@@ -78,7 +78,13 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private record Body(String name, String descriptor, List<String> shape) {}
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-            ReviewedHostContract.candidates(MatrixScratchTransformer.targetClasses(), version -> HOOK_ID);
+            ReviewedHostContract.candidatesWithMethods(
+                    MatrixScratchTransformer.targetClasses(),
+                    version -> HOOK_ID,
+                    version -> List.of(new ReviewedHostContract.MethodSignatureSpec(
+                            MatrixScratchTransformer.OWNER,
+                            MatrixScratchTransformer.METHOD,
+                            MatrixScratchTransformer.DESCRIPTOR)));
 
     VerifiedMatrixScratchInstaller(final InstallContext context) throws Exception {
         this.context = context;

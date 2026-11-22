@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -48,6 +50,7 @@ import org.objectweb.asm.Opcodes;
 public final class AtlasTileBboxDelegate {
 
     private static final int TYPE_BYTE_GRAY = 10;
+    private static final long PARALLEL_TRANSFORM_PIXELS = 65_536L;
     private static final int PUBLIC_STATIC_FLAGS = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC;
     private static final String CLASS_RESOURCE_SUFFIX = ".class";
     private static final String BOOTSTRAP_UNREACHABLE =
@@ -210,11 +213,20 @@ public final class AtlasTileBboxDelegate {
 
             g16.setTransform(shifted);
             call(host.hintsQuality, g16); // quality set, BICUBIC
-            g16.drawImage(s7, x, y, null);
 
             g15.setTransform(shifted);
             call(host.hintsMask, g15); // quality set, BILINEAR
-            g15.drawImage(s8, x, y, null);
+
+            if ((long) bw * bh >= PARALLEL_TRANSFORM_PIXELS) {
+                final BufferedImage maskSrc = s8;
+                final ForkJoinTask<?> maskTask =
+                        ForkJoinPool.commonPool().submit(() -> g15.drawImage(maskSrc, x, y, null));
+                g16.drawImage(s7, x, y, null);
+                maskTask.join();
+            } else {
+                g16.drawImage(s7, x, y, null);
+                g15.drawImage(s8, x, y, null);
+            }
 
             // Merge only the requested bbox: s9/s10 may be pooled oversize images whose
             // real widths differ, so each raster is indexed by its own stride.

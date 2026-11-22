@@ -26,7 +26,9 @@ class PerformanceSettingsConfigTest {
             Field.ATLAS_TILE_BBOX,
             Field.ATLAS_CACHE_REUSE,
             Field.ATLAS_LOADING,
-            Field.TRIANGULATION_SPATIAL_INDEX);
+            Field.TRIANGULATION_SPATIAL_INDEX,
+            Field.MODEL_OPEN_ACCELERATION,
+            Field.RUNTIME_EXPORT_ACCELERATION);
 
     @Test
     void nativeOptimizationsUseTheirReviewedDefaultsOnBothPlatforms() {
@@ -82,7 +84,7 @@ class PerformanceSettingsConfigTest {
             PerformanceSettingsConfig.save(repository, field, value);
         }
         var first = PerformanceSettingsConfig.load(home, ignored -> {});
-        assertEquals(42, Field.values().length);
+        assertEquals(44, Field.values().length);
         for (Field field : Field.values()) {
             assertEquals("global-config", first.value(field).source());
             assertEquals(

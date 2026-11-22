@@ -845,7 +845,8 @@ final class ConfigMerge {
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
             "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
             "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-            "atlasLoading", "triangulationSpatialIndex");
+            "atlasLoading", "triangulationSpatialIndex",
+            "modelOpenAcceleration", "runtimeExportAcceleration");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> LOCALES = Set.of(
@@ -967,7 +968,8 @@ final class ConfigMerge {
         for (String field : List.of(
                 "reduceAutoBackup", "meshTriangulationHashFix",
                 "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
-                "atlasLoading", "triangulationSpatialIndex")) {
+                "atlasLoading", "triangulationSpatialIndex",
+                "modelOpenAcceleration", "runtimeExportAcceleration")) {
             if (map.containsKey(field) && !(map.get(field) instanceof Boolean)) {
                 throw new ConfigException("existing config.json " + field + " must be a boolean");
             }
@@ -1182,7 +1184,8 @@ final class ConfigMerge {
         for (String field : List.of(
                 "safeMode", "useTextIcon", "reduceAutoBackup",
                 "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse",
-                "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex")) {
+                "meshTriangulationEdgeIndex", "atlasLoading", "triangulationSpatialIndex",
+                "modelOpenAcceleration", "runtimeExportAcceleration")) {
             if (source.get(field) instanceof Boolean) {
                 normalized.put(field, source.get(field));
             }

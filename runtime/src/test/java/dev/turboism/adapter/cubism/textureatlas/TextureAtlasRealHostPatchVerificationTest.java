@@ -22,18 +22,23 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Verifies bytecode patching, idempotency, and strict {@code -Xverify:all} class verification
- * across all 20 reviewed Cubism Editor JARs ({@code 5.0.00} through {@code 5.3.04}).
+ * across all reviewed Cubism Editor JARs ({@code 5.0.00} through {@code 5.3.05}).
  */
 final class TextureAtlasRealHostPatchVerificationTest {
 
     private static final String REF_PROPERTY = "turboism.test.cubismRefDir";
     private static final String REF_ENV = "TURBOISM_CUBISM_REF";
     private static final String ARTIFACTS_DIR_NAME = "cubism-host-artifacts";
+    private static final String REFERENCE_DIR_SUFFIX = ".local/share/cubism-reference";
+    private static final String REFERENCE_5305_VERSION = "5.3.05";
+    private static final Path REFERENCE_5305_RELATIVE_JAR = Path.of(
+            "proton", "pfx", "drive_c", "Program Files", "Live2D Cubism 5.3", "app", "lib", "Live2D_Cubism.jar");
     private static final String JAR_NAME = "Live2D_Cubism.jar";
     private static final String JAR_SUFFIX = ".jar";
     private static final String CLASS_SUFFIX = ".class";
     private static final String STUB_PACKAGE_PREFIX = "org.jdom.";
-    private static final int EXPECTED_JAR_COUNT = 20;
+    private static final int EXPECTED_BASE_JAR_COUNT = 20;
+    private static final int EXPECTED_WITH_5305_JAR_COUNT = 21;
     private static final long VERIFY_TIMEOUT_SECONDS = 60L;
 
     private static final List<String> TARGET_INTERNAL_NAMES = List.of(
@@ -54,15 +59,26 @@ final class TextureAtlasRealHostPatchVerificationTest {
         Assumptions.assumeTrue(Files.isDirectory(artifactsRoot), "Host artifacts directory is absent");
 
         final List<Path> jars = new ArrayList<>();
+        final List<String> versions = new ArrayList<>();
         try (var stream = Files.list(artifactsRoot)) {
             stream.filter(Files::isDirectory).sorted().forEach(dir -> {
                 final Path jar = dir.resolve(JAR_NAME);
                 if (Files.isRegularFile(jar)) {
                     jars.add(jar);
+                    versions.add(dir.getFileName().toString());
                 }
             });
         }
-        assertEquals(EXPECTED_JAR_COUNT, jars.size(), "Expected all 20 reviewed host JARs");
+        final Path reference5305 = resolve5305ReferenceJar();
+        if (jars.size() == EXPECTED_BASE_JAR_COUNT
+                && !versions.contains(REFERENCE_5305_VERSION)
+                && Files.isRegularFile(reference5305)) {
+            jars.add(reference5305);
+            versions.add(REFERENCE_5305_VERSION);
+        }
+        assertTrue(
+                jars.size() == EXPECTED_BASE_JAR_COUNT || jars.size() == EXPECTED_WITH_5305_JAR_COUNT,
+                "Expected 20 or 21 reviewed host JARs, found " + jars.size());
 
         final TextureAtlasLoadingTransformer mainTransformer = new TextureAtlasLoadingTransformer(true);
         final TextureAtlasMeshSolverTransformer solverTransformer = new TextureAtlasMeshSolverTransformer();
@@ -73,8 +89,9 @@ final class TextureAtlasRealHostPatchVerificationTest {
         final Path manifestList = tempDir.resolve("patched-targets.txt");
         final List<String> manifestLines = new ArrayList<>();
 
-        for (final Path jarPath : jars) {
-            final String version = jarPath.getParent().getFileName().toString();
+        for (int index = 0; index < jars.size(); index++) {
+            final Path jarPath = jars.get(index);
+            final String version = versions.get(index);
             final Path versionOutDir = tempDir.resolve(version);
             Files.createDirectories(versionOutDir);
 
@@ -115,10 +132,11 @@ final class TextureAtlasRealHostPatchVerificationTest {
         }
 
         Files.write(manifestList, manifestLines);
-        runStrictVerifySubprocess(manifestList);
+        runStrictVerifySubprocess(manifestList, manifestLines.size());
     }
 
-    private static void runStrictVerifySubprocess(final Path manifestList) throws Exception {
+    private static void runStrictVerifySubprocess(final Path manifestList, final int expectedVerifiedCount)
+            throws Exception {
         final String javaExe =
                 Path.of(System.getProperty("java.home"), "bin", "java").toString();
         final String classpath = System.getProperty("java.class.path");
@@ -128,7 +146,8 @@ final class TextureAtlasRealHostPatchVerificationTest {
                         "-cp",
                         classpath,
                         ChildVerifier.class.getName(),
-                        manifestList.toString())
+                        manifestList.toString(),
+                        Integer.toString(expectedVerifiedCount))
                 .redirectErrorStream(true)
                 .start();
 
@@ -146,6 +165,7 @@ final class TextureAtlasRealHostPatchVerificationTest {
 
         public static void main(final String[] args) throws Exception {
             final List<String> lines = Files.readAllLines(Path.of(args[0]));
+            final int expectedVerifiedCount = Integer.parseInt(args[1]);
             String currentVersion = null;
             PatchedJarLoader currentLoader = null;
             int verifiedCount = 0;
@@ -170,10 +190,15 @@ final class TextureAtlasRealHostPatchVerificationTest {
             } finally {
                 if (currentLoader != null) currentLoader.close();
             }
-            if (verifiedCount != EXPECTED_JAR_COUNT * TARGET_INTERNAL_NAMES.size()) {
+            if (verifiedCount != expectedVerifiedCount) {
                 throw new IllegalStateException("Unexpected verified count: " + verifiedCount);
             }
         }
+    }
+
+    private static Path resolve5305ReferenceJar() {
+        return Path.of(System.getProperty("user.home"), REFERENCE_DIR_SUFFIX, REFERENCE_5305_VERSION)
+                .resolve(REFERENCE_5305_RELATIVE_JAR);
     }
 
     private static Path resolveArtifactsRoot() {

@@ -97,8 +97,8 @@ class UniformLocationCallSiteArtifactTest {
                     files.filter(path -> path.toString().endsWith(".jar")).toList())
                 urls.add(path.toUri().toURL());
         }
-        try (URLClassLoader loader =
-                        new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader());
+        try (URLClassLoader loader = new JoglFirstClassLoader(
+                        urls.toArray(URL[]::new), getClass().getClassLoader());
                 UniformLocationHookBridge bridge = new UniformLocationHookBridge(loader)) {
             assertEquals(0L, bridge.statistics().get("active"));
             for (var role : UniformLocationLifecycleTransformer.Role.values()) {
@@ -161,5 +161,37 @@ class UniformLocationCallSiteArtifactTest {
                         },
                         0);
         return result;
+    }
+
+    /** Loads JOGL classes child-first so test-only GL stubs never shadow bundled JOGL jars. */
+    private static final class JoglFirstClassLoader extends URLClassLoader {
+
+        private static final String JOGL_PUBLIC_PREFIX = "com.jogamp.";
+        private static final String JOGL_INTERNAL_PREFIX = "jogamp.";
+
+        private JoglFirstClassLoader(final URL[] urls, final ClassLoader parent) {
+            super(urls, parent);
+        }
+
+        @Override
+        protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+            if (!name.startsWith(JOGL_PUBLIC_PREFIX) && !name.startsWith(JOGL_INTERNAL_PREFIX)) {
+                return super.loadClass(name, resolve);
+            }
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded == null) {
+                    try {
+                        loaded = findClass(name);
+                    } catch (final ClassNotFoundException ignored) {
+                        return super.loadClass(name, resolve);
+                    }
+                }
+                if (resolve) {
+                    resolveClass(loaded);
+                }
+                return loaded;
+            }
+        }
     }
 }

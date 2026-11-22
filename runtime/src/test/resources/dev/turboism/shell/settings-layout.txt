@@ -28,6 +28,8 @@ performance 71 note performance.section.model
 performance 72 toggle incremental-update
 performance 73 toggle incremental-update-affecters
 performance 74 toggle mesh-interpolation
+performance 75 toggle model-open-acceleration
+performance 76 toggle runtime-export-acceleration
 performance 80 note performance.section.rendering
 performance 81 toggle uniform-location-cache
 performance 82 toggle shader-uniform

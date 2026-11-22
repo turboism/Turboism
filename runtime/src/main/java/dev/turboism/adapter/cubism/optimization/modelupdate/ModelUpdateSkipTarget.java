@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate;
 
+import dev.turboism.adapter.cubism.optimization.EquivalentContract;
 import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ModelUpdateTargetTable;
@@ -29,7 +30,25 @@ public record ModelUpdateSkipTarget(
         String appearanceSetting,
         boolean conflictPolygonFlag,
         boolean extendedUpdateContext,
-        boolean appearanceAuxSettings) {
+        boolean appearanceAuxSettings)
+        implements EquivalentContract<ModelUpdateSkipTarget> {
+
+    private static final String EXTERNAL_APP_VERSION_PREFIX = "5.0.";
+
+    @Override
+    public boolean sameContract(final ModelUpdateSkipTarget other) {
+        return other != null
+                && version.startsWith(EXTERNAL_APP_VERSION_PREFIX)
+                        == other.version.startsWith(EXTERNAL_APP_VERSION_PREFIX)
+                && Objects.equals(owner, other.owner)
+                && Objects.equals(methodDescriptor, other.methodDescriptor)
+                && Objects.equals(updateContext, other.updateContext)
+                && Objects.equals(developSetting, other.developSetting)
+                && Objects.equals(appearanceSetting, other.appearanceSetting)
+                && conflictPolygonFlag == other.conflictPolygonFlag
+                && extendedUpdateContext == other.extendedUpdateContext
+                && appearanceAuxSettings == other.appearanceAuxSettings;
+    }
 
     /** The reviewed entry method name, identical across versions. */
     public static final String METHOD = "a";

@@ -49,13 +49,26 @@ final class VerifiedUniformLocationInstaller implements AutoCloseable {
     static final int EXPECTED_OWNERS = 5;
 
     private static final List<ReviewedHostContract.Candidate<Map<UniformLocationLifecycleTransformer.Role, String>>>
-            CANDIDATES =
-                    ReviewedHostContract.candidates(UniformLocationLifecycleTransformer.targetClasses(), version -> {
+            CANDIDATES = ReviewedHostContract.candidatesWithMethods(
+                    UniformLocationLifecycleTransformer.targetClasses(),
+                    version -> {
                         final Map<UniformLocationLifecycleTransformer.Role, String> owners = new HashMap<>();
                         for (final var role : UniformLocationLifecycleTransformer.Role.values()) {
                             owners.put(role, role.ownerForVersion(version));
                         }
                         return Map.copyOf(owners);
+                    },
+                    version -> {
+                        final String errorOwner =
+                                UniformLocationLifecycleTransformer.Role.ERROR.ownerForVersion(version);
+                        final List<ReviewedHostContract.MethodSignatureSpec> required = new ArrayList<>();
+                        for (final var entry : UniformLocationLifecycleTransformer.Role.ERROR
+                                .methods()
+                                .entrySet()) {
+                            required.add(new ReviewedHostContract.MethodSignatureSpec(
+                                    errorOwner, entry.getKey(), entry.getValue()));
+                        }
+                        return List.copyOf(required);
                     });
 
     private final InstallContext context;

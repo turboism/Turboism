@@ -53,6 +53,8 @@ public final class PerformanceSettingsConfig {
         ATLAS_CACHE_REUSE("atlasCacheReuse", false, "true"),
         ATLAS_LOADING("atlasLoading", false, "true"),
         TRIANGULATION_SPATIAL_INDEX("triangulationSpatialIndex", false, "true"),
+        MODEL_OPEN_ACCELERATION("modelOpenAcceleration", false, "true"),
+        RUNTIME_EXPORT_ACCELERATION("runtimeExportAcceleration", false, "true"),
         CUBISM_JVM("cubismJvm", true, "graalvm"),
         GRAAL_VM_PATH("graalVmPath", true, ""),
         REDUCE_AUTO_BACKUP("reduceAutoBackup", false, "false"),
