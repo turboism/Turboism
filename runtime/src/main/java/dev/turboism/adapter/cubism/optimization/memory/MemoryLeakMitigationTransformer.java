@@ -18,13 +18,13 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Rewrites the 21 reviewed Cubism host classes to wire {@link MemoryLeakMitigationBridge} lifecycle,
+ * Rewrites the 20 reviewed Cubism host classes to wire {@link MemoryLeakMitigationBridge} lifecycle,
  * OpenGL cleanup/reuse, undo eviction, image cache pruning, and inspector/listener guards.
  */
 public final class MemoryLeakMitigationTransformer implements ClassFileTransformer {
 
-    /** Total instrumentation sites required across all 21 rewritten classes. */
-    public static final int EXPECTED_SITES = 27;
+    /** Total instrumentation sites required across all 20 rewritten classes. */
+    public static final int EXPECTED_SITES = 26;
 
     private static final int PARTS_REUSE_ARRAY_SIZE = 3;
     private static final int SLOT_THIS = 0;
@@ -230,13 +230,6 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                 if (MemoryLeakMitigationTarget.ENTITY_DISPOSE_METHOD.equals(name)
                         && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
                     return entryConsumer(delegate, tracker, MemoryLeakMitigationBridge.DISPOSE_ENTITY_SLOT, SLOT_THIS);
-                }
-            }
-            case MemoryLeakMitigationTarget.ENTITIES_OWNER -> {
-                if (MemoryLeakMitigationTarget.ENTITIES_REMOVE_ALL_METHOD.equals(name)
-                        && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
-                    return entryConsumer(
-                            delegate, tracker, MemoryLeakMitigationBridge.ENTITIES_REMOVE_ALL_SLOT, SLOT_THIS);
                 }
             }
             case MemoryLeakMitigationTarget.EDITABLE_MESH_SEL_OWNER -> {

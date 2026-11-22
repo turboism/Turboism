@@ -48,9 +48,6 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     /** Property key for {@code Consumer<Object>} invoked when {@code GEntity.dispose()} runs. */
     public static final String DISPOSE_ENTITY_SLOT = "turboism.memory-leak.dispose-entity";
 
-    /** Property key for {@code Consumer<Object>} invoked on {@code Entities.removeAll()}. */
-    public static final String ENTITIES_REMOVE_ALL_SLOT = "turboism.memory-leak.entities-remove-all";
-
     /** Property key for {@code Consumer<Object>} invoked on {@code EditableMeshSelectionEntity.reset()}. */
     public static final String RESET_SELECTION_ENTITY_SLOT = "turboism.memory-leak.reset-selection-entity";
 
@@ -142,7 +139,6 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     private final Consumer<Object> drainGlSlot = this::drainGl;
     private final BiPredicate<Object, Object> prepareVboSlot = this::prepareVbo;
     private final Consumer<Object> disposeEntitySlot = this::disposeEntity;
-    private final Consumer<Object> entitiesRemoveAllSlot = this::entitiesRemoveAll;
     private final Consumer<Object> resetSelectionEntitySlot = this::resetSelectionEntity;
     private final Consumer<Object> meshEditorDeactivateSlot = this::meshEditorDeactivate;
     private final Consumer<Object> meshEditorEndSlot = this::meshEditorEnd;
@@ -294,7 +290,6 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
                     DRAIN_GL_SLOT,
                     PREPARE_VBO_SLOT,
                     DISPOSE_ENTITY_SLOT,
-                    ENTITIES_REMOVE_ALL_SLOT,
                     RESET_SELECTION_ENTITY_SLOT,
                     MESH_EDITOR_DEACTIVATE_SLOT,
                     MESH_EDITOR_END_SLOT,
@@ -322,7 +317,6 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
             properties.put(DRAIN_GL_SLOT, drainGlSlot);
             properties.put(PREPARE_VBO_SLOT, prepareVboSlot);
             properties.put(DISPOSE_ENTITY_SLOT, disposeEntitySlot);
-            properties.put(ENTITIES_REMOVE_ALL_SLOT, entitiesRemoveAllSlot);
             properties.put(RESET_SELECTION_ENTITY_SLOT, resetSelectionEntitySlot);
             properties.put(MESH_EDITOR_DEACTIVATE_SLOT, meshEditorDeactivateSlot);
             properties.put(MESH_EDITOR_END_SLOT, meshEditorEndSlot);
@@ -361,7 +355,6 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
                 properties.remove(DRAIN_GL_SLOT, drainGlSlot);
                 properties.remove(PREPARE_VBO_SLOT, prepareVboSlot);
                 properties.remove(DISPOSE_ENTITY_SLOT, disposeEntitySlot);
-                properties.remove(ENTITIES_REMOVE_ALL_SLOT, entitiesRemoveAllSlot);
                 properties.remove(RESET_SELECTION_ENTITY_SLOT, resetSelectionEntitySlot);
                 properties.remove(MESH_EDITOR_DEACTIVATE_SLOT, meshEditorDeactivateSlot);
                 properties.remove(MESH_EDITOR_END_SLOT, meshEditorEndSlot);
@@ -436,12 +429,6 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     private void disposeEntity(final Object entity) {
         if (active.get()) {
             glDeleteQueue.onEntityDisposing(entity);
-        }
-    }
-
-    private void entitiesRemoveAll(final Object entities) {
-        if (active.get()) {
-            glDeleteQueue.onEntitiesRemoveAll(entities);
         }
     }
 

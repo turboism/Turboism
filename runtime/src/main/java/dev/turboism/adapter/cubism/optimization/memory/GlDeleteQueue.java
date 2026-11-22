@@ -33,7 +33,7 @@ final class GlDeleteQueue {
     private static final int INVALID_GL_NAME = 0;
     private static final int UNINITIALIZED_TEXTURE_NAME = -1;
     private static final int SCRATCH_INITIAL_CAPACITY = 32;
-    private static final int SCRATCH_RETAIN_CAP = 512;
+    private static final int SCRATCH_RETAIN_CAP = 8192;
 
     private static final String GL_INTERFACE = "com/jogamp/opengl/GL";
     private static final String GL2ES2_INTERFACE = "com/jogamp/opengl/GL2ES2";
@@ -324,44 +324,6 @@ final class GlDeleteQueue {
         }
     }
 
-    /** Releases GL buffer objects owned by every child of a cleared {@code Entities} list. */
-    void onEntitiesRemoveAll(final Object entitiesCollection) {
-        if (closed.get() || entitiesCollection == null) {
-            return;
-        }
-        final List<?> list = toRandomAccessList(entitiesCollection);
-        if (list != null) {
-            if (list.isEmpty()) {
-                return;
-            }
-            final TraversalScratch scratch = acquireScratch();
-            final Set<Object> visited = visitedSet(scratch);
-            try {
-                for (int i = 0, n = list.size(); i < n; i++) {
-                    releaseSubtreeBuffers(list.get(i), 0, visited);
-                }
-            } finally {
-                releaseScratch(scratch);
-            }
-            return;
-        }
-        if (entitiesCollection instanceof Iterable<?> iterable) {
-            final Iterator<?> it = iterable.iterator();
-            if (!it.hasNext()) {
-                return;
-            }
-            final TraversalScratch scratch = acquireScratch();
-            final Set<Object> visited = visitedSet(scratch);
-            try {
-                while (it.hasNext()) {
-                    releaseSubtreeBuffers(it.next(), 0, visited);
-                }
-            } finally {
-                releaseScratch(scratch);
-            }
-        }
-    }
-
     /** Releases buffers on an editable mesh selection entity subtree and its map values. */
     void onSelectionEntityReset(final Object selectionEntity) {
         if (closed.get() || selectionEntity == null) {
@@ -636,12 +598,12 @@ final class GlDeleteQueue {
                 removedSlot.cleanable.clean();
             }
         }
+        bufSetReinit.invokeExact(meshBuffer, true);
+        bufSetDirty.invokeExact(meshBuffer, true);
+        bufSetGl.invokeExact(meshBuffer, (Object) null);
         if (nameBuf != null && nameBuf.capacity() > 0) {
             nameBuf.put(0, INVALID_GL_NAME);
         }
-        bufSetGl.invokeExact(meshBuffer, (Object) null);
-        bufSetReinit.invokeExact(meshBuffer, true);
-        bufSetDirty.invokeExact(meshBuffer, true);
         if (oldGl != null && currentId > INVALID_GL_NAME) {
             enqueueBufferDelete(oldGl, currentId);
         }

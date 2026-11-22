@@ -113,7 +113,6 @@ public record MemoryLeakMitigationTarget(
     public static final String GL_EVENT_DISPOSE_METHOD = "dispose";
     public static final String GL_EVENT_DISPOSE_DESCRIPTOR = "(Lcom/jogamp/opengl/GLAutoDrawable;)V";
     public static final String ENTITY_DISPOSE_METHOD = "dispose";
-    public static final String ENTITIES_REMOVE_ALL_METHOD = "removeAll";
     public static final String SELECTION_RESET_METHOD = "reset";
     public static final String MESH_EDITOR_DEACTIVATE_METHOD = "deactivateView";
     public static final String MESH_EDITOR_END_METHOD = "endMode";
@@ -219,7 +218,6 @@ public record MemoryLeakMitigationTarget(
                 GL_BUFFER_FLOAT_OWNER,
                 GL_BUFFER_INT_OWNER,
                 G_ENTITY_OWNER,
-                ENTITIES_OWNER,
                 EDITABLE_MESH_SEL_OWNER,
                 MESH_EDITOR_VC_OWNER,
                 MESH_EDITOR_EM_OWNER,

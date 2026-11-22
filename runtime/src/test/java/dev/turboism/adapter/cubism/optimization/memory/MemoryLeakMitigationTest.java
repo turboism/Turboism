@@ -62,7 +62,10 @@ class MemoryLeakMitigationTest {
     private static final String ARTIFACTS_DIR_NAME = "cubism-host-artifacts";
     private static final Path DEFAULT_LOCAL_ARTIFACTS =
             Path.of(System.getProperty("user.home"), ARTIFACTS_DIR_NAME);
-    private static final int EXPECTED_REWRITTEN_OWNERS = 21;
+    private static final int EXPECTED_REWRITTEN_OWNERS = 20;
+    private static final int DETACHED_REUSE_VBO_ID = 73;
+    private static final int LARGE_SUBTREE_CHILD_COUNT = 600;
+    private static final int LARGE_SUBTREE_VBO_BASE = 1000;
 
     private MemoryLeakMitigationBridge activeBridge;
     private boolean registeredAwtGuard;
@@ -306,26 +309,91 @@ class MemoryLeakMitigationTest {
             uploadMethod.invoke(otherVbo, gl1, 1);
             assertEquals(70L, activeBridge.snapshot().get("vbosDeleted") - deletedBeforeBatch);
 
-            // Empty and populated Entities.removeAll() cleanly release subtree buffers without throwing.
+            // Detaching persistent reusable entities (e.g. WarpDeformer_Draw.eTriangleOnCornerBlack) via
+            // Entities.removeAll() must preserve their live VBO state without deleting or corrupting reinit flags.
             final Class<?> entitiesCls = host.load(MemoryLeakMitigationTarget.ENTITIES_OWNER);
             final Object entitiesObj = entitiesCls.getConstructor().newInstance();
             entitiesCls.getMethod("removeAll").invoke(entitiesObj);
+            final Class<?> entityCls = host.load(MemoryLeakMitigationTarget.G_ENTITY_OWNER);
+            final Class<?> meshCls = host.load("com/live2d/graphics3d/mesh/GMesh2");
+            final Class<?> meshContainerCls = host.load("com/live2d/graphics3d/component/GMeshContainer");
+            final Class<?> meshArgCls = host.load("com/live2d/graphics3d/mesh/a");
+            final Class<?> meshRendererCls = host.load(MemoryLeakMitigationTarget.G_MESH_RENDERER_OWNER);
+            final var setGlMethod = floatBufCls.getMethod("a", host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER));
+            final var getGlMethod = floatBufCls.getMethod("h");
+            final var getReinitMethod = floatBufCls.getMethod("j");
+            final var getIntBufMethod = floatBufCls.getMethod("i");
             final Object subVbo = floatBufCls.getConstructor().newInstance();
-            floatBufCls.getMethod("a", host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER)).invoke(subVbo, gl1);
-            ((IntBuffer) floatBufCls.getMethod("i").invoke(subVbo)).put(0, 73);
-            final Object subEntity = host.load(MemoryLeakMitigationTarget.G_ENTITY_OWNER).getConstructor().newInstance();
-            final Object subMesh = host.load("com/live2d/graphics3d/mesh/GMesh2").getConstructor().newInstance();
-            subMesh.getClass().getField("posBuffer").set(subMesh, subVbo);
-            final Object subCont = host.load("com/live2d/graphics3d/component/GMeshContainer")
-                    .getConstructor(host.load("com/live2d/graphics3d/mesh/a"))
-                    .newInstance(subMesh);
-            final Object subRend = host.load(MemoryLeakMitigationTarget.G_MESH_RENDERER_OWNER)
-                    .getConstructor(subCont.getClass())
-                    .newInstance(subCont);
-            ((List<Object>) subEntity.getClass().getMethod("getComponents").invoke(subEntity)).add(subRend);
+            setGlMethod.invoke(subVbo, gl1);
+            ((IntBuffer) getIntBufMethod.invoke(subVbo)).put(0, DETACHED_REUSE_VBO_ID);
+            final Object subEntity = entityCls.getConstructor().newInstance();
+            final Object subMesh = meshCls.getConstructor().newInstance();
+            meshCls.getField("posBuffer").set(subMesh, subVbo);
+            final Object subCont = meshContainerCls.getConstructor(meshArgCls).newInstance(subMesh);
+            final Object subRend = meshRendererCls.getConstructor(meshContainerCls).newInstance(subCont);
+            ((List<Object>) entityCls.getMethod("getComponents").invoke(subEntity)).add(subRend);
             ((List<Object>) entitiesObj).add(subEntity);
+
+            final long queuedBeforeDetach = activeBridge.snapshot().get("vbosQueued");
+            final long deletedBeforeDetach = activeBridge.snapshot().get("vbosDeleted");
+            final int deletesBeforeDetach = glImplCls.getField("deletes").getInt(gl1);
             entitiesCls.getMethod("removeAll").invoke(entitiesObj);
-            assertEquals(0, ((IntBuffer) floatBufCls.getMethod("i").invoke(subVbo)).get(0));
+            assertEquals(DETACHED_REUSE_VBO_ID, ((IntBuffer) getIntBufMethod.invoke(subVbo)).get(0));
+            assertSame(gl1, getGlMethod.invoke(subVbo));
+            assertEquals(false, getReinitMethod.invoke(subVbo));
+            assertEquals(queuedBeforeDetach, activeBridge.snapshot().get("vbosQueued"));
+            assertEquals(deletedBeforeDetach, activeBridge.snapshot().get("vbosDeleted"));
+            assertEquals(deletesBeforeDetach, glImplCls.getField("deletes").getInt(gl1));
+
+            // Re-attaching and uploading after parent removeAll() cleanly reuses the existing VBO handle.
+            ((List<Object>) entitiesObj).add(subEntity);
+            uploadMethod.invoke(subVbo, gl1, 1);
+            assertEquals(DETACHED_REUSE_VBO_ID, ((IntBuffer) getIntBufMethod.invoke(subVbo)).get(0));
+            assertSame(gl1, getGlMethod.invoke(subVbo));
+            assertEquals(false, getReinitMethod.invoke(subVbo));
+            assertEquals(queuedBeforeDetach, activeBridge.snapshot().get("vbosQueued"));
+            assertEquals(deletedBeforeDetach, activeBridge.snapshot().get("vbosDeleted"));
+
+            // Actual destruction via GEntity.dispose() sets reinit=true and gl=null before clearing VBO ID and deleting.
+            entityCls.getMethod("dispose").invoke(subEntity);
+            assertEquals(0, ((IntBuffer) getIntBufMethod.invoke(subVbo)).get(0));
+            assertNull(getGlMethod.invoke(subVbo));
+            assertEquals(true, getReinitMethod.invoke(subVbo));
+            assertEquals(deletedBeforeDetach + 1L, activeBridge.snapshot().get("vbosDeleted"));
+            assertEquals(deletesBeforeDetach + 1, glImplCls.getField("deletes").getInt(gl1));
+
+            // Re-uploading a disposed-then-reinitialized VBO regenerates a valid > 0 handle without leaving vboId == 0.
+            uploadMethod.invoke(subVbo, gl1, 1);
+            assertTrue(((IntBuffer) getIntBufMethod.invoke(subVbo)).get(0) > 0);
+            assertSame(gl1, getGlMethod.invoke(subVbo));
+            assertEquals(false, getReinitMethod.invoke(subVbo));
+
+            // Disposing repeated large (>512 node) subtrees via EditableMeshSelectionEntity.reset() reuses TraversalScratch cleanly.
+            final Class<?> selectionCls = host.load(MemoryLeakMitigationTarget.EDITABLE_MESH_SEL_OWNER);
+            final var getChildrenMethod = entityCls.getMethod("getChildren");
+            final var getComponentsMethod = entityCls.getMethod("getComponents");
+            final long deletedBeforeLarge = activeBridge.snapshot().get("vbosDeleted");
+            for (int cycle = 0; cycle < 2; cycle++) {
+                final Object bigSelection = selectionCls.getConstructor().newInstance();
+                final List<Object> bigChildren = (List<Object>) getChildrenMethod.invoke(bigSelection);
+                for (int childIdx = 0; childIdx < LARGE_SUBTREE_CHILD_COUNT; childIdx++) {
+                    final Object childVbo = floatBufCls.getConstructor().newInstance();
+                    setGlMethod.invoke(childVbo, gl1);
+                    ((IntBuffer) getIntBufMethod.invoke(childVbo))
+                            .put(0, LARGE_SUBTREE_VBO_BASE + cycle * LARGE_SUBTREE_CHILD_COUNT + childIdx);
+                    final Object childEntity = entityCls.getConstructor().newInstance();
+                    final Object childMesh = meshCls.getConstructor().newInstance();
+                    meshCls.getField("posBuffer").set(childMesh, childVbo);
+                    final Object childCont = meshContainerCls.getConstructor(meshArgCls).newInstance(childMesh);
+                    final Object childRend = meshRendererCls.getConstructor(meshContainerCls).newInstance(childCont);
+                    ((List<Object>) getComponentsMethod.invoke(childEntity)).add(childRend);
+                    bigChildren.add(childEntity);
+                }
+                selectionCls.getMethod("reset").invoke(bigSelection);
+            }
+            assertEquals(
+                    deletedBeforeLarge + 2L * LARGE_SUBTREE_CHILD_COUNT,
+                    activeBridge.snapshot().get("vbosDeleted"));
 
             // Entity subtree disposal under CEViewContext_MeshEditor releases nested mesh VBO.
             final Object entityVbo = floatBufCls.getConstructor().newInstance();
