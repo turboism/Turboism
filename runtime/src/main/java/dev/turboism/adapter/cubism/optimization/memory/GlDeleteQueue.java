@@ -34,6 +34,8 @@ final class GlDeleteQueue {
     private static final int UNINITIALIZED_TEXTURE_NAME = -1;
     private static final int SCRATCH_INITIAL_CAPACITY = 32;
     private static final int SCRATCH_RETAIN_CAP = 8192;
+    private static final int MAX_SUBTREE_DEPTH = 8;
+    private static final int MAX_OBJECT_GRAPH_DEPTH = 6;
 
     private static final String GL_INTERFACE = "com/jogamp/opengl/GL";
     private static final String GL2ES2_INTERFACE = "com/jogamp/opengl/GL2ES2";
@@ -253,7 +255,7 @@ final class GlDeleteQueue {
         }
         try {
             final Object ctx = safeGetContext(gl);
-            if (ctx == null || ctx != (Object) contextGetCurrent.invokeExact() || !(boolean) contextIsCreated.invokeExact(ctx)) {
+            if (!isContextCurrent(ctx)) {
                 return;
             }
             final ContextDeletes queue = queues.get(ctx);
@@ -283,16 +285,26 @@ final class GlDeleteQueue {
             final BufferSlot slot = getOrCreateBufferSlot(meshBuffer);
 
             if (oldGl == gl && currentId > INVALID_GL_NAME) {
-                if (currentCtx != null) {
-                    slot.ctxRef.set(new WeakReference<>(currentCtx));
+                synchronized (slot) {
+                    if (currentCtx != null) {
+                        slot.ctxRef.set(new WeakReference<>(currentCtx));
+                    }
+                    slot.bufferId.set(currentId);
+                    slot.queuedReleaseId = INVALID_GL_NAME;
                 }
-                slot.bufferId.set(currentId);
                 recordVboReused();
                 return true;
             }
 
-            slot.bufferId.set(INVALID_GL_NAME);
-            if (oldGl != null && currentId > INVALID_GL_NAME) {
+            final boolean alreadyQueuedForCurrentId;
+            synchronized (slot) {
+                slot.bufferId.set(INVALID_GL_NAME);
+                alreadyQueuedForCurrentId = currentId > INVALID_GL_NAME && slot.queuedReleaseId == currentId;
+                if (alreadyQueuedForCurrentId) {
+                    slot.queuedReleaseId = INVALID_GL_NAME;
+                }
+            }
+            if (oldGl != null && currentId > INVALID_GL_NAME && !alreadyQueuedForCurrentId) {
                 enqueueBufferDelete(oldGl, currentId);
             }
             nameBuf.put(0, INVALID_GL_NAME);
@@ -301,8 +313,11 @@ final class GlDeleteQueue {
             glGenBuffersArray.invokeExact(gl, 1, generated, 0);
             nameBuf.put(0, generated[0]);
             if (generated[0] > INVALID_GL_NAME && currentCtx != null) {
-                slot.ctxRef.set(new WeakReference<>(currentCtx));
-                slot.bufferId.set(generated[0]);
+                synchronized (slot) {
+                    slot.ctxRef.set(new WeakReference<>(currentCtx));
+                    slot.bufferId.set(generated[0]);
+                    slot.queuedReleaseId = INVALID_GL_NAME;
+                }
             }
             return true;
         } catch (final Throwable failure) {
@@ -311,14 +326,14 @@ final class GlDeleteQueue {
         }
     }
 
-    /** Releases all GL buffer objects reachable from an entity being disposed. */
+    /** Releases own and component GL buffers for an already-detached {@code GEntity}. */
     void onEntityDisposing(final Object entity) {
         if (closed.get() || entity == null) {
             return;
         }
         final TraversalScratch scratch = acquireScratch();
         try {
-            releaseEntityOwnBuffers(entity, 0, visitedSet(scratch));
+            releaseEntityOwnBuffers(entity, 0, visitedSet(scratch), false);
         } finally {
             releaseScratch(scratch);
         }
@@ -344,7 +359,7 @@ final class GlDeleteQueue {
         }
         final TraversalScratch scratch = acquireScratch();
         try {
-            releaseObjectGraphBuffers(meshEditorViewContext, 0, visitedSet(scratch));
+            releaseObjectGraphBuffers(meshEditorViewContext, 0, visitedSet(scratch), true);
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
         } finally {
@@ -479,10 +494,10 @@ final class GlDeleteQueue {
     }
 
     private void releaseSubtreeBuffers(final Object entity, final int depth, final Set<Object> visited) {
-        if (entity == null || depth > 8 || !visited.add(entity)) {
+        if (entity == null || depth > MAX_SUBTREE_DEPTH || !visited.add(entity)) {
             return;
         }
-        releaseEntityOwnBuffers(entity, depth, visited);
+        releaseEntityOwnBuffers(entity, depth, visited, true);
         try {
             final Object children = (Object) entityGetChildren.invokeExact(entity);
             final List<?> childList = toRandomAccessList(children);
@@ -502,20 +517,21 @@ final class GlDeleteQueue {
         }
     }
 
-    private void releaseEntityOwnBuffers(final Object entity, final int depth, final Set<Object> visited) {
+    private void releaseEntityOwnBuffers(
+            final Object entity, final int depth, final Set<Object> visited, final boolean recurseChildEntities) {
         try {
-            releaseObjectGraphBuffers(entity, depth, visited);
+            releaseObjectGraphBuffers(entity, depth, visited, recurseChildEntities);
             final Object components = (Object) entityGetComponents.invokeExact(entity);
             final List<?> compList = toRandomAccessList(components);
             if (compList != null) {
                 for (int i = 0, n = compList.size(); i < n; i++) {
-                    releaseSingleComponentBuffers(compList.get(i), depth, visited);
+                    releaseSingleComponentBuffers(compList.get(i), depth, visited, recurseChildEntities);
                 }
                 return;
             }
             if (components instanceof Iterable<?> iterable) {
                 for (final Object component : iterable) {
-                    releaseSingleComponentBuffers(component, depth, visited);
+                    releaseSingleComponentBuffers(component, depth, visited, recurseChildEntities);
                 }
             }
         } catch (final Throwable failure) {
@@ -523,18 +539,19 @@ final class GlDeleteQueue {
         }
     }
 
-    private void releaseSingleComponentBuffers(final Object component, final int depth, final Set<Object> visited)
+    private void releaseSingleComponentBuffers(
+            final Object component, final int depth, final Set<Object> visited, final boolean recurseChildEntities)
             throws Throwable {
         if (component == null) {
             return;
         }
-        releaseObjectGraphBuffers(component, depth + 1, visited);
+        releaseObjectGraphBuffers(component, depth + 1, visited, recurseChildEntities);
         if (isMeshRenderer(component)) {
             final Object container = (Object) meshRendererGetContainer.invokeExact(component);
             if (container != null) {
                 final Object mesh = (Object) containerGetMesh.invokeExact(container);
                 if (mesh != null) {
-                    releaseObjectGraphBuffers(mesh, depth + 2, visited);
+                    releaseObjectGraphBuffers(mesh, depth + 2, visited, recurseChildEntities);
                 }
             }
         }
@@ -544,9 +561,10 @@ final class GlDeleteQueue {
         return component.getClass().getName().equals("com.live2d.graphics3d.component.GMeshRenderer");
     }
 
-    private void releaseObjectGraphBuffers(final Object holder, final int depth, final Set<Object> visited)
+    private void releaseObjectGraphBuffers(
+            final Object holder, final int depth, final Set<Object> visited, final boolean recurseChildEntities)
             throws Throwable {
-        if (holder == null || depth > 6) {
+        if (holder == null || depth > MAX_OBJECT_GRAPH_DEPTH) {
             return;
         }
         if (bufferBaseClass.isInstance(holder)) {
@@ -554,7 +572,9 @@ final class GlDeleteQueue {
             return;
         }
         if (depth > 0 && entityClass.isInstance(holder)) {
-            releaseSubtreeBuffers(holder, depth + 1, visited);
+            if (recurseChildEntities) {
+                releaseSubtreeBuffers(holder, depth + 1, visited);
+            }
             return;
         }
         final HostHandles.HostField[] fields = bufferFieldsCache.get(holder.getClass());
@@ -566,23 +586,25 @@ final class GlDeleteQueue {
             if (bufferBaseClass.isInstance(value)) {
                 releaseSingleBuffer(value);
             } else if (entityClass.isInstance(value)) {
-                releaseSubtreeBuffers(value, depth + 1, visited);
+                if (recurseChildEntities) {
+                    releaseSubtreeBuffers(value, depth + 1, visited);
+                }
             } else if (value instanceof List<?> list) {
                 for (int idx = 0, count = list.size(); idx < count; idx++) {
-                    releaseObjectGraphBuffers(list.get(idx), depth + 1, visited);
+                    releaseObjectGraphBuffers(list.get(idx), depth + 1, visited, recurseChildEntities);
                 }
             } else if (value instanceof Iterable<?> iterable) {
                 for (final Object item : iterable) {
-                    releaseObjectGraphBuffers(item, depth + 1, visited);
+                    releaseObjectGraphBuffers(item, depth + 1, visited, recurseChildEntities);
                 }
             } else if (value instanceof Map<?, ?> map) {
                 if (!map.isEmpty()) {
                     for (final Object item : map.values()) {
-                        releaseObjectGraphBuffers(item, depth + 1, visited);
+                        releaseObjectGraphBuffers(item, depth + 1, visited, recurseChildEntities);
                     }
                 }
             } else if (visited.add(value)) {
-                releaseObjectGraphBuffers(value, depth + 1, visited);
+                releaseObjectGraphBuffers(value, depth + 1, visited, recurseChildEntities);
             }
         }
     }
@@ -591,21 +613,56 @@ final class GlDeleteQueue {
         final IntBuffer nameBuf = (IntBuffer) bufGetIntBuffer.invokeExact(meshBuffer);
         final int currentId = nameBuf == null || nameBuf.capacity() < 1 ? INVALID_GL_NAME : nameBuf.get(0);
         final Object oldGl = (Object) bufGetGl.invokeExact(meshBuffer);
-        final BufferSlot removedSlot = bufferSlots.remove(meshBuffer);
-        if (removedSlot != null) {
-            removedSlot.bufferId.set(INVALID_GL_NAME);
-            if (removedSlot.cleanable != null) {
-                removedSlot.cleanable.clean();
+        final Object ctx = oldGl == null ? null : safeGetContext(oldGl);
+        if (isContextCurrent(ctx)) {
+            final BufferSlot removedSlot = bufferSlots.remove(meshBuffer);
+            final boolean alreadyQueued = clearAndDisarmSlot(removedSlot, currentId);
+            resetBufferState(meshBuffer, nameBuf);
+            if (currentId > INVALID_GL_NAME && !alreadyQueued) {
+                glDeleteBuffersArray.invokeExact(oldGl, 1, new int[] {currentId}, 0);
+                recordVboDeleted(1);
             }
+            return;
         }
+        if (ctx == null || currentId <= INVALID_GL_NAME) {
+            return;
+        }
+        final BufferSlot slot = getOrCreateBufferSlot(meshBuffer);
+        synchronized (slot) {
+            if (slot.queuedReleaseId == currentId) {
+                return;
+            }
+            slot.bufferId.set(INVALID_GL_NAME);
+            slot.queuedReleaseId = currentId;
+        }
+        pendingQueueCount.incrementAndGet();
+        queueFor(ctx).bufferReleases.add(
+                new PendingBufferRelease(new WeakReference<>(meshBuffer), new WeakReference<>(oldGl), currentId));
+        recordVboQueued();
+    }
+
+    private static boolean clearAndDisarmSlot(final BufferSlot removedSlot, final int currentId) {
+        if (removedSlot == null) {
+            return false;
+        }
+        final boolean alreadyQueued;
+        synchronized (removedSlot) {
+            removedSlot.bufferId.set(INVALID_GL_NAME);
+            alreadyQueued = currentId > INVALID_GL_NAME && removedSlot.queuedReleaseId == currentId;
+            removedSlot.queuedReleaseId = INVALID_GL_NAME;
+        }
+        if (removedSlot.cleanable != null) {
+            removedSlot.cleanable.clean();
+        }
+        return alreadyQueued;
+    }
+
+    private void resetBufferState(final Object meshBuffer, final IntBuffer nameBuf) throws Throwable {
         bufSetReinit.invokeExact(meshBuffer, true);
         bufSetDirty.invokeExact(meshBuffer, true);
         bufSetGl.invokeExact(meshBuffer, (Object) null);
         if (nameBuf != null && nameBuf.capacity() > 0) {
             nameBuf.put(0, INVALID_GL_NAME);
-        }
-        if (oldGl != null && currentId > INVALID_GL_NAME) {
-            enqueueBufferDelete(oldGl, currentId);
         }
     }
 
@@ -656,7 +713,7 @@ final class GlDeleteQueue {
             if (ctx == null) {
                 return;
             }
-            if (ctx == (Object) contextGetCurrent.invokeExact() && (boolean) contextIsCreated.invokeExact(ctx)) {
+            if (isContextCurrent(ctx)) {
                 glDeleteBuffersArray.invokeExact(ownerGl, 1, new int[] {id}, 0);
                 recordVboDeleted(1);
                 return;
@@ -701,75 +758,128 @@ final class GlDeleteQueue {
     }
 
     private void drainContextQueue(final Object gl, final ContextDeletes queue) throws Throwable {
-        if (!queue.buffers.isEmpty()) {
-            final int[] batch = deleteBatchScratch.get();
-            int count = 0;
-            int polled = 0;
-            Integer id;
-            while ((id = queue.buffers.poll()) != null) {
-                polled++;
-                if (id > INVALID_GL_NAME) {
-                    batch[count++] = id;
-                    if (count == DRAIN_BATCH_LIMIT) {
-                        glDeleteBuffersArray.invokeExact(gl, count, batch, 0);
-                        recordVboDeleted(count);
-                        count = 0;
-                    }
-                }
-            }
-            if (count > 0) {
-                glDeleteBuffersArray.invokeExact(gl, count, batch, 0);
-                recordVboDeleted(count);
-            }
-            if (polled > 0) {
-                decrementPendingCount(polled);
-            }
-        }
-        if (!queue.textures.isEmpty()) {
-            final int[] batch = deleteBatchScratch.get();
-            int count = 0;
-            int polled = 0;
-            Integer id;
-            while ((id = queue.textures.poll()) != null) {
-                polled++;
-                if (id > INVALID_GL_NAME) {
-                    batch[count++] = id;
-                    if (count == DRAIN_BATCH_LIMIT) {
-                        glDeleteTexturesArray.invokeExact(gl, count, batch, 0);
-                        count = 0;
-                    }
-                }
-            }
-            if (count > 0) {
-                glDeleteTexturesArray.invokeExact(gl, count, batch, 0);
-            }
-            if (polled > 0) {
-                decrementPendingCount(polled);
-            }
-        }
+        drainPendingBuffers(gl, queue);
+        drainIntDeleteQueue(gl, queue.textures, glDeleteTexturesArray, false);
         if (!queue.samplers.isEmpty() && (boolean) glIsGl3.invokeExact(gl)) {
             final Object gl3 = (Object) glGetGl3.invokeExact(gl);
-            final int[] batch = deleteBatchScratch.get();
-            int count = 0;
-            int polled = 0;
-            Integer id;
-            while ((id = queue.samplers.poll()) != null) {
-                polled++;
-                if (id > INVALID_GL_NAME) {
-                    batch[count++] = id;
-                    if (count == DRAIN_BATCH_LIMIT) {
-                        glDeleteSamplersArray.invokeExact(gl3, count, batch, 0);
-                        count = 0;
+            drainIntDeleteQueue(gl3, queue.samplers, glDeleteSamplersArray, false);
+        }
+    }
+
+    private void drainPendingBuffers(final Object gl, final ContextDeletes queue) throws Throwable {
+        if (queue.buffers.isEmpty() && queue.bufferReleases.isEmpty()) {
+            return;
+        }
+        final int[] batch = deleteBatchScratch.get();
+        int count = 0;
+        int polled = 0;
+        Integer id;
+        while ((id = queue.buffers.poll()) != null) {
+            polled++;
+            if (id > INVALID_GL_NAME) {
+                batch[count++] = id;
+                if (count == DRAIN_BATCH_LIMIT) {
+                    flushDeleteBatch(gl, glDeleteBuffersArray, batch, count, true);
+                    count = 0;
+                }
+            }
+        }
+        PendingBufferRelease release;
+        while ((release = queue.bufferReleases.poll()) != null) {
+            polled++;
+            applyDeferredBufferReset(release);
+            if (release.bufferId() > INVALID_GL_NAME) {
+                batch[count++] = release.bufferId();
+                if (count == DRAIN_BATCH_LIMIT) {
+                    flushDeleteBatch(gl, glDeleteBuffersArray, batch, count, true);
+                    count = 0;
+                }
+            }
+        }
+        flushDeleteBatch(gl, glDeleteBuffersArray, batch, count, true);
+        if (polled > 0) {
+            decrementPendingCount(polled);
+        }
+    }
+
+    private void drainIntDeleteQueue(
+            final Object targetGl,
+            final ConcurrentLinkedQueue<Integer> queue,
+            final MethodHandle deleteArrayHandle,
+            final boolean vbo)
+            throws Throwable {
+        if (queue.isEmpty()) {
+            return;
+        }
+        final int[] batch = deleteBatchScratch.get();
+        int count = 0;
+        int polled = 0;
+        Integer id;
+        while ((id = queue.poll()) != null) {
+            polled++;
+            if (id > INVALID_GL_NAME) {
+                batch[count++] = id;
+                if (count == DRAIN_BATCH_LIMIT) {
+                    flushDeleteBatch(targetGl, deleteArrayHandle, batch, count, vbo);
+                    count = 0;
+                }
+            }
+        }
+        flushDeleteBatch(targetGl, deleteArrayHandle, batch, count, vbo);
+        if (polled > 0) {
+            decrementPendingCount(polled);
+        }
+    }
+
+    private void flushDeleteBatch(
+            final Object targetGl,
+            final MethodHandle deleteArrayHandle,
+            final int[] batch,
+            final int count,
+            final boolean vbo)
+            throws Throwable {
+        if (count <= 0) {
+            return;
+        }
+        deleteArrayHandle.invokeExact(targetGl, count, batch, 0);
+        if (vbo) {
+            recordVboDeleted(count);
+        }
+    }
+
+    private void applyDeferredBufferReset(final PendingBufferRelease release) {
+        final Object meshBuffer = release.meshBufferRef().get();
+        final Object expectedGl = release.expectedGlRef().get();
+        if (meshBuffer == null || expectedGl == null) {
+            return;
+        }
+        try {
+            final BufferSlot slot = bufferSlots.get(meshBuffer);
+            if (slot != null) {
+                synchronized (slot) {
+                    if (slot.queuedReleaseId == release.bufferId()) {
+                        slot.queuedReleaseId = INVALID_GL_NAME;
                     }
                 }
             }
-            if (count > 0) {
-                glDeleteSamplersArray.invokeExact(gl3, count, batch, 0);
+            final Object currentGl = (Object) bufGetGl.invokeExact(meshBuffer);
+            final IntBuffer nameBuf = (IntBuffer) bufGetIntBuffer.invokeExact(meshBuffer);
+            if (currentGl != expectedGl
+                    || nameBuf == null
+                    || nameBuf.capacity() < 1
+                    || nameBuf.get(0) != release.bufferId()) {
+                return;
             }
-            if (polled > 0) {
-                decrementPendingCount(polled);
-            }
+            resetBufferState(meshBuffer, nameBuf);
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
         }
+    }
+
+    private boolean isContextCurrent(final Object ctx) throws Throwable {
+        return ctx != null
+                && ctx == (Object) contextGetCurrent.invokeExact()
+                && (boolean) contextIsCreated.invokeExact(ctx);
     }
 
     private void pruneRenderingCache(final Object gl, final Object rootGl, final Object disposingCtx) throws Throwable {
@@ -982,14 +1092,21 @@ final class GlDeleteQueue {
 
     private static final class ContextDeletes {
         private final ConcurrentLinkedQueue<Integer> buffers = new ConcurrentLinkedQueue<>();
+        private final ConcurrentLinkedQueue<PendingBufferRelease> bufferReleases = new ConcurrentLinkedQueue<>();
         private final ConcurrentLinkedQueue<Integer> textures = new ConcurrentLinkedQueue<>();
         private final ConcurrentLinkedQueue<Integer> samplers = new ConcurrentLinkedQueue<>();
     }
+
+    private record PendingBufferRelease(
+            WeakReference<Object> meshBufferRef,
+            WeakReference<Object> expectedGlRef,
+            int bufferId) {}
 
     private static final class BufferSlot {
         private final GlDeleteQueue owner;
         private final AtomicReference<WeakReference<Object>> ctxRef = new AtomicReference<>();
         private final AtomicInteger bufferId = new AtomicInteger(INVALID_GL_NAME);
+        private int queuedReleaseId = INVALID_GL_NAME;
         private Cleaner.Cleanable cleanable;
 
         private BufferSlot(final GlDeleteQueue owner) {

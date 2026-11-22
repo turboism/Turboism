@@ -229,7 +229,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             case MemoryLeakMitigationTarget.G_ENTITY_OWNER -> {
                 if (MemoryLeakMitigationTarget.ENTITY_DISPOSE_METHOD.equals(name)
                         && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
-                    return entryConsumer(delegate, tracker, MemoryLeakMitigationBridge.DISPOSE_ENTITY_SLOT, SLOT_THIS);
+                    // Wait until dispose() detaches from parent and sets enabled=false before queueing VBO release.
+                    return returnConsumer(delegate, tracker, MemoryLeakMitigationBridge.DISPOSE_ENTITY_SLOT, SLOT_THIS);
                 }
             }
             case MemoryLeakMitigationTarget.EDITABLE_MESH_SEL_OWNER -> {

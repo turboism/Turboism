@@ -446,6 +446,120 @@ class MemoryLeakMitigationTest {
     }
 
     @Test
+    void offThreadDisposeAndResetDeferVboResetToGlThreadWithoutZeroingLiveHandles() throws Exception {
+        final Path fakeJar = Files.createTempFile("memory-leak-offthread-gl", ".jar");
+        try {
+            final SyntheticHost host = weaveAndBootBridge(fakeJar);
+
+            final Class<?> ctxCls = host.load("com/jogamp/opengl/GLContext");
+            final Field currentCtxField = ctxCls.getField("CURRENT");
+            final Object ctx1 = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Object ctx2 = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Class<?> glImplCls = host.load("TestGL3");
+            final Object gl1 = glImplCls.getConstructor(ctxCls).newInstance(ctx1);
+            final Object gl2 = glImplCls.getConstructor(ctxCls).newInstance(ctx2);
+
+            final Class<?> floatBufCls = host.load(MemoryLeakMitigationTarget.GL_BUFFER_FLOAT_OWNER);
+            final Method uploadMethod =
+                    floatBufCls.getDeclaredMethod("b", host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER), int.class);
+            uploadMethod.setAccessible(true);
+            final var getGlMethod = floatBufCls.getMethod("h");
+            final var getReinitMethod = floatBufCls.getMethod("j");
+            final var getIntBufMethod = floatBufCls.getMethod("i");
+
+            final Class<?> entityCls = host.load(MemoryLeakMitigationTarget.G_ENTITY_OWNER);
+            final Class<?> meshCls = host.load("com/live2d/graphics3d/mesh/GMesh2");
+            final Class<?> meshContainerCls = host.load("com/live2d/graphics3d/component/GMeshContainer");
+            final Class<?> meshArgCls = host.load("com/live2d/graphics3d/mesh/a");
+            final Class<?> meshRendererCls = host.load(MemoryLeakMitigationTarget.G_MESH_RENDERER_OWNER);
+            final Class<?> selectionCls = host.load(MemoryLeakMitigationTarget.EDITABLE_MESH_SEL_OWNER);
+
+            // Prepare VBOs on active ctx1.
+            currentCtxField.set(null, ctx1);
+            final Object parentEntity = entityCls.getConstructor().newInstance();
+            final Object childEntity = entityCls.getConstructor().newInstance();
+            final Object childMesh = meshCls.getConstructor().newInstance();
+            final Object childVbo = floatBufCls.getConstructor().newInstance();
+            meshCls.getField("posBuffer").set(childMesh, childVbo);
+            uploadMethod.invoke(childVbo, gl1, 1);
+            final int childVboId = ((IntBuffer) getIntBufMethod.invoke(childVbo)).get(0);
+            assertTrue(childVboId > 0);
+            final Object childRend =
+                    meshRendererCls.getConstructor(meshContainerCls).newInstance(meshContainerCls.getConstructor(meshArgCls).newInstance(childMesh));
+            ((List<Object>) entityCls.getMethod("getComponents").invoke(childEntity)).add(childRend);
+            ((List<Object>) entityCls.getMethod("getChildren").invoke(parentEntity)).add(childEntity);
+
+            final Object selection = selectionCls.getConstructor().newInstance();
+            final Object selEntity = entityCls.getConstructor().newInstance();
+            final Object selMesh = meshCls.getConstructor().newInstance();
+            final Object selVbo = floatBufCls.getConstructor().newInstance();
+            meshCls.getField("posBuffer").set(selMesh, selVbo);
+            uploadMethod.invoke(selVbo, gl1, 1);
+            final int selVboId = ((IntBuffer) getIntBufMethod.invoke(selVbo)).get(0);
+            assertTrue(selVboId > 0);
+            final Object selRend =
+                    meshRendererCls.getConstructor(meshContainerCls).newInstance(meshContainerCls.getConstructor(meshArgCls).newInstance(selMesh));
+            ((List<Object>) entityCls.getMethod("getComponents").invoke(selEntity)).add(selRend);
+            ((List<Object>) entityCls.getMethod("getChildren").invoke(selection)).add(selEntity);
+
+            // Simulate EDT teardown (no current GLContext on calling thread).
+            currentCtxField.set(null, null);
+            final long queuedBefore = activeBridge.snapshot().get("vbosQueued");
+            final long deletedBefore = activeBridge.snapshot().get("vbosDeleted");
+
+            // Disposing parent alone must not release child entity VBOs prematurely.
+            entityCls.getMethod("dispose").invoke(parentEntity);
+            assertEquals(childVboId, ((IntBuffer) getIntBufMethod.invoke(childVbo)).get(0));
+            assertSame(gl1, getGlMethod.invoke(childVbo));
+            assertEquals(queuedBefore, activeBridge.snapshot().get("vbosQueued"));
+
+            // Disposing child entity off-thread defers VBO reset/delete to ctx1 without zeroing live handles on EDT.
+            entityCls.getMethod("dispose").invoke(childEntity);
+            assertEquals(childVboId, ((IntBuffer) getIntBufMethod.invoke(childVbo)).get(0));
+            assertSame(gl1, getGlMethod.invoke(childVbo));
+            assertEquals(false, getReinitMethod.invoke(childVbo));
+            assertEquals(queuedBefore + 1L, activeBridge.snapshot().get("vbosQueued"));
+            assertEquals(deletedBefore, activeBridge.snapshot().get("vbosDeleted"));
+
+            // Resetting EditableMeshSelectionEntity twice off-thread queues once and keeps selVboId valid until GL drain.
+            final Method resetMethod = selectionCls.getMethod("reset");
+            resetMethod.invoke(selection);
+            resetMethod.invoke(selection);
+            assertEquals(selVboId, ((IntBuffer) getIntBufMethod.invoke(selVbo)).get(0));
+            assertSame(gl1, getGlMethod.invoke(selVbo));
+            assertEquals(false, getReinitMethod.invoke(selVbo));
+            assertEquals(queuedBefore + 2L, activeBridge.snapshot().get("vbosQueued"));
+            assertEquals(deletedBefore, activeBridge.snapshot().get("vbosDeleted"));
+            assertEquals(0, glImplCls.getField("deletes").getInt(gl1));
+
+            // Re-uploading selVbo on another context (ctx2) before ctx1 drains must not re-queue selVboId.
+            currentCtxField.set(null, ctx2);
+            uploadMethod.invoke(selVbo, gl2, 1);
+            final int selVboIdOnGl2 = ((IntBuffer) getIntBufMethod.invoke(selVbo)).get(0);
+            assertTrue(selVboIdOnGl2 > 0);
+            assertSame(gl2, getGlMethod.invoke(selVbo));
+            assertEquals(queuedBefore + 2L, activeBridge.snapshot().get("vbosQueued"));
+
+            // Returning to ctx1 drains both queued releases via drainForGl before uploading childVbo,
+            // deleting old IDs cleanly, re-initializing childVbo, and preserving selVbo's live gl2 state.
+            currentCtxField.set(null, ctx1);
+            uploadMethod.invoke(childVbo, gl1, 1);
+            assertEquals(deletedBefore + 2L, activeBridge.snapshot().get("vbosDeleted"));
+            assertEquals(1, glImplCls.getField("deletes").getInt(gl1));
+            assertTrue(((IntBuffer) getIntBufMethod.invoke(childVbo)).get(0) > 0);
+            assertTrue(((IntBuffer) getIntBufMethod.invoke(childVbo)).get(0) != childVboId);
+            assertSame(gl1, getGlMethod.invoke(childVbo));
+            assertEquals(false, getReinitMethod.invoke(childVbo));
+
+            assertSame(gl2, getGlMethod.invoke(selVbo));
+            assertEquals(selVboIdOnGl2, ((IntBuffer) getIntBufMethod.invoke(selVbo)).get(0));
+            assertEquals(false, getReinitMethod.invoke(selVbo));
+        } finally {
+            Files.deleteIfExists(fakeJar);
+        }
+    }
+
+    @Test
     void undoLimitDocumentCloseStaticHoldersImageCacheFlushInspectorAndAwtRenameAreFixed() throws Exception {
         final Path fakeJar = Files.createTempFile("memory-leak-lifecycle", ".jar");
         try {
