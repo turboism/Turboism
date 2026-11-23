@@ -368,9 +368,15 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             if (dialog != null) {
                 final JPanel content = new JPanel(new BorderLayout(8, 8));
                 content.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 12, 12));
-                final JPanel channelRow = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
-                channelRow.add(new JLabel(text("updates.channel.label")));
-                channelRow.add(channelSelector);
+                final JPanel channelRow = new JPanel(new GridBagLayout());
+                final var channelLabelConstraints = new GridBagConstraints();
+                channelLabelConstraints.anchor = GridBagConstraints.LINE_START;
+                channelLabelConstraints.insets = new java.awt.Insets(0, 0, 0, 8);
+                channelRow.add(new JLabel(text("updates.channel.label")), channelLabelConstraints);
+                final var channelSelectorConstraints = new GridBagConstraints();
+                channelSelectorConstraints.anchor = GridBagConstraints.LINE_START;
+                channelSelectorConstraints.weightx = 1;
+                channelRow.add(channelSelector, channelSelectorConstraints);
                 final JPanel versions = new JPanel(new java.awt.GridLayout(1, 3, 8, 0));
                 versions.add(version);
                 versions.add(new JLabel("→", JLabel.CENTER));
