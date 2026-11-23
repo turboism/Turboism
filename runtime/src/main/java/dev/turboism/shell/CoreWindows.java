@@ -91,6 +91,14 @@ final class CoreWindows implements AutoCloseable {
     private static final String LINK_COLOR_KEY = "Component.linkColor";
     private static final Color FALLBACK_LINK_COLOR = new Color(0x155dfc);
     private static final String REFERENCE_LINK_SUFFIX = ".reference";
+    private static final String TOOLTIP_SUFFIX = ".tooltip";
+    private static final String STARTUP_TAB_ID = "startup";
+    private static final int STARTUP_CHANNEL_ROW = 0;
+    private static final String SKIP_UPDATE_KEY = "settings.skip-update";
+    private static final String SKIP_SPLASH_KEY = "settings.skip-splash";
+    private static final String SKIP_INFORMATION_KEY = "settings.skip-information";
+    private static final String AUTOMATIC_UPDATES_TOOLTIP_KEY = "settings.updates.automatic.tooltip";
+    private static final String PLUGIN_UPDATES_TOOLTIP_KEY = "settings.plugins.automatic-updates.tooltip";
     private static final int REFERENCE_LINK_VERTICAL_PADDING = 2;
     private static final int REFERENCE_LINK_HORIZONTAL_PADDING = 4;
     private static final String HTML_UNDERLINE_PREFIX = "<html><u>";
@@ -275,7 +283,6 @@ final class CoreWindows implements AutoCloseable {
 
         final JButton ok = new JButton(text("common.ok"));
         final JButton cancel = new JButton(text("common.cancel"));
-        final JButton apply = new JButton(text("common.apply"));
         final java.util.function.BooleanSupplier save = () -> {
             try {
                 if (!rendered.save().getAsBoolean()) {
@@ -293,11 +300,9 @@ final class CoreWindows implements AutoCloseable {
         };
         ok.addActionListener(ignored -> saveAndClose(save, () -> dialog.setVisible(false)));
         cancel.addActionListener(ignored -> dialog.setVisible(false));
-        apply.addActionListener(ignored -> save.getAsBoolean());
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(ok);
         buttons.add(cancel);
-        buttons.add(apply);
         dialog.add(tabs, BorderLayout.CENTER);
         dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
@@ -316,10 +321,12 @@ final class CoreWindows implements AutoCloseable {
                 RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB,
                 RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
                 10));
-        final JCheckBox skipUpdate = new JCheckBox(text("settings.skip-update"), value.skipStartupUpdateCheck());
-        final JCheckBox skipSplash = new JCheckBox(text("settings.skip-splash"), value.skipStartupSplash());
-        final JCheckBox skipInformation =
-                new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
+        final JCheckBox skipUpdate = new JCheckBox(text(SKIP_UPDATE_KEY), value.skipStartupUpdateCheck());
+        final JCheckBox skipSplash = new JCheckBox(text(SKIP_SPLASH_KEY), value.skipStartupSplash());
+        final JCheckBox skipInformation = new JCheckBox(text(SKIP_INFORMATION_KEY), value.skipStartupInformation());
+        setControlTooltip(SKIP_UPDATE_KEY + TOOLTIP_SUFFIX, skipUpdate);
+        setControlTooltip(SKIP_SPLASH_KEY + TOOLTIP_SUFFIX, skipSplash);
+        setControlTooltip(SKIP_INFORMATION_KEY + TOOLTIP_SUFFIX, skipInformation);
         final JCheckBox separateExportSaveDirectory =
                 new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
         final JCheckBox useTextIcon = createUseTextIconCheckBox(value);
@@ -341,10 +348,11 @@ final class CoreWindows implements AutoCloseable {
         builtins.put("performance", new BuiltinTab(text("settings.tab.performance"), 200, form()));
 
         final JPanel startup = form();
-        add(startup, 0, skipUpdate, new JLabel());
-        add(startup, 1, skipSplash, new JLabel());
-        add(startup, 2, skipInformation, new JLabel());
-        builtins.put("startup", new BuiltinTab(text("settings.tab.startup"), 300, startup));
+        int startupRow = STARTUP_CHANNEL_ROW + 1;
+        add(startup, startupRow++, skipUpdate, new JLabel());
+        add(startup, startupRow++, skipSplash, new JLabel());
+        add(startup, startupRow, skipInformation, new JLabel());
+        builtins.put(STARTUP_TAB_ID, new BuiltinTab(text("settings.tab.startup"), 300, startup));
 
         final JPanel maintenance = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
         final JButton clean = new JButton(text("settings.clean-empty-docks"));
@@ -434,7 +442,11 @@ final class CoreWindows implements AutoCloseable {
             int row = nextRow(outer);
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
                 final SettingsControl control = entry.contribution().control();
-                if (control instanceof SettingsControl.Note note && note.id().startsWith("performance.section.")) {
+                if (STARTUP_TAB_ID.equals(tab.id())
+                        && CoreUpdateSettingsContribution.CHANNEL_CONTRIBUTION_ID.equals(control.id())) {
+                    saves.add(renderControl(owner, outer, STARTUP_CHANNEL_ROW, control, presetSync));
+                } else if (control instanceof SettingsControl.Note note
+                        && note.id().startsWith("performance.section.")) {
                     final JPanel sectionContent = form();
                     final JPanel section = CollapsibleSection.create(note.label(), sectionContent, true, i18n.locale());
                     applyControlTooltip(note.id(), section);
@@ -453,7 +465,7 @@ final class CoreWindows implements AutoCloseable {
                             entry.contribution().id()));
             if (!alreadyContributed) {
                 renderedTabs.stream()
-                        .filter(candidate -> "startup".equals(candidate.id()))
+                        .filter(candidate -> STARTUP_TAB_ID.equals(candidate.id()))
                         .findFirst()
                         .ifPresent(startupTab -> {
                             final int row = nextRow(startupTab.panel());
@@ -559,7 +571,13 @@ final class CoreWindows implements AutoCloseable {
             final boolean initial = Boolean.TRUE.equals(toggle.binding().read());
             final JCheckBox checkbox = new JCheckBox(toggle.label(), initial);
             checkbox.setName(toggle.id());
-            applyControlTooltip(toggle.id(), checkbox);
+            switch (toggle.id()) {
+                case CoreUpdateSettingsContribution.CONTRIBUTION_ID ->
+                    setControlTooltip(AUTOMATIC_UPDATES_TOOLTIP_KEY, checkbox);
+                case CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID ->
+                    setControlTooltip(PLUGIN_UPDATES_TOOLTIP_KEY, checkbox);
+                default -> applyControlTooltip(toggle.id(), checkbox);
+            }
             final boolean[] accepted = {initial};
             final boolean[] changing = {false};
             final Optional<Optimization> optimization =
@@ -655,24 +673,24 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void applyControlTooltip(final String controlId, final javax.swing.JComponent... components) {
-        CubismJvmSettingsContribution.tooltipKey(controlId).ifPresent(key -> {
-            if (i18n.contains(key)) {
-                final String raw = text(key);
-                if (raw != null && !raw.isBlank()) {
-                    final String tip = raw.length() > 40 && !raw.startsWith("<html>")
-                            ? "<html><div style='width: 360px;'>"
-                                    + raw.replace("&", "&amp;")
-                                            .replace("<", "&lt;")
-                                            .replace(">", "&gt;")
-                                            .replace("\n", "<br>")
-                                    + "</div></html>"
-                            : raw;
-                    for (javax.swing.JComponent component : components) {
-                        component.setToolTipText(tip);
-                    }
-                }
-            }
-        });
+        CubismJvmSettingsContribution.tooltipKey(controlId).ifPresent(key -> setControlTooltip(key, components));
+    }
+
+    private void setControlTooltip(final String key, final javax.swing.JComponent... components) {
+        if (!i18n.contains(key)) return;
+        final String raw = text(key);
+        if (raw == null || raw.isBlank()) return;
+        final String tip = raw.length() > 40 && !raw.startsWith("<html>")
+                ? "<html><div style='width: 360px;'>"
+                        + raw.replace("&", "&amp;")
+                                .replace("<", "&lt;")
+                                .replace(">", "&gt;")
+                                .replace("\n", "<br>")
+                        + "</div></html>"
+                : raw;
+        for (javax.swing.JComponent component : components) {
+            component.setToolTipText(tip);
+        }
     }
 
     private static String requireChoiceValue(final SettingsControl.Choice choice, final String value) {

@@ -863,7 +863,15 @@ class DeclarativeSettingsRendererTest {
                     JPanel actions = (JPanel)
                             ((java.awt.BorderLayout) dialog[0].getContentPane().getLayout())
                                     .getLayoutComponent(java.awt.BorderLayout.SOUTH);
-                    assertEquals(3, actions.getComponentCount());
+                    assertEquals(2, actions.getComponentCount());
+                    assertEquals(
+                            "common.ok",
+                            assertInstanceOf(JButton.class, actions.getComponent(0))
+                                    .getText());
+                    assertEquals(
+                            "common.cancel",
+                            assertInstanceOf(JButton.class, actions.getComponent(1))
+                                    .getText());
                     assertFalse(SwingUtilities.isDescendingFrom(actions, page[0]));
                     assertTrue(new Rectangle(dialog[0].getContentPane().getSize()).contains(actions.getBounds()));
                     last[0] = checkboxes(page[0]).get(29);
@@ -1064,10 +1072,16 @@ class DeclarativeSettingsRendererTest {
                         "settings.skip-information",
                         "settings.updates.automatic",
                         "settings.plugins.automatic-updates");
-                int previousBottom = -1;
+                final JComboBox<?> channelCombo = findComboBox(startupForm);
+                assertTrue(channelCombo != null, "missing update channel dropdown on Startup tab");
+                assertTrue(channelCombo.getWidth() > 0 && channelCombo.getHeight() > 0);
+
+                int previousBottom = channelCombo.getY() + channelCombo.getHeight();
                 for (final String label : expectedStartupLabels) {
                     final JCheckBox box = findCheckBox(startupForm, label);
                     assertTrue(box != null, "missing startup checkbox: " + label);
+                    final String tooltip = box.getToolTipText();
+                    assertTrue(tooltip != null && tooltip.contains(label + ".tooltip"), "wrong tooltip for " + label);
                     assertTrue(
                             box.getWidth() > 0 && box.getHeight() > 0,
                             "startup checkbox collapsed: " + label + " bounds=" + box.getBounds());
@@ -1078,9 +1092,6 @@ class DeclarativeSettingsRendererTest {
                     previousBottom = box.getY() + box.getHeight();
                 }
 
-                final JComboBox<?> channelCombo = findComboBox(startupForm);
-                assertTrue(channelCombo != null, "missing update channel dropdown on Startup tab");
-                assertTrue(channelCombo.getWidth() > 0 && channelCombo.getHeight() > 0);
                 selectOption(channelCombo, dev.turboism.internal.core.CoreUpdateService.CHANNEL_BETA);
 
                 separateExportBox.doClick();
