@@ -149,6 +149,7 @@ class CubismLogServiceHostTest {
     void hostErrorsForwardFormattedMessagesAndThrowablesToRuntimeDiagnosticsWithoutLoopback() {
         final List<String> recorded = new ArrayList<>();
         final List<Throwable> recordedThrowables = new ArrayList<>();
+        dev.turboism.runtime.log.RuntimeDiagnostics.clear();
         dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
             recorded.add(level + ":" + component + ":" + message);
             recordedThrowables.add(failure);
