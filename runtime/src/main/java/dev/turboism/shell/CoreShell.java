@@ -91,8 +91,7 @@ public final class CoreShell implements ShellHandle {
                 services.settingsContributions(),
                 plugins,
                 services.logs(),
-                services.keybindings(),
-                services.cubismJvmSettings());
+                services.keybindings());
         logger.info("Turboism core initialized");
         registerAction(
                 MainToolbarHomeEntryService.ACTION_ID,

@@ -107,4 +107,26 @@ class CollapsibleSectionRuntimeTest {
         panel.dispatchEvent(move(panel, new Point(10, 100)));
         assertEquals(Cursor.DEFAULT_CURSOR, panel.getCursor().getType());
     }
+
+    @Test
+    void groupCheckBoxSupportsTriStateAndClickingHeaderCheckBoxDoesNotCollapse() {
+        JPanel content = SwingPanelTestSupport.newContent();
+        javax.swing.JCheckBox groupCheckBox = CollapsibleSection.createGroupCheckBox();
+        JPanel panel = CollapsibleSection.create("分组标题", content, true, Locale.CHINESE, groupCheckBox);
+        panel.setSize(400, 200);
+        panel.doLayout();
+        SwingPanelTestSupport.paint(panel);
+
+        CollapsibleSection.updateGroupCheckBoxState(groupCheckBox, false, true);
+        assertFalse(groupCheckBox.isSelected());
+        assertEquals("indeterminate", groupCheckBox.getClientProperty("JButton.selectedState"));
+        SwingPanelTestSupport.paint(panel);
+
+        CollapsibleSection.updateGroupCheckBoxState(groupCheckBox, true, true);
+        assertTrue(groupCheckBox.isSelected());
+        assertEquals(null, groupCheckBox.getClientProperty("JButton.selectedState"));
+
+        groupCheckBox.doClick();
+        assertTrue(content.isVisible());
+    }
 }
