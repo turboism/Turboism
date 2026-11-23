@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.optimization.warpdeform;
 
 import dev.turboism.adapter.cubism.optimization.TargetClassTable;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ModelUpdateTargetTable;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.List;
 import java.util.Map;
@@ -169,12 +170,93 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     public static final String ACTION_OFFSET_FLOATS_METHOD = "b";
     public static final String ACTION_OFFSET_FLOATS_DESCRIPTOR = "(Lcom/live2d/graphics3d/type/GVector2;)[F";
 
+    /** Internal name of overlay loop host in Cubism 5.0.x builds. */
+    public static final String LEGACY_OVERLAY_VIEW_OWNER = "com/live2d/cubism/view/context/J";
+
+    /** Internal name of overlay loop helper in Cubism 5.1+ builds. */
+    public static final String OVERLAY_HELPER_OWNER = "com/live2d/cubism/view/context/K$b";
+
+    /** Reviewed overlay method name on {@code J} in 5.0.00–5.0.05 builds. */
+    public static final String LEGACY_OVERLAY_METHOD_V500 = "E";
+
+    /** Reviewed overlay method name on {@code J} in 5.0.06 builds. */
+    public static final String LEGACY_OVERLAY_METHOD_V506 = "F";
+
+    /** Reviewed overlay descriptor on {@code J} in 5.0.x builds. */
+    public static final String LEGACY_OVERLAY_DESCRIPTOR = "()V";
+
+    /** Reviewed overlay method name on {@code K$b} in 5.1+ builds. */
+    public static final String OVERLAY_HELPER_METHOD = "a";
+
+    /** Reviewed overlay descriptor on {@code K$b} in 5.1+ builds. */
+    public static final String OVERLAY_HELPER_DESCRIPTOR =
+            "(Lcom/live2d/cubism/doc/model/deformer/ACDeformer;"
+                    + "Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;"
+                    + "ZZ"
+                    + "Lcom/live2d/cubism/setting/AppSetting$RotationDeformer$Mode;"
+                    + "Lcom/live2d/cubism/view/context/actionManager/aG;"
+                    + "Lkotlin/jvm/functions/Function1;)V";
+
+    /** Reviewed {@code updateModel} method name on {@code aj..ay} updater classes. */
+    public static final String UPDATE_MODEL_METHOD = "a";
+
+    private static final String VERSION_5_0_PREFIX = "5.0.";
+
     private static final Map<String, List<String>> REVIEWED_TABLES = TargetClassTable.load(TARGET_TABLE);
 
     public WarpDeformEditTarget {
         Objects.requireNonNull(digest, "digest");
         Objects.requireNonNull(version, "version");
         targetClasses = List.copyOf(Objects.requireNonNull(targetClasses, "targetClasses"));
+    }
+
+    /** Returns the reviewed {@code updater} internal class name for this artifact version. */
+    public String updaterOwner() {
+        return modelUpdateRow().updater();
+    }
+
+    /** Returns the reviewed {@code updateCore} JVM descriptor on {@code updater} (disjoint from {@code ModelUpdateSkip}). */
+    public String coreUpdateDescriptor() {
+        final ModelUpdateTargetTable.Row row = modelUpdateRow();
+        return "(Lcom/live2d/cubism/doc/model/CModel;Ljava/util/List;L"
+                + row.updateContext()
+                + ";Lcom/live2d/cubism/view/context/CEViewContext;L"
+                + row.contextParam()
+                + ";)V";
+    }
+
+    /** Returns the reviewed {@code updateArtMeshAppearance} JVM descriptor on {@code updater}. */
+    public String artMeshAppearanceDescriptor() {
+        final ModelUpdateTargetTable.Row row = modelUpdateRow();
+        return "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMesh;Lcom/live2d/cubism/doc/model/CModel;L"
+                + row.updateContext()
+                + ";Lcom/live2d/cubism/doc/modeling/CModelingDocument;)V";
+    }
+
+    /** Returns the reviewed overlay loop owner internal name for this artifact version. */
+    public String overlayOwner() {
+        return version.startsWith(VERSION_5_0_PREFIX) ? LEGACY_OVERLAY_VIEW_OWNER : OVERLAY_HELPER_OWNER;
+    }
+
+    /** Returns the reviewed overlay loop method descriptor for this artifact version. */
+    public String overlayMethodDescriptor() {
+        return version.startsWith(VERSION_5_0_PREFIX) ? LEGACY_OVERLAY_DESCRIPTOR : OVERLAY_HELPER_DESCRIPTOR;
+    }
+
+    private ModelUpdateTargetTable.Row modelUpdateRow() {
+        ModelUpdateTargetTable.Row versionMatch = null;
+        for (final ModelUpdateTargetTable.Row row : ModelUpdateTargetTable.all()) {
+            if (row.digest().equals(digest)) {
+                return row;
+            }
+            if (row.version().equals(version)) {
+                versionMatch = row;
+            }
+        }
+        if (versionMatch != null) {
+            return versionMatch;
+        }
+        throw new IllegalStateException("no model-update row for version " + version);
     }
 
     /**

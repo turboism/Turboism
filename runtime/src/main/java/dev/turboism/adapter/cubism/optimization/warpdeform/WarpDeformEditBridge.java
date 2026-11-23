@@ -62,6 +62,32 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     /** {@code MethodHandle} slot: {@code (Object draw, Object selection, Object baseColor, float[] pos, int col, int row) -> boolean}. */
     public static final String DRAW_SOFT_SELECTION_PROPERTY = "turboism.warp-deform-edit.draw-soft-selection";
 
+    /** {@code MethodHandle} slot: {@code (updater, model, visibleMeshes, updCtx, viewCtx, ctx5) -> boolean}. */
+    public static final String EDIT_SUBTREE_UPDATE_MODEL_PROPERTY =
+            "turboism.warp-deform-edit.subtree-update-model";
+
+    /** {@code MethodHandle} slot: {@code (updater, model, visibleMeshes, updCtx, viewCtx, ctx5) -> void}. */
+    public static final String EDIT_SUBTREE_END_MODEL_PROPERTY =
+            "turboism.warp-deform-edit.subtree-end-model";
+
+    /** {@code MethodHandle} slot: {@code (artMesh, model) -> boolean}. */
+    public static final String EDIT_SUBTREE_SKIP_MESH_APPEARANCE_PROPERTY =
+            "turboism.warp-deform-edit.subtree-skip-mesh-appearance";
+
+    /** {@code MethodHandle} slot: {@code (deformer, sceneGraph, hideSelected, visible, rotMode, actionPack) -> boolean}. */
+    public static final String EDIT_OVERLAY_ELIDE_PROPERTY = "turboism.warp-deform-edit.overlay-elide";
+
+    /** {@code MethodHandle} slot: {@code (deformer, hideSelected, visible, rotMode, actionPack) -> void}. */
+    public static final String EDIT_OVERLAY_RECORD_PROPERTY = "turboism.warp-deform-edit.overlay-record";
+
+    /** {@code MethodHandle} slot: {@code (jView) -> boolean}. */
+    public static final String EDIT_LEGACY_OVERLAY_ELIDE_PROPERTY =
+            "turboism.warp-deform-edit.legacy-overlay-elide";
+
+    /** {@code MethodHandle} slot: {@code (jView) -> void}. */
+    public static final String EDIT_LEGACY_OVERLAY_RECORD_PROPERTY =
+            "turboism.warp-deform-edit.legacy-overlay-record";
+
     /** Diagnostic counter snapshot slot ({@code Supplier<Map<String, Long>>}). */
     public static final String STATS_PROPERTY = "turboism.warp-deform-edit.stats";
 
@@ -130,6 +156,16 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private static final String STAT_SELECTED_UPLOAD_ELIDED = "selectedUploadElided";
     private static final String STAT_SOFT_SELECTION = "softSelectionCalls";
     private static final String STAT_OVERLAY_UPLOADS_ELIDED = "overlayUploadsElided";
+    private static final String STAT_FAST_MODEL_UPDATES = "fastModelUpdates";
+    private static final String STAT_FALLBACK_MODEL_UPDATES = "fallbackModelUpdates";
+    private static final String STAT_DIRTY_DEFORMERS = "dirtyDeformersProcessed";
+    private static final String STAT_SKIPPED_DEFORMERS = "skippedDeformers";
+    private static final String STAT_DIRTY_MESHES = "dirtyMeshesProcessed";
+    private static final String STAT_SKIPPED_MESHES = "skippedMeshes";
+    private static final String STAT_PARALLEL_DEFORMER_LEVELS = "parallelDeformerLevels";
+    private static final String STAT_PARALLEL_MESH_BATCHES = "parallelMeshBatches";
+    private static final String STAT_OVERLAY_ELISIONS = "overlayElisions";
+    private static final String STAT_OVERLAY_UPDATES = "overlayUpdates";
     private static final String STAT_FAILURES = "failures";
 
     private static final ThreadLocal<double[]> DOUBLE2_SCRATCH = ThreadLocal.withInitial(() -> new double[2]);
@@ -242,6 +278,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final WeakIdentityCache<Object, LineOverlayState> lineCache = new WeakIdentityCache<>();
     private final WeakIdentityCache<Object, FloatArraySnapshot> selectedBufferCache = new WeakIdentityCache<>();
     private final WeakIdentityCache<Object, WeightMapOverlayState> weightMapCache = new WeakIdentityCache<>();
+    private final SubtreeParallelExecutor parallelExecutor;
+    private final EditSubtreeCoordinator editSubtreeCoordinator;
+    private final EditOverlayElisionCoordinator editOverlayCoordinator;
 
     private final AtomicBoolean active = new AtomicBoolean();
     private final AtomicBoolean activeSlot = new AtomicBoolean();
@@ -562,6 +601,21 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             throw new ReflectiveOperationException("Failed reading host static constants", failure);
         }
 
+        final SubtreeParallelExecutor executor = new SubtreeParallelExecutor();
+        try {
+            final EditSubtreeHandles subtreeHandles = EditSubtreeHandles.resolve(loader);
+            parallelExecutor = executor;
+            editSubtreeCoordinator = new EditSubtreeCoordinator(subtreeHandles, executor);
+            editOverlayCoordinator = new EditOverlayElisionCoordinator(subtreeHandles, editSubtreeCoordinator);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            executor.close();
+            if (failure instanceof ReflectiveOperationException reflective) {
+                throw reflective;
+            }
+            throw new ReflectiveOperationException("Failed resolving edit subtree handles", failure);
+        }
+
         publishedSlots = buildSlotMap();
     }
 
@@ -597,6 +651,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         activeSlot.set(false);
         if (!active.compareAndSet(true, false)) {
             clearCaches();
+            parallelExecutor.close();
             return;
         }
         final Properties properties = installedProperties;
@@ -609,6 +664,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         }
         installedProperties = null;
         clearCaches();
+        parallelExecutor.close();
     }
 
     /** Returns immutable telemetry counters for bridge invocations and elided uploads. */
@@ -627,6 +683,16 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         counters.put(STAT_SELECTED_UPLOAD_ELIDED, selectedUploadElided.sum());
         counters.put(STAT_SOFT_SELECTION, softSelectionCalls.sum());
         counters.put(STAT_OVERLAY_UPLOADS_ELIDED, overlayUploadsElided.sum());
+        counters.put(STAT_FAST_MODEL_UPDATES, editSubtreeCoordinator.fastModelUpdates.sum());
+        counters.put(STAT_FALLBACK_MODEL_UPDATES, editSubtreeCoordinator.fallbackModelUpdates.sum());
+        counters.put(STAT_DIRTY_DEFORMERS, editSubtreeCoordinator.dirtyDeformersProcessed.sum());
+        counters.put(STAT_SKIPPED_DEFORMERS, editSubtreeCoordinator.skippedDeformers.sum());
+        counters.put(STAT_DIRTY_MESHES, editSubtreeCoordinator.dirtyMeshesProcessed.sum());
+        counters.put(STAT_SKIPPED_MESHES, editSubtreeCoordinator.skippedMeshes.sum());
+        counters.put(STAT_PARALLEL_DEFORMER_LEVELS, editSubtreeCoordinator.parallelDeformerLevels.sum());
+        counters.put(STAT_PARALLEL_MESH_BATCHES, editSubtreeCoordinator.parallelMeshBatches.sum());
+        counters.put(STAT_OVERLAY_ELISIONS, editOverlayCoordinator.overlayElisions.sum());
+        counters.put(STAT_OVERLAY_UPDATES, editOverlayCoordinator.overlayUpdates.sum());
         counters.put(STAT_FAILURES, failures.sum());
         return Map.copyOf(counters);
     }
@@ -728,8 +794,150 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                                 float[].class,
                                 int.class,
                                 int.class)));
+        slots.put(
+                EDIT_SUBTREE_UPDATE_MODEL_PROPERTY,
+                lookup.bind(
+                        this,
+                        "tryFastCoreUpdate",
+                        MethodType.methodType(
+                                boolean.class,
+                                Object.class,
+                                Object.class,
+                                Object.class,
+                                Object.class,
+                                Object.class,
+                                Object.class)));
+        slots.put(
+                EDIT_SUBTREE_END_MODEL_PROPERTY,
+                lookup.bind(
+                        this,
+                        "afterCoreUpdate",
+                        MethodType.methodType(
+                                void.class,
+                                Object.class,
+                                Object.class,
+                                Object.class,
+                                Object.class,
+                                Object.class,
+                                Object.class)));
+        slots.put(
+                EDIT_SUBTREE_SKIP_MESH_APPEARANCE_PROPERTY,
+                lookup.bind(
+                        this,
+                        "shouldSkipCleanArtMeshAppearance",
+                        MethodType.methodType(boolean.class, Object.class, Object.class)));
+        slots.put(
+                EDIT_OVERLAY_ELIDE_PROPERTY,
+                lookup.bind(
+                        this,
+                        "tryElideDeformerOverlay",
+                        MethodType.methodType(
+                                boolean.class,
+                                Object.class,
+                                Object.class,
+                                boolean.class,
+                                boolean.class,
+                                Object.class,
+                                Object.class)));
+        slots.put(
+                EDIT_OVERLAY_RECORD_PROPERTY,
+                lookup.bind(
+                        this,
+                        "recordDeformerOverlay",
+                        MethodType.methodType(
+                                void.class,
+                                Object.class,
+                                boolean.class,
+                                boolean.class,
+                                Object.class,
+                                Object.class)));
+        slots.put(
+                EDIT_LEGACY_OVERLAY_ELIDE_PROPERTY,
+                lookup.bind(
+                        this,
+                        "tryElideLegacyDeformerOverlay",
+                        MethodType.methodType(boolean.class, Object.class)));
+        slots.put(
+                EDIT_LEGACY_OVERLAY_RECORD_PROPERTY,
+                lookup.bind(
+                        this,
+                        "recordLegacyDeformerOverlay",
+                        MethodType.methodType(void.class, Object.class)));
         slots.put(STATS_PROPERTY, statistics);
         return Map.copyOf(slots);
+    }
+
+    private boolean tryFastCoreUpdate(
+            final Object updater,
+            final Object model,
+            final Object visibleMeshes,
+            final Object updCtx,
+            final Object viewCtx,
+            final Object ctx5) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editSubtreeCoordinator.tryFastCoreUpdate(updater, model, visibleMeshes, updCtx, viewCtx, ctx5);
+    }
+
+    private void afterCoreUpdate(
+            final Object updater,
+            final Object model,
+            final Object visibleMeshes,
+            final Object updCtx,
+            final Object viewCtx,
+            final Object ctx5) {
+        if (!isOperational()) {
+            return;
+        }
+        editSubtreeCoordinator.afterNativeCoreUpdate(updater, model, visibleMeshes, updCtx, viewCtx, ctx5);
+    }
+
+    private boolean shouldSkipCleanArtMeshAppearance(final Object artMesh, final Object model) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editSubtreeCoordinator.shouldSkipCleanArtMeshAppearance(artMesh, model);
+    }
+
+    private boolean tryElideDeformerOverlay(
+            final Object deformer,
+            final Object sceneGraph,
+            final boolean hideSelected,
+            final boolean isDeformerVisible,
+            final Object rotMode,
+            final Object actionPack) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editOverlayCoordinator.tryElideOverlay(
+                deformer, sceneGraph, hideSelected, isDeformerVisible, rotMode, actionPack);
+    }
+
+    private void recordDeformerOverlay(
+            final Object deformer,
+            final boolean hideSelected,
+            final boolean isDeformerVisible,
+            final Object rotMode,
+            final Object actionPack) {
+        if (!isOperational()) {
+            return;
+        }
+        editOverlayCoordinator.recordUpdatedOverlay(deformer, hideSelected, isDeformerVisible, rotMode, actionPack);
+    }
+
+    private boolean tryElideLegacyDeformerOverlay(final Object viewOverlay) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editOverlayCoordinator.tryElideLegacyOverlayLoop(viewOverlay);
+    }
+
+    private void recordLegacyDeformerOverlay(final Object viewOverlay) {
+        if (!isOperational()) {
+            return;
+        }
+        editOverlayCoordinator.recordLegacyOverlayLoop(viewOverlay);
     }
 
     private boolean isOperational() {
@@ -745,6 +953,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         lineCache.clear();
         selectedBufferCache.clear();
         weightMapCache.clear();
+        editSubtreeCoordinator.clearCaches();
+        editOverlayCoordinator.clearCaches();
     }
 
     private int formIsInside(final Object form, final Object pt) {

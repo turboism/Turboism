@@ -65,6 +65,12 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     private static final String GET_SELECTION_METHOD = "getSelection";
     private static final String BUFFER_UPLOAD_METHOD = "l";
     private static final String BUFFER_UPLOAD_DESCRIPTOR = "()V";
+    private static final String ACTION_PACK_OWNER = "com/live2d/cubism/view/context/actionManager/aG";
+    private static final String ACTION_PACK_DEFORMERS_METHOD = "V";
+    private static final String ACTION_PACK_DEFORMERS_DESC = "()Ljava/util/List;";
+    private static final String CANVAS_SETTING_OWNER = "com/live2d/cubism/setting/AppSetting$CanvasSetting";
+    private static final String HIDE_SELECTED_METHOD = "getHideSelectedState";
+    private static final String HIDE_SELECTED_DESC = "()Z";
     private static final String GET_POSITIONS_BUFFER_METHOD = "getPositionsBuffer";
     private static final String GET_COLORS_BUFFER_METHOD = "getColorsBuffer";
     private static final String BUFFER_WRAPPER_DESCRIPTOR = "()L" + WarpDeformEditTarget.FLOAT_BUFFER_OWNER + ";";
@@ -90,6 +96,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     private final Map<String, Integer> matchesByOwner = new ConcurrentHashMap<>();
     private final SoftSelectionAnchor softSelectionAnchor;
     private final ActionTransformAnchors actionAnchors;
+    private final String resolvedOverlayMethodName;
     private volatile String failure;
 
     private record MethodSpec(String name, String descriptor) {}
@@ -139,6 +146,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         SoftSelectionAnchor resolvedSoftAnchor = null;
         ActionTransformAnchors resolvedActionAnchors = new ActionTransformAnchors(
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        String detectedOverlayMethod = WarpDeformEditTarget.OVERLAY_HELPER_METHOD;
 
         for (final String owner : target.targetClasses()) {
             final byte[] refBytes = references.get(owner);
@@ -176,6 +184,19 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 }
                 resolvedActionAnchors = inspectActionAnchors(owner, actionMethod, refBytes, resolvedActionAnchors);
                 ownerMethods = List.of(actionMethod);
+            } else if (target.updaterOwner().equals(owner)) {
+                ownerMethods = List.of(
+                        new MethodSpec(WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.coreUpdateDescriptor()),
+                        new MethodSpec(
+                                WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.artMeshAppearanceDescriptor()));
+            } else if (target.overlayOwner().equals(owner)) {
+                detectedOverlayMethod = WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER.equals(owner)
+                        ? detectLegacyOverlayMethod(refBytes)
+                        : WarpDeformEditTarget.OVERLAY_HELPER_METHOD;
+                if (detectedOverlayMethod == null) {
+                    throw new IllegalArgumentException("legacy overlay loop method absent in " + owner);
+                }
+                ownerMethods = List.of(new MethodSpec(detectedOverlayMethod, target.overlayMethodDescriptor()));
             } else {
                 ownerMethods = fixedMethodsFor(owner);
             }
@@ -193,6 +214,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         this.referenceShapes = Map.copyOf(shapes);
         this.softSelectionAnchor = Objects.requireNonNull(resolvedSoftAnchor);
         this.actionAnchors = resolvedActionAnchors;
+        this.resolvedOverlayMethodName = detectedOverlayMethod;
     }
 
     /**
@@ -392,6 +414,21 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 return new ActionOffsetFloatsAdapter(out, owner, actionAnchors);
             }
         }
+        if (target.updaterOwner().equals(owner) && WarpDeformEditTarget.UPDATE_MODEL_METHOD.equals(methodName)) {
+            if (target.coreUpdateDescriptor().equals(desc)) {
+                return EditSubtreeMethodWeavers.coreUpdateAdapter(out);
+            }
+            if (target.artMeshAppearanceDescriptor().equals(desc)) {
+                return EditSubtreeMethodWeavers.artMeshAppearanceAdapter(out);
+            }
+        }
+        if (target.overlayOwner().equals(owner)
+                && resolvedOverlayMethodName.equals(methodName)
+                && target.overlayMethodDescriptor().equals(desc)) {
+            return WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER.equals(owner)
+                    ? EditSubtreeMethodWeavers.legacyOverlayViewAdapter(out)
+                    : EditSubtreeMethodWeavers.overlayHelperAdapter(out);
+        }
         return out;
     }
 
@@ -424,6 +461,59 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                         WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_DESCRIPTOR));
             default -> throw new IllegalArgumentException("unsupported fixed owner: " + owner);
         };
+    }
+
+    private static String detectLegacyOverlayMethod(final byte[] bytes) {
+        final String[] found = {null};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String desc,
+                                    final String sig,
+                                    final String[] ex) {
+                                if (!WarpDeformEditTarget.LEGACY_OVERLAY_DESCRIPTOR.equals(desc)
+                                        || (!WarpDeformEditTarget.LEGACY_OVERLAY_METHOD_V500.equals(name)
+                                                && !WarpDeformEditTarget.LEGACY_OVERLAY_METHOD_V506.equals(name))) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    private boolean readsDeformers;
+                                    private boolean checksHideSelected;
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int op,
+                                            final String owner,
+                                            final String mName,
+                                            final String mDesc,
+                                            final boolean itf) {
+                                        if (ACTION_PACK_OWNER.equals(owner)
+                                                && ACTION_PACK_DEFORMERS_METHOD.equals(mName)
+                                                && ACTION_PACK_DEFORMERS_DESC.equals(mDesc)) {
+                                            readsDeformers = true;
+                                        }
+                                        if (CANVAS_SETTING_OWNER.equals(owner)
+                                                && HIDE_SELECTED_METHOD.equals(mName)
+                                                && HIDE_SELECTED_DESC.equals(mDesc)) {
+                                            checksHideSelected = true;
+                                        }
+                                    }
+
+                                    @Override
+                                    public void visitEnd() {
+                                        if (readsDeformers && checksHideSelected) {
+                                            found[0] = name;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return found[0];
     }
 
     private static MethodSpec detectActionMethod(final byte[] bytes) {

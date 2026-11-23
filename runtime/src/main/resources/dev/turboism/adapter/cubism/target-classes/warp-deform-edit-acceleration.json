@@ -8,7 +8,9 @@
     "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
     "com/live2d/cubism/view/context/action/a",
     "com/live2d/cubism/view/context/action/a$a",
-    "com/live2d/cubism/view/context/action/N$c"
+    "com/live2d/cubism/view/context/action/N$c",
+    "com/live2d/cubism/view/ay",
+    "com/live2d/cubism/view/context/K$b"
   ],
   "overrides": {
     "5.0.00": [
@@ -19,7 +21,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/aj",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.0.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -29,7 +33,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/aj",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.0.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -39,7 +45,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/aj",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.0.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -49,7 +57,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ak",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.0.04": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -59,7 +69,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ak",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.0.05": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -69,7 +81,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ak",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.0.06": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -79,7 +93,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/al",
+      "com/live2d/cubism/view/context/J"
     ],
     "5.1.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -89,7 +105,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ao",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.1.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -99,7 +117,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ao",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.1.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -109,7 +129,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ao",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.1.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -119,7 +141,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/ao",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.2.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -129,7 +153,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/at",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.2.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -139,7 +165,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/at",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.2.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -149,7 +177,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/at",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.2.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -159,7 +189,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/y$c",
-      "com/live2d/cubism/view/context/action/y$d"
+      "com/live2d/cubism/view/context/action/y$d",
+      "com/live2d/cubism/view/au",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.3.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -170,7 +202,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/z$b",
       "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c"
+      "com/live2d/cubism/view/context/action/C$c",
+      "com/live2d/cubism/view/ay",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.3.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -181,7 +215,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/z$b",
       "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c"
+      "com/live2d/cubism/view/context/action/C$c",
+      "com/live2d/cubism/view/ay",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.3.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -192,7 +228,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/z$b",
       "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c"
+      "com/live2d/cubism/view/context/action/C$c",
+      "com/live2d/cubism/view/ay",
+      "com/live2d/cubism/view/context/K$b"
     ],
     "5.3.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -203,7 +241,9 @@
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
       "com/live2d/cubism/view/context/action/z$b",
       "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c"
+      "com/live2d/cubism/view/context/action/C$c",
+      "com/live2d/cubism/view/ay",
+      "com/live2d/cubism/view/context/K$b"
     ]
   }
 }
