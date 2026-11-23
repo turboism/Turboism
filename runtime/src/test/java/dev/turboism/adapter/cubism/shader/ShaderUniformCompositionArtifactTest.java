@@ -69,6 +69,18 @@ class ShaderUniformCompositionArtifactTest {
                         1,
                         queries(bytes, ShaderUniformTransformer.DRAW_METHOD),
                         version + ": the reviewed draw body must hold exactly one query");
+                assertEquals(
+                        0,
+                        countInDraw(patched, (owner, name) -> owner.equals("java/util/HashMap") && name.equals("entrySet")),
+                        version + ": entrySet() must be eliminated from preDraw_exe");
+                assertEquals(
+                        0,
+                        countInDraw(patched, (owner, name) -> owner.equals("java/util/HashMap") && name.equals("forEach")),
+                        version + ": HashMap.forEach() must be eliminated from preDraw_exe");
+                assertEquals(
+                        2,
+                        bridgeCalls(patched, "borrowMapEntries"),
+                        version + ": both uniform and optional-texture maps must use pooled entries");
                 ShaderUniformTransformer.clearPatched(loader, ShaderUniformTransformer.OWNER);
             }
         }
@@ -187,6 +199,10 @@ class ShaderUniformCompositionArtifactTest {
                 bytes,
                 null,
                 (owner, name) -> owner.equals(ShaderUniformTransformer.BRIDGE_OWNER) && name.equals(bridgeMethod));
+    }
+
+    private static int countInDraw(byte[] bytes, Match match) {
+        return count(bytes, ShaderUniformTransformer.DRAW_METHOD, match);
     }
 
     private interface Match {

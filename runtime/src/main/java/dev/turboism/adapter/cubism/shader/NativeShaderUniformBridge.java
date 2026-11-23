@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 
 /**
  * Internal entrypoint for the verified shader uniform-location reuse hook. Host code calls
@@ -27,6 +28,11 @@ public final class NativeShaderUniformBridge {
     private static final AtomicLong INVALIDATIONS = new AtomicLong();
     static final int MAX_SHADERS = 1024;
     static final int MAX_NAMES = 4096;
+
+    private static final int INITIAL_ENTRY_CAPACITY = 16;
+    private static final int REENTRANT_POOL_LIMIT = 4;
+    private static final Map.Entry<?, ?>[] EMPTY_ENTRIES = new Map.Entry<?, ?>[0];
+    private static final ThreadLocal<EntryPool> ENTRY_POOL = ThreadLocal.withInitial(EntryPool::new);
 
     private static final String METHOD_GL_GET_UNIFORM_LOCATION = "glGetUniformLocation";
     private static final String METHOD_GET_CONTEXT = "getContext";
@@ -92,6 +98,34 @@ public final class NativeShaderUniformBridge {
 
     static void patched(boolean value) {
         patched = value;
+    }
+
+    /**
+     * Copies map entries into a thread-local scratch array without allocating iterators.
+     *
+     * <p>Callers must pair each non-empty result with {@link #releaseMapEntries(Map.Entry[])} to
+     * clear retained entry references and return the buffer to the current thread pool.</p>
+     *
+     * @param map host hash map to snapshot
+     * @return a null-terminated scratch entry array, or an empty array when {@code map} is empty
+     */
+    public static Map.Entry<?, ?>[] borrowMapEntries(final HashMap<?, ?> map) {
+        if (map == null || map.isEmpty()) {
+            return EMPTY_ENTRIES;
+        }
+        return ENTRY_POOL.get().borrow(map);
+    }
+
+    /**
+     * Returns a previously borrowed entry buffer to the current thread pool and clears references.
+     *
+     * @param entries scratch entry array previously returned by {@link #borrowMapEntries(HashMap)}
+     */
+    public static void releaseMapEntries(final Map.Entry<?, ?>[] entries) {
+        if (entries == null || entries.length == 0) {
+            return;
+        }
+        ENTRY_POOL.get().release(entries);
     }
 
     /**
@@ -173,6 +207,137 @@ public final class NativeShaderUniformBridge {
             CACHE.clear();
         }
         INVALIDATIONS.incrementAndGet();
+    }
+
+    private static final class EntryPool {
+        private final EntryBuffer[] buffers = new EntryBuffer[REENTRANT_POOL_LIMIT];
+
+        EntryPool() {
+            buffers[0] = new EntryBuffer();
+        }
+
+        Map.Entry<?, ?>[] borrow(final HashMap<?, ?> map) {
+            for (int i = 0; i < REENTRANT_POOL_LIMIT; i++) {
+                EntryBuffer buffer = buffers[i];
+                if (buffer == null) {
+                    buffer = new EntryBuffer();
+                    buffers[i] = buffer;
+                }
+                if (!buffer.inUse) {
+                    return buffer.fill(map);
+                }
+            }
+            return allocateFallbackEntries(map);
+        }
+
+        void release(final Map.Entry<?, ?>[] entries) {
+            for (int i = 0; i < REENTRANT_POOL_LIMIT; i++) {
+                final EntryBuffer buffer = buffers[i];
+                if (buffer == null) {
+                    return;
+                }
+                if (buffer.entries == entries) {
+                    buffer.release();
+                    return;
+                }
+            }
+        }
+
+        private static Map.Entry<?, ?>[] allocateFallbackEntries(final HashMap<?, ?> map) {
+            final Map.Entry<?, ?>[] snapshot = new Map.Entry<?, ?>[map.size() + 1];
+            final int[] index = {0};
+            map.forEach((key, value) -> snapshot[index[0]++] = Map.entry(key, value));
+            return snapshot;
+        }
+    }
+
+    private static final class EntryBuffer implements BiConsumer<Object, Object> {
+        boolean inUse;
+        private MutableEntry[] nodes;
+        Map.Entry<?, ?>[] entries;
+        private int size;
+
+        EntryBuffer() {
+            this.nodes = new MutableEntry[INITIAL_ENTRY_CAPACITY];
+            this.entries = new Map.Entry<?, ?>[INITIAL_ENTRY_CAPACITY + 1];
+            for (int i = 0; i < INITIAL_ENTRY_CAPACITY; i++) {
+                this.nodes[i] = new MutableEntry();
+            }
+        }
+
+        Map.Entry<?, ?>[] fill(final HashMap<?, ?> map) {
+            inUse = true;
+            size = 0;
+            try {
+                map.forEach(this);
+                entries[size] = null;
+                return entries;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                release();
+                throw wrapOrRethrow(failure);
+            }
+        }
+
+        @Override
+        public void accept(final Object key, final Object value) {
+            if (size >= nodes.length) {
+                grow();
+            }
+            final MutableEntry node = nodes[size];
+            node.key = key;
+            node.value = value;
+            entries[size] = node;
+            size++;
+        }
+
+        void release() {
+            for (int i = 0; i < size; i++) {
+                entries[i] = null;
+                nodes[i].clear();
+            }
+            size = 0;
+            inUse = false;
+        }
+
+        private void grow() {
+            final int oldCap = nodes.length;
+            final int newCap = oldCap << 1;
+            final MutableEntry[] newNodes = new MutableEntry[newCap];
+            System.arraycopy(nodes, 0, newNodes, 0, oldCap);
+            for (int i = oldCap; i < newCap; i++) {
+                newNodes[i] = new MutableEntry();
+            }
+            final Map.Entry<?, ?>[] newEntries = new Map.Entry<?, ?>[newCap + 1];
+            System.arraycopy(entries, 0, newEntries, 0, size);
+            nodes = newNodes;
+            entries = newEntries;
+        }
+    }
+
+    private static final class MutableEntry implements Map.Entry<Object, Object> {
+        Object key;
+        Object value;
+
+        void clear() {
+            key = null;
+            value = null;
+        }
+
+        @Override
+        public Object getKey() {
+            return key;
+        }
+
+        @Override
+        public Object getValue() {
+            return value;
+        }
+
+        @Override
+        public Object setValue(final Object newValue) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class State {

@@ -1,10 +1,14 @@
 package dev.turboism.adapter.cubism.optimization.geometry;
 
+import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.VarHandle;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -12,12 +16,19 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Caches per-transform local-to-parent matrices keyed by exact raw float bits and resolves world
- * matrices through pre-resolved host method handles without intermediate allocations.
+ * matrices through direct host accessors without intermediate allocations.
  */
 public final class MatrixScratchBridge implements AutoCloseable {
 
@@ -56,6 +67,29 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final String VECTOR_Z_METHOD = "getZ";
     private static final String FLOAT_GETTER_DESCRIPTOR = "()F";
 
+    private static final String OBJECT_INTERNAL = "java/lang/Object";
+    private static final String OBJECT_ARRAY_DESCRIPTOR = "[Ljava/lang/Object;";
+    private static final String INT_ARRAY_INTERNAL = "[I";
+    private static final String VAR_HANDLE_INTERNAL = "java/lang/invoke/VarHandle";
+    private static final String VAR_HANDLE_DESCRIPTOR = "L" + VAR_HANDLE_INTERNAL + ";";
+    private static final String FLOAT_INTERNAL = "java/lang/Float";
+    private static final String FLOAT_TO_RAW_BITS_METHOD = "floatToRawIntBits";
+    private static final String FLOAT_TO_RAW_BITS_DESCRIPTOR = "(F)I";
+    private static final String CONSTRUCTOR_NAME = "<init>";
+    private static final String CLINIT_NAME = "<clinit>";
+    private static final String VOID_DESCRIPTOR = "()V";
+    private static final String BI_PREDICATE_INTERNAL = "java/util/function/BiPredicate";
+    private static final String BI_FUNCTION_INTERNAL = "java/util/function/BiFunction";
+    private static final String CONSUMER_INTERNAL = "java/util/function/Consumer";
+    private static final String ACCESSOR_PACKAGE = "dev/turboism/adapter/cubism/optimization/geometry/";
+    private static final String BOOT_INTERNAL = ACCESSOR_PACKAGE + "MatrixAccessorBoot";
+    private static final String ACCESSOR_INTERNAL = ACCESSOR_PACKAGE + "MatrixHostAccessor";
+    private static final String BOOT_HANDLE_FIELD = "handle";
+    private static final String ACCESSOR_VAR_FIELD = "STATIC_MATRIX";
+    private static final String READ_NODE_METHOD = "readNode";
+    private static final String READ_NODE_DESCRIPTOR =
+            "(L" + MatrixScratchTransformer.OWNER + ";" + OBJECT_ARRAY_DESCRIPTOR + ")Z";
+
     private static final float DEGREES_TO_RADIANS = (float) (Math.PI / 180.0);
     private static final float ZERO_F = 0.0f;
     private static final float ONE_F = 1.0f;
@@ -76,7 +110,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final int PACKET_STATIC_MATRIX_INDEX = 3;
     private static final int PACKET_SIZE = 4;
     private static final int HOLDER_ARRAY_INDEX = 0;
-    private static final int HOLDER_SIZE = 1;
+    private static final int HOLDER_MATRIX_INDEX = 1;
+    private static final int HOLDER_SIZE = 2;
 
     private static final int PX_BITS = 0;
     private static final int PY_BITS = 1;
@@ -101,18 +136,9 @@ public final class MatrixScratchBridge implements AutoCloseable {
 
     private final Class<?> transformType;
     private final AtomicBoolean admission;
-    private final MethodHandle getEntityHandle;
-    private final MethodHandle getParentEntityHandle;
-    private final MethodHandle getTransformHandle;
-    private final MethodHandle getPositionHandle;
-    private final MethodHandle getEulerAnglesHandle;
-    private final MethodHandle getScaleHandle;
-    private final MethodHandle vectorXHandle;
-    private final MethodHandle vectorYHandle;
-    private final MethodHandle vectorZHandle;
-    private final MethodHandle matrixConstructorHandle;
-    private final MethodHandle matrixDataHandle;
-    private final MethodHandle staticMatrixHandle;
+    private final BiPredicate<Object, Object> selfReader;
+    private final BiFunction<Object, Object, Object> parentReader;
+    private final Consumer<Object> matrixAllocator;
 
     private final AtomicBoolean active = new AtomicBoolean();
     private final Set<ThreadState> threadStates = ConcurrentHashMap.newKeySet();
@@ -127,12 +153,13 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
 
     /**
-     * Resolves every reviewed host member into an exact-typed handle on the admitted host loader.
+     * Resolves every reviewed host member and compiles direct host accessors on the admitted loader.
      *
      * @param loader admitted host class loader
      * @param admission installer-owned gate controlling live execution
      * @throws ReflectiveOperationException when any required host member is absent or closed
      */
+    @SuppressWarnings("unchecked")
     public MatrixScratchBridge(final ClassLoader loader, final AtomicBoolean admission)
             throws ReflectiveOperationException {
         this.admission = Objects.requireNonNull(admission, "admission");
@@ -144,25 +171,57 @@ public final class MatrixScratchBridge implements AutoCloseable {
         final MethodType objectUnary = MethodType.methodType(Object.class, Object.class);
         final MethodType floatUnary = MethodType.methodType(float.class, Object.class);
 
-        getEntityHandle = HostHandles.virtual(transformType, GET_ENTITY_METHOD, GET_ENTITY_DESCRIPTOR, objectUnary);
-        getParentEntityHandle = HostHandles.virtual(entityType, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, objectUnary);
-        getTransformHandle =
+        final MethodHandle getEntityHandle =
+                HostHandles.virtual(transformType, GET_ENTITY_METHOD, GET_ENTITY_DESCRIPTOR, objectUnary);
+        final MethodHandle getParentEntityHandle =
+                HostHandles.virtual(entityType, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, objectUnary);
+        final MethodHandle getTransformHandle =
                 HostHandles.virtual(entityType, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, objectUnary);
-        getPositionHandle = HostHandles.virtual(transformType, GET_POSITION_METHOD, VECTOR3_DESCRIPTOR, objectUnary);
-        getEulerAnglesHandle = HostHandles.virtual(transformType, GET_EULER_METHOD, VECTOR3_DESCRIPTOR, objectUnary);
-        getScaleHandle = HostHandles.virtual(transformType, GET_SCALE_METHOD, VECTOR3_DESCRIPTOR, objectUnary);
-        vectorXHandle = HostHandles.virtual(vectorType, VECTOR_X_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
-        vectorYHandle = HostHandles.virtual(vectorType, VECTOR_Y_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
-        vectorZHandle = HostHandles.virtual(vectorType, VECTOR_Z_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
-        matrixConstructorHandle =
+        final MethodHandle getPositionHandle =
+                HostHandles.virtual(transformType, GET_POSITION_METHOD, VECTOR3_DESCRIPTOR, objectUnary);
+        final MethodHandle getEulerAnglesHandle =
+                HostHandles.virtual(transformType, GET_EULER_METHOD, VECTOR3_DESCRIPTOR, objectUnary);
+        final MethodHandle getScaleHandle =
+                HostHandles.virtual(transformType, GET_SCALE_METHOD, VECTOR3_DESCRIPTOR, objectUnary);
+        final MethodHandle vectorXHandle =
+                HostHandles.virtual(vectorType, VECTOR_X_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
+        final MethodHandle vectorYHandle =
+                HostHandles.virtual(vectorType, VECTOR_Y_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
+        final MethodHandle vectorZHandle =
+                HostHandles.virtual(vectorType, VECTOR_Z_METHOD, FLOAT_GETTER_DESCRIPTOR, floatUnary);
+        final MethodHandle matrixConstructorHandle =
                 HostHandles.construct(matrixType, MATRIX_CONSTRUCTOR_DESCRIPTOR, MethodType.methodType(Object.class));
-        matrixDataHandle = HostHandles.virtual(
+        final MethodHandle matrixDataHandle = HostHandles.virtual(
                 matrixType,
                 MATRIX_DATA_METHOD,
                 MATRIX_DATA_DESCRIPTOR,
                 MethodType.methodType(float[].class, Object.class));
-        staticMatrixHandle =
+        final MethodHandle staticMatrixHandle =
                 HostHandles.getter(transformType, STATIC_MATRIX_FIELD, STATIC_MATRIX_DESCRIPTOR, objectUnary);
+
+        final Object compiled = compileHostAccessor(loader, transformType);
+        if (compiled != null) {
+            this.selfReader = (BiPredicate<Object, Object>) compiled;
+            this.parentReader = (BiFunction<Object, Object, Object>) compiled;
+            this.matrixAllocator = (Consumer<Object>) compiled;
+        } else {
+            final FallbackAccessors fallback = new FallbackAccessors(
+                    getEntityHandle,
+                    getParentEntityHandle,
+                    getTransformHandle,
+                    getPositionHandle,
+                    getEulerAnglesHandle,
+                    getScaleHandle,
+                    vectorXHandle,
+                    vectorYHandle,
+                    vectorZHandle,
+                    matrixConstructorHandle,
+                    matrixDataHandle,
+                    staticMatrixHandle);
+            this.selfReader = fallback;
+            this.parentReader = fallback;
+            this.matrixAllocator = fallback;
+        }
     }
 
     /** Activates bridge resolution once bytecode verification completes. */
@@ -238,7 +297,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         state.calls++;
         try {
             final Object[] packet = state.packet;
-            if (!readSelfState(transform, packet)) {
+            if (!selfReader.test(transform, packet)) {
                 return null;
             }
             Object parentEntity = packet[PACKET_PARENT_INDEX];
@@ -250,20 +309,20 @@ public final class MatrixScratchBridge implements AutoCloseable {
                     return staticMatrix;
                 }
                 final float[] selfData = resolveCachedLocalToParent(transform, state);
-                final Object result = allocateMatrix(state.matrixOutHolder);
+                matrixAllocator.accept(state.matrixOutHolder);
                 final float[] out = (float[]) state.matrixOutHolder[HOLDER_ARRAY_INDEX];
                 if (out == null || out.length < MATRIX_LENGTH) {
                     return null;
                 }
                 System.arraycopy(selfData, 0, out, 0, MATRIX_LENGTH);
-                return result;
+                return state.matrixOutHolder[HOLDER_MATRIX_INDEX];
             }
 
             final float[] current = resolveNodeData(transform, packet, state);
             if (current == null) {
                 return null;
             }
-            Object parentTransform = readParentState(parentEntity, packet);
+            Object parentTransform = parentReader.apply(parentEntity, packet);
             if (parentTransform == null) {
                 return null;
             }
@@ -280,7 +339,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
             multiplyGeneral(left, current, acc);
             parentEntity = nextParent;
             for (int depth = 1; depth < MAX_CHAIN_DEPTH; depth++) {
-                parentTransform = readParentState(parentEntity, packet);
+                parentTransform = parentReader.apply(parentEntity, packet);
                 if (parentTransform == null) {
                     return null;
                 }
@@ -305,85 +364,14 @@ public final class MatrixScratchBridge implements AutoCloseable {
         }
     }
 
-    /**
-     * Reads the transform's own entity, its parent entity, and the local-to-parent inputs.
-     *
-     * @return {@code false} when the host reports no entity or no vector triple
-     */
-    private boolean readSelfState(final Object transform, final Object[] packet) throws Throwable {
-        final Object entity = (Object) getEntityHandle.invokeExact(transform);
-        if (entity == null) {
-            return false;
-        }
-        packet[PACKET_PARENT_INDEX] = (Object) getParentEntityHandle.invokeExact(entity);
-        return readNodeState(transform, packet);
-    }
-
-    /**
-     * Reads one ancestor entity's transform and its parent link.
-     *
-     * @return the ancestor transform, or {@code null} when the entity carries none
-     */
-    private Object readParentState(final Object entity, final Object[] packet) throws Throwable {
-        final Object transform = (Object) getTransformHandle.invokeExact(entity);
-        if (transform == null) {
-            return null;
-        }
-        packet[PACKET_PARENT_INDEX] = (Object) getParentEntityHandle.invokeExact(entity);
-        return readNodeState(transform, packet) ? transform : null;
-    }
-
-    /**
-     * Fills the packet with the static-matrix fast path or the raw position, Euler, and scale bits.
-     *
-     * @return {@code false} when a reviewed vector member is absent
-     */
-    private boolean readNodeState(final Object transform, final Object[] packet) throws Throwable {
-        final Object staticMatrix = (Object) staticMatrixHandle.invokeExact(transform);
-        if (staticMatrix != null) {
-            packet[PACKET_STATIC_MATRIX_INDEX] = staticMatrix;
-            packet[PACKET_STATIC_DATA_INDEX] = (float[]) matrixDataHandle.invokeExact(staticMatrix);
-            return true;
-        }
-        packet[PACKET_STATIC_MATRIX_INDEX] = null;
-        final Object position = (Object) getPositionHandle.invokeExact(transform);
-        final Object euler = (Object) getEulerAnglesHandle.invokeExact(transform);
-        final Object scale = (Object) getScaleHandle.invokeExact(transform);
-        if (position == null || euler == null || scale == null) {
-            return false;
-        }
-        final int[] bits = (int[]) packet[PACKET_BITS_INDEX];
-        writeVectorBits(bits, position, PX_BITS);
-        writeVectorBits(bits, euler, EX_BITS);
-        writeVectorBits(bits, scale, SX_BITS);
-        return true;
-    }
-
-    private void writeVectorBits(final int[] bits, final Object vector, final int base) throws Throwable {
-        bits[base] = Float.floatToRawIntBits((float) vectorXHandle.invokeExact(vector));
-        bits[base + 1] = Float.floatToRawIntBits((float) vectorYHandle.invokeExact(vector));
-        bits[base + 2] = Float.floatToRawIntBits((float) vectorZHandle.invokeExact(vector));
-    }
-
-    /**
-     * Allocates one host matrix and publishes its backing array into the thread-local holder.
-     *
-     * @return the allocated matrix instance
-     */
-    private Object allocateMatrix(final Object[] holder) throws Throwable {
-        final Object matrix = (Object) matrixConstructorHandle.invokeExact();
-        holder[HOLDER_ARRAY_INDEX] = (float[]) matrixDataHandle.invokeExact(matrix);
-        return matrix;
-    }
-
-    private Object allocateProduct(final float[] left, final float[] right, final ThreadState state) throws Throwable {
-        final Object result = allocateMatrix(state.matrixOutHolder);
+    private Object allocateProduct(final float[] left, final float[] right, final ThreadState state) {
+        matrixAllocator.accept(state.matrixOutHolder);
         final float[] out = (float[]) state.matrixOutHolder[HOLDER_ARRAY_INDEX];
         if (out == null || out.length < MATRIX_LENGTH) {
             return null;
         }
         multiplyGeneral(left, right, out);
-        return result;
+        return state.matrixOutHolder[HOLDER_MATRIX_INDEX];
     }
 
     private static float[] resolveNodeData(final Object transform, final Object[] packet, final ThreadState state) {
@@ -530,6 +518,432 @@ public final class MatrixScratchBridge implements AutoCloseable {
         return hash ^ (hash >>> HASH_SHIFT);
     }
 
+    private static Object compileHostAccessor(final ClassLoader loader, final Class<?> transformType) {
+        try {
+            final Field staticField = transformType.getDeclaredField(STATIC_MATRIX_FIELD);
+            final MethodHandles.Lookup privateLookup =
+                    MethodHandles.privateLookupIn(transformType, MethodHandles.lookup());
+            final VarHandle staticMatrixVarHandle = privateLookup.unreflectVarHandle(staticField);
+            final AccessorClassLoader accessorLoader = new AccessorClassLoader(loader);
+            final Class<?> bootClass = accessorLoader.define(BOOT_INTERNAL.replace('/', '.'), buildBootClass());
+            bootClass.getField(BOOT_HANDLE_FIELD).set(null, staticMatrixVarHandle);
+            final Class<?> accessorClass =
+                    accessorLoader.define(ACCESSOR_INTERNAL.replace('/', '.'), buildAccessorClass(loader));
+            return accessorClass.getConstructor().newInstance();
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
+    private static byte[] buildBootClass() {
+        final ClassWriter writer = new ClassWriter(0);
+        writer.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                BOOT_INTERNAL,
+                null,
+                OBJECT_INTERNAL,
+                null);
+        writer.visitField(
+                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                        BOOT_HANDLE_FIELD,
+                        VAR_HANDLE_DESCRIPTOR,
+                        null,
+                        null)
+                .visitEnd();
+        final MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
+        init.visitCode();
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, OBJECT_INTERNAL, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, false);
+        init.visitInsn(Opcodes.RETURN);
+        init.visitMaxs(1, 1);
+        init.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] buildAccessorClass(final ClassLoader loader) {
+        final ClassWriter writer = HostClassWriters.newFrameWriter(loader);
+        writer.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                ACCESSOR_INTERNAL,
+                null,
+                OBJECT_INTERNAL,
+                new String[] {BI_PREDICATE_INTERNAL, BI_FUNCTION_INTERNAL, CONSUMER_INTERNAL});
+        writer.visitField(
+                        Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+                        ACCESSOR_VAR_FIELD,
+                        VAR_HANDLE_DESCRIPTOR,
+                        null,
+                        null)
+                .visitEnd();
+
+        final MethodVisitor clinit = writer.visitMethod(Opcodes.ACC_STATIC, CLINIT_NAME, VOID_DESCRIPTOR, null, null);
+        clinit.visitCode();
+        clinit.visitFieldInsn(Opcodes.GETSTATIC, BOOT_INTERNAL, BOOT_HANDLE_FIELD, VAR_HANDLE_DESCRIPTOR);
+        clinit.visitFieldInsn(Opcodes.PUTSTATIC, ACCESSOR_INTERNAL, ACCESSOR_VAR_FIELD, VAR_HANDLE_DESCRIPTOR);
+        clinit.visitInsn(Opcodes.ACONST_NULL);
+        clinit.visitFieldInsn(Opcodes.PUTSTATIC, BOOT_INTERNAL, BOOT_HANDLE_FIELD, VAR_HANDLE_DESCRIPTOR);
+        clinit.visitInsn(Opcodes.RETURN);
+        clinit.visitMaxs(0, 0);
+        clinit.visitEnd();
+
+        final MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
+        init.visitCode();
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, OBJECT_INTERNAL, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, false);
+        init.visitInsn(Opcodes.RETURN);
+        init.visitMaxs(0, 0);
+        init.visitEnd();
+
+        emitReadNodeMethod(writer);
+        emitTestSelfMethod(writer);
+        emitApplyParentMethod(writer);
+        emitApplyAllocateMatrixMethod(writer);
+
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static void emitReadNodeMethod(final ClassWriter writer) {
+        final MethodVisitor mv = writer.visitMethod(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC, READ_NODE_METHOD, READ_NODE_DESCRIPTOR, null, null);
+        mv.visitCode();
+
+        final Label noStatic = new Label();
+        final Label missingVector = new Label();
+
+        mv.visitFieldInsn(Opcodes.GETSTATIC, ACCESSOR_INTERNAL, ACCESSOR_VAR_FIELD, VAR_HANDLE_DESCRIPTOR);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                VAR_HANDLE_INTERNAL,
+                "get",
+                "(L" + MatrixScratchTransformer.OWNER + ";)" + STATIC_MATRIX_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ASTORE, 2);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitJumpInsn(Opcodes.IFNULL, noStatic);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitInsn(Opcodes.ICONST_3);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitInsn(Opcodes.AASTORE);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                MatrixScratchTransformer.MATRIX,
+                MATRIX_DATA_METHOD,
+                MATRIX_DATA_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.AASTORE);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(noStatic);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitInsn(Opcodes.ICONST_3);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_POSITION_METHOD, VECTOR3_DESCRIPTOR, false);
+        mv.visitVarInsn(Opcodes.ASTORE, 3);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_EULER_METHOD, VECTOR3_DESCRIPTOR, false);
+        mv.visitVarInsn(Opcodes.ASTORE, 4);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_SCALE_METHOD, VECTOR3_DESCRIPTOR, false);
+        mv.visitVarInsn(Opcodes.ASTORE, 5);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitJumpInsn(Opcodes.IFNULL, missingVector);
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitJumpInsn(Opcodes.IFNULL, missingVector);
+        mv.visitVarInsn(Opcodes.ALOAD, 5);
+        mv.visitJumpInsn(Opcodes.IFNULL, missingVector);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.AALOAD);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, INT_ARRAY_INTERNAL);
+        mv.visitVarInsn(Opcodes.ASTORE, 6);
+
+        emitWriteVectorBits(mv, 6, 3, PX_BITS);
+        emitWriteVectorBits(mv, 6, 4, EX_BITS);
+        emitWriteVectorBits(mv, 6, 5, SX_BITS);
+
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(missingVector);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitWriteVectorBits(
+            final MethodVisitor mv, final int bitsLocal, final int vectorLocal, final int baseOffset) {
+        emitWriteComponentBits(mv, bitsLocal, vectorLocal, baseOffset, VECTOR_X_METHOD);
+        emitWriteComponentBits(mv, bitsLocal, vectorLocal, baseOffset + 1, VECTOR_Y_METHOD);
+        emitWriteComponentBits(mv, bitsLocal, vectorLocal, baseOffset + 2, VECTOR_Z_METHOD);
+    }
+
+    private static void emitWriteComponentBits(
+            final MethodVisitor mv,
+            final int bitsLocal,
+            final int vectorLocal,
+            final int bitIndex,
+            final String getterMethod) {
+        mv.visitVarInsn(Opcodes.ALOAD, bitsLocal);
+        mv.visitIntInsn(Opcodes.BIPUSH, bitIndex);
+        mv.visitVarInsn(Opcodes.ALOAD, vectorLocal);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, VECTOR3_OWNER, getterMethod, FLOAT_GETTER_DESCRIPTOR, false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, FLOAT_INTERNAL, FLOAT_TO_RAW_BITS_METHOD, FLOAT_TO_RAW_BITS_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.IASTORE);
+    }
+
+    private static void emitTestSelfMethod(final ClassWriter writer) {
+        final MethodVisitor mv = writer.visitMethod(
+                Opcodes.ACC_PUBLIC, "test", "(L" + OBJECT_INTERNAL + ";L" + OBJECT_INTERNAL + ";)Z", null, null);
+        mv.visitCode();
+        final Label missingEntity = new Label();
+
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, MatrixScratchTransformer.OWNER);
+        mv.visitVarInsn(Opcodes.ASTORE, 3);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, MatrixScratchTransformer.OWNER, GET_ENTITY_METHOD, GET_ENTITY_DESCRIPTOR, false);
+        mv.visitVarInsn(Opcodes.ASTORE, 4);
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitJumpInsn(Opcodes.IFNULL, missingEntity);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY_DESCRIPTOR);
+        mv.visitVarInsn(Opcodes.ASTORE, 5);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 5);
+        mv.visitInsn(Opcodes.ICONST_2);
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitVarInsn(Opcodes.ALOAD, 5);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, ACCESSOR_INTERNAL, READ_NODE_METHOD, READ_NODE_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(missingEntity);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitApplyParentMethod(final ClassWriter writer) {
+        final MethodVisitor mv = writer.visitMethod(
+                Opcodes.ACC_PUBLIC,
+                "apply",
+                "(L" + OBJECT_INTERNAL + ";L" + OBJECT_INTERNAL + ";)L" + OBJECT_INTERNAL + ";",
+                null,
+                null);
+        mv.visitCode();
+        final Label returnNull = new Label();
+
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, ENTITY_OWNER);
+        mv.visitVarInsn(Opcodes.ASTORE, 3);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, false);
+        mv.visitVarInsn(Opcodes.ASTORE, 4);
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitJumpInsn(Opcodes.IFNULL, returnNull);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY_DESCRIPTOR);
+        mv.visitVarInsn(Opcodes.ASTORE, 5);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 5);
+        mv.visitInsn(Opcodes.ICONST_2);
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_PARENT_METHOD, GET_PARENT_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitVarInsn(Opcodes.ALOAD, 5);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, ACCESSOR_INTERNAL, READ_NODE_METHOD, READ_NODE_DESCRIPTOR, false);
+        mv.visitJumpInsn(Opcodes.IFEQ, returnNull);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitInsn(Opcodes.ARETURN);
+
+        mv.visitLabel(returnNull);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitApplyAllocateMatrixMethod(final ClassWriter writer) {
+        final MethodVisitor mv = writer.visitMethod(
+                Opcodes.ACC_PUBLIC, "accept", "(L" + OBJECT_INTERNAL + ";)V", null, null);
+        mv.visitCode();
+
+        mv.visitTypeInsn(Opcodes.NEW, MatrixScratchTransformer.MATRIX);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESPECIAL,
+                MatrixScratchTransformer.MATRIX,
+                CONSTRUCTOR_NAME,
+                MATRIX_CONSTRUCTOR_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ASTORE, 2);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY_DESCRIPTOR);
+        mv.visitVarInsn(Opcodes.ASTORE, 3);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                MatrixScratchTransformer.MATRIX,
+                MATRIX_DATA_METHOD,
+                MATRIX_DATA_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static final class AccessorClassLoader extends ClassLoader {
+        AccessorClassLoader(final ClassLoader parent) {
+            super(parent);
+        }
+
+        Class<?> define(final String binaryName, final byte[] bytes) {
+            return defineClass(binaryName, bytes, 0, bytes.length);
+        }
+    }
+
+    private record FallbackAccessors(
+            MethodHandle getEntityHandle,
+            MethodHandle getParentEntityHandle,
+            MethodHandle getTransformHandle,
+            MethodHandle getPositionHandle,
+            MethodHandle getEulerAnglesHandle,
+            MethodHandle getScaleHandle,
+            MethodHandle vectorXHandle,
+            MethodHandle vectorYHandle,
+            MethodHandle vectorZHandle,
+            MethodHandle matrixConstructorHandle,
+            MethodHandle matrixDataHandle,
+            MethodHandle staticMatrixHandle)
+            implements BiPredicate<Object, Object>, BiFunction<Object, Object, Object>, Consumer<Object> {
+
+        @Override
+        public boolean test(final Object transform, final Object packetObj) {
+            try {
+                final Object entity = (Object) getEntityHandle.invokeExact(transform);
+                if (entity == null) {
+                    return false;
+                }
+                final Object[] packet = (Object[]) packetObj;
+                packet[PACKET_PARENT_INDEX] = (Object) getParentEntityHandle.invokeExact(entity);
+                return readNode(transform, packet);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw wrapThrowable(failure);
+            }
+        }
+
+        @Override
+        public Object apply(final Object entity, final Object packetObj) {
+            try {
+                final Object transform = (Object) getTransformHandle.invokeExact(entity);
+                if (transform == null) {
+                    return null;
+                }
+                final Object[] packet = (Object[]) packetObj;
+                packet[PACKET_PARENT_INDEX] = (Object) getParentEntityHandle.invokeExact(entity);
+                return readNode(transform, packet) ? transform : null;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw wrapThrowable(failure);
+            }
+        }
+
+        @Override
+        public void accept(final Object holderObj) {
+            try {
+                final Object matrix = (Object) matrixConstructorHandle.invokeExact();
+                final Object[] holder = (Object[]) holderObj;
+                holder[HOLDER_ARRAY_INDEX] = (float[]) matrixDataHandle.invokeExact(matrix);
+                holder[HOLDER_MATRIX_INDEX] = matrix;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw wrapThrowable(failure);
+            }
+        }
+
+        private boolean readNode(final Object transform, final Object[] packet) throws Throwable {
+            final Object staticMatrix = (Object) staticMatrixHandle.invokeExact(transform);
+            if (staticMatrix != null) {
+                packet[PACKET_STATIC_MATRIX_INDEX] = staticMatrix;
+                packet[PACKET_STATIC_DATA_INDEX] = (float[]) matrixDataHandle.invokeExact(staticMatrix);
+                return true;
+            }
+            packet[PACKET_STATIC_MATRIX_INDEX] = null;
+            final Object position = (Object) getPositionHandle.invokeExact(transform);
+            final Object euler = (Object) getEulerAnglesHandle.invokeExact(transform);
+            final Object scale = (Object) getScaleHandle.invokeExact(transform);
+            if (position == null || euler == null || scale == null) {
+                return false;
+            }
+            final int[] bits = (int[]) packet[PACKET_BITS_INDEX];
+            writeVectorBits(bits, position, PX_BITS);
+            writeVectorBits(bits, euler, EX_BITS);
+            writeVectorBits(bits, scale, SX_BITS);
+            return true;
+        }
+
+        private void writeVectorBits(final int[] bits, final Object vector, final int base) throws Throwable {
+            bits[base] = Float.floatToRawIntBits((float) vectorXHandle.invokeExact(vector));
+            bits[base + 1] = Float.floatToRawIntBits((float) vectorYHandle.invokeExact(vector));
+            bits[base + 2] = Float.floatToRawIntBits((float) vectorZHandle.invokeExact(vector));
+        }
+
+        private static RuntimeException wrapThrowable(final Throwable failure) {
+            if (failure instanceof RuntimeException runtime) {
+                return runtime;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
+            return new IllegalStateException(failure);
+        }
+    }
+
     private static final class ThreadState {
         final Thread owner = Thread.currentThread();
         long calls;
@@ -549,9 +963,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         }
     }
 
-    private static final class TransformSlot {
-        WeakReference<Object> ref;
-        int identityHash;
+    private static final class TransformSlot extends WeakReference<Object> {
         boolean valid;
         int pxBits;
         int pyBits;
@@ -562,12 +974,11 @@ public final class MatrixScratchBridge implements AutoCloseable {
         int sxBits;
         int syBits;
         int szBits;
-        final float[] matrix = new float[MATRIX_LENGTH];
+        final float[] matrix;
 
-        void bind(final Object transform, final int hash) {
-            ref = new WeakReference<>(transform);
-            identityHash = hash;
-            valid = false;
+        TransformSlot(final Object transform, final float[] matrix) {
+            super(transform);
+            this.matrix = matrix;
         }
 
         boolean matches(
@@ -615,50 +1026,59 @@ public final class MatrixScratchBridge implements AutoCloseable {
     }
 
     /**
-     * Thread-confined two-way set-associative identity cache with pre-allocated reusable slots.
+     * Thread-confined two-way set-associative identity cache storing flat hashes and lazy slots.
      */
     private static final class LocalCache {
         private final TransformSlot[] slots = new TransformSlot[CACHE_TOTAL_SLOTS];
+        private final int[] hashes = new int[CACHE_TOTAL_SLOTS];
         private final byte[] mruWay = new byte[CACHE_SET_COUNT];
-
-        LocalCache() {
-            for (int i = 0; i < CACHE_TOTAL_SLOTS; i++) {
-                slots[i] = new TransformSlot();
-            }
-        }
 
         TransformSlot findOrBind(final Object transform) {
             final int rawHash = System.identityHashCode(transform);
             final int setIndex = mixHash(rawHash) & CACHE_SET_MASK;
             final int base = setIndex << CACHE_WAY_SHIFT;
 
+            if (hashes[base] == rawHash) {
+                final TransformSlot slot0 = slots[base];
+                if (slot0 != null && slot0.refersTo(transform)) {
+                    mruWay[setIndex] = WAY_0;
+                    return slot0;
+                }
+            }
+            final int way1Index = base + WAY_1;
+            if (hashes[way1Index] == rawHash) {
+                final TransformSlot slot1 = slots[way1Index];
+                if (slot1 != null && slot1.refersTo(transform)) {
+                    mruWay[setIndex] = WAY_1;
+                    return slot1;
+                }
+            }
             final TransformSlot slot0 = slots[base];
-            final WeakReference<Object> ref0 = slot0.ref;
-            if (slot0.identityHash == rawHash && ref0 != null && ref0.refersTo(transform)) {
-                mruWay[setIndex] = WAY_0;
-                return slot0;
+            if (slot0 == null || slot0.refersTo(null)) {
+                return bindSlot(base, setIndex, WAY_0, rawHash, transform, slot0);
             }
-            final TransformSlot slot1 = slots[base + WAY_1];
-            final WeakReference<Object> ref1 = slot1.ref;
-            if (slot1.identityHash == rawHash && ref1 != null && ref1.refersTo(transform)) {
-                mruWay[setIndex] = WAY_1;
-                return slot1;
-            }
-            if (ref0 == null || ref0.refersTo(null)) {
-                slot0.bind(transform, rawHash);
-                mruWay[setIndex] = WAY_0;
-                return slot0;
-            }
-            if (ref1 == null || ref1.refersTo(null)) {
-                slot1.bind(transform, rawHash);
-                mruWay[setIndex] = WAY_1;
-                return slot1;
+            final TransformSlot slot1 = slots[way1Index];
+            if (slot1 == null || slot1.refersTo(null)) {
+                return bindSlot(way1Index, setIndex, WAY_1, rawHash, transform, slot1);
             }
             final byte victimWay = (byte) (mruWay[setIndex] ^ WAY_1);
-            final TransformSlot victim = slots[base + victimWay];
-            victim.bind(transform, rawHash);
-            mruWay[setIndex] = victimWay;
-            return victim;
+            final int victimIndex = base + victimWay;
+            return bindSlot(victimIndex, setIndex, victimWay, rawHash, transform, slots[victimIndex]);
+        }
+
+        private TransformSlot bindSlot(
+                final int slotIndex,
+                final int setIndex,
+                final byte way,
+                final int rawHash,
+                final Object transform,
+                final TransformSlot previous) {
+            final float[] matrix = previous != null ? previous.matrix : new float[MATRIX_LENGTH];
+            final TransformSlot bound = new TransformSlot(transform, matrix);
+            slots[slotIndex] = bound;
+            hashes[slotIndex] = rawHash;
+            mruWay[setIndex] = way;
+            return bound;
         }
     }
 }
