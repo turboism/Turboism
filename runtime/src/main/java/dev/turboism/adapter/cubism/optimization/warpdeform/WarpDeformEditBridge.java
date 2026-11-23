@@ -158,6 +158,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private static final String STAT_SKIPPED_DEFORMERS = "skippedDeformers";
     private static final String STAT_DIRTY_MESHES = "dirtyMeshesProcessed";
     private static final String STAT_SKIPPED_MESHES = "skippedMeshes";
+    private static final String STAT_APPEARANCE_SKIPPED = "appearanceSkipped";
+    private static final String STAT_FULL_ARRAY_HASHES = "fullArrayHashes";
     private static final String STAT_PARALLEL_DEFORMER_LEVELS = "parallelDeformerLevels";
     private static final String STAT_PARALLEL_MESH_BATCHES = "parallelMeshBatches";
     private static final String STAT_OVERLAY_ELISIONS = "overlayElisions";
@@ -686,6 +688,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         counters.put(STAT_SKIPPED_DEFORMERS, editSubtreeCoordinator.skippedDeformers.sum());
         counters.put(STAT_DIRTY_MESHES, editSubtreeCoordinator.dirtyMeshesProcessed.sum());
         counters.put(STAT_SKIPPED_MESHES, editSubtreeCoordinator.skippedMeshes.sum());
+        counters.put(STAT_APPEARANCE_SKIPPED, editSubtreeCoordinator.appearanceSkipped.sum());
+        counters.put(STAT_FULL_ARRAY_HASHES, editSubtreeCoordinator.fullArrayHashes.sum());
         counters.put(STAT_PARALLEL_DEFORMER_LEVELS, editSubtreeCoordinator.parallelDeformerLevels.sum());
         counters.put(STAT_PARALLEL_MESH_BATCHES, editSubtreeCoordinator.parallelMeshBatches.sum());
         counters.put(STAT_OVERLAY_ELISIONS, editOverlayCoordinator.overlayElisions.sum());

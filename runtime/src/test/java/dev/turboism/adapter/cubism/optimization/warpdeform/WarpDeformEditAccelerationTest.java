@@ -435,6 +435,7 @@ class WarpDeformEditAccelerationTest {
                 memoryBridge.install();
 
                 runSyntheticSubtreeDifferentialParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
+                runSelectorScopedAndEditingTransitionParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runOverlayElisionParityOnComposedLoader(rewLoader, warpEditBridge);
             }
         } finally {
@@ -508,10 +509,14 @@ class WarpDeformEditAccelerationTest {
         }
 
         void invokeUpdate() throws Exception {
+            invokeUpdate(null, null);
+        }
+
+        void invokeUpdate(final Object doc, final Object viewCtx) throws Exception {
             if (hasConflictFlag) {
-                updateModelMethod.invoke(updater, model, updCtx, null, null, null, false);
+                updateModelMethod.invoke(updater, model, updCtx, doc, viewCtx, null, false);
             } else {
-                updateModelMethod.invoke(updater, model, updCtx, null, null, null);
+                updateModelMethod.invoke(updater, model, updCtx, doc, viewCtx, null);
             }
         }
     }
@@ -1036,6 +1041,8 @@ class WarpDeformEditAccelerationTest {
         assertEquals(baselineFallbacks, midRotStats.get("fallbackModelUpdates"), () -> "stats=" + midRotStats);
         assertEquals(3L * 36L, midRotStats.get("skippedMeshes"), () -> "stats=" + midRotStats);
         assertEquals(3L * 4L, midRotStats.get("dirtyMeshesProcessed"), () -> "stats=" + midRotStats);
+        assertEquals(3L * 36L, midRotStats.get("appearanceSkipped"), () -> "stats=" + midRotStats);
+        assertEquals(0L, midRotStats.get("fullArrayHashes"), () -> "stats=" + midRotStats);
 
         final int[] vboAfterMidSubtreeA = readMeshPositionVboCounters(rew.subtreeAMeshes);
         final int[] vboAfterMidSubtreeB = readMeshPositionVboCounters(rew.subtreeBMeshes);
@@ -1066,6 +1073,8 @@ class WarpDeformEditAccelerationTest {
         assertEquals(5L, rootStats.get("fastModelUpdates"), () -> "stats=" + rootStats);
         assertTrue(rootStats.get("parallelDeformerLevels") >= 2L, () -> "stats=" + rootStats);
         assertTrue(rootStats.get("parallelMeshBatches") >= 2L, () -> "stats=" + rootStats);
+        assertEquals(3L * 36L + 2L * 4L, rootStats.get("appearanceSkipped"), () -> "stats=" + rootStats);
+        assertEquals(0L, rootStats.get("fullArrayHashes"), () -> "stats=" + rootStats);
         final int[] vboAfterRootSubtreeB = readMeshPositionVboCounters(rew.subtreeBMeshes);
         assertArrayEquals(
                 vboAfterMidSubtreeB, vboAfterRootSubtreeB, "untouched Subtree B VBO dirtied during root drag");
@@ -1105,8 +1114,213 @@ class WarpDeformEditAccelerationTest {
         assertEquals(6L, bridge.snapshot().get("fastModelUpdates"));
     }
 
-    private static void dragRotationDeformer(final Object deformer, final float angleDeg, final float originShift)
+    private static void runSelectorScopedAndEditingTransitionParity(
+            final ClassLoader origLoader,
+            final ClassLoader rewLoader,
+            final WarpDeformEditTarget target,
+            final WarpDeformEditBridge bridge)
             throws Exception {
+        final SyntheticModelHarness orig = buildSyntheticHierarchy(origLoader, target);
+        final SyntheticModelHarness rew = buildSyntheticHierarchy(rewLoader, target);
+        orig.modelSource.getClass().getMethod("setModelEditing", boolean.class).invoke(orig.modelSource, false);
+        rew.modelSource.getClass().getMethod("setModelEditing", boolean.class).invoke(rew.modelSource, false);
+
+        final Object[] origCtx = createEditViewContext(orig.loader, orig.modelSource, orig.model);
+        final Object[] rewCtx = createEditViewContext(rew.loader, rew.modelSource, rew.model);
+        final Object origDoc = origCtx[0];
+        final Object origView = origCtx[1];
+        final Object origSelector = origCtx[2];
+        final Object rewDoc = rewCtx[0];
+        final Object rewView = rewCtx[1];
+        final Object rewSelector = rewCtx[2];
+
+        // Frame 0: capture clean idle baseline with isModelEditing == false.
+        orig.invokeUpdate(origDoc, origView);
+        rew.invokeUpdate(rewDoc, rewView);
+        assertAllMeshesRawFloatParity(orig, rew, "selector-idle-baseline");
+
+        final Map<String, Long> s0 = bridge.snapshot();
+        final long fastBase = s0.get("fastModelUpdates");
+        final long fallbackBase = s0.get("fallbackModelUpdates");
+        final long appearSkipBase = s0.get("appearanceSkipped");
+        final int[] vboBeforeA = readMeshPositionVboCounters(rew.subtreeAMeshes);
+        final int[] vboBeforeB = readMeshPositionVboCounters(rew.subtreeBMeshes);
+
+        // Transition isModelEditing false -> true on Tick 1 and drag selected midRot WITHOUT setDirtyDeformedForm/setUpdated.
+        orig.modelSource.getClass().getMethod("setModelEditing", boolean.class).invoke(orig.modelSource, true);
+        rew.modelSource.getClass().getMethod("setModelEditing", boolean.class).invoke(rew.modelSource, true);
+        final Class<?> acCtrlSrcClsOrig =
+                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", false, orig.loader);
+        final Class<?> acCtrlSrcClsRew =
+                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", false, rew.loader);
+        origSelector.getClass().getMethod("addSelected", acCtrlSrcClsOrig, int.class).invoke(origSelector, orig.midRotSrc, 0);
+        rewSelector.getClass().getMethod("addSelected", acCtrlSrcClsRew, int.class).invoke(rewSelector, rew.midRotSrc, 0);
+
+        final long hashesBeforeRot = bridge.snapshot().get("fullArrayHashes");
+        for (int tick = 1; tick <= 2; tick++) {
+            dragRotationDeformerUnversioned(orig.midRot, 14.0f * tick, 3.0f * tick);
+            dragRotationDeformerUnversioned(rew.midRot, 14.0f * tick, 3.0f * tick);
+            orig.invokeUpdate(origDoc, origView);
+            rew.invokeUpdate(rewDoc, rewView);
+            assertAllMeshesRawFloatParity(orig, rew, "selector-rot-tick-" + tick);
+            if (tick == 1) {
+                final Map<String, Long> sTick1 = bridge.snapshot();
+                assertEquals(fastBase + 1L, sTick1.get("fastModelUpdates"), "Tick 1 must not fall back on isEditing change");
+                assertEquals(fallbackBase, sTick1.get("fallbackModelUpdates"));
+                assertEquals(appearSkipBase + 36L, sTick1.get("appearanceSkipped"));
+            }
+        }
+        final Map<String, Long> sAfterRot = bridge.snapshot();
+        assertEquals(fastBase + 2L, sAfterRot.get("fastModelUpdates"));
+        assertEquals(fallbackBase, sAfterRot.get("fallbackModelUpdates"));
+        assertEquals(appearSkipBase + 2L * 36L, sAfterRot.get("appearanceSkipped"));
+        assertEquals(hashesBeforeRot, sAfterRot.get("fullArrayHashes"), "rotation drag + 40 meshes must perform 0 float[] hashes");
+
+        final int[] vboAfterRotA = readMeshPositionVboCounters(rew.subtreeAMeshes);
+        final int[] vboAfterRotB = readMeshPositionVboCounters(rew.subtreeBMeshes);
+        assertArrayEquals(vboBeforeA, vboAfterRotA);
+        for (int i = 0; i < vboBeforeB.length; i++) {
+            assertEquals(vboBeforeB[i] + 2, vboAfterRotB[i]);
+        }
+
+        // Switch selection to rootWarpSrc and drag WITHOUT setDirtyDeformedForm/setUpdated: hashes strictly 1 deformer!
+        origSelector.getClass().getMethod("clearSelection").invoke(origSelector);
+        rewSelector.getClass().getMethod("clearSelection").invoke(rewSelector);
+        origSelector.getClass().getMethod("addSelected", acCtrlSrcClsOrig, int.class).invoke(origSelector, orig.rootWarpSrc, 0);
+        rewSelector.getClass().getMethod("addSelected", acCtrlSrcClsRew, int.class).invoke(rewSelector, rew.rootWarpSrc, 0);
+
+        final float[] baseGrid = rew.baseRootGridPositions.get(0);
+        final float[] gridTick3 = baseGrid.clone();
+        gridTick3[0] += 5.5f;
+        dragWarpDeformerUnversioned(orig.rootWarp, gridTick3);
+        dragWarpDeformerUnversioned(rew.rootWarp, gridTick3);
+        orig.invokeUpdate(origDoc, origView);
+        rew.invokeUpdate(rewDoc, rewView);
+        assertAllMeshesRawFloatParity(orig, rew, "selector-warp-switch-tick-3");
+
+        final long hashesBeforeTick4 = bridge.snapshot().get("fullArrayHashes");
+        final float[] gridTick4 = baseGrid.clone();
+        gridTick4[0] += 11.0f;
+        dragWarpDeformerUnversioned(orig.rootWarp, gridTick4);
+        dragWarpDeformerUnversioned(rew.rootWarp, gridTick4);
+        orig.invokeUpdate(origDoc, origView);
+        rew.invokeUpdate(rewDoc, rewView);
+        assertAllMeshesRawFloatParity(orig, rew, "selector-warp-tick-4");
+
+        final Map<String, Long> sAfterTick4 = bridge.snapshot();
+        assertEquals(fallbackBase, sAfterTick4.get("fallbackModelUpdates"));
+        final long tick4Hashes = sAfterTick4.get("fullArrayHashes") - hashesBeforeTick4;
+        // Strictly 1 selected 2-keyform deformer (diff + snapshot capture = 4, vs 40 meshes + 19 warps).
+        assertEquals(4L, tick4Hashes, () -> "unexpected float[] hashes on tick 4: " + sAfterTick4);
+
+        // Verify K$b.a overlay elision with active EditModelTopologyCache performs 0 float[] hashes.
+        final Object rewEditMode = rewCtx[3];
+        final Object rewSceneGraph = rewCtx[4];
+        final Object rewPackAction = rewCtx[5];
+        final Class<?> kbCls = Class.forName("com.live2d.cubism.view.context.K$b", true, rew.loader);
+        final Object kbInstance = kbCls.getField("a").get(null);
+        final Class<?> rotModeCls =
+                Class.forName("com.live2d.cubism.setting.AppSetting$RotationDeformer$Mode", true, rew.loader);
+        final Object rotModeAuto = rotModeCls.getField("a").get(null);
+        final Class<?> fn1Cls = Class.forName("kotlin.jvm.functions.Function1", true, rew.loader);
+        final Object falsePred = java.lang.reflect.Proxy.newProxyInstance(
+                rew.loader, new Class<?>[] {fn1Cls}, (proxy, method, args) -> Boolean.FALSE);
+        final Class<?> acDefCls = Class.forName("com.live2d.cubism.doc.model.deformer.ACDeformer", false, rew.loader);
+        final Method ovMethod = kbCls.getMethod(
+                "a",
+                acDefCls,
+                rewSceneGraph.getClass(),
+                boolean.class,
+                boolean.class,
+                rotModeCls,
+                rewPackAction.getClass(),
+                fn1Cls);
+        assertNotNull(rewEditMode);
+        @SuppressWarnings("unchecked")
+        final List<Object> allRewDefs = (List<Object>) rew.model.getClass().getMethod("getAllDeformers").invoke(rew.model);
+        final Class<?> warpDefCls =
+                Class.forName(WarpDeformEditTarget.WARP_DEFORMER_OWNER.replace('/', '.'), false, rew.loader);
+        Object unselectedWarp = null;
+        for (final Object d : allRewDefs) {
+            if (warpDefCls.isInstance(d) && d != rew.rootWarp) {
+                unselectedWarp = d;
+                break;
+            }
+        }
+        assertNotNull(unselectedWarp);
+        final long hashesBeforeOvUpdate = bridge.snapshot().get("fullArrayHashes");
+        ovMethod.invoke(kbInstance, unselectedWarp, rewSceneGraph, false, true, rotModeAuto, rewPackAction, falsePred);
+        final long hashesBeforeOvElide = bridge.snapshot().get("fullArrayHashes");
+        assertEquals(hashesBeforeOvUpdate, hashesBeforeOvElide, "WarpDeformer overlay update under active epoch must skip float[] hashing");
+        final long elisionsBefore = bridge.snapshot().get("overlayElisions");
+        ovMethod.invoke(kbInstance, unselectedWarp, rewSceneGraph, false, true, rotModeAuto, rewPackAction, falsePred);
+        final Map<String, Long> afterOv = bridge.snapshot();
+        assertTrue(afterOv.get("overlayElisions") > elisionsBefore);
+        assertEquals(hashesBeforeOvElide, afterOv.get("fullArrayHashes"), "WarpDeformer overlay elision under active epoch must skip float[] hashing");
+    }
+
+    private static Object[] createEditViewContext(
+            final ClassLoader loader, final Object modelSource, final Object model) throws Exception {
+        final Class<?> unsafeCls = Class.forName("sun.misc.Unsafe");
+        final Field theUnsafe = unsafeCls.getDeclaredField("theUnsafe");
+        theUnsafe.setAccessible(true);
+        final Object unsafe = theUnsafe.get(null);
+        final Method allocate = unsafeCls.getMethod("allocateInstance", Class.class);
+
+        final Class<?> modelSrcCls = Class.forName("com.live2d.cubism.doc.model.CModelSource", true, loader);
+        final Class<?> modelCls = Class.forName("com.live2d.cubism.doc.model.CModel", true, loader);
+        final Class<?> packCls = Class.forName("com.live2d.cubism.pack.CECompletePack", false, loader);
+        final Class<?> docCls = Class.forName("com.live2d.cubism.doc.modeling.CModelingDocument", true, loader);
+        final Class<?> editModeCls = Class.forName("com.live2d.cubism.doc.modeling.CModelingEditMode_Main", true, loader);
+        final Class<?> viewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext_ModelingView", false, loader);
+        final Class<?> absViewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext", false, loader);
+        final Class<?> camCls = Class.forName("com.live2d.cubism.view.context.CECameraManager", false, loader);
+        final Class<?> rsCls = Class.forName("com.live2d.graphics3d.rendering.e", false, loader);
+        final Class<?> sgCls = Class.forName("com.live2d.graphics3d.sceneGraph.GSceneGraph", true, loader);
+        final Class<?> aGCls = Class.forName("com.live2d.cubism.view.context.actionManager.aG", true, loader);
+        final Class<?> nCls = Class.forName("com.live2d.cubism.view.context.actionManager.N", false, loader);
+        final Class<?> lazyCls = Class.forName("kotlin.Lazy", true, loader);
+
+        final Object pack = allocate.invoke(unsafe, packCls);
+        final Object doc = docCls.getConstructor(packCls, modelSrcCls).newInstance(pack, modelSource);
+        final Object editMode = editModeCls.getConstructor(packCls, docCls).newInstance(pack, doc);
+        final Object selector = editModeCls.getMethod("getSelector").invoke(editMode);
+        final Object sceneGraph = sgCls.getConstructor().newInstance();
+        final Object camMgr = allocate.invoke(unsafe, camCls);
+        final Object renderSys = allocate.invoke(unsafe, rsCls);
+        final Object view = allocate.invoke(unsafe, viewCls);
+        setDeclaredField(absViewCls, view, "doc", doc);
+        setDeclaredField(absViewCls, view, "currentEditMode", editMode);
+        setDeclaredField(absViewCls, view, "cameraManager", camMgr);
+        setDeclaredField(absViewCls, view, "renderSystem", renderSys);
+        for (Class<?> cur = viewCls; cur != Object.class; cur = cur.getSuperclass()) {
+            for (final Field f : cur.getDeclaredFields()) {
+                if (!Modifier.isStatic(f.getModifiers()) && f.getType() == modelCls) {
+                    f.setAccessible(true);
+                    f.set(view, model);
+                }
+            }
+        }
+        final Object packAction = allocate.invoke(unsafe, aGCls);
+        setDeclaredField(nCls, packAction, "c", view);
+        setDeclaredField(aGCls, packAction, "b", editMode);
+        final Object emptyLazy = java.lang.reflect.Proxy.newProxyInstance(
+                loader,
+                new Class<?>[] {lazyCls},
+                (proxy, method, args) -> "isInitialized".equals(method.getName()) ? Boolean.TRUE : List.of());
+        for (Class<?> cur = aGCls; cur != Object.class; cur = cur.getSuperclass()) {
+            for (final Field f : cur.getDeclaredFields()) {
+                if (!Modifier.isStatic(f.getModifiers()) && lazyCls.isAssignableFrom(f.getType())) {
+                    f.setAccessible(true);
+                    f.set(packAction, emptyLazy);
+                }
+            }
+        }
+        return new Object[] {doc, view, selector, editMode, sceneGraph, packAction};
+    }
+
+    private static void dragRotationDeformerUnversioned(
+            final Object deformer, final float angleDeg, final float originShift) throws Exception {
         final Object src = deformer.getClass().getMethod("getSource").invoke(deformer);
         @SuppressWarnings("unchecked")
         final List<Object> kfs =
@@ -1118,10 +1332,10 @@ class WarpDeformEditAccelerationTest {
                 deformer.getClass().getMethod("getInterpolatedForm").invoke(deformer);
         interp.getClass().getMethod("setAngle", float.class).invoke(interp, angleDeg);
         interp.getClass().getMethod("setOriginX", float.class).invoke(interp, 12.0f + originShift);
-        deformer.getClass().getMethod("setDirtyDeformedForm", boolean.class).invoke(deformer, true);
     }
 
-    private static void dragWarpDeformer(final Object deformer, final float[] newPositions) throws Exception {
+    private static void dragWarpDeformerUnversioned(final Object deformer, final float[] newPositions)
+            throws Exception {
         final Object src = deformer.getClass().getMethod("getSource").invoke(deformer);
         @SuppressWarnings("unchecked")
         final List<Object> kfs =
@@ -1132,6 +1346,16 @@ class WarpDeformEditAccelerationTest {
         final Object interp =
                 deformer.getClass().getMethod("getInterpolatedForm").invoke(deformer);
         interp.getClass().getMethod("setPositions", float[].class).invoke(interp, newPositions.clone());
+    }
+
+    private static void dragRotationDeformer(final Object deformer, final float angleDeg, final float originShift)
+            throws Exception {
+        dragRotationDeformerUnversioned(deformer, angleDeg, originShift);
+        deformer.getClass().getMethod("setDirtyDeformedForm", boolean.class).invoke(deformer, true);
+    }
+
+    private static void dragWarpDeformer(final Object deformer, final float[] newPositions) throws Exception {
+        dragWarpDeformerUnversioned(deformer, newPositions);
         deformer.getClass().getMethod("setDirtyDeformedForm", boolean.class).invoke(deformer, true);
     }
 
@@ -1190,12 +1414,6 @@ class WarpDeformEditAccelerationTest {
 
     private static void runOverlayElisionParityOnComposedLoader(
             final ClassLoader loader, final WarpDeformEditBridge bridge) throws Exception {
-        final Class<?> unsafeCls = Class.forName("sun.misc.Unsafe");
-        final Field theUnsafe = unsafeCls.getDeclaredField("theUnsafe");
-        theUnsafe.setAccessible(true);
-        final Object unsafe = theUnsafe.get(null);
-        final Method allocate = unsafeCls.getMethod("allocateInstance", Class.class);
-
         final Class<?> modelSrcCls = Class.forName("com.live2d.cubism.doc.model.CModelSource", true, loader);
         final Class<?> modelCls = Class.forName("com.live2d.cubism.doc.model.CModel", true, loader);
         final Class<?> defGuidCls = Class.forName("com.live2d.type.CDeformerGuid", true, loader);
@@ -1248,60 +1466,9 @@ class WarpDeformEditAccelerationTest {
                 modelSrcCls.getMethod("createModelInstance", renderTypeCls).invoke(modelSource, renderNormal);
         final Object rotDeformer = modelCls.getMethod("getDeformer", defGuidCls).invoke(model, rotAGuid);
 
-        final Class<?> packCls = Class.forName("com.live2d.cubism.pack.CECompletePack", false, loader);
-        final Class<?> docCls = Class.forName("com.live2d.cubism.doc.modeling.CModelingDocument", true, loader);
-        final Class<?> editModeCls =
-                Class.forName("com.live2d.cubism.doc.modeling.CModelingEditMode_Main", true, loader);
-        final Class<?> viewCls =
-                Class.forName("com.live2d.cubism.view.context.CEViewContext_ModelingView", false, loader);
-        final Class<?> absViewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext", false, loader);
-        final Class<?> camCls = Class.forName("com.live2d.cubism.view.context.CECameraManager", false, loader);
-        final Class<?> rsCls = Class.forName("com.live2d.graphics3d.rendering.e", false, loader);
-        final Class<?> sgCls = Class.forName("com.live2d.graphics3d.sceneGraph.GSceneGraph", true, loader);
-        final Class<?> aGCls = Class.forName("com.live2d.cubism.view.context.actionManager.aG", true, loader);
-        final Class<?> nCls = Class.forName("com.live2d.cubism.view.context.actionManager.N", false, loader);
-        final Class<?> lazyKtCls = Class.forName("kotlin.LazyKt", true, loader);
-        final Class<?> lazyCls = Class.forName("kotlin.Lazy", true, loader);
-
-        final Object pack = allocate.invoke(unsafe, packCls);
-        final Object doc = docCls.getConstructor(packCls, modelSrcCls).newInstance(pack, modelSource);
-        final Object editMode = editModeCls.getConstructor(packCls, docCls).newInstance(pack, doc);
-        final Object sceneGraph = sgCls.getConstructor().newInstance();
-        final Object camMgr = allocate.invoke(unsafe, camCls);
-        final Object renderSys = allocate.invoke(unsafe, rsCls);
-        final Object view = allocate.invoke(unsafe, viewCls);
-        setDeclaredField(absViewCls, view, "doc", doc);
-        setDeclaredField(absViewCls, view, "currentEditMode", editMode);
-        setDeclaredField(absViewCls, view, "cameraManager", camMgr);
-        setDeclaredField(absViewCls, view, "renderSystem", renderSys);
-
-        final Object packAction = allocate.invoke(unsafe, aGCls);
-        setDeclaredField(nCls, packAction, "c", view);
-        setDeclaredField(aGCls, packAction, "b", editMode);
-        final Object emptyLazy = java.lang.reflect.Proxy.newProxyInstance(
-                loader,
-                new Class<?>[] {lazyCls},
-                (proxy, method, args) -> "isInitialized".equals(method.getName()) ? Boolean.TRUE : List.of());
-        for (Class<?> cur = aGCls; cur != Object.class; cur = cur.getSuperclass()) {
-            for (final Field f : cur.getDeclaredFields()) {
-                if (Modifier.isStatic(f.getModifiers())) {
-                    continue;
-                }
-                if (lazyCls.isAssignableFrom(f.getType())) {
-                    f.setAccessible(true);
-                    f.set(packAction, emptyLazy);
-                }
-            }
-        }
-        // Populate view's model field if declared so aG.i() resolves cleanly if queried.
-        for (Class<?> cur = viewCls; cur != Object.class; cur = cur.getSuperclass()) {
-            for (final Field f : cur.getDeclaredFields()) {
-                if (!Modifier.isStatic(f.getModifiers()) && f.getType() == modelCls) {
-                    f.setAccessible(true);
-                    f.set(view, model);
-                }
-            }
-        }
+        final Object[] ctx = createEditViewContext(loader, modelSource, model);
+        final Object sceneGraph = ctx[4];
+        final Object packAction = ctx[5];
 
         final Class<?> kbCls = Class.forName("com.live2d.cubism.view.context.K$b", true, loader);
         final Object kbInstance = kbCls.getField("a").get(null);
@@ -1312,25 +1479,31 @@ class WarpDeformEditAccelerationTest {
         final Object falsePred = java.lang.reflect.Proxy.newProxyInstance(
                 loader, new Class<?>[] {fn1Cls}, (proxy, method, args) -> Boolean.FALSE);
         final Class<?> acDefCls = Class.forName("com.live2d.cubism.doc.model.deformer.ACDeformer", false, loader);
-        final Method ovMethod =
-                kbCls.getMethod("a", acDefCls, sgCls, boolean.class, boolean.class, rotModeCls, aGCls, fn1Cls);
+        final Method ovMethod = kbCls.getMethod(
+                "a", acDefCls, sceneGraph.getClass(), boolean.class, boolean.class, rotModeCls, packAction.getClass(), fn1Cls);
 
         // Pass 1: native overlay builds Draw child & marks volatile.
+        final long updatesBeforePass1 = bridge.snapshot().get("overlayUpdates");
         ovMethod.invoke(kbInstance, rotDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
         final long updatesAfterPass1 = bridge.snapshot().get("overlayUpdates");
-        assertTrue(updatesAfterPass1 >= 1L, "expected initial K$b.a overlay update");
+        assertTrue(
+                updatesAfterPass1 > updatesBeforePass1,
+                () -> "expected initial K$b.a overlay update, stats=" + bridge.snapshot());
 
         // Clear SceneGraph volatile set and invoke Pass 2 unchanged -> must elide update & keep setVolatile!
-        final Field willRenderF =
-                findFieldOwner(sgCls, "volatileEntities_willRender").getDeclaredField("volatileEntities_willRender");
+        final Field willRenderF = findFieldOwner(sceneGraph.getClass(), "volatileEntities_willRender")
+                .getDeclaredField("volatileEntities_willRender");
         willRenderF.setAccessible(true);
         @SuppressWarnings("unchecked")
         final Set<Object> willRender = (Set<Object>) willRenderF.get(sceneGraph);
         willRender.clear();
 
+        final long elisionsBeforePass2 = bridge.snapshot().get("overlayElisions");
         ovMethod.invoke(kbInstance, rotDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
         final Map<String, Long> afterElide = bridge.snapshot();
-        assertTrue(afterElide.get("overlayElisions") >= 1L, () -> "expected overlayElisions, got " + afterElide);
+        assertTrue(
+                afterElide.get("overlayElisions") > elisionsBeforePass2,
+                () -> "expected overlayElisions, got " + afterElide);
         assertEquals(updatesAfterPass1, afterElide.get("overlayUpdates"));
         assertEquals(1, willRender.size(), "elided overlay must preserve GSceneGraph.setVolatile registration");
 
@@ -1340,7 +1513,7 @@ class WarpDeformEditAccelerationTest {
         ovMethod.invoke(kbInstance, rotDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
         assertTrue(
                 bridge.snapshot().get("overlayUpdates") > updatesAfterPass1,
-                "dirty geometry must invalidate overlay elision");
+                () -> "dirty geometry must invalidate overlay elision, stats=" + bridge.snapshot());
     }
 
     private static Object[] createInitializedForms(final ClassLoader loader, final Class<?> rewFormCls)

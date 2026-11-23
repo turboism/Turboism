@@ -434,9 +434,23 @@ final class EditOverlayElisionCoordinator {
         final EditModelTopologyCache recent = subtreeCoordinator.latestCacheSnapshot();
         if (recent != null && recent.validBaseline) {
             final Long epoch = recent.deformerEpochs.get(deformer);
-            if (epoch != null
-                    && (!entry.lastEpochKnown || entry.lastSubtreeCache != recent || entry.lastEpoch != epoch)) {
-                return false;
+            if (epoch != null) {
+                if (!entry.lastEpochKnown || entry.lastSubtreeCache != recent || entry.lastEpoch != epoch) {
+                    return false;
+                }
+                if (!isWarp) {
+                    final long geomSig = computeDeformerGeomSig(deformer, false);
+                    return entry.lastGeomSigKnown && entry.lastGeomSig == geomSig;
+                }
+                final Object calcForm = (Object) h.deformerGetCalculatedForm.invokeExact(deformer);
+                final Object defForm = (Object) h.deformerGetDeformedForm.invokeExact(deformer);
+                final Object interpForm = (Object) h.deformerGetInterpolatedForm.invokeExact(deformer);
+                final int interpEditVer = interpForm == null ? -1 : (int) h.formGetEditVersion.invokeExact(interpForm);
+                return entry.lastGeomFormsKnown
+                        && entry.lastCalcForm == calcForm
+                        && entry.lastDefForm == defForm
+                        && entry.lastInterpForm == interpForm
+                        && entry.lastInterpEditVer == interpEditVer;
             }
         }
         final long geomSig = computeDeformerGeomSig(deformer, isWarp);
@@ -457,16 +471,32 @@ final class EditOverlayElisionCoordinator {
         entry.primaryDraw = draw;
         entry.lastGlobalSig = globalSig;
 
+        final Object calcForm = (Object) h.deformerGetCalculatedForm.invokeExact(deformer);
+        final Object defForm = (Object) h.deformerGetDeformedForm.invokeExact(deformer);
+        final Object interpForm = (Object) h.deformerGetInterpolatedForm.invokeExact(deformer);
+        entry.lastCalcForm = calcForm;
+        entry.lastDefForm = defForm;
+        entry.lastInterpForm = interpForm;
+        entry.lastInterpEditVer = interpForm == null ? -1 : (int) h.formGetEditVersion.invokeExact(interpForm);
+        entry.lastGeomFormsKnown = true;
+
         final EditModelTopologyCache recent = subtreeCoordinator.latestCacheSnapshot();
         final Long epoch = recent != null && recent.validBaseline ? recent.deformerEpochs.get(deformer) : null;
         if (epoch != null) {
             entry.lastSubtreeCache = recent;
             entry.lastEpoch = epoch;
             entry.lastEpochKnown = true;
-        } else {
-            entry.lastSubtreeCache = null;
-            entry.lastEpochKnown = false;
+            if (!isWarp) {
+                entry.lastGeomSig = computeDeformerGeomSig(deformer, false);
+                entry.lastGeomSigKnown = true;
+            } else {
+                // Skip float[] hashing on WarpDeformers when active subtree epochs cover this model frame.
+                entry.lastGeomSigKnown = false;
+            }
+            return;
         }
+        entry.lastSubtreeCache = null;
+        entry.lastEpochKnown = false;
         entry.lastGeomSig = computeDeformerGeomSig(deformer, isWarp);
         entry.lastGeomSigKnown = true;
     }
@@ -484,6 +514,7 @@ final class EditOverlayElisionCoordinator {
         if (calcForm != null) {
             if (isWarp) {
                 final float[] pos = (float[]) h.warpFormGetPositions.invokeExact(calcForm);
+                subtreeCoordinator.fullArrayHashes.increment();
                 sig = sig * HASH_PRIME + (pos == null ? NULL_SENTINEL_HASH : Arrays.hashCode(pos));
             } else {
                 sig = sig * HASH_PRIME + Float.floatToRawIntBits((float) h.rotFormGetOriginX.invokeExact(calcForm));
@@ -604,6 +635,11 @@ final class EditOverlayElisionCoordinator {
         Object lastSubtreeCache;
         long lastEpoch;
         boolean lastEpochKnown;
+        Object lastCalcForm;
+        Object lastDefForm;
+        Object lastInterpForm;
+        int lastInterpEditVer;
+        boolean lastGeomFormsKnown;
         long lastGeomSig;
         boolean lastGeomSigKnown;
     }

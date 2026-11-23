@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Per-model cached DAG topology, parameter/form snapshots, and deformer overlay epochs.
@@ -16,7 +17,6 @@ final class EditModelTopologyCache {
 
     private static final int INITIAL_LIST_CAPACITY = 4;
     private static final int ROTATION_SCALAR_STRIDE = 4;
-    private static final int COLOR_CHANNEL_STRIDE = 8;
     private static final int HASH_PRIME = 31;
 
     Object model;
@@ -56,6 +56,8 @@ final class EditModelTopologyCache {
     // Exact visible ArtMesh snapshot and parent/glue wiring.
     Object[] allArtMeshes;
     Object[] visibleMeshes;
+    Object[] visibleMeshSources;
+    final IdentityHashMap<Object, Integer> visibleMeshIndexByRef = new IdentityHashMap<>();
     int[] meshParentDeformerIdx;
     boolean hasArtPaths;
     int[] artPathDeformerIdx;
@@ -66,31 +68,28 @@ final class EditModelTopologyCache {
     int[] glueMeshBVisibleIdx;
     int[][] meshGlueAdjacency;
 
-    // Per-deformer baseline fingerprints.
+    // O(1) per-deformer baseline fingerprints (version stamps and form references only).
+    Object[] deformerSources;
     int[] lastDefSourceUpdateVer;
     int[] lastDefCopiedUpdateVer;
-    int[] lastDefKeyformSum;
+    int[] lastDefKeyformVersionStamp;
     Object[] lastDefInterpForm;
     int[] lastDefInterpEditVer;
-    int[] lastDefOpacityBits;
-    float[] lastDefMultiplyRgba;
-    float[] lastDefScreenRgba;
-    float[] lastRotScalars;
-    boolean[] lastRotReflectFlags;
-    float[][] lastWarpPositions;
 
-    // Per-visible-ArtMesh baseline fingerprints.
+    // O(1) per-visible-ArtMesh baseline fingerprints (version stamps and buffer identity only).
     int[] lastMeshVer;
     int[] lastMeshCopiedVer;
-    int[] lastMeshKeyformSum;
+    int[] lastMeshKeyformVersionStamp;
     Object[] lastMeshInterpForm;
     int[] lastMeshInterpEditVer;
     int[] lastMeshDrawOrder;
-    int[] lastMeshOpacityBits;
-    long[] lastMeshColorHash;
     boolean[] lastMeshVisible;
     boolean[] lastMeshVisHierarchy;
     float[][] lastMeshGMeshPosRefs;
+
+    // Deep float[]/color baselines tracked strictly for currently selected or hovered objects.
+    final IdentityHashMap<Object, SelectedDeformerBaseline> selectedDeformerBaselines = new IdentityHashMap<>();
+    final IdentityHashMap<Object, SelectedMeshBaseline> selectedMeshBaselines = new IdentityHashMap<>();
 
     // Per-glue baseline fingerprints.
     int[] lastGlueCachedVer;
@@ -105,18 +104,18 @@ final class EditModelTopologyCache {
 
     // One-frame appearance-skip state armed by coreUpdate and drained by artMeshAppearance.
     Thread skipThread;
-    int skipCursor;
+    int remainingAppearanceChecks;
     boolean[] activeDirtyMeshes;
 
     void armAppearanceSkip(final Thread thread, final boolean[] dirtyMeshes) {
         this.skipThread = thread;
-        this.skipCursor = 0;
+        this.remainingAppearanceChecks = dirtyMeshes == null ? 0 : dirtyMeshes.length;
         this.activeDirtyMeshes = dirtyMeshes;
     }
 
     void disarmAppearanceSkip() {
         this.skipThread = null;
-        this.skipCursor = 0;
+        this.remainingAppearanceChecks = 0;
         this.activeDirtyMeshes = null;
     }
 
@@ -290,7 +289,9 @@ final class EditModelTopologyCache {
             final Object renderCtx,
             final Object paramSet,
             final boolean editing,
-            final EditSubtreeHandles h)
+            final IdentityHashMap<Object, Boolean> activeEditSources,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
             throws Throwable {
         validBaseline = false;
         this.model = model;
@@ -346,8 +347,10 @@ final class EditModelTopologyCache {
         buildMeshAndGlueTopology(model, h);
         buildArtPathMapping(model, h);
 
-        snapshotAllDeformerStates(h);
-        snapshotAllMeshStates(h);
+        selectedDeformerBaselines.clear();
+        selectedMeshBaselines.clear();
+        snapshotAllDeformerStates(activeEditSources, h, fullArrayHashes);
+        snapshotAllMeshStates(activeEditSources, h, fullArrayHashes);
         snapshotAllGlueStates(h);
 
         // Advance deformer epochs so overlay elision detects refreshed post-native forms.
@@ -363,6 +366,7 @@ final class EditModelTopologyCache {
         final List<?> defList = defObj instanceof List<?> list ? list : List.of();
         final int n = defList.size();
         deformers = new Object[n];
+        deformerSources = new Object[n];
         isWarp = new boolean[n];
         isRotation = new boolean[n];
         deformerParentIdx = new int[n];
@@ -371,6 +375,7 @@ final class EditModelTopologyCache {
         for (int i = 0; i < n; i++) {
             final Object d = defList.get(i);
             deformers[i] = d;
+            deformerSources[i] = (Object) h.deformerGetSource.invokeExact(d);
             isWarp[i] = h.warpDeformerClass.isInstance(d);
             isRotation[i] = h.rotDeformerClass.isInstance(d);
             deformerIndexByRef.put(d, i);
@@ -461,8 +466,9 @@ final class EditModelTopologyCache {
         final List<?> allList = allObj instanceof List<?> list ? list : List.of();
         allArtMeshes = allList.toArray();
         final List<Object> visible = new ArrayList<>(allList.size());
+        final List<Object> visibleSources = new ArrayList<>(allList.size());
         final List<Integer> parentIndices = new ArrayList<>(allList.size());
-        final IdentityHashMap<Object, Integer> visibleIndexByGuidSourceOrMesh = new IdentityHashMap<>(allList.size());
+        visibleMeshIndexByRef.clear();
         final Map<Object, Integer> visibleIndexByGuid = new java.util.HashMap<>(allList.size());
 
         for (final Object m : allArtMeshes) {
@@ -478,11 +484,13 @@ final class EditModelTopologyCache {
             final int pIdx = parent == null ? -1 : deformerIndexByRef.getOrDefault(parent, -1);
             final int visIdx = visible.size();
             visible.add(m);
+            visibleSources.add(src);
             parentIndices.add(pIdx);
-            visibleIndexByGuidSourceOrMesh.put(m, visIdx);
+            visibleMeshIndexByRef.put(m, visIdx);
             visibleIndexByGuid.put((Object) h.meshGetGuid.invokeExact(m), visIdx);
         }
         visibleMeshes = visible.toArray();
+        visibleMeshSources = visibleSources.toArray();
         meshParentDeformerIdx = new int[parentIndices.size()];
         for (int i = 0; i < parentIndices.size(); i++) {
             meshParentDeformerIdx[i] = parentIndices.get(i);
@@ -553,104 +561,85 @@ final class EditModelTopologyCache {
         }
     }
 
-    private void snapshotAllDeformerStates(final EditSubtreeHandles h) throws Throwable {
+    private void snapshotAllDeformerStates(
+            final IdentityHashMap<Object, Boolean> activeEditSources,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
+            throws Throwable {
         final int n = deformers.length;
         lastDefSourceUpdateVer = new int[n];
         lastDefCopiedUpdateVer = new int[n];
-        lastDefKeyformSum = new int[n];
+        lastDefKeyformVersionStamp = new int[n];
         lastDefInterpForm = new Object[n];
         lastDefInterpEditVer = new int[n];
-        lastDefOpacityBits = new int[n];
-        lastDefMultiplyRgba = new float[n * ROTATION_SCALAR_STRIDE];
-        lastDefScreenRgba = new float[n * ROTATION_SCALAR_STRIDE];
-        lastRotScalars = new float[n * ROTATION_SCALAR_STRIDE];
-        lastRotReflectFlags = new boolean[n * 2];
-        lastWarpPositions = new float[n][];
         for (int i = 0; i < n; i++) {
-            recordDeformerSnapshot(i, h);
+            final boolean captureSelected =
+                    activeEditSources != null && activeEditSources.containsKey(deformerSources[i]);
+            recordDeformerSnapshot(i, captureSelected, h, fullArrayHashes);
         }
     }
 
-    void recordDeformerSnapshot(final int i, final EditSubtreeHandles h) throws Throwable {
+    void recordDeformerSnapshot(
+            final int i,
+            final boolean captureSelectedDeep,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
+            throws Throwable {
         final Object d = deformers[i];
-        final Object src = (Object) h.deformerGetSource.invokeExact(d);
+        final Object src = deformerSources[i];
         lastDefSourceUpdateVer[i] = (int) h.sourceGetUpdateVersion.invokeExact(src);
         lastDefCopiedUpdateVer[i] = (int) h.deformerGetCopiedUpdateVersion.invokeExact(d);
-        lastDefKeyformSum[i] = computeDeformerKeyformSignature(src, isWarp[i], isRotation[i], h);
+        lastDefKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
         final Object form = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
         lastDefInterpForm[i] = form;
         lastDefInterpEditVer[i] = form == null ? -1 : (int) h.formGetEditVersion.invokeExact(form);
-        if (form != null) {
-            lastDefOpacityBits[i] = Float.floatToRawIntBits((float) h.deformerFormGetOpacity.invokeExact(form));
-            final Object mul = (Object) h.deformerFormGetMultiplyColor.invokeExact(form);
-            final Object scr = (Object) h.deformerFormGetScreenColor.invokeExact(form);
-            final int base = i * ROTATION_SCALAR_STRIDE;
-            lastDefMultiplyRgba[base] = (float) h.floatColorGetR.invokeExact(mul);
-            lastDefMultiplyRgba[base + 1] = (float) h.floatColorGetG.invokeExact(mul);
-            lastDefMultiplyRgba[base + 2] = (float) h.floatColorGetB.invokeExact(mul);
-            lastDefMultiplyRgba[base + 3] = (float) h.floatColorGetA.invokeExact(mul);
-            lastDefScreenRgba[base] = (float) h.floatColorGetR.invokeExact(scr);
-            lastDefScreenRgba[base + 1] = (float) h.floatColorGetG.invokeExact(scr);
-            lastDefScreenRgba[base + 2] = (float) h.floatColorGetB.invokeExact(scr);
-            lastDefScreenRgba[base + 3] = (float) h.floatColorGetA.invokeExact(scr);
-            if (isWarp[i]) {
-                final float[] pos = (float[]) h.warpFormGetPositions.invokeExact(form);
-                float[] copy = lastWarpPositions[i];
-                if (pos == null) {
-                    lastWarpPositions[i] = null;
-                } else {
-                    if (copy == null || copy.length != pos.length) {
-                        copy = new float[pos.length];
-                        lastWarpPositions[i] = copy;
-                    }
-                    System.arraycopy(pos, 0, copy, 0, pos.length);
-                }
-            } else if (isRotation[i]) {
-                lastRotScalars[base] = (float) h.rotFormGetOriginX.invokeExact(form);
-                lastRotScalars[base + 1] = (float) h.rotFormGetOriginY.invokeExact(form);
-                lastRotScalars[base + 2] = (float) h.rotFormGetAngle.invokeExact(form);
-                lastRotScalars[base + 3] = (float) h.rotFormGetScale.invokeExact(form);
-                lastRotReflectFlags[i * 2] = (boolean) h.rotFormIsReflectX.invokeExact(form);
-                lastRotReflectFlags[i * 2 + 1] = (boolean) h.rotFormIsReflectY.invokeExact(form);
-            }
+        if (captureSelectedDeep) {
+            selectedDeformerBaselines.put(
+                    src, SelectedDeformerBaseline.capture(src, form, isWarp[i], isRotation[i], h, fullArrayHashes));
         }
     }
 
-    private void snapshotAllMeshStates(final EditSubtreeHandles h) throws Throwable {
+    private void snapshotAllMeshStates(
+            final IdentityHashMap<Object, Boolean> activeEditSources,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
+            throws Throwable {
         final int mCount = visibleMeshes.length;
         lastMeshVer = new int[mCount];
         lastMeshCopiedVer = new int[mCount];
-        lastMeshKeyformSum = new int[mCount];
+        lastMeshKeyformVersionStamp = new int[mCount];
         lastMeshInterpForm = new Object[mCount];
         lastMeshInterpEditVer = new int[mCount];
         lastMeshDrawOrder = new int[mCount];
-        lastMeshOpacityBits = new int[mCount];
-        lastMeshColorHash = new long[mCount];
         lastMeshVisible = new boolean[mCount];
         lastMeshVisHierarchy = new boolean[mCount];
         lastMeshGMeshPosRefs = new float[mCount][];
         for (int i = 0; i < mCount; i++) {
-            recordMeshSnapshot(i, h);
+            final boolean captureSelected =
+                    activeEditSources != null && activeEditSources.containsKey(visibleMeshSources[i]);
+            recordMeshSnapshot(i, captureSelected, h, fullArrayHashes);
         }
     }
 
-    void recordMeshSnapshot(final int i, final EditSubtreeHandles h) throws Throwable {
+    void recordMeshSnapshot(
+            final int i,
+            final boolean captureSelectedDeep,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
+            throws Throwable {
         final Object m = visibleMeshes[i];
-        final Object src = (Object) h.meshGetSource.invokeExact(m);
+        final Object src = visibleMeshSources[i];
         lastMeshVer[i] = (int) h.meshSourceGetMeshVersion.invokeExact(src);
         lastMeshCopiedVer[i] = (int) h.meshGetCopiedMeshVersion.invokeExact(m);
-        lastMeshKeyformSum[i] = computeMeshKeyformSignature(src, h);
+        lastMeshKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
         final Object form = (Object) h.meshGetInterpolatedForm.invokeExact(m);
         lastMeshInterpForm[i] = form;
         lastMeshInterpEditVer[i] = form == null ? -1 : (int) h.formGetEditVersion.invokeExact(form);
         lastMeshDrawOrder[i] = (int) h.meshGetDrawOrder.invokeExact(m);
         lastMeshVisible[i] = (boolean) h.meshSourceIsVisible.invokeExact(src);
         lastMeshVisHierarchy[i] = (boolean) h.meshSourceIsVisibleHierarchy.invokeExact(src);
-        if (form != null) {
-            lastMeshOpacityBits[i] = Float.floatToRawIntBits((float) h.meshFormGetOpacity.invokeExact(form));
-            final long mh = EditSubtreeHandles.packColorRgba(h, (Object) h.meshFormGetMultiplyColor.invokeExact(form));
-            final long sh = EditSubtreeHandles.packColorRgba(h, (Object) h.meshFormGetScreenColor.invokeExact(form));
-            lastMeshColorHash[i] = mh * HASH_PRIME + sh;
+        if (captureSelectedDeep) {
+            selectedMeshBaselines.put(src, SelectedMeshBaseline.capture(src, form, h, fullArrayHashes));
         }
         final Object container = (Object) h.meshGetContainer.invokeExact(m);
         final Object gmesh = container == null ? null : (Object) h.meshContainerGetMesh.invokeExact(container);
@@ -714,8 +703,28 @@ final class EditModelTopologyCache {
         return true;
     }
 
+    /** Computes an O(keyforms) integer version stamp without hashing position arrays or unpacking colors. */
+    static int computeKeyformVersionStamp(final Object source, final EditSubtreeHandles h) throws Throwable {
+        final Object kfsObj = (Object) h.sourceGetKeyforms.invokeExact(source);
+        if (!(kfsObj instanceof List<?> kfs)) {
+            return 0;
+        }
+        int stamp = kfs.size();
+        for (final Object kf : kfs) {
+            stamp *= HASH_PRIME;
+            if (kf != null) {
+                stamp += System.identityHashCode(kf) * HASH_PRIME + (int) h.formGetEditVersion.invokeExact(kf);
+            }
+        }
+        return stamp;
+    }
+
     static int computeDeformerKeyformSignature(
-            final Object source, final boolean isWarp, final boolean isRotation, final EditSubtreeHandles h)
+            final Object source,
+            final boolean isWarp,
+            final boolean isRotation,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
             throws Throwable {
         final Object kfsObj = (Object) h.sourceGetKeyforms.invokeExact(source);
         if (!(kfsObj instanceof List<?> kfs)) {
@@ -736,6 +745,9 @@ final class EditModelTopologyCache {
                     h);
             if (isWarp) {
                 final float[] pos = (float[]) h.warpFormGetPositions.invokeExact(kf);
+                if (fullArrayHashes != null) {
+                    fullArrayHashes.increment();
+                }
                 sum = sum * HASH_PRIME + Arrays.hashCode(pos);
             } else if (isRotation) {
                 sum = sum * HASH_PRIME + Float.floatToRawIntBits((float) h.rotFormGetOriginX.invokeExact(kf));
@@ -749,7 +761,8 @@ final class EditModelTopologyCache {
         return sum;
     }
 
-    static int computeMeshKeyformSignature(final Object source, final EditSubtreeHandles h) throws Throwable {
+    static int computeMeshKeyformSignature(
+            final Object source, final EditSubtreeHandles h, final LongAdder fullArrayHashes) throws Throwable {
         final Object kfsObj = (Object) h.sourceGetKeyforms.invokeExact(source);
         if (!(kfsObj instanceof List<?> kfs)) {
             return 0;
@@ -768,9 +781,200 @@ final class EditModelTopologyCache {
                     (Object) h.meshFormGetScreenColor.invokeExact(kf),
                     h);
             final float[] pos = (float[]) h.meshFormGetPositions.invokeExact(kf);
+            if (fullArrayHashes != null) {
+                fullArrayHashes.increment();
+            }
             sum = sum * HASH_PRIME + Arrays.hashCode(pos);
         }
         return sum;
+    }
+
+    private static void captureRgba(final Object color, final float[] dst, final EditSubtreeHandles h)
+            throws Throwable {
+        dst[0] = (float) h.floatColorGetR.invokeExact(color);
+        dst[1] = (float) h.floatColorGetG.invokeExact(color);
+        dst[2] = (float) h.floatColorGetB.invokeExact(color);
+        dst[3] = (float) h.floatColorGetA.invokeExact(color);
+    }
+
+    /** Deep baseline scoped to a single selected or hovered deformer to detect unversioned handle drags. */
+    static final class SelectedDeformerBaseline {
+        static final int DIFF_NONE = 0;
+        static final int DIFF_LOCAL = 1;
+        static final int DIFF_KEYFORM = 2;
+
+        final int keyformSig;
+        final Object interpForm;
+        final int opacityBits;
+        final float[] multiplyRgba = new float[ROTATION_SCALAR_STRIDE];
+        final float[] screenRgba = new float[ROTATION_SCALAR_STRIDE];
+        final float[] warpPositions;
+        final float[] rotScalars;
+        final boolean rotReflectX;
+        final boolean rotReflectY;
+
+        private SelectedDeformerBaseline(
+                final int keyformSig,
+                final Object interpForm,
+                final int opacityBits,
+                final float[] warpPositions,
+                final float[] rotScalars,
+                final boolean rotReflectX,
+                final boolean rotReflectY) {
+            this.keyformSig = keyformSig;
+            this.interpForm = interpForm;
+            this.opacityBits = opacityBits;
+            this.warpPositions = warpPositions;
+            this.rotScalars = rotScalars;
+            this.rotReflectX = rotReflectX;
+            this.rotReflectY = rotReflectY;
+        }
+
+        static SelectedDeformerBaseline capture(
+                final Object src,
+                final Object interpForm,
+                final boolean isWarp,
+                final boolean isRotation,
+                final EditSubtreeHandles h,
+                final LongAdder fullArrayHashes)
+                throws Throwable {
+            final int kfSig = computeDeformerKeyformSignature(src, isWarp, isRotation, h, fullArrayHashes);
+            if (interpForm == null) {
+                return new SelectedDeformerBaseline(kfSig, null, 0, null, null, false, false);
+            }
+            final int opacity = Float.floatToRawIntBits((float) h.deformerFormGetOpacity.invokeExact(interpForm));
+            float[] wPos = null;
+            float[] rSc = null;
+            boolean rX = false;
+            boolean rY = false;
+            if (isWarp) {
+                final float[] pos = (float[]) h.warpFormGetPositions.invokeExact(interpForm);
+                wPos = pos == null ? null : pos.clone();
+            } else if (isRotation) {
+                rSc = new float[] {
+                    (float) h.rotFormGetOriginX.invokeExact(interpForm),
+                    (float) h.rotFormGetOriginY.invokeExact(interpForm),
+                    (float) h.rotFormGetAngle.invokeExact(interpForm),
+                    (float) h.rotFormGetScale.invokeExact(interpForm)
+                };
+                rX = (boolean) h.rotFormIsReflectX.invokeExact(interpForm);
+                rY = (boolean) h.rotFormIsReflectY.invokeExact(interpForm);
+            }
+            final SelectedDeformerBaseline b =
+                    new SelectedDeformerBaseline(kfSig, interpForm, opacity, wPos, rSc, rX, rY);
+            captureRgba((Object) h.deformerFormGetMultiplyColor.invokeExact(interpForm), b.multiplyRgba, h);
+            captureRgba((Object) h.deformerFormGetScreenColor.invokeExact(interpForm), b.screenRgba, h);
+            return b;
+        }
+
+        int diff(
+                final Object src,
+                final Object curForm,
+                final boolean isWarp,
+                final boolean isRotation,
+                final EditSubtreeHandles h,
+                final LongAdder fullArrayHashes)
+                throws Throwable {
+            final int curKfSig = computeDeformerKeyformSignature(src, isWarp, isRotation, h, fullArrayHashes);
+            if (curKfSig != keyformSig) {
+                return DIFF_KEYFORM;
+            }
+            if (curForm != interpForm) {
+                return DIFF_LOCAL;
+            }
+            if (curForm == null) {
+                return DIFF_NONE;
+            }
+            if (Float.floatToRawIntBits((float) h.deformerFormGetOpacity.invokeExact(curForm)) != opacityBits) {
+                return DIFF_LOCAL;
+            }
+            final Object mul = (Object) h.deformerFormGetMultiplyColor.invokeExact(curForm);
+            final Object scr = (Object) h.deformerFormGetScreenColor.invokeExact(curForm);
+            if (!EditSubtreeHandles.sameFloatColor(
+                            multiplyRgba[0], multiplyRgba[1], multiplyRgba[2], multiplyRgba[3], mul, h)
+                    || !EditSubtreeHandles.sameFloatColor(
+                            screenRgba[0], screenRgba[1], screenRgba[2], screenRgba[3], scr, h)) {
+                return DIFF_LOCAL;
+            }
+            if (isWarp) {
+                final float[] pos = (float[]) h.warpFormGetPositions.invokeExact(curForm);
+                if (fullArrayHashes != null) {
+                    fullArrayHashes.increment();
+                }
+                return Arrays.equals(pos, warpPositions) ? DIFF_NONE : DIFF_LOCAL;
+            }
+            if (isRotation) {
+                final boolean sameScalars =
+                        Float.floatToRawIntBits((float) h.rotFormGetOriginX.invokeExact(curForm))
+                                        == Float.floatToRawIntBits(rotScalars[0])
+                                && Float.floatToRawIntBits((float) h.rotFormGetOriginY.invokeExact(curForm))
+                                        == Float.floatToRawIntBits(rotScalars[1])
+                                && Float.floatToRawIntBits((float) h.rotFormGetAngle.invokeExact(curForm))
+                                        == Float.floatToRawIntBits(rotScalars[2])
+                                && Float.floatToRawIntBits((float) h.rotFormGetScale.invokeExact(curForm))
+                                        == Float.floatToRawIntBits(rotScalars[3])
+                                && (boolean) h.rotFormIsReflectX.invokeExact(curForm) == rotReflectX
+                                && (boolean) h.rotFormIsReflectY.invokeExact(curForm) == rotReflectY;
+                return sameScalars ? DIFF_NONE : DIFF_LOCAL;
+            }
+            return DIFF_NONE;
+        }
+    }
+
+    /** Deep baseline scoped to a single selected or hovered ArtMesh. */
+    static final class SelectedMeshBaseline {
+        final int keyformSig;
+        final Object interpForm;
+        final int opacityBits;
+        final long colorHash;
+
+        private SelectedMeshBaseline(
+                final int keyformSig, final Object interpForm, final int opacityBits, final long colorHash) {
+            this.keyformSig = keyformSig;
+            this.interpForm = interpForm;
+            this.opacityBits = opacityBits;
+            this.colorHash = colorHash;
+        }
+
+        static SelectedMeshBaseline capture(
+                final Object src,
+                final Object interpForm,
+                final EditSubtreeHandles h,
+                final LongAdder fullArrayHashes)
+                throws Throwable {
+            final int kfSig = computeMeshKeyformSignature(src, h, fullArrayHashes);
+            if (interpForm == null) {
+                return new SelectedMeshBaseline(kfSig, null, 0, 0L);
+            }
+            final int opacity = Float.floatToRawIntBits((float) h.meshFormGetOpacity.invokeExact(interpForm));
+            final long mh = EditSubtreeHandles.packColorRgba(
+                    h, (Object) h.meshFormGetMultiplyColor.invokeExact(interpForm));
+            final long sh = EditSubtreeHandles.packColorRgba(
+                    h, (Object) h.meshFormGetScreenColor.invokeExact(interpForm));
+            return new SelectedMeshBaseline(kfSig, interpForm, opacity, mh * HASH_PRIME + sh);
+        }
+
+        boolean matches(
+                final Object src,
+                final Object curForm,
+                final EditSubtreeHandles h,
+                final LongAdder fullArrayHashes)
+                throws Throwable {
+            if (computeMeshKeyformSignature(src, h, fullArrayHashes) != keyformSig || curForm != interpForm) {
+                return false;
+            }
+            if (curForm == null) {
+                return true;
+            }
+            if (Float.floatToRawIntBits((float) h.meshFormGetOpacity.invokeExact(curForm)) != opacityBits) {
+                return false;
+            }
+            final long mh = EditSubtreeHandles.packColorRgba(
+                    h, (Object) h.meshFormGetMultiplyColor.invokeExact(curForm));
+            final long sh = EditSubtreeHandles.packColorRgba(
+                    h, (Object) h.meshFormGetScreenColor.invokeExact(curForm));
+            return (mh * HASH_PRIME + sh) == colorHash;
+        }
     }
 
     private static int mixFormHeader(

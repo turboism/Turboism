@@ -82,6 +82,7 @@ final class EditSubtreeHandles {
             "com/live2d/cubism/doc/model/deformer/rotation/RotationDeformer_DrawBone";
     private static final String CONFLICT_POLY_OWNER = "com/live2d/cubism/doc/model/drawable/ConflictPolygon/h";
     private static final String GUID_OWNER = "com/live2d/type/Guid";
+    private static final String AC_GUID_SELECTION_OWNER = "com/live2d/cubism/doc/selection/ACGuidSelection";
 
     private static final String SINGLETON_FIELD = "a";
     private static final String INSTANCE_FIELD = "INSTANCE";
@@ -95,8 +96,12 @@ final class EditSubtreeHandles {
     final Class<?> modelingDocClass;
     final Class<?> modelingViewClass;
     final Class<?> editModeClass;
+    final Class<?> editModeMainClass;
     final Class<?> warpDeformerClass;
     final Class<?> rotDeformerClass;
+    final Class<?> artMeshClass;
+    final Class<?> deformerGuidClass;
+    final Class<?> drawableGuidClass;
     final Class<?> glueClass;
     final Class<?> actionPackClass;
     final Class<?> warpDrawClass;
@@ -159,6 +164,7 @@ final class EditSubtreeHandles {
     final MethodHandle selectorGetSelectedObjects;
     final MethodHandle selectorGetSelectedCount;
     final MethodHandle selectorGetHoveringObject;
+    final MethodHandle selectionGetGuid;
     final MethodHandle selectorIsSelected;
     final MethodHandle controllableGetSource;
     final MethodHandle controllableSourceGetTargetGuid;
@@ -322,9 +328,12 @@ final class EditSubtreeHandles {
         modelingViewClass = HostHandles.load(loader, CE_MODELING_VIEW_OWNER);
         modelingDocClass = HostHandles.load(loader, CMODELING_DOC_OWNER);
         editModeClass = HostHandles.load(loader, AC_EDIT_MODE_OWNER);
-        final Class<?> editModeMainClass = HostHandles.load(loader, EDIT_MODE_MAIN_OWNER);
+        editModeMainClass = HostHandles.load(loader, EDIT_MODE_MAIN_OWNER);
         final Class<?> selectorMainClass = HostHandles.load(loader, SELECTOR_MAIN_OWNER);
         final Class<?> guidSelectorClass = HostHandles.load(loader, GUID_SELECTOR_OWNER);
+        final Class<?> guidSelectionClass = HostHandles.load(loader, AC_GUID_SELECTION_OWNER);
+        deformerGuidClass = HostHandles.load(loader, DEFORMER_GUID_OWNER);
+        drawableGuidClass = HostHandles.load(loader, DRAWABLE_GUID_OWNER);
         actionPackClass = HostHandles.load(loader, ACTION_PACK_OWNER);
         final Class<?> actionPackBaseClass = HostHandles.load(loader, ACTION_PACK_BASE_OWNER);
         final Class<?> acDeformerClass = HostHandles.load(loader, AC_DEFORMER_OWNER);
@@ -338,7 +347,7 @@ final class EditSubtreeHandles {
         rotDeformerClass = HostHandles.load(loader, ROT_DEFORMER_OWNER);
         final Class<?> rotFormClass = HostHandles.load(loader, ROT_FORM_OWNER);
         final Class<?> rotSourceClass = HostHandles.load(loader, ROT_SOURCE_OWNER);
-        final Class<?> artMeshClass = HostHandles.load(loader, ART_MESH_OWNER);
+        artMeshClass = HostHandles.load(loader, ART_MESH_OWNER);
         final Class<?> artMeshFormClass = HostHandles.load(loader, ART_MESH_FORM_OWNER);
         final Class<?> artMeshSourceClass = HostHandles.load(loader, ART_MESH_SOURCE_OWNER);
         final Class<?> acDrawableClass = HostHandles.load(loader, AC_DRAWABLE_OWNER);
@@ -493,10 +502,9 @@ final class EditSubtreeHandles {
                 HostHandles.virtual(selectorMainClass, "getSelectedObjects", "()Ljava/util/List;", objUnary);
         selectorGetSelectedCount = HostHandles.virtual(guidSelectorClass, "getSelectedCount", "()I", intUnary);
         selectorGetHoveringObject = HostHandles.virtual(
-                guidSelectorClass,
-                "getHoveringObject",
-                "()Lcom/live2d/cubism/doc/selection/ACGuidSelection;",
-                objUnary);
+                guidSelectorClass, "getHoveringObject", "()L" + AC_GUID_SELECTION_OWNER + ";", objUnary);
+        selectionGetGuid =
+                HostHandles.virtual(guidSelectionClass, "getGuid", "()L" + GUID_OWNER + ";", objUnary);
         selectorIsSelected = HostHandles.virtual(
                 guidSelectorClass,
                 "isSelected",

@@ -3,8 +3,9 @@ package dev.turboism.adapter.cubism.optimization.warpdeform;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -18,15 +19,15 @@ import java.util.concurrent.atomic.LongAdder;
  */
 final class EditSubtreeCoordinator {
 
-    private static final int ROTATION_SCALAR_STRIDE = 4;
     private static final float ZERO_F = 0.0f;
     private static final float UNIT_SCALE = 1.0f;
-    private static final long COLOR_HASH_PRIME = 31L;
 
     private final EditSubtreeHandles h;
     private final SubtreeParallelExecutor parallelExecutor;
     private final WeakIdentityCache<Object, EditModelTopologyCache> modelCaches = new WeakIdentityCache<>();
     private final ThreadLocal<Boolean> inFastPath = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private final ThreadLocal<IdentityHashMap<Object, Boolean>> activeEditSourcesScratch =
+            ThreadLocal.withInitial(IdentityHashMap::new);
 
     final LongAdder fastModelUpdates = new LongAdder();
     final LongAdder fallbackModelUpdates = new LongAdder();
@@ -34,6 +35,8 @@ final class EditSubtreeCoordinator {
     final LongAdder skippedDeformers = new LongAdder();
     final LongAdder dirtyMeshesProcessed = new LongAdder();
     final LongAdder skippedMeshes = new LongAdder();
+    final LongAdder appearanceSkipped = new LongAdder();
+    final LongAdder fullArrayHashes = new LongAdder();
     final LongAdder parallelDeformerLevels = new LongAdder();
     final LongAdder parallelMeshBatches = new LongAdder();
 
@@ -108,10 +111,13 @@ final class EditSubtreeCoordinator {
             }
 
             final Object doc = viewCtx == null ? null : (Object) h.viewGetDoc.invokeExact(viewCtx);
-            final boolean curEditing = isCurrentlyEditing(modelSource, viewCtx);
-            // Force stock update on first frame of edit and when leaving an edit session.
-            if (!cache.validBaseline || curEditing != cache.lastEditing) {
+            final Object editMode = viewCtx == null ? null : (Object) h.viewGetEditMode.invokeExact(viewCtx);
+            if (editMode != null && !h.editModeMainClass.isInstance(editMode)) {
                 cache.validBaseline = false;
+                fallbackModelUpdates.increment();
+                return false;
+            }
+            if (!cache.validBaseline) {
                 fallbackModelUpdates.increment();
                 return false;
             }
@@ -122,8 +128,12 @@ final class EditSubtreeCoordinator {
                 fallbackModelUpdates.increment();
                 return false;
             }
+            cache.lastEditing = isCurrentlyEditing(modelSource, editMode);
 
-            final boolean handled = executeIncrementalCoreUpdate(cache, updater, model, updCtx, paramSet);
+            final IdentityHashMap<Object, Boolean> activeEditSources = activeEditSourcesScratch.get();
+            collectActiveEditSources(model, editMode, activeEditSources);
+            final boolean handled =
+                    executeIncrementalCoreUpdate(cache, updater, model, updCtx, paramSet, activeEditSources);
             if (!handled) {
                 cache.disarmAppearanceSkip();
                 cache.validBaseline = false;
@@ -142,6 +152,7 @@ final class EditSubtreeCoordinator {
             }
             return false;
         } finally {
+            activeEditSourcesScratch.get().clear();
             inFastPath.set(Boolean.FALSE);
         }
     }
@@ -173,8 +184,13 @@ final class EditSubtreeCoordinator {
             cache.disarmAppearanceSkip();
             latestCache = cache;
             final Object doc = viewCtx == null ? null : (Object) h.viewGetDoc.invokeExact(viewCtx);
-            final boolean curEditing = isCurrentlyEditing(modelSource, viewCtx);
-            cache.captureFullBaseline(model, modelSource, doc, viewCtx, updCtx, ctx5, paramSet, curEditing, h);
+            final Object editMode = viewCtx == null ? null : (Object) h.viewGetEditMode.invokeExact(viewCtx);
+            final boolean curEditing = isCurrentlyEditing(modelSource, editMode);
+            final IdentityHashMap<Object, Boolean> activeEditSources = activeEditSourcesScratch.get();
+            collectActiveEditSources(model, editMode, activeEditSources);
+            cache.captureFullBaseline(
+                    model, modelSource, doc, viewCtx, updCtx, ctx5, paramSet, curEditing,
+                    activeEditSources, h, fullArrayHashes);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             final EditModelTopologyCache cache = latestCache;
@@ -182,6 +198,8 @@ final class EditSubtreeCoordinator {
                 cache.disarmAppearanceSkip();
                 cache.validBaseline = false;
             }
+        } finally {
+            activeEditSourcesScratch.get().clear();
         }
     }
 
@@ -199,29 +217,73 @@ final class EditSubtreeCoordinator {
                 || recent.visibleMeshes == null) {
             return false;
         }
-        final int idx = recent.skipCursor++;
-        if (idx >= recent.visibleMeshes.length || recent.visibleMeshes[idx] != artMesh) {
-            recent.disarmAppearanceSkip();
+        final Integer idx = recent.visibleMeshIndexByRef.get(artMesh);
+        if (idx == null) {
             return false;
         }
-        final boolean skip = !recent.activeDirtyMeshes[idx];
-        if (recent.skipCursor >= recent.visibleMeshes.length) {
+        final int i = idx;
+        final boolean skip = i < recent.activeDirtyMeshes.length && !recent.activeDirtyMeshes[i];
+        if (--recent.remainingAppearanceChecks <= 0) {
             recent.disarmAppearanceSkip();
+        }
+        if (skip) {
+            appearanceSkipped.increment();
         }
         return skip;
     }
 
-    private boolean isCurrentlyEditing(final Object modelSource, final Object viewCtx) throws Throwable {
+    private boolean isCurrentlyEditing(final Object modelSource, final Object editMode) throws Throwable {
         if ((boolean) h.modelSourceIsEditing.invokeExact(modelSource)) {
             return true;
         }
-        if (viewCtx == null) {
-            return false;
-        }
-        final Object editMode = (Object) h.viewGetEditMode.invokeExact(viewCtx);
         return editMode != null
                 && h.editModeClass.isInstance(editMode)
                 && (boolean) h.editModeIsEditing.invokeExact(editMode);
+    }
+
+    private void collectActiveEditSources(
+            final Object model, final Object editMode, final IdentityHashMap<Object, Boolean> dst) throws Throwable {
+        dst.clear();
+        if (editMode == null || !h.editModeMainClass.isInstance(editMode)) {
+            return;
+        }
+        final Object selector = (Object) h.editModeMainGetSelector.invokeExact(editMode);
+        if (selector == null) {
+            return;
+        }
+        final Object selectedRaw = (Object) h.selectorGetSelectedObjects.invokeExact(selector);
+        if (selectedRaw instanceof List<?> selectedList) {
+            for (final Object src : selectedList) {
+                if (src != null) {
+                    dst.put(src, Boolean.TRUE);
+                }
+            }
+        }
+        final Object hovering = (Object) h.selectorGetHoveringObject.invokeExact(selector);
+        if (hovering == null) {
+            return;
+        }
+        final Object guid = (Object) h.selectionGetGuid.invokeExact(hovering);
+        if (guid == null) {
+            return;
+        }
+        if (h.deformerGuidClass.isInstance(guid)) {
+            final Object deformer = (Object) h.modelGetDeformer.invokeExact(model, guid);
+            if (deformer != null) {
+                final Object src = (Object) h.deformerGetSource.invokeExact(deformer);
+                if (src != null) {
+                    dst.put(src, Boolean.TRUE);
+                }
+            }
+        } else if (h.drawableGuidClass.isInstance(guid)) {
+            final Object drawable = (Object) h.modelGetDrawable.invokeExact(model, guid);
+            if (drawable != null && h.artMeshClass.isInstance(drawable)) {
+                final Object src = (Object) h.meshGetSource.invokeExact(drawable);
+                if (src != null) {
+                    dst.put(src, Boolean.TRUE);
+                }
+            }
+        }
     }
 
     private boolean executeIncrementalCoreUpdate(
@@ -229,20 +291,21 @@ final class EditSubtreeCoordinator {
             final Object updater,
             final Object model,
             final Object updCtx,
-            final Object paramSet)
+            final Object paramSet,
+            final IdentityHashMap<Object, Boolean> activeEditSources)
             throws Throwable {
         final int nDef = c.deformers.length;
         final boolean[] rootDirty = new boolean[nDef];
         final boolean[] needsReinterp = new boolean[nDef];
         final boolean[] dirtyDef = new boolean[nDef];
 
-        if (!detectDirtyRootDeformers(c, paramSet, rootDirty, needsReinterp, dirtyDef)) {
+        if (!detectDirtyRootDeformers(c, activeEditSources, rootDirty, needsReinterp, dirtyDef)) {
             return false;
         }
 
         // Verify no local ArtMesh changes occurred (mesh-brush/vertex edits fall back to native).
         final int nMesh = c.visibleMeshes.length;
-        if (!verifyLocalMeshesUnchanged(c, nMesh)) {
+        if (!verifyLocalMeshesUnchanged(c, nMesh, activeEditSources)) {
             return false;
         }
 
@@ -383,7 +446,8 @@ final class EditSubtreeCoordinator {
                 continue;
             }
             finalDirtyMeshes++;
-            c.recordMeshSnapshot(m, h);
+            c.recordMeshSnapshot(
+                    m, activeEditSources.containsKey(c.visibleMeshSources[m]), h, fullArrayHashes);
         }
         c.armAppearanceSkip(Thread.currentThread(), dirtyMesh);
         dirtyMeshesProcessed.add(finalDirtyMeshes);
@@ -394,7 +458,8 @@ final class EditSubtreeCoordinator {
             c.nextEpoch++;
             for (int i = 0; i < nDef; i++) {
                 if (dirtyDef[i]) {
-                    c.recordDeformerSnapshot(i, h);
+                    c.recordDeformerSnapshot(
+                            i, activeEditSources.containsKey(c.deformerSources[i]), h, fullArrayHashes);
                     c.deformerEpochs.put(c.deformers[i], c.nextEpoch);
                     final int pIdx = c.deformerParentIdx[i];
                     if (c.isRotation[i] && pIdx >= 0 && c.isRotation[pIdx]) {
@@ -415,11 +480,12 @@ final class EditSubtreeCoordinator {
 
     private boolean detectDirtyRootDeformers(
             final EditModelTopologyCache c,
-            final Object paramSet,
+            final IdentityHashMap<Object, Boolean> activeEditSources,
             final boolean[] rootDirty,
             final boolean[] needsReinterp,
             final boolean[] dirtyDef)
             throws Throwable {
+        pruneUnselected(c.selectedDeformerBaselines, activeEditSources);
         for (int i = 0; i < c.deformers.length; i++) {
             final Object d = c.deformers[i];
             if ((Object) h.deformerGetAnimatedForm.invokeExact(d) != null
@@ -432,23 +498,37 @@ final class EditSubtreeCoordinator {
             if (c.deformerParentIdx[i] >= 0 && (Object) h.deformerGetDeformedForm.invokeExact(d) == null) {
                 return false;
             }
-            final Object src = (Object) h.deformerGetSource.invokeExact(d);
+            final Object src = c.deformerSources[i];
             final int srcVer = (int) h.sourceGetUpdateVersion.invokeExact(src);
             final int copiedVer = (int) h.deformerGetCopiedUpdateVersion.invokeExact(d);
-            final int kfSum =
-                    EditModelTopologyCache.computeDeformerKeyformSignature(src, c.isWarp[i], c.isRotation[i], h);
-            final boolean versionOrKeyformChanged =
-                    srcVer != c.lastDefSourceUpdateVer[i] || copiedVer != srcVer || kfSum != c.lastDefKeyformSum[i];
+            final int kfStamp = EditModelTopologyCache.computeKeyformVersionStamp(src, h);
+            boolean versionOrKeyformChanged =
+                    srcVer != c.lastDefSourceUpdateVer[i]
+                            || copiedVer != srcVer
+                            || kfStamp != c.lastDefKeyformVersionStamp[i];
 
             boolean formMutated = versionOrKeyformChanged || (boolean) h.deformerGetDirtyDeformedForm.invokeExact(d);
             final Object form = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
-            if (!formMutated) {
-                if (form != c.lastDefInterpForm[i]
-                        || (form != null
-                                && (int) h.formGetEditVersion.invokeExact(form) != c.lastDefInterpEditVer[i])) {
+            if (!formMutated
+                    && (form != c.lastDefInterpForm[i]
+                            || (form != null
+                                    && (int) h.formGetEditVersion.invokeExact(form) != c.lastDefInterpEditVer[i]))) {
+                formMutated = true;
+            }
+            if (!versionOrKeyformChanged && activeEditSources.containsKey(src)) {
+                final EditModelTopologyCache.SelectedDeformerBaseline sb = c.selectedDeformerBaselines.get(src);
+                if (sb == null) {
+                    // First frame seeing this selected deformer evaluates its subtree once and records baseline.
+                    versionOrKeyformChanged = true;
                     formMutated = true;
-                } else if (form != null) {
-                    formMutated = localFormFieldsChanged(c, i, form);
+                } else {
+                    final int diff = sb.diff(src, form, c.isWarp[i], c.isRotation[i], h, fullArrayHashes);
+                    if (diff == EditModelTopologyCache.SelectedDeformerBaseline.DIFF_KEYFORM) {
+                        versionOrKeyformChanged = true;
+                        formMutated = true;
+                    } else if (diff == EditModelTopologyCache.SelectedDeformerBaseline.DIFF_LOCAL) {
+                        formMutated = true;
+                    }
                 }
             }
             if (formMutated) {
@@ -461,47 +541,12 @@ final class EditSubtreeCoordinator {
         return true;
     }
 
-    private boolean localFormFieldsChanged(final EditModelTopologyCache c, final int i, final Object form)
+    private boolean verifyLocalMeshesUnchanged(
+            final EditModelTopologyCache c,
+            final int nMesh,
+            final IdentityHashMap<Object, Boolean> activeEditSources)
             throws Throwable {
-        if (Float.floatToRawIntBits((float) h.deformerFormGetOpacity.invokeExact(form)) != c.lastDefOpacityBits[i]) {
-            return true;
-        }
-        final int base = i * ROTATION_SCALAR_STRIDE;
-        final Object mul = (Object) h.deformerFormGetMultiplyColor.invokeExact(form);
-        final Object scr = (Object) h.deformerFormGetScreenColor.invokeExact(form);
-        if (!EditSubtreeHandles.sameFloatColor(
-                        c.lastDefMultiplyRgba[base],
-                        c.lastDefMultiplyRgba[base + 1],
-                        c.lastDefMultiplyRgba[base + 2],
-                        c.lastDefMultiplyRgba[base + 3],
-                        mul,
-                        h)
-                || !EditSubtreeHandles.sameFloatColor(
-                        c.lastDefScreenRgba[base],
-                        c.lastDefScreenRgba[base + 1],
-                        c.lastDefScreenRgba[base + 2],
-                        c.lastDefScreenRgba[base + 3],
-                        scr,
-                        h)) {
-            return true;
-        }
-        if (c.isWarp[i]) {
-            final float[] pos = (float[]) h.warpFormGetPositions.invokeExact(form);
-            return !Arrays.equals(pos, c.lastWarpPositions[i]);
-        }
-        return Float.floatToRawIntBits((float) h.rotFormGetOriginX.invokeExact(form))
-                        != Float.floatToRawIntBits(c.lastRotScalars[base])
-                || Float.floatToRawIntBits((float) h.rotFormGetOriginY.invokeExact(form))
-                        != Float.floatToRawIntBits(c.lastRotScalars[base + 1])
-                || Float.floatToRawIntBits((float) h.rotFormGetAngle.invokeExact(form))
-                        != Float.floatToRawIntBits(c.lastRotScalars[base + 2])
-                || Float.floatToRawIntBits((float) h.rotFormGetScale.invokeExact(form))
-                        != Float.floatToRawIntBits(c.lastRotScalars[base + 3])
-                || (boolean) h.rotFormIsReflectX.invokeExact(form) != c.lastRotReflectFlags[i * 2]
-                || (boolean) h.rotFormIsReflectY.invokeExact(form) != c.lastRotReflectFlags[i * 2 + 1];
-    }
-
-    private boolean verifyLocalMeshesUnchanged(final EditModelTopologyCache c, final int nMesh) throws Throwable {
+        pruneUnselected(c.selectedMeshBaselines, activeEditSources);
         for (int m = 0; m < nMesh; m++) {
             final Object mesh = c.visibleMeshes[m];
             if ((Object) h.meshGetAnimatedForm.invokeExact(mesh) != null
@@ -511,10 +556,10 @@ final class EditSubtreeCoordinator {
             if ((Object) h.meshGetDeformedForm.invokeExact(mesh) == null && c.meshParentDeformerIdx[m] >= 0) {
                 return false;
             }
-            final Object src = (Object) h.meshGetSource.invokeExact(mesh);
+            final Object src = c.visibleMeshSources[m];
             if ((int) h.meshSourceGetMeshVersion.invokeExact(src) != c.lastMeshVer[m]
                     || (int) h.meshGetCopiedMeshVersion.invokeExact(mesh) != c.lastMeshCopiedVer[m]
-                    || EditModelTopologyCache.computeMeshKeyformSignature(src, h) != c.lastMeshKeyformSum[m]
+                    || EditModelTopologyCache.computeKeyformVersionStamp(src, h) != c.lastMeshKeyformVersionStamp[m]
                     || (boolean) h.meshSourceIsVisible.invokeExact(src) != c.lastMeshVisible[m]
                     || (boolean) h.meshSourceIsVisibleHierarchy.invokeExact(src) != c.lastMeshVisHierarchy[m]
                     || (int) h.meshGetDrawOrder.invokeExact(mesh) != c.lastMeshDrawOrder[m]) {
@@ -525,16 +570,9 @@ final class EditSubtreeCoordinator {
                     || (form != null && (int) h.formGetEditVersion.invokeExact(form) != c.lastMeshInterpEditVer[m])) {
                 return false;
             }
-            if (form != null) {
-                if (Float.floatToRawIntBits((float) h.meshFormGetOpacity.invokeExact(form))
-                        != c.lastMeshOpacityBits[m]) {
-                    return false;
-                }
-                final long colorHash = EditSubtreeHandles.packColorRgba(
-                                        h, (Object) h.meshFormGetMultiplyColor.invokeExact(form))
-                                * COLOR_HASH_PRIME
-                        + EditSubtreeHandles.packColorRgba(h, (Object) h.meshFormGetScreenColor.invokeExact(form));
-                if (colorHash != c.lastMeshColorHash[m]) {
+            if (activeEditSources.containsKey(src)) {
+                final EditModelTopologyCache.SelectedMeshBaseline mb = c.selectedMeshBaselines.get(src);
+                if (mb == null || !mb.matches(src, form, h, fullArrayHashes)) {
                     return false;
                 }
             }
@@ -554,6 +592,18 @@ final class EditSubtreeCoordinator {
             }
         }
         return true;
+    }
+
+    private static <V> void pruneUnselected(
+            final Map<Object, V> baselines, final IdentityHashMap<Object, Boolean> activeEditSources) {
+        if (baselines.isEmpty()) {
+            return;
+        }
+        if (activeEditSources.isEmpty()) {
+            baselines.clear();
+        } else {
+            baselines.keySet().retainAll(activeEditSources.keySet());
+        }
     }
 
     private static void propagateDeformerDirt(
