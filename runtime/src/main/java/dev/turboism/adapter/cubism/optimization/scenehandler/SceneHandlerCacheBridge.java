@@ -5,7 +5,6 @@ import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -43,6 +42,7 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
     public static final String STATS_PROPERTY = "turboism.scene-handler.stats";
 
     private static final long INITIAL_EPOCH = 1L;
+    private static final int MAX_DEFERRED_ENTITIES = 16;
     private static final String OBJECT_INTERNAL = "java/lang/Object";
     private static final String LIST_INTERNAL = "java/util/List";
     private static final String PREDICATE_INTERNAL = "java/util/function/Predicate";
@@ -55,16 +55,23 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
     private static final String SCAN_ENTITIES_METHOD = "scanEntities";
     private static final String SCAN_ENTITIES_DESCRIPTOR = "(L" + SceneHandlerCacheTarget.ENTITIES_OWNER + ";)Z";
 
+    private final Class<?> mouseHandlerType;
+    private final Class<?> entityType;
+    private final Class<?> entitiesType;
     private final Predicate<Object> mouseHandlerDetector;
 
+    private final Object stateLock = new Object();
+    private final Object[] pendingEntities = new Object[MAX_DEFERRED_ENTITIES];
     private final AtomicBoolean active = new AtomicBoolean();
-    private final Map<Object, CachedEntry> cache = Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<Object, CachedEntry> cache = new WeakHashMap<>();
     private final Function<Object, Object> getCallback = this::lookup;
     private final BiFunction<Object, Object, Object> putCallback = this::store;
     private final Consumer<Object> invalidateCallback = this::invalidateIfRelevant;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
 
     private volatile long epoch = INITIAL_EPOCH;
+    private boolean hasLiveEntries;
+    private int pendingEntityCount;
     private Properties installedProperties;
 
     private long lookups;
@@ -83,9 +90,9 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when any reviewed class or member is unavailable
      */
     public SceneHandlerCacheBridge(final ClassLoader loader) throws ReflectiveOperationException {
-        final Class<?> mouseHandlerType = HostHandles.load(loader, SceneHandlerCacheTarget.MOUSE_HANDLER_OWNER);
-        final Class<?> entityType = HostHandles.load(loader, SceneHandlerCacheTarget.ENTITY_OWNER);
-        final Class<?> entitiesType = HostHandles.load(loader, SceneHandlerCacheTarget.ENTITIES_OWNER);
+        this.mouseHandlerType = HostHandles.load(loader, SceneHandlerCacheTarget.MOUSE_HANDLER_OWNER);
+        this.entityType = HostHandles.load(loader, SceneHandlerCacheTarget.ENTITY_OWNER);
+        this.entitiesType = HostHandles.load(loader, SceneHandlerCacheTarget.ENTITIES_OWNER);
         final Class<?> componentsType = HostHandles.load(loader, SceneHandlerCacheTarget.COMPONENTS_OWNER);
         final MethodHandle entityComponentsHandle = HostHandles.virtual(
                 entityType,
@@ -139,14 +146,18 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
             properties.put(INVALIDATE_PROPERTY, invalidateCallback);
             properties.put(STATS_PROPERTY, statistics);
             installedProperties = properties;
-            cache.clear();
-            epoch++;
-            lookups = 0L;
-            hits = 0L;
-            misses = 0L;
-            invalidations = 0L;
-            skippedInvalidations = 0L;
-            observerFailures = 0L;
+            synchronized (stateLock) {
+                cache.clear();
+                clearPendingEntities();
+                hasLiveEntries = false;
+                epoch++;
+                lookups = 0L;
+                hits = 0L;
+                misses = 0L;
+                invalidations = 0L;
+                skippedInvalidations = 0L;
+                observerFailures = 0L;
+            }
             active.set(true);
         }
     }
@@ -155,7 +166,11 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
     @Override
     public synchronized void close() {
         active.set(false);
-        cache.clear();
+        synchronized (stateLock) {
+            cache.clear();
+            clearPendingEntities();
+            hasLiveEntries = false;
+        }
         final Properties properties = installedProperties;
         if (properties != null) {
             synchronized (properties) {
@@ -169,37 +184,43 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
     }
 
     /** Returns an immutable snapshot of cache hit/miss and selective invalidation telemetry. */
-    public synchronized Map<String, Long> snapshot() {
-        return Map.of(
-                "active", active.get() ? 1L : 0L,
-                "epoch", epoch,
-                "lookups", lookups,
-                "hits", hits,
-                "misses", misses,
-                "invalidations", invalidations,
-                "skippedInvalidations", skippedInvalidations,
-                "observerFailures", observerFailures,
-                "size", (long) cache.size());
+    public Map<String, Long> snapshot() {
+        synchronized (stateLock) {
+            flushPendingEntities();
+            return Map.of(
+                    "active", active.get() ? 1L : 0L,
+                    "epoch", epoch,
+                    "lookups", lookups,
+                    "hits", hits,
+                    "misses", misses,
+                    "invalidations", invalidations,
+                    "skippedInvalidations", skippedInvalidations,
+                    "observerFailures", observerFailures,
+                    "size", (long) cache.size());
+        }
     }
 
     private Object lookup(final Object sceneGraph) {
         if (!active.get() || sceneGraph == null) {
             return null;
         }
-        try {
-            final long currentEpoch = epoch;
-            final CachedEntry entry = cache.get(sceneGraph);
-            lookups++;
-            if (entry != null && entry.epoch() == currentEpoch) {
-                hits++;
-                return entry.handlers();
+        synchronized (stateLock) {
+            try {
+                flushPendingEntities();
+                final long currentEpoch = epoch;
+                final CachedEntry entry = cache.get(sceneGraph);
+                lookups++;
+                if (entry != null && entry.epoch() == currentEpoch) {
+                    hits++;
+                    return entry.handlers();
+                }
+                misses++;
+                return null;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                observerFailures++;
+                return null;
             }
-            misses++;
-            return null;
-        } catch (final Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observerFailures++;
-            return null;
         }
     }
 
@@ -207,11 +228,15 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
         if (!active.get() || sceneGraph == null || !(handlers instanceof List<?> list)) {
             return handlers;
         }
-        try {
-            cache.put(sceneGraph, new CachedEntry(epoch, List.copyOf(list)));
-        } catch (final Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observerFailures++;
+        synchronized (stateLock) {
+            try {
+                cache.put(sceneGraph, new CachedEntry(epoch, List.copyOf(list)));
+                clearPendingEntities();
+                hasLiveEntries = true;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                observerFailures++;
+            }
         }
         return handlers;
     }
@@ -220,18 +245,96 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
         if (!active.get()) {
             return;
         }
-        try {
-            if (mouseHandlerDetector.test(mutatedTarget)) {
-                epoch++;
-                invalidations++;
-            } else {
+        synchronized (stateLock) {
+            if (!hasLiveEntries) {
                 skippedInvalidations++;
+                return;
             }
-        } catch (final Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            observerFailures++;
-            epoch++;
-            invalidations++;
+            if (mutatedTarget == null || mouseHandlerType.isInstance(mutatedTarget)) {
+                invalidateLiveCache();
+                return;
+            }
+            if (entityType.isInstance(mutatedTarget)) {
+                deferEntityScan(mutatedTarget);
+                return;
+            }
+            if (!entitiesType.isInstance(mutatedTarget)) {
+                skippedInvalidations++;
+                return;
+            }
+            try {
+                if (mouseHandlerDetector.test(mutatedTarget)) {
+                    invalidateLiveCache();
+                } else {
+                    skippedInvalidations++;
+                }
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                observerFailures++;
+                invalidateLiveCache();
+            }
+        }
+    }
+
+    private void deferEntityScan(final Object entity) {
+        for (int i = 0; i < pendingEntityCount; i++) {
+            if (pendingEntities[i] == entity) {
+                skippedInvalidations++;
+                return;
+            }
+        }
+        if (pendingEntityCount < MAX_DEFERRED_ENTITIES) {
+            pendingEntities[pendingEntityCount++] = entity;
+            return;
+        }
+        // Collapse large bursts in O(1) instead of traversing every queued subtree.
+        invalidateLiveCache();
+    }
+
+    private void flushPendingEntities() {
+        if (pendingEntityCount == 0) {
+            return;
+        }
+        final int count = pendingEntityCount;
+        pendingEntityCount = 0;
+        for (int i = 0; i < count; i++) {
+            final Object entity = pendingEntities[i];
+            pendingEntities[i] = null;
+            if (!hasLiveEntries) {
+                continue;
+            }
+            try {
+                if (mouseHandlerDetector.test(entity)) {
+                    clearPendingArrayTail(i + 1, count);
+                    invalidateLiveCache();
+                    return;
+                }
+                skippedInvalidations++;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                clearPendingArrayTail(i + 1, count);
+                observerFailures++;
+                invalidateLiveCache();
+                return;
+            }
+        }
+    }
+
+    private void invalidateLiveCache() {
+        epoch++;
+        invalidations++;
+        hasLiveEntries = false;
+        clearPendingEntities();
+    }
+
+    private void clearPendingEntities() {
+        clearPendingArrayTail(0, pendingEntityCount);
+        pendingEntityCount = 0;
+    }
+
+    private void clearPendingArrayTail(final int from, final int to) {
+        for (int i = from; i < to; i++) {
+            pendingEntities[i] = null;
         }
     }
 

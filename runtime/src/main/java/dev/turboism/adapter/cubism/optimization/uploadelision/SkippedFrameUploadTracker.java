@@ -92,6 +92,7 @@ final class SkippedFrameUploadTracker {
     private java.lang.ref.WeakReference<Object> currentGl = new java.lang.ref.WeakReference<>(null);
     private Thread observedThread;
     private boolean clearedForRun = true;
+    private boolean hasUploadedPending;
     private long calls,
             elided,
             passed,
@@ -259,6 +260,7 @@ final class SkippedFrameUploadTracker {
         if (pending == null) return; // No snapshot/table slot: native upload remains untracked.
         if (pending.occupied && pending.gl == gl && observedThread == Thread.currentThread()) {
             pending.uploaded = true;
+            hasUploadedPending = true;
         } else {
             clearAll(ClearKind.EXCEPTION);
         }
@@ -270,10 +272,11 @@ final class SkippedFrameUploadTracker {
             clearAll(ClearKind.EXCEPTION);
             return;
         }
-        if (gl != currentGl.get()) return;
+        if (!hasUploadedPending || gl != currentGl.get()) return;
         for (final Entry entry : entries) {
             if (entry.occupied && entry.gl == gl && entry.uploaded) entry.confirmed = true;
         }
+        hasUploadedPending = false;
     }
 
     /** External clear notification (buffer lifecycle or upload exception). */
@@ -477,6 +480,7 @@ final class SkippedFrameUploadTracker {
 
     private void clearAll(final ClearKind kind) {
         candidate = null;
+        hasUploadedPending = false;
         for (final Entry entry : entries) {
             entry.occupied = false;
             entry.uploaded = false;

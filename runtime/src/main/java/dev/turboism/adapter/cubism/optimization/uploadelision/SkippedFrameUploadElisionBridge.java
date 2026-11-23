@@ -13,6 +13,7 @@ import java.nio.Buffer;
 import java.nio.IntBuffer;
 import java.util.Map;
 import java.util.Properties;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -67,12 +68,17 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private static final String GL_CONTEXT_DESCRIPTOR = "()Lcom/jogamp/opengl/GLContext;";
 
     private static final int MAX_WRAPPER_KINDS = 8;
+    private static final int MAX_KNOWN_SHARED_CONTEXTS = 16;
+    private static final long NO_CONTEXT_HANDLE = 0L;
 
     private final MethodHandle nameHandle;
     private final MethodHandle sizeHandle;
     private final MethodHandle glContext, currentContext, contextCreated, contextShared, contextHandle;
     private Object observedGl, observedContext;
     private long observedHandle;
+    private Object knownSharedContext;
+    private long knownSharedHandle;
+    private WeakHashMap<Object, Long> knownSharedContexts;
     private final Map<Class<?>, MethodHandle> bufferHandles = new ConcurrentHashMap<>();
     private final Map<Class<?>, Kind> kinds = new ConcurrentHashMap<>();
     private final SkippedFrameUploadTracker tracker;
@@ -163,7 +169,41 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         tracker.clearedExternally(ClearKind.LIFECYCLE);
         observedGl = null;
         observedContext = null;
-        observedHandle = 0L;
+        observedHandle = NO_CONTEXT_HANDLE;
+    }
+
+    private void clearObservedLifecycleIfSet() {
+        if (observedGl != null || observedContext != null || observedHandle != NO_CONTEXT_HANDLE) {
+            lifecycleNotify();
+        }
+    }
+
+    /** Caches shared contexts weakly because JOGL isShared() allocates a weak lookup key per call. */
+    private boolean isKnownOrObservedShared(final Object context, final long handle) throws Throwable {
+        if (context == knownSharedContext && handle == knownSharedHandle) {
+            return true;
+        }
+        if (knownSharedContexts != null) {
+            final Long cachedHandle = knownSharedContexts.get(context);
+            if (cachedHandle != null && cachedHandle.longValue() == handle) {
+                knownSharedContext = context;
+                knownSharedHandle = handle;
+                return true;
+            }
+        }
+        final boolean shared = (boolean) contextShared.invokeExact(context);
+        if (shared) {
+            knownSharedContext = context;
+            knownSharedHandle = handle;
+            if (knownSharedContexts == null) {
+                knownSharedContexts = new WeakHashMap<>();
+            } else if (knownSharedContexts.size() >= MAX_KNOWN_SHARED_CONTEXTS
+                    && !knownSharedContexts.containsKey(context)) {
+                knownSharedContexts.clear();
+            }
+            knownSharedContexts.put(context, handle);
+        }
+        return shared;
     }
 
     /** Invalidates at render boundaries: no content is carried across unproven context generations. */
@@ -189,17 +229,20 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     }
 
     private boolean validContext(Object gl) throws Throwable {
+        if (gl == null) {
+            clearObservedLifecycleIfSet();
+            return false;
+        }
         Object context = (Object) glContext.invokeExact(gl);
         if (context == null
                 || context != (Object) currentContext.invokeExact()
-                || !(boolean) contextCreated.invokeExact(context)
-                || (boolean) contextShared.invokeExact(context)) {
-            lifecycleNotify();
+                || !(boolean) contextCreated.invokeExact(context)) {
+            clearObservedLifecycleIfSet();
             return false;
         }
         long handle = (long) contextHandle.invokeExact(context);
-        if (handle == 0L) {
-            lifecycleNotify();
+        if (handle == NO_CONTEXT_HANDLE || isKnownOrObservedShared(context, handle)) {
+            clearObservedLifecycleIfSet();
             return false;
         }
         if (observedGl != gl || observedContext != context || observedHandle != handle) {
@@ -214,7 +257,7 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private synchronized void uploadReturned() {
         try {
             if (active.get() && observedGl != null && validContext(observedGl)) tracker.uploadReturned(observedGl);
-            else lifecycleNotify();
+            else clearObservedLifecycleIfSet();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             tracker.observerFailed();
@@ -224,7 +267,9 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
     private synchronized void checkedError(Object gl, Integer error) {
         try {
             if (error != null && error != 0) tracker.checkedError(gl, error);
-            else if (active.get() && error != null && validContext(gl)) tracker.checkedError(gl, error);
+            else if (active.get() && error != null && observedGl == gl && validContext(gl)) {
+                tracker.checkedError(gl, error);
+            }
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             tracker.observerFailed();
@@ -359,6 +404,11 @@ public final class SkippedFrameUploadElisionBridge implements AutoCloseable {
         active.set(false);
         armed = false;
         skippedFrameSlot = null;
+        knownSharedContext = null;
+        knownSharedHandle = NO_CONTEXT_HANDLE;
+        if (knownSharedContexts != null) {
+            knownSharedContexts.clear();
+        }
         lifecycleNotify();
         final Properties properties = installedProperties;
         installedProperties = null;

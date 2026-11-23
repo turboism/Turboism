@@ -53,7 +53,7 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
 
     private final MethodHandle[] bufferGetters;
     private final MethodHandle nameHandle, dirtyHandle;
-    private final MethodHandle frameGl, glContext, currentContext, contextCreated, contextShared, contextHandle;
+    private final MethodHandle frameGl, glContext, currentContext, contextCreated, contextHandle;
 
     private final WeakHashMap<Object, Long> generations = new WeakHashMap<>();
     private Object observedGl, observedContext;
@@ -127,8 +127,6 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
                 context, "getCurrent", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class));
         contextCreated =
                 HostHandles.virtual(context, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class));
-        contextShared =
-                HostHandles.virtual(context, "isShared", "()Z", MethodType.methodType(boolean.class, Object.class));
         contextHandle =
                 HostHandles.virtual(context, "getHandle", "()J", MethodType.methodType(long.class, Object.class));
     }

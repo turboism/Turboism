@@ -42,10 +42,14 @@ class SkippedFrameUploadElisionBridgeTest {
                         public class GLContext {
                             public static GLContext current;
                             public boolean created = true, shared;
+                            public int sharedChecks;
                             public long handle = 1;
                             public static GLContext getCurrent() { return current; }
                             public boolean isCreated() { return created; }
-                            public boolean isShared() { return shared; }
+                            public boolean isShared() {
+                                sharedChecks++;
+                                return shared;
+                            }
                             public long getHandle() { return handle; }
                         }
                         """,
@@ -179,6 +183,33 @@ class SkippedFrameUploadElisionBridgeTest {
             host.returned();
             SkippedFrameUploadElisionBridge.observeError(host.gl, 0);
             assertFalse(host.consult());
+        }
+    }
+
+    @Test
+    void sharedContextIsCachedPerHandleWithoutRepeatedChecksOrLifecycleClears() throws Exception {
+        try (var host = new Host()) {
+            final var sharedField = host.context.getClass().getField("shared");
+            final var sharedChecksField = host.context.getClass().getField("sharedChecks");
+            final var handleField = host.context.getClass().getField("handle");
+            sharedField.setBoolean(host.context, true);
+
+            for (int i = 0; i < 8; i++) {
+                assertFalse(host.consult());
+                host.returned();
+                SkippedFrameUploadElisionBridge.observeError(host.gl, 0);
+            }
+
+            assertEquals(1, sharedChecksField.getInt(host.context), "shared context must be checked once per handle");
+            final Map<String, Long> stats = host.bridge.snapshot();
+            assertEquals(0L, stats.get("lifecycleClears"), "unestablished shared calls must not churn lifecycleClears");
+            assertEquals(0L, stats.get("calls"));
+
+            // Context handle change invalidates the cached handle and checks sharing once again.
+            handleField.setLong(host.context, 2L);
+            assertFalse(host.consult());
+            assertFalse(host.consult());
+            assertEquals(2, sharedChecksField.getInt(host.context));
         }
     }
 }

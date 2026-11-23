@@ -76,17 +76,80 @@ final class SceneHandlerCacheBridgeTest {
                 assertEquals(3L, stats.get("skippedInvalidations"));
                 assertEquals(2L, stats.get("hits"));
 
-                // Direct handler, nested handler entity, handler Entities collection, and null must invalidate.
-                invalidateFn.accept(mouseHandler);
-                invalidateFn.accept(nestedParent);
-                invalidateFn.accept(handlerEntities);
+                // Direct handler, nested handler entity, handler Entities collection, and null must invalidate live caches.
+                final List<Object> triggers = List.of(mouseHandler, nestedParent, handlerEntities);
+                for (final Object trigger : triggers) {
+                    putFn.apply(sceneRoot, expected);
+                    assertEquals(expected, getFn.apply(sceneRoot));
+                    invalidateFn.accept(trigger);
+                    assertNull(getFn.apply(sceneRoot));
+                }
+                putFn.apply(sceneRoot, expected);
                 invalidateFn.accept(null);
-
                 assertNull(getFn.apply(sceneRoot));
+
                 stats = bridge.snapshot();
                 assertEquals(4L, stats.get("invalidations"));
                 assertEquals(0L, stats.get("observerFailures"));
                 assertSame(stats.get("invalidations") + 2L, stats.get("epoch"));
+            }
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void lazyInvalidationSkipsRedundantScansWhenStaleAndCoalescesBursts() throws Exception {
+        try (HostFixture f = compileFixture()) {
+            try (SceneHandlerCacheBridge bridge = new SceneHandlerCacheBridge(f.loader)) {
+                bridge.install();
+                final Function<Object, Object> getFn =
+                        (Function<Object, Object>) System.getProperties().get(SceneHandlerCacheBridge.GET_PROPERTY);
+                final BiFunction<Object, Object, Object> putFn = (BiFunction<Object, Object, Object>)
+                        System.getProperties().get(SceneHandlerCacheBridge.PUT_PROPERTY);
+                final Consumer<Object> invalidateFn = (Consumer<Object>)
+                        System.getProperties().get(SceneHandlerCacheBridge.INVALIDATE_PROPERTY);
+
+                final Object sceneRoot = f.newEntity(false, null);
+                final Object overlay = f.newEntity(false, null);
+                final Object mouseNode = f.newEntity(true, null);
+                final Object nestedParent = f.newEntity(false, mouseNode);
+                final Object handlerEntities = f.newEntities(mouseNode);
+                final List<Object> expected = List.of(f.newMouseHandler());
+                final int initialMouseReads = f.scanCount(mouseNode);
+
+                // Mutations while no live cache exists skip eager subtree scans.
+                invalidateFn.accept(nestedParent);
+                invalidateFn.accept(handlerEntities);
+                assertEquals(0, f.scanCount(nestedParent));
+                assertEquals(initialMouseReads, f.scanCount(mouseNode));
+
+                // Repeated identical overlay mutations defer and deduplicate until lookup.
+                putFn.apply(sceneRoot, expected);
+                for (int i = 0; i < 10; i++) {
+                    invalidateFn.accept(overlay);
+                }
+                assertEquals(0, f.scanCount(overlay));
+                assertEquals(expected, getFn.apply(sceneRoot));
+                assertEquals(1, f.scanCount(overlay));
+
+                // Large entity bursts (>16 distinct targets) coalesce via O(1) dirty invalidation.
+                final List<Object> burst = new ArrayList<>();
+                for (int i = 0; i < 17; i++) {
+                    final Object target = f.newEntity(false, null);
+                    burst.add(target);
+                    invalidateFn.accept(target);
+                }
+                assertEquals(0, f.scanCount(burst.get(0)));
+                assertEquals(0, f.scanCount(burst.get(16)));
+                assertNull(getFn.apply(sceneRoot));
+                assertEquals(0, f.scanCount(burst.get(0)));
+
+                // Redundant invalidations after cache is already stale skip entity scans too.
+                invalidateFn.accept(nestedParent);
+                invalidateFn.accept(handlerEntities);
+                assertEquals(0, f.scanCount(nestedParent));
+                assertEquals(initialMouseReads, f.scanCount(mouseNode));
+                assertEquals(1L, bridge.snapshot().get("invalidations"));
             }
         }
     }
@@ -143,7 +206,11 @@ final class SceneHandlerCacheBridgeTest {
                 public class GEntity {
                     public final Components components = new Components();
                     public final Entities children = new Entities();
-                    public Components getComponents() { return components; }
+                    public int componentReads;
+                    public Components getComponents() {
+                        componentReads++;
+                        return components;
+                    }
                     public Entities getChildren() { return children; }
                 }
                 """);
@@ -198,6 +265,10 @@ final class SceneHandlerCacheBridgeTest {
                 ((List<Object>) entitiesType.getMethod("getList").invoke(entities)).add(child);
             }
             return entities;
+        }
+
+        int scanCount(final Object entity) throws Exception {
+            return entityType.getField("componentReads").getInt(entity);
         }
 
         @Override
