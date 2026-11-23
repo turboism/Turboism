@@ -12,10 +12,7 @@ import java.util.Set;
  * Defines reviewed host classes, fields, and method descriptors for interactive Texture Atlas
  * Editor canvas, drag, and viewport optimizations across reviewed Cubism builds.
  */
-public record AtlasInteractiveRenderTarget(
-        HostArtifactDigest digest,
-        String version,
-        Generation generation) {
+public record AtlasInteractiveRenderTarget(HostArtifactDigest digest, String version, Generation generation) {
 
     /** Explicit system-property switch overriding the derived preference. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.atlasInteractiveRender";
@@ -432,7 +429,8 @@ public record AtlasInteractiveRenderTarget(
     public List<MethodDep> methodDependencies() {
         final java.util.ArrayList<MethodDep> deps = new java.util.ArrayList<>(List.of(
                 new MethodDep(generation.cameraOwner(), SCROLL_PANE_GETTER_METHOD, SCROLL_PANE_GETTER_DESCRIPTOR),
-                new MethodDep(generation.cameraOwner(), VIEWPORT_CANVAS_GETTER_METHOD, VIEWPORT_CANVAS_GETTER_DESCRIPTOR),
+                new MethodDep(
+                        generation.cameraOwner(), VIEWPORT_CANVAS_GETTER_METHOD, VIEWPORT_CANVAS_GETTER_DESCRIPTOR),
                 new MethodDep(VIEWPORT_CANVAS_OWNER, VIEWPORT_SET_ZOOM_METHOD, VIEWPORT_SET_ZOOM_DESCRIPTOR)));
         if (!generation.staticOverlayColors()) {
             deps.add(new MethodDep(DATA_MODEL_OWNER, "i", "()L" + COLOR_OWNER + ";"));
@@ -453,14 +451,9 @@ public record AtlasInteractiveRenderTarget(
         final java.util.ArrayList<FieldDep> deps = new java.util.ArrayList<>(List.of(
                 new FieldDep(EDIT_LAYER_OWNER, DRAW_DATA_SHAPES_FIELD, ARRAY_LIST_DESCRIPTOR),
                 new FieldDep(LAYER_UPDATE_EVENT_OWNER, EVENT_DRAGGING_FIELD, BOOLEAN_DESCRIPTOR),
+                new FieldDep(generation.cameraOwner(), generation.cameraScrollField(), "Ljavax/swing/JScrollPane;"),
                 new FieldDep(
-                        generation.cameraOwner(),
-                        generation.cameraScrollField(),
-                        "Ljavax/swing/JScrollPane;"),
-                new FieldDep(
-                        generation.cameraOwner(),
-                        generation.cameraCanvasField(),
-                        "L" + VIEWPORT_CANVAS_OWNER + ";")));
+                        generation.cameraOwner(), generation.cameraCanvasField(), "L" + VIEWPORT_CANVAS_OWNER + ";")));
         if (!generation.staticOverlayColors()) {
             deps.add(new FieldDep(EDIT_LAYER_OWNER, TEX_RELOC_MODEL_FIELD, TEX_RELOC_MODEL_DESCRIPTOR));
             deps.add(new FieldDep(DATA_MODEL_OWNER, "a", "L" + DATA_MODEL_COMPANION_OWNER + ";"));

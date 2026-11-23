@@ -1,6 +1,5 @@
 package dev.turboism.adapter.cubism.meshedit;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -33,10 +32,8 @@ final class MeshEditAccelerationParityTest {
     private static final float SHIFT_Y = -3.0f;
 
     private static final String GVEC2_INTERNAL = "com/live2d/graphics3d/type/GVector2";
-    private static final String PITD_INTERNAL =
-            "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD";
-    private static final String PIT_INTERNAL =
-            "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle";
+    private static final String PITD_INTERNAL = "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD";
+    private static final String PIT_INTERNAL = "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle";
 
     @Test
     void pointInTriangleGridMatchesBruteForceAndHandlesBoundariesAndOutOfBounds() throws Exception {
@@ -79,8 +76,7 @@ final class MeshEditAccelerationParityTest {
         final Object outsideVec = vecCtor.newInstance(OUTSIDE_OFFSET, OUTSIDE_OFFSET);
         assertSame(
                 PointInTriangleAccelerator.NULL_SENTINEL,
-                PointInTriangleAccelerator.findDouble(
-                        outsideVec, fixture.srcPos, fixture.indices, STRIDE_XY, true));
+                PointInTriangleAccelerator.findDouble(outsideVec, fixture.srcPos, fixture.indices, STRIDE_XY, true));
         final Object nearest =
                 PointInTriangleAccelerator.findDouble(outsideVec, fixture.srcPos, fixture.indices, STRIDE_XY, false);
         assertNotNull(nearest);
@@ -98,8 +94,7 @@ final class MeshEditAccelerationParityTest {
 
         assertEquals(
                 -1,
-                PointInTriangleAccelerator.findStrictTriangle(
-                        fixture.srcPos, fixture.indices, 1, vertexVec, outTri));
+                PointInTriangleAccelerator.findStrictTriangle(fixture.srcPos, fixture.indices, 1, vertexVec, outTri));
         assertNull(PointInTriangleAccelerator.findDouble(null, fixture.srcPos, fixture.indices, STRIDE_XY, true));
     }
 
@@ -151,15 +146,13 @@ final class MeshEditAccelerationParityTest {
         final byte[] malformedBytes = malformed.toByteArray();
 
         assertNull(transformer.transform(
-                getClass().getClassLoader(),
-                MeshEditGeometryPatcher.MESH_UTILS_INTERNAL,
-                null,
-                null,
-                malformedBytes));
+                getClass().getClassLoader(), MeshEditGeometryPatcher.MESH_UTILS_INTERNAL, null, null, malformedBytes));
         assertEquals(
                 MeshEditAccelerationTransformer.Outcome.SHAPE_REJECTED,
                 transformer.outcomeFor(MeshEditGeometryPatcher.MESH_UTILS_INTERNAL));
-        assertFalse(transformer.diagnosticFor(MeshEditGeometryPatcher.MESH_UTILS_INTERNAL).isEmpty());
+        assertFalse(transformer
+                .diagnosticFor(MeshEditGeometryPatcher.MESH_UTILS_INTERNAL)
+                .isEmpty());
     }
 
     private static void assertBarycentricReconstructs(
@@ -247,9 +240,17 @@ final class MeshEditAccelerationParityTest {
 
         Class<?> defineVector2() {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, GVEC2_INTERNAL, null, "java/lang/Object", null);
-            cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "x", "F", null, null).visitEnd();
-            cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "y", "F", null, null).visitEnd();
+            cw.visit(
+                    Opcodes.V17,
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                    GVEC2_INTERNAL,
+                    null,
+                    "java/lang/Object",
+                    null);
+            cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "x", "F", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "y", "F", null, null)
+                    .visitEnd();
 
             final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(FF)V", null, null);
             init.visitCode();
@@ -277,8 +278,10 @@ final class MeshEditAccelerationParityTest {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internalName, null, "java/lang/Object", null);
             for (int k = 1; k <= TRI_STRIDE; k++) {
-                cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "ptIndex" + k, "I", null, null).visitEnd();
-                cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "weight" + k, weightDesc, null, null).visitEnd();
+                cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "ptIndex" + k, "I", null, null)
+                        .visitEnd();
+                cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "weight" + k, weightDesc, null, null)
+                        .visitEnd();
             }
             final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", desc, null, null);
             init.visitCode();
@@ -305,7 +308,8 @@ final class MeshEditAccelerationParityTest {
         }
 
         private static void emitGetter(final ClassWriter cw, final String methodName, final String fieldName) {
-            final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, methodName, "()F", null, null);
+            final MethodVisitor mv =
+                    cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, methodName, "()F", null, null);
             mv.visitCode();
             mv.visitVarInsn(Opcodes.ALOAD, 0);
             mv.visitFieldInsn(Opcodes.GETFIELD, GVEC2_INTERNAL, fieldName, "F");

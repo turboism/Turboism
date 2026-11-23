@@ -59,10 +59,8 @@ final class GlDeleteQueue {
     private final WeakIdentityMap<Object, ContextDeletes> queues = new WeakIdentityMap<>();
     private final WeakIdentityMap<Object, BufferSlot> bufferSlots = new WeakIdentityMap<>();
     private final WeakIdentityMap<Object, TextureSlot> textureSlots = new WeakIdentityMap<>();
-    private final ThreadLocal<TraversalScratch> traversalScratch =
-            ThreadLocal.withInitial(TraversalScratch::new);
-    private final ThreadLocal<int[]> deleteBatchScratch =
-            ThreadLocal.withInitial(() -> new int[DRAIN_BATCH_LIMIT]);
+    private final ThreadLocal<TraversalScratch> traversalScratch = ThreadLocal.withInitial(TraversalScratch::new);
+    private final ThreadLocal<int[]> deleteBatchScratch = ThreadLocal.withInitial(() -> new int[DRAIN_BATCH_LIMIT]);
 
     // Buffer accessors on mesh/a/a
     private final Class<?> bufferBaseClass;
@@ -152,14 +150,11 @@ final class GlDeleteQueue {
                 "(L" + GL2ES2_INTERFACE + ";)V",
                 MethodType.methodType(void.class, Object.class, Object.class));
         bufGetIntBuffer = HostHandles.virtual(
-                bufferBaseClass,
-                "i",
-                "()Ljava/nio/IntBuffer;",
-                MethodType.methodType(IntBuffer.class, Object.class));
-        bufSetReinit =
-                HostHandles.virtual(bufferBaseClass, "c", "(Z)V", MethodType.methodType(void.class, Object.class, boolean.class));
-        bufSetDirty =
-                HostHandles.virtual(bufferBaseClass, "d", "(Z)V", MethodType.methodType(void.class, Object.class, boolean.class));
+                bufferBaseClass, "i", "()Ljava/nio/IntBuffer;", MethodType.methodType(IntBuffer.class, Object.class));
+        bufSetReinit = HostHandles.virtual(
+                bufferBaseClass, "c", "(Z)V", MethodType.methodType(void.class, Object.class, boolean.class));
+        bufSetDirty = HostHandles.virtual(
+                bufferBaseClass, "d", "(Z)V", MethodType.methodType(void.class, Object.class, boolean.class));
 
         entityClass = HostHandles.load(loader, G_ENTITY_CLASS);
         entitiesClass = HostHandles.load(loader, ENTITIES_CLASS);
@@ -236,16 +231,28 @@ final class GlDeleteQueue {
                 glIf, "getGL3", "()L" + GL3_INTERFACE + ";", MethodType.methodType(Object.class, Object.class));
         contextGetCurrent = HostHandles.staticCall(
                 glCtxClass, "getCurrent", "()L" + GL_CONTEXT_CLASS + ";", MethodType.methodType(Object.class));
-        contextIsCreated = HostHandles.virtual(
-                glCtxClass, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class));
+        contextIsCreated =
+                HostHandles.virtual(glCtxClass, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class));
         glDeleteBuffersArray = HostHandles.virtual(
-                gl2es2If, "glDeleteBuffers", "(I[II)V", MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
+                gl2es2If,
+                "glDeleteBuffers",
+                "(I[II)V",
+                MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
         glGenBuffersArray = HostHandles.virtual(
-                gl2es2If, "glGenBuffers", "(I[II)V", MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
+                gl2es2If,
+                "glGenBuffers",
+                "(I[II)V",
+                MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
         glDeleteTexturesArray = HostHandles.virtual(
-                glIf, "glDeleteTextures", "(I[II)V", MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
+                glIf,
+                "glDeleteTextures",
+                "(I[II)V",
+                MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
         glDeleteSamplersArray = HostHandles.virtual(
-                gl3If, "glDeleteSamplers", "(I[II)V", MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
+                gl3If,
+                "glDeleteSamplers",
+                "(I[II)V",
+                MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
     }
 
     /** Drains pending VBO, texture, and sampler deletes for {@code gl}'s context if current. */
@@ -636,8 +643,9 @@ final class GlDeleteQueue {
             slot.queuedReleaseId = currentId;
         }
         pendingQueueCount.incrementAndGet();
-        queueFor(ctx).bufferReleases.add(
-                new PendingBufferRelease(new WeakReference<>(meshBuffer), new WeakReference<>(oldGl), currentId));
+        queueFor(ctx)
+                .bufferReleases
+                .add(new PendingBufferRelease(new WeakReference<>(meshBuffer), new WeakReference<>(oldGl), currentId));
         recordVboQueued();
     }
 
@@ -731,8 +739,9 @@ final class GlDeleteQueue {
             return;
         }
         try {
-            final boolean isCurrent =
-                    ownerGl != null && ctx == (Object) contextGetCurrent.invokeExact() && (boolean) contextIsCreated.invokeExact(ctx);
+            final boolean isCurrent = ownerGl != null
+                    && ctx == (Object) contextGetCurrent.invokeExact()
+                    && (boolean) contextIsCreated.invokeExact(ctx);
             if (texId > INVALID_GL_NAME) {
                 if (isCurrent) {
                     glDeleteTexturesArray.invokeExact(ownerGl, 1, new int[] {texId}, 0);
@@ -887,7 +896,8 @@ final class GlDeleteQueue {
             return;
         }
         synchronized (renderingLock) {
-            final Iterator<? extends Map.Entry<?, ?>> it = renderingMap.entrySet().iterator();
+            final Iterator<? extends Map.Entry<?, ?>> it =
+                    renderingMap.entrySet().iterator();
             while (it.hasNext()) {
                 final Map.Entry<?, ?> entry = it.next();
                 final Object keyGl = entry.getKey();
@@ -1098,9 +1108,7 @@ final class GlDeleteQueue {
     }
 
     private record PendingBufferRelease(
-            WeakReference<Object> meshBufferRef,
-            WeakReference<Object> expectedGlRef,
-            int bufferId) {}
+            WeakReference<Object> meshBufferRef, WeakReference<Object> expectedGlRef, int bufferId) {}
 
     private static final class BufferSlot {
         private final GlDeleteQueue owner;

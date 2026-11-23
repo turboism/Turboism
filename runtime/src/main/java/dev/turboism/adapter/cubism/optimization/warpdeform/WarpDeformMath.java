@@ -613,7 +613,8 @@ public final class WarpDeformMath {
         return value >= lo && value <= hi;
     }
 
-    private static int calcDivFromFlatness(final float flatness, final int offsetPow, final int minDiv, final int maxDiv) {
+    private static int calcDivFromFlatness(
+            final float flatness, final int offsetPow, final int minDiv, final int maxDiv) {
         final int exp = (int) ((float) Math.log(flatness * TEN_F) + offsetPow);
         int div = (int) (float) Math.pow(TWO_F, exp);
         if (div < minDiv) div = minDiv;

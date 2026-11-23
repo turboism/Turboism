@@ -166,8 +166,7 @@ final class MeshEditRealHostPatchVerificationTest {
     }
 
     @Test
-    void incrementalTenThousandPlusEdgesAvoidFullRebuildsAndMatchParity(@TempDir final Path tempDir)
-            throws Exception {
+    void incrementalTenThousandPlusEdgesAvoidFullRebuildsAndMatchParity(@TempDir final Path tempDir) throws Exception {
         final List<Path> jars = discoverAllTwentyOneJars();
         Assumptions.assumeTrue(
                 jars.size() == EXPECTED_TOTAL_JARS,
@@ -184,8 +183,8 @@ final class MeshEditRealHostPatchVerificationTest {
             for (final String internalName : List.of(
                     MeshEditTopologyPatcher.G_EDITABLE_MESH_INTERNAL,
                     MeshEditTopologyPatcher.EDITABLE_MESH_HELPER_INTERNAL)) {
-                final byte[] original =
-                        jar.getInputStream(jar.getJarEntry(internalName + CLASS_SUFFIX)).readAllBytes();
+                final byte[] original = jar.getInputStream(jar.getJarEntry(internalName + CLASS_SUFFIX))
+                        .readAllBytes();
                 final byte[] patched = transformer.transform(null, internalName, null, null, original);
                 assertNotNull(patched);
                 final Path out = patchedDir.resolve(internalName + CLASS_SUFFIX);
@@ -194,7 +193,8 @@ final class MeshEditRealHostPatchVerificationTest {
             }
         }
 
-        try (PatchedJarLoader rawLoader = new PatchedJarLoader(jarPath, rawDir, getClass().getClassLoader());
+        try (PatchedJarLoader rawLoader =
+                        new PatchedJarLoader(jarPath, rawDir, getClass().getClassLoader());
                 PatchedJarLoader optLoader =
                         new PatchedJarLoader(jarPath, patchedDir, getClass().getClassLoader())) {
             EditableMeshTopologyOptimizer.resetBuildCountForTest();
@@ -250,7 +250,8 @@ final class MeshEditRealHostPatchVerificationTest {
             }
         }
 
-        // 2. Add ~5,500 non-auto NORMAL / USER_TRIANGULATION edges (exercising allowCross=false & checkSimilarEdge_exe).
+        // 2. Add ~5,500 non-auto NORMAL / USER_TRIANGULATION edges (exercising allowCross=false &
+        // checkSimilarEdge_exe).
         int addedNonAuto = 0;
         for (int r = 0; r < STRESS_GRID_DIM && addedNonAuto < 5500; r++) {
             for (int c = 0; c < cells && addedNonAuto < 5500; c++) {
@@ -310,15 +311,13 @@ final class MeshEditRealHostPatchVerificationTest {
         }
     }
 
-    private static Object[] runGeometrySuite(
-            final ClassLoader loader, final MeshData mesh, final float[] queries) throws Exception {
+    private static Object[] runGeometrySuite(final ClassLoader loader, final MeshData mesh, final float[] queries)
+            throws Exception {
         final Class<?> vecCls = Class.forName("com.live2d.graphics3d.type.GVector2", true, loader);
         final Constructor<?> vecCtor = vecCls.getConstructor(float.class, float.class);
 
-        final Class<?> genCls =
-                Class.forName("com.live2d.cubism.doc.model.extension.meshGenerator.a.a", true, loader);
-        final Constructor<?> genCtor =
-                genCls.getConstructor(float[].class, float[].class, int[].class, int.class);
+        final Class<?> genCls = Class.forName("com.live2d.cubism.doc.model.extension.meshGenerator.a.a", true, loader);
+        final Constructor<?> genCtor = genCls.getConstructor(float[].class, float[].class, int[].class, int.class);
         final Object transformer = genCtor.newInstance(mesh.srcPos, mesh.dstPos, mesh.indices, STRIDE_XY);
         final Method transformArr = genCls.getMethod("transform", float[].class, float[].class);
         final float[] transformedOut = new float[queries.length];
@@ -328,12 +327,14 @@ final class MeshEditRealHostPatchVerificationTest {
         final Object utilsObj = utilsCls.getField("a").get(null);
         final Method utilsFind = utilsCls.getMethod("a", float[].class, int[].class, int.class, vecCls, int[].class);
 
-        final Class<?> pitdClass = Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD", true, loader);
+        final Class<?> pitdClass =
+                Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD", true, loader);
         final Object pitdCompanion = pitdClass.getField("Companion").get(null);
         final Method pitdFind =
                 pitdCompanion.getClass().getMethod("a", vecCls, float[].class, int[].class, int.class, boolean.class);
 
-        final Class<?> pitClass = Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangle", true, loader);
+        final Class<?> pitClass =
+                Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangle", true, loader);
         final Object pitCompanion = pitClass.getField("Companion").get(null);
         final Method pitFind =
                 pitCompanion.getClass().getMethod("a", vecCls, float[].class, int[].class, int.class, boolean.class);
@@ -354,9 +355,11 @@ final class MeshEditRealHostPatchVerificationTest {
 
             for (int skip = 0; skip < 2; skip++) {
                 final boolean skipFallback = skip == 1;
-                final Object dRes = pitdFind.invoke(pitdCompanion, qVec, mesh.srcPos, mesh.indices, STRIDE_XY, skipFallback);
+                final Object dRes =
+                        pitdFind.invoke(pitdCompanion, qVec, mesh.srcPos, mesh.indices, STRIDE_XY, skipFallback);
                 pitdStrings[i * 2 + skip] = summarizePointInTriangle(dRes);
-                final Object fRes = pitFind.invoke(pitCompanion, qVec, mesh.srcPos, mesh.indices, STRIDE_XY, skipFallback);
+                final Object fRes =
+                        pitFind.invoke(pitCompanion, qVec, mesh.srcPos, mesh.indices, STRIDE_XY, skipFallback);
                 pitStrings[i * 2 + skip] = summarizePointInTriangle(fRes);
             }
         }
@@ -414,12 +417,14 @@ final class MeshEditRealHostPatchVerificationTest {
 
     private static TopologySummary runTopologyScenario(final ClassLoader loader) throws Exception {
         final Class<?> meshCls = Class.forName("com.live2d.graphics3d.editableMesh.GEditableMesh2", true, loader);
-        final Class<?> pointTypeCls = Class.forName("com.live2d.graphics3d.editableMesh.MPoint2$PointType", true, loader);
+        final Class<?> pointTypeCls =
+                Class.forName("com.live2d.graphics3d.editableMesh.MPoint2$PointType", true, loader);
         final Class<?> edgeTypeCls = Class.forName("com.live2d.graphics3d.editableMesh.MEdge$EdgeType", true, loader);
         final Class<?> vecCls = Class.forName("com.live2d.graphics3d.type.GVector2", true, loader);
         final Class<?> edgeCls = Class.forName("com.live2d.graphics3d.editableMesh.MEdge", true, loader);
         final Class<?> helperCls = Class.forName("com.live2d.graphics3d.editableMesh.b", true, loader);
-        final Class<?> handlerCls = Class.forName("com.live2d.graphics3d.editableMesh.GEditableMeshHandler", true, loader);
+        final Class<?> handlerCls =
+                Class.forName("com.live2d.graphics3d.editableMesh.GEditableMeshHandler", true, loader);
 
         final Object normalPt = enumConstant(pointTypeCls, "NORMAL");
         final Object normalEdge = enumConstant(edgeTypeCls, "NORMAL");
@@ -428,16 +433,18 @@ final class MeshEditRealHostPatchVerificationTest {
 
         final Object mesh = meshCls.getConstructor().newInstance();
         final Method addPoint = meshCls.getMethod("addPoint", float.class, float.class, pointTypeCls, long.class);
-        final Method addEdge = meshCls.getMethod("addEdge", int.class, int.class, edgeTypeCls, boolean.class, boolean.class);
+        final Method addEdge =
+                meshCls.getMethod("addEdge", int.class, int.class, edgeTypeCls, boolean.class, boolean.class);
         final Method getEdgeIndex = meshCls.getMethod("getEdgeIndex", int.class, int.class);
         final Method getPointIndexByUid = meshCls.getMethod("getPointIndexByUid", long.class);
         final Method getPointRefByUid = meshCls.getMethod("getPointRefByUid", long.class);
-        final Method checkExisting = meshCls.getDeclaredMethod("chechExistingEdge_exe", int.class, int.class, boolean.class);
+        final Method checkExisting =
+                meshCls.getDeclaredMethod("chechExistingEdge_exe", int.class, int.class, boolean.class);
         checkExisting.setAccessible(true);
         final Method checkSimilar = meshCls.getDeclaredMethod("checkSimilarEdge_exe", int.class, int.class);
         checkSimilar.setAccessible(true);
-        final Method checkCross = meshCls.getMethod(
-                "checkCross__", vecCls, int.class, int.class, boolean.class, boolean.class, edgeCls);
+        final Method checkCross =
+                meshCls.getMethod("checkCross__", vecCls, int.class, int.class, boolean.class, boolean.class, edgeCls);
         final Method clearAuto = meshCls.getMethod("clearAutoTriangulation");
 
         for (int r = 0; r < GRID_SIZE; r++) {
@@ -464,10 +471,9 @@ final class MeshEditRealHostPatchVerificationTest {
         addEdge.invoke(mesh, 0, GRID_SIZE + 1, autoEdge, true, true);
         addEdge.invoke(mesh, 1, GRID_SIZE, normalEdge, true, true);
 
-        final List<Integer> edgeIndices = List.of(
-                (int) getEdgeIndex.invoke(mesh, 0, 1),
-                (int) getEdgeIndex.invoke(mesh, GRID_SIZE + 1, 0),
-                (int) getEdgeIndex.invoke(mesh, 0, GRID_SIZE * GRID_SIZE - 1));
+        final List<Integer> edgeIndices =
+                List.of((int) getEdgeIndex.invoke(mesh, 0, 1), (int) getEdgeIndex.invoke(mesh, GRID_SIZE + 1, 0), (int)
+                        getEdgeIndex.invoke(mesh, 0, GRID_SIZE * GRID_SIZE - 1));
         final List<Integer> uidIndices = List.of(
                 (int) getPointIndexByUid.invoke(mesh, TEST_UID_BASE),
                 (int) getPointIndexByUid.invoke(mesh, TEST_UID_BASE + 12L),
@@ -484,13 +490,14 @@ final class MeshEditRealHostPatchVerificationTest {
                 boxOrMinusOne(checkSimilar.invoke(mesh, 0, GRID_SIZE + 2)));
 
         final Object p0Vec = vecCls.getConstructor(float.class, float.class).newInstance(0.0f, 0.0f);
-        final List<Boolean> crossChecks = List.of(
-                (boolean) checkCross.invoke(mesh, p0Vec, 0, GRID_SIZE + 1, false, false, null),
-                (boolean) checkCross.invoke(mesh, p0Vec, 0, 2, false, false, null));
+        final List<Boolean> crossChecks =
+                List.of((boolean) checkCross.invoke(mesh, p0Vec, 0, GRID_SIZE + 1, false, false, null), (boolean)
+                        checkCross.invoke(mesh, p0Vec, 0, 2, false, false, null));
 
         final Object helperObj = helperCls.getField("a").get(null);
         @SuppressWarnings("unchecked")
-        final List<int[]> polys = (List<int[]>) helperCls.getMethod("b", meshCls).invoke(helperObj, mesh);
+        final List<int[]> polys =
+                (List<int[]>) helperCls.getMethod("b", meshCls).invoke(helperObj, mesh);
         final List<String> polySigs = new ArrayList<>();
         for (final int[] poly : polys) {
             polySigs.add(java.util.Arrays.toString(poly));
@@ -514,7 +521,15 @@ final class MeshEditRealHostPatchVerificationTest {
         final int afterClear = (int) getEdgeIndex.invoke(mesh, 0, GRID_SIZE + 1);
 
         return new TopologySummary(
-                edgeIndices, uidIndices, existingChecks, similarChecks, crossChecks, polySigs, tris.size(), dupGroups, afterClear);
+                edgeIndices,
+                uidIndices,
+                existingChecks,
+                similarChecks,
+                crossChecks,
+                polySigs,
+                tris.size(),
+                dupGroups,
+                afterClear);
     }
 
     private static void verifyEditableMeshRenderAndSelectionHelpers(final PatchedJarLoader loader) throws Exception {
@@ -526,7 +541,8 @@ final class MeshEditRealHostPatchVerificationTest {
 
         final Object mesh = meshCls.getConstructor().newInstance();
         final Method addPoint = meshCls.getMethod("addPoint", float.class, float.class, ptType, long.class);
-        final Method addEdge = meshCls.getMethod("addEdge", int.class, int.class, edgeType, boolean.class, boolean.class);
+        final Method addEdge =
+                meshCls.getMethod("addEdge", int.class, int.class, edgeType, boolean.class, boolean.class);
         addPoint.invoke(mesh, 0.0f, 0.0f, normalPt, 1L);
         addPoint.invoke(mesh, 1.0f, 0.0f, normalPt, 2L);
         addPoint.invoke(mesh, 5.0f, 5.0f, normalPt, 3L);
@@ -553,13 +569,14 @@ final class MeshEditRealHostPatchVerificationTest {
         final Object selector = getSelector.invoke(artMeshSel);
         final Object ref1 = definePointRefSubclass(loader, 1);
         final Class<?> iPointRef = Class.forName("com.live2d.doc.selection.IPointRef", true, loader);
-        selector.getClass().getMethod("add", iPointRef, float.class, boolean.class).invoke(selector, ref1, 0.5f, false);
+        selector.getClass()
+                .getMethod("add", iPointRef, float.class, boolean.class)
+                .invoke(selector, ref1, 0.5f, false);
 
         final float[] colors = new float[8];
-        assertTrue(EditableMeshSelectionOptimizer.fillSoftSelectionColors(
-                artMeshSel, 2, 0.8f, 1.0f, 0.5f, 0.25f, colors));
-        assertArrayEquals(
-                new float[] {0.0f, 0.0f, 0.0f, 0.0f, 0.4f, 0.2f, 0.1f, 0.4f}, colors, FLOAT_TOL);
+        assertTrue(
+                EditableMeshSelectionOptimizer.fillSoftSelectionColors(artMeshSel, 2, 0.8f, 1.0f, 0.5f, 0.25f, colors));
+        assertArrayEquals(new float[] {0.0f, 0.0f, 0.0f, 0.0f, 0.4f, 0.2f, 0.1f, 0.4f}, colors, FLOAT_TOL);
     }
 
     private static Object definePointRefSubclass(final PatchedJarLoader loader, final int vertexIndex)
@@ -641,7 +658,8 @@ final class MeshEditRealHostPatchVerificationTest {
 
     private static String versionLabel(final Path jarPath) {
         final Path parent = jarPath.getParent();
-        if (parent != null && ARTIFACTS_DIR_NAME.equals(parent.getParent().getFileName().toString())) {
+        if (parent != null
+                && ARTIFACTS_DIR_NAME.equals(parent.getParent().getFileName().toString())) {
             return parent.getFileName().toString();
         }
         return "5.3.05";
@@ -649,7 +667,8 @@ final class MeshEditRealHostPatchVerificationTest {
 
     private static void runStrictBytecodeVerifierSubprocess(final Path manifestList, final int expectedCount)
             throws Exception {
-        final String javaExe = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        final String javaExe =
+                Path.of(System.getProperty("java.home"), "bin", "java").toString();
         final String classpath = System.getProperty("java.class.path");
         final Process process = new ProcessBuilder(
                         javaExe,
@@ -664,7 +683,8 @@ final class MeshEditRealHostPatchVerificationTest {
         try (InputStream in = process.getInputStream()) {
             output = new String(in.readAllBytes());
         }
-        assertTrue(process.waitFor(VERIFY_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS), "Verifier timed out");
+        assertTrue(
+                process.waitFor(VERIFY_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS), "Verifier timed out");
         assertEquals(0, process.exitValue(), "Strict -Xverify:all failed:\n" + output);
         assertTrue(output.contains("VERIFIED_TARGETS=" + expectedCount), output);
     }

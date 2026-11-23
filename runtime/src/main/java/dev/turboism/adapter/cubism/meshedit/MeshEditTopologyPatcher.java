@@ -14,13 +14,10 @@ import org.objectweb.asm.Opcodes;
  */
 final class MeshEditTopologyPatcher {
 
-    static final String TRIANGULATION_G_INTERNAL =
-            "com/live2d/graphics3d/editableMesh/triangulation/g";
+    static final String TRIANGULATION_G_INTERNAL = "com/live2d/graphics3d/editableMesh/triangulation/g";
     static final String EDITABLE_MESH_HELPER_INTERNAL = "com/live2d/graphics3d/editableMesh/b";
-    static final String MESH_HANDLER_INTERNAL =
-            "com/live2d/graphics3d/editableMesh/GEditableMeshHandler";
-    static final String G_EDITABLE_MESH_INTERNAL =
-            "com/live2d/graphics3d/editableMesh/GEditableMesh2";
+    static final String MESH_HANDLER_INTERNAL = "com/live2d/graphics3d/editableMesh/GEditableMeshHandler";
+    static final String G_EDITABLE_MESH_INTERNAL = "com/live2d/graphics3d/editableMesh/GEditableMesh2";
 
     private static final String TOPOLOGY_OPT_INTERNAL =
             "dev/turboism/adapter/cubism/meshedit/EditableMeshTopologyOptimizer";
@@ -87,8 +84,7 @@ final class MeshEditTopologyPatcher {
     private static final String INIT_BY_MESH_NAME = "initByEditableMesh";
     private static final String REINIT_EXE_NAME = "reinit_exe";
 
-    private static final String BRIDGE_FIND_EXISTING_DESC =
-            "(Ljava/lang/Object;IIZ)Ljava/lang/Object;";
+    private static final String BRIDGE_FIND_EXISTING_DESC = "(Ljava/lang/Object;IIZ)Ljava/lang/Object;";
     private static final String BRIDGE_EDGE_INDEX_DESC = "(Ljava/lang/Object;II)I";
     private static final String BRIDGE_GET_EDGE_DESC = "(Ljava/lang/Object;II)Ljava/lang/Object;";
     private static final String BRIDGE_UID_INDEX_DESC = "(Ljava/lang/Object;J)I";
@@ -227,9 +223,7 @@ final class MeshEditTopologyPatcher {
                         if (NON_DELAUNAY_METHOD_NAME.equals(name) && NON_DELAUNAY_DESC.equals(desc)) {
                             return new MatrixLoopPatcher(mv, loopSurvey, edgeTableSlot);
                         }
-                        if (hasDupPoints[0]
-                                && DUP_POINTS_METHOD_NAME.equals(name)
-                                && NON_DELAUNAY_DESC.equals(desc)) {
+                        if (hasDupPoints[0] && DUP_POINTS_METHOD_NAME.equals(name) && NON_DELAUNAY_DESC.equals(desc)) {
                             return new SingleMeshListPrefixPatcher(mv, FIND_DUPLICATES_NAME);
                         }
                         return mv;
@@ -271,9 +265,7 @@ final class MeshEditTopologyPatcher {
                             final String signature,
                             final String[] exceptions) {
                         final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                        if (!FIND_TRIANGLES_METHOD_NAME.equals(name)
-                                || !NON_DELAUNAY_DESC.equals(desc)
-                                || mv == null) {
+                        if (!FIND_TRIANGLES_METHOD_NAME.equals(name) || !NON_DELAUNAY_DESC.equals(desc) || mv == null) {
                             return mv;
                         }
                         return new SingleMeshListPrefixPatcher(mv, FIND_TRIANGLES_BRIDGE_NAME);
@@ -456,11 +448,9 @@ final class MeshEditTopologyPatcher {
                 || REINIT_EXE_NAME.equals(name);
     }
 
-    private static void emitMinRequiredDeg(
-            final MethodVisitor mv, final boolean hasMinRequiredDegField) {
+    private static void emitMinRequiredDeg(final MethodVisitor mv, final boolean hasMinRequiredDegField) {
         if (hasMinRequiredDegField) {
-            mv.visitFieldInsn(
-                    Opcodes.GETSTATIC, G_EDITABLE_MESH_INTERNAL, FIELD_MIN_REQUIRED_DEG, FLOAT_DESC);
+            mv.visitFieldInsn(Opcodes.GETSTATIC, G_EDITABLE_MESH_INTERNAL, FIELD_MIN_REQUIRED_DEG, FLOAT_DESC);
         } else {
             mv.visitLdcInsn(DEFAULT_MIN_REQUIRED_DEG);
         }
@@ -491,11 +481,7 @@ final class MeshEditTopologyPatcher {
             final Label fallbackLabel = new Label();
             super.visitVarInsn(Opcodes.ALOAD, 1);
             super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    TOPOLOGY_OPT_INTERNAL,
-                    bridgeMethodName,
-                    SINGLE_LIST_BRIDGE_DESC,
-                    false);
+                    Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, bridgeMethodName, SINGLE_LIST_BRIDGE_DESC, false);
             super.visitInsn(Opcodes.DUP);
             super.visitJumpInsn(Opcodes.IFNULL, fallbackLabel);
             super.visitInsn(Opcodes.ARETURN);
@@ -561,7 +547,9 @@ final class MeshEditTopologyPatcher {
                         expectTmpBufSize = false;
                     } else if (SYSTEM_INTERNAL.equals(owner) && ARRAYCOPY_NAME.equals(name)) {
                         afterArrayCopy = true;
-                    } else if (trackTailIsSameEdge && ARRAYS_KT_INTERNAL.equals(owner) && ARRAYS_FIRST_NAME.equals(name)) {
+                    } else if (trackTailIsSameEdge
+                            && ARRAYS_KT_INTERNAL.equals(owner)
+                            && ARRAYS_FIRST_NAME.equals(name)) {
                         polyVar = lastAloadVar;
                     } else if (trackTailIsSameEdge
                             && MEDGE_INTERNAL.equals(owner)
@@ -652,13 +640,12 @@ final class MeshEditTopologyPatcher {
         }
 
         boolean isValid() {
-            final boolean baseValid =
-                    foundMethod
-                            && pointsVar >= 0
-                            && nonAutoEdgesVar >= 0
-                            && incVar >= 0
-                            && tmpBufStoreOrdinal >= 0
-                            && arraycopyGotoOrdinal >= 0;
+            final boolean baseValid = foundMethod
+                    && pointsVar >= 0
+                    && nonAutoEdgesVar >= 0
+                    && incVar >= 0
+                    && tmpBufStoreOrdinal >= 0
+                    && arraycopyGotoOrdinal >= 0;
             if (!baseValid) {
                 return false;
             }
@@ -684,8 +671,7 @@ final class MeshEditTopologyPatcher {
         private int istoreCount;
         private int gotoCount;
 
-        private MatrixLoopPatcher(
-                final MethodVisitor mv, final MatrixLoopSurvey survey, final int edgeTableSlot) {
+        private MatrixLoopPatcher(final MethodVisitor mv, final MatrixLoopSurvey survey, final int edgeTableSlot) {
             super(MeshEditAsmSupport.ASM_API, mv);
             this.survey = survey;
             this.edgeTableSlot = edgeTableSlot;
@@ -779,11 +765,7 @@ final class MeshEditTopologyPatcher {
             super.visitInsn(Opcodes.ISUB);
             super.visitInsn(Opcodes.IALOAD);
             super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    TOPOLOGY_OPT_INTERNAL,
-                    CONTAINS_EDGE_NAME,
-                    CONTAINS_EDGE_DESC,
-                    false);
+                    Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, CONTAINS_EDGE_NAME, CONTAINS_EDGE_DESC, false);
             super.visitVarInsn(Opcodes.ISTORE, survey.foundVar);
             super.visitJumpInsn(Opcodes.GOTO, afterIsSameEdgeLabel);
             super.visitLabel(fallbackLabel);
@@ -827,11 +809,7 @@ final class MeshEditTopologyPatcher {
             super.visitVarInsn(Opcodes.ILOAD, 1);
             super.visitVarInsn(Opcodes.ILOAD, 2);
             super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    TOPOLOGY_OPT_INTERNAL,
-                    "getEdgeIndexFast",
-                    BRIDGE_EDGE_INDEX_DESC,
-                    false);
+                    Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, "getEdgeIndexFast", BRIDGE_EDGE_INDEX_DESC, false);
             emitIntLookupPrefixOrFallback(this);
         }
     }
@@ -849,11 +827,7 @@ final class MeshEditTopologyPatcher {
             super.visitVarInsn(Opcodes.ILOAD, 1);
             super.visitVarInsn(Opcodes.ILOAD, 2);
             super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    TOPOLOGY_OPT_INTERNAL,
-                    "getEdgeFast",
-                    BRIDGE_GET_EDGE_DESC,
-                    false);
+                    Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, "getEdgeFast", BRIDGE_GET_EDGE_DESC, false);
             MeshEditAsmSupport.emitSentinelObjectReturnOrFallback(
                     this, TOPOLOGY_OPT_INTERNAL, NO_MATCH_SENTINEL_FIELD, MEDGE_INTERNAL);
         }
@@ -928,8 +902,7 @@ final class MeshEditTopologyPatcher {
 
         private final boolean hasMinRequiredDegField;
 
-        private CheckSimilarEdgePatcher(
-                final MethodVisitor mv, final boolean hasMinRequiredDegField) {
+        private CheckSimilarEdgePatcher(final MethodVisitor mv, final boolean hasMinRequiredDegField) {
             super(MeshEditAsmSupport.ASM_API, mv);
             this.hasMinRequiredDegField = hasMinRequiredDegField;
         }
@@ -974,11 +947,7 @@ final class MeshEditTopologyPatcher {
             super.visitInsn(checkCollinear ? Opcodes.ICONST_1 : Opcodes.ICONST_0);
             emitMinRequiredDeg(this, checkCollinear);
             super.visitMethodInsn(
-                    Opcodes.INVOKESTATIC,
-                    TOPOLOGY_OPT_INTERNAL,
-                    "checkCrossFast",
-                    BRIDGE_CHECK_CROSS_DESC,
-                    false);
+                    Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, "checkCrossFast", BRIDGE_CHECK_CROSS_DESC, false);
             MeshEditAsmSupport.emitTriStateBooleanReturnOrFallback(this);
         }
     }
@@ -999,11 +968,7 @@ final class MeshEditTopologyPatcher {
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitInsn(Opcodes.SWAP);
                 super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        TOPOLOGY_OPT_INTERNAL,
-                        bridgeMethodName,
-                        ON_EDGE_OBSERVER_DESC,
-                        false);
+                        Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, bridgeMethodName, ON_EDGE_OBSERVER_DESC, false);
             }
             super.visitInsn(opcode);
         }
@@ -1020,11 +985,7 @@ final class MeshEditTopologyPatcher {
             if (opcode == Opcodes.RETURN || opcode == Opcodes.IRETURN || opcode == Opcodes.ARETURN) {
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        TOPOLOGY_OPT_INTERNAL,
-                        INVALIDATE_MESH_NAME,
-                        INVALIDATE_MESH_DESC,
-                        false);
+                        Opcodes.INVOKESTATIC, TOPOLOGY_OPT_INTERNAL, INVALIDATE_MESH_NAME, INVALIDATE_MESH_DESC, false);
             }
             super.visitInsn(opcode);
         }

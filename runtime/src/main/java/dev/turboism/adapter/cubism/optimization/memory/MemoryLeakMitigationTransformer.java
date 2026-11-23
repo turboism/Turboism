@@ -75,7 +75,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
     public MemoryLeakMitigationTransformer(
             final ClassLoader loader, final Path artifact, final MemoryLeakMitigationTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         Objects.requireNonNull(target, "target");
         this.allowedOwners = Set.copyOf(target.rewrittenOwners());
         this.partsCloseMethod = Objects.requireNonNull(target.partsCloseMethod(), "partsCloseMethod");
@@ -219,8 +220,7 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                     return new PartsCloseMethodVisitor(delegate, tracker);
                 }
             }
-            case MemoryLeakMitigationTarget.GL_BUFFER_FLOAT_OWNER,
-                    MemoryLeakMitigationTarget.GL_BUFFER_INT_OWNER -> {
+            case MemoryLeakMitigationTarget.GL_BUFFER_FLOAT_OWNER, MemoryLeakMitigationTarget.GL_BUFFER_INT_OWNER -> {
                 if (MemoryLeakMitigationTarget.GL_BUFFER_UPLOAD_METHOD.equals(name)
                         && MemoryLeakMitigationTarget.GL_BUFFER_UPLOAD_DESCRIPTOR.equals(descriptor)) {
                     return new VboPrepareMethodVisitor(delegate, tracker, owner);
@@ -250,8 +250,7 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             case MemoryLeakMitigationTarget.MESH_EDITOR_EM_OWNER -> {
                 if (MemoryLeakMitigationTarget.MESH_EDITOR_END_METHOD.equals(name)
                         && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
-                    return entryConsumer(
-                            delegate, tracker, MemoryLeakMitigationBridge.MESH_EDITOR_END_SLOT, SLOT_THIS);
+                    return entryConsumer(delegate, tracker, MemoryLeakMitigationBridge.MESH_EDITOR_END_SLOT, SLOT_THIS);
                 }
             }
             case MemoryLeakMitigationTarget.G_TEXTURE_OWNER -> {
@@ -273,7 +272,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                 }
                 if (MemoryLeakMitigationTarget.ENTITY_DISPOSE_METHOD.equals(name)
                         && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
-                    return returnConsumer(delegate, tracker, MemoryLeakMitigationBridge.DISPOSE_TEXTURE_SLOT, SLOT_THIS);
+                    return returnConsumer(
+                            delegate, tracker, MemoryLeakMitigationBridge.DISPOSE_TEXTURE_SLOT, SLOT_THIS);
                 }
             }
             case MemoryLeakMitigationTarget.GL_WRAPPER_OWNER -> {
@@ -455,7 +455,11 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         mv.visitVarInsn(Opcodes.ALOAD, firstArgSlot);
         mv.visitVarInsn(Opcodes.ALOAD, secondArgSlot);
         mv.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE, BICONSUMER_OWNER, BICONSUMER_ACCEPT_METHOD, BICONSUMER_ACCEPT_DESCRIPTOR, true);
+                Opcodes.INVOKEINTERFACE,
+                BICONSUMER_OWNER,
+                BICONSUMER_ACCEPT_METHOD,
+                BICONSUMER_ACCEPT_DESCRIPTOR,
+                true);
         mv.visitJumpInsn(Opcodes.GOTO, done);
         mv.visitLabel(fallback);
         mv.visitInsn(Opcodes.POP);
@@ -564,7 +568,11 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             if (matchStep >= 3) mv.visitVarInsn(Opcodes.ALOAD, SLOT_THIS);
             if (matchStep >= 4) {
                 mv.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL, bufferOwner, INT_BUFFER_GETTER_METHOD, INT_BUFFER_GETTER_DESCRIPTOR, false);
+                        Opcodes.INVOKEVIRTUAL,
+                        bufferOwner,
+                        INT_BUFFER_GETTER_METHOD,
+                        INT_BUFFER_GETTER_DESCRIPTOR,
+                        false);
             }
             if (matchStep >= 5) {
                 mv.visitMethodInsn(
@@ -579,7 +587,11 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             if (matchStep >= 8) mv.visitVarInsn(Opcodes.ALOAD, SLOT_THIS);
             if (matchStep >= 9) {
                 mv.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL, bufferOwner, INT_BUFFER_GETTER_METHOD, INT_BUFFER_GETTER_DESCRIPTOR, false);
+                        Opcodes.INVOKEVIRTUAL,
+                        bufferOwner,
+                        INT_BUFFER_GETTER_METHOD,
+                        INT_BUFFER_GETTER_DESCRIPTOR,
+                        false);
             }
             matchStep = 0;
         }
@@ -682,7 +694,11 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             mv.visitVarInsn(Opcodes.ALOAD, SLOT_THIS);
             mv.visitVarInsn(Opcodes.ALOAD, SLOT_ARG1);
             mv.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE, BIPREDICATE_OWNER, BIPREDICATE_TEST_METHOD, BIPREDICATE_TEST_DESCRIPTOR, true);
+                    Opcodes.INVOKEINTERFACE,
+                    BIPREDICATE_OWNER,
+                    BIPREDICATE_TEST_METHOD,
+                    BIPREDICATE_TEST_DESCRIPTOR,
+                    true);
             mv.visitJumpInsn(Opcodes.IFNE, done);
             mv.visitJumpInsn(Opcodes.GOTO, runOriginal);
 
@@ -713,7 +729,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         }
 
         @Override
-        public void visitFieldInsn(final int opcode, final String fieldOwner, final String name, final String descriptor) {
+        public void visitFieldInsn(
+                final int opcode, final String fieldOwner, final String name, final String descriptor) {
             flushMatchedPrefix();
             super.visitFieldInsn(opcode, fieldOwner, name, descriptor);
         }
@@ -803,7 +820,11 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             if (matchStep >= 3) mv.visitVarInsn(Opcodes.ALOAD, debugUserVar);
             if (matchStep >= 4) {
                 mv.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL, ARRAY_LIST_OWNER, ARRAY_LIST_ADD_METHOD, ARRAY_LIST_ADD_DESCRIPTOR, false);
+                        Opcodes.INVOKEVIRTUAL,
+                        ARRAY_LIST_OWNER,
+                        ARRAY_LIST_ADD_METHOD,
+                        ARRAY_LIST_ADD_DESCRIPTOR,
+                        false);
             }
             matchStep = 0;
         }

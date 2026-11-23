@@ -52,7 +52,8 @@ final class VerifiedWarpDeformEditAccelerationInstaller implements VerifiedHookI
             throws IOException {
         if (artifact == null
                 || !Files.isRegularFile(artifact)
-                || !VerifiedInstall.admits(ADMISSION, config, requested, Runtime.version().feature())) {
+                || !VerifiedInstall.admits(
+                        ADMISSION, config, requested, Runtime.version().feature())) {
             return false;
         }
         return WarpDeformEditTarget.of(HostArtifactDigest.cached(artifact)).isPresent();
@@ -67,7 +68,8 @@ final class VerifiedWarpDeformEditAccelerationInstaller implements VerifiedHookI
 
     private static List<WeaveTarget> targets(final WarpDeformEditTarget target, final WeaveSource source)
             throws Exception {
-        final List<Class<?>> loadedClasses = new ArrayList<>(target.targetClasses().size());
+        final List<Class<?>> loadedClasses =
+                new ArrayList<>(target.targetClasses().size());
         final Map<String, byte[]> references = new LinkedHashMap<>();
         for (final String internalName : target.targetClasses()) {
             final Class<?> loaded = source.load(internalName);

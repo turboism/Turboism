@@ -111,14 +111,13 @@ public final class EditableMeshSelectionOptimizer {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
                 final Class<?> selectorClass = Class.forName("com.live2d.doc.selection.PointSelector", false, loader);
                 final Class<?> iPointRef = Class.forName("com.live2d.doc.selection.IPointRef", false, loader);
-                final Class<?> meshPointRef = Class.forName(
-                        "com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef", false, loader);
+                final Class<?> meshPointRef =
+                        Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef", false, loader);
                 return new SelectorAccess(
-                        lookup.findVirtual(artMeshSelectionClass, "getPointSelector", MethodType.methodType(selectorClass)),
                         lookup.findVirtual(
-                                selectorClass,
-                                "getWeight",
-                                MethodType.methodType(float.class, iPointRef, float.class)),
+                                artMeshSelectionClass, "getPointSelector", MethodType.methodType(selectorClass)),
+                        lookup.findVirtual(
+                                selectorClass, "getWeight", MethodType.methodType(float.class, iPointRef, float.class)),
                         meshPointRef,
                         lookup.findVirtual(meshPointRef, "a", MethodType.methodType(int.class)));
             } catch (final ReflectiveOperationException failure) {

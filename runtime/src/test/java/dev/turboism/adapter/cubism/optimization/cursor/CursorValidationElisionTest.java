@@ -162,8 +162,7 @@ final class CursorValidationElisionTest {
         getMousePos.visitEnd();
         writer.visitEnd();
 
-        final ClassWriter componentWriter =
-                new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter componentWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         componentWriter.visit(
                 Opcodes.V17,
                 Opcodes.ACC_PUBLIC,
@@ -210,12 +209,7 @@ final class CursorValidationElisionTest {
         final CursorValidationElisionTransformer transformer =
                 new CursorValidationElisionTransformer(containerBytes, componentBytes);
         final byte[] rewritten = transformer.transform(
-                null,
-                null,
-                CursorValidationElisionTarget.CONTAINER_OWNER,
-                null,
-                null,
-                containerBytes);
+                null, null, CursorValidationElisionTarget.CONTAINER_OWNER, null, null, containerBytes);
         assertNotNull(rewritten, () -> "JDK 25 MouseInfo shape should be admitted: " + transformer.failure());
         assertEquals(2, transformer.sites());
     }

@@ -362,9 +362,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                         && "b".equals(name)
                         && "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;".equals(descriptor)) {
                     awaitIconBoolValue = true;
-                } else if (awaitIconBoolValue
-                        && BOOLEAN_OWNER.equals(owner)
-                        && "booleanValue".equals(name)) {
+                } else if (awaitIconBoolValue && BOOLEAN_OWNER.equals(owner) && "booleanValue".equals(name)) {
                     awaitIconBoolValue = false;
                     awaitIconStore = true;
                 } else if (ARRAY_LIST_OWNER.equals(owner) && "size".equals(name) && drawShapesLabel == null) {
@@ -407,11 +405,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
             @Override
             public void visitLabel(final Label label) {
                 super.visitLabel(label);
-                if (label == drawShapesLabel
-                        && !inDrawShapesSection
-                        && gSlot >= 0
-                        && txSlot >= 0
-                        && iconSlot >= 0) {
+                if (label == drawShapesLabel && !inDrawShapesSection && gSlot >= 0 && txSlot >= 0 && iconSlot >= 0) {
                     inDrawShapesSection = true;
                     final Label fallbackRaw = new Label();
                     final Label runOriginal = new Label();
@@ -436,8 +430,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                     mv.visitInsn(Opcodes.DUP);
                     mv.visitInsn(Opcodes.ICONST_3);
                     mv.visitVarInsn(Opcodes.ILOAD, iconSlot);
-                    mv.visitMethodInsn(
-                            Opcodes.INVOKESTATIC, BOOLEAN_OWNER, "valueOf", "(Z)Ljava/lang/Boolean;", false);
+                    mv.visitMethodInsn(Opcodes.INVOKESTATIC, BOOLEAN_OWNER, "valueOf", "(Z)Ljava/lang/Boolean;", false);
                     mv.visitInsn(Opcodes.AASTORE);
                     SlotBridgeEmitter.emitTest(mv);
                     mv.visitJumpInsn(Opcodes.IFNE, skipShapesTargetLabel);
@@ -531,8 +524,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                     emitTypedConsult(mv, AtlasInteractiveRenderBridge.CLIP_BG_PROPERTY, BIPREDICATE_OWNER, fallbackRaw);
                     mv.visitInsn(Opcodes.DUP_X2);
                     mv.visitInsn(Opcodes.POP);
-                    mv.visitMethodInsn(
-                            Opcodes.INVOKEINTERFACE, BIPREDICATE_OWNER, "test", BIPREDICATE_TEST_DESC, true);
+                    mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, BIPREDICATE_OWNER, "test", BIPREDICATE_TEST_DESC, true);
                     mv.visitJumpInsn(Opcodes.IFEQ, runOriginal);
                     mv.visitInsn(Opcodes.POP2);
                     mv.visitInsn(Opcodes.ICONST_1);
@@ -575,8 +567,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                         && KOTLIN_INTRINSICS_OWNER.equals(owner)
                         && "checkNotNullParameter".equals(name)) {
                     super.visitMethodInsn(opcode, owner, name, descriptor, itf);
-                    emitSlotTestIgnoreResult(
-                            mv, AtlasInteractiveRenderBridge.ENTER_DRAG_SYNC_PROPERTY, 1);
+                    emitSlotTestIgnoreResult(mv, AtlasInteractiveRenderBridge.ENTER_DRAG_SYNC_PROPERTY, 1);
                     // Register after host Exception handler so Exception catch still runs first.
                     mv.visitTryCatchBlock(ourTryStart, ourTryEnd, ourFinallyHandler, null);
                     mv.visitLabel(ourTryStart);
@@ -670,11 +661,11 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                     final Label after = new Label();
 
                     mv.visitInsn(Opcodes.DUP2);
-                    emitTypedConsult(mv, AtlasInteractiveRenderBridge.APPLY_TEXT_PROPERTY, BIPREDICATE_OWNER, fallbackRaw);
+                    emitTypedConsult(
+                            mv, AtlasInteractiveRenderBridge.APPLY_TEXT_PROPERTY, BIPREDICATE_OWNER, fallbackRaw);
                     mv.visitInsn(Opcodes.DUP_X2);
                     mv.visitInsn(Opcodes.POP);
-                    mv.visitMethodInsn(
-                            Opcodes.INVOKEINTERFACE, BIPREDICATE_OWNER, "test", BIPREDICATE_TEST_DESC, true);
+                    mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, BIPREDICATE_OWNER, "test", BIPREDICATE_TEST_DESC, true);
                     mv.visitJumpInsn(Opcodes.IFEQ, runOriginal);
                     mv.visitInsn(Opcodes.POP2);
                     mv.visitJumpInsn(Opcodes.GOTO, after);
@@ -724,8 +715,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
             private boolean awaitLinkedStore;
 
             @Override
-            public void visitTryCatchBlock(
-                    final Label start, final Label end, final Label handler, final String type) {
+            public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
                 super.visitTryCatchBlock(start, end, handler, type);
                 if (AWT_EXCEPTION_OWNER.equals(type) && awtTryStart == null) {
                     awtTryStart = start;
@@ -789,7 +779,9 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                         && ratioSlot < 0
                         && lastDstoreSlot >= 0) {
                     ratioSlot = lastDstoreSlot;
-                } else if (inAwtTry && ROBOT_OWNER.equals(owner) && generation.robotMoveMethod().equals(name)) {
+                } else if (inAwtTry
+                        && ROBOT_OWNER.equals(owner)
+                        && generation.robotMoveMethod().equals(name)) {
                     mv.visitLabel(skipRobotLabel);
                     inAwtTry = false;
                     localSites[0]++;
@@ -822,7 +814,10 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
                     pointSlot = varIndex;
                 } else if (opcode == Opcodes.DSTORE) {
                     lastDstoreSlot = varIndex;
-                } else if (opcode == Opcodes.ISTORE && prevOpcode == Opcodes.ICONST_0 && awtTryStart != null && !inAwtTry) {
+                } else if (opcode == Opcodes.ISTORE
+                        && prevOpcode == Opcodes.ICONST_0
+                        && awtTryStart != null
+                        && !inAwtTry) {
                     zeroStoreCount++;
                     if (zeroStoreCount == 1 || (zeroStoreCount % 2 == 1)) {
                         dxSlot = varIndex;
@@ -1008,8 +1003,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
         mv.visitLabel(done);
     }
 
-    private static void emitTwoArgSkip(
-            final MethodVisitor mv, final String propertyKey, final Runnable originalInsn) {
+    private static void emitTwoArgSkip(final MethodVisitor mv, final String propertyKey, final Runnable originalInsn) {
         final Label fallbackRaw = new Label();
         final Label runOriginal = new Label();
         final Label after = new Label();
@@ -1029,10 +1023,7 @@ public final class AtlasInteractiveRenderTransformer implements ClassFileTransfo
     }
 
     private static void emitOneArgReceiverSkip(
-            final MethodVisitor mv,
-            final String propertyKey,
-            final int receiverSlot,
-            final Runnable originalInsn) {
+            final MethodVisitor mv, final String propertyKey, final int receiverSlot, final Runnable originalInsn) {
         final Label fallbackRaw = new Label();
         final Label runOriginal = new Label();
         final Label after = new Label();

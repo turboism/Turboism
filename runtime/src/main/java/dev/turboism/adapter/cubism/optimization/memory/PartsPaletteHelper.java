@@ -132,8 +132,8 @@ final class PartsPaletteHelper {
         final Class<?> treeTableClass = HostHandles.load(loader, MemoryLeakMitigationTarget.TREE_TABLE_OWNER);
         treeTableJTreeField = HostHandles.field(treeTableClass, "jTree");
         final Method getJTableMethod = findNoArgMethod(treeTableClass, "getJTable");
-        treeTableGetJTable = HostHandles.unreflect(getJTableMethod)
-                .asType(MethodType.methodType(JTable.class, Object.class));
+        treeTableGetJTable =
+                HostHandles.unreflect(getJTableMethod).asType(MethodType.methodType(JTable.class, Object.class));
 
         final Class<?> widgetClass = HostHandles.load(loader, MemoryLeakMitigationTarget.C_WIDGET_OWNER);
         final Class<?> uiHandlerClass = HostHandles.load(loader, MemoryLeakMitigationTarget.UI_EVENT_HANDLER_OWNER);
@@ -165,8 +165,8 @@ final class PartsPaletteHelper {
 
         partsCompletePackField = findUniqueFieldByAssignableType(partsPanelClass, completePackClass);
         partsTreeTableField = HostHandles.field(partsPanelClass, MemoryLeakMitigationTarget.TREE_TABLE_FIELD);
-        partsInteractionField = findOptionalFieldByPackagePrefix(
-                partsPanelClass, PARTS_INTERACTION_CLASS, MouseListener.class);
+        partsInteractionField =
+                findOptionalFieldByPackagePrefix(partsPanelClass, PARTS_INTERACTION_CLASS, MouseListener.class);
         final String initFlagName = resolveInitFlagFieldName(partsPanelClass);
         partsInitFlagField = initFlagName == null ? null : HostHandles.field(partsPanelClass, initFlagName);
 
@@ -206,8 +206,8 @@ final class PartsPaletteHelper {
 
         if (partsInteractionField != null) {
             final Class<?> interactionClass = partsInteractionField.type();
-            interactionSync = HostHandles.virtual(
-                    interactionClass, "f", "()V", MethodType.methodType(void.class, Object.class));
+            interactionSync =
+                    HostHandles.virtual(interactionClass, "f", "()V", MethodType.methodType(void.class, Object.class));
             final List<HostHandles.HostField> icFields = new ArrayList<>();
             for (final Field f : interactionClass.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers())) {
@@ -261,8 +261,8 @@ final class PartsPaletteHelper {
         final Class<?> artMeshClass = HostHandles.load(loader, ART_MESH_CLASS);
         final Class<?> drawableClass = HostHandles.load(loader, DRAWABLE_CLASS);
         final Method getIdMethod = findNoArgMethod(controllableClass, "getId");
-        controllableGetId = HostHandles.unreflect(getIdMethod)
-                .asType(MethodType.methodType(Object.class, Object.class));
+        controllableGetId =
+                HostHandles.unreflect(getIdMethod).asType(MethodType.methodType(Object.class, Object.class));
         idGetString = HostHandles.virtual(
                 getIdMethod.getReturnType(),
                 "getIdString",
@@ -274,10 +274,7 @@ final class PartsPaletteHelper {
                 "()Ljava/lang/String;",
                 MethodType.methodType(String.class, Object.class));
         partGetChildren = HostHandles.virtual(
-                partSourceClass,
-                "getChildren",
-                "()Ljava/util/List;",
-                MethodType.methodType(List.class, Object.class));
+                partSourceClass, "getChildren", "()Ljava/util/List;", MethodType.methodType(List.class, Object.class));
 
         final Method alphaMethod = findOptionalNoArgMethod(artMeshClass, "getAlphaComposition");
         artMeshGetAlphaComp = alphaMethod == null
@@ -288,16 +285,12 @@ final class PartsPaletteHelper {
                 ? null
                 : HostHandles.unreflect(colorMethod).asType(MethodType.methodType(Object.class, Object.class));
         final Method clipListMethod = findNoArgMethod(artMeshClass, "getClipGuidList");
-        artMeshGetClipGuids = HostHandles.unreflect(clipListMethod)
-                .asType(MethodType.methodType(Collection.class, Object.class));
+        artMeshGetClipGuids =
+                HostHandles.unreflect(clipListMethod).asType(MethodType.methodType(Collection.class, Object.class));
         artMeshGetInvertMask = HostHandles.virtual(
-                artMeshClass,
-                "getInvertClippingMask",
-                "()Z",
-                MethodType.methodType(boolean.class, Object.class));
+                artMeshClass, "getInvertClippingMask", "()Z", MethodType.methodType(boolean.class, Object.class));
         final Method artGuidMethod = findNoArgMethod(artMeshClass, "getGuid");
-        artMeshGetGuid = HostHandles.unreflect(artGuidMethod)
-                .asType(MethodType.methodType(Object.class, Object.class));
+        artMeshGetGuid = HostHandles.unreflect(artGuidMethod).asType(MethodType.methodType(Object.class, Object.class));
         modelGetDrawable = HostHandles.virtual(
                 cModelClass,
                 "getDrawable",
@@ -309,8 +302,7 @@ final class PartsPaletteHelper {
         textFieldGetText = HostHandles.virtual(
                 textFieldClass, "getText", "()Ljava/lang/String;", MethodType.methodType(String.class, Object.class));
         final Method stateMethod = findNoArgMethod(twoStateClass, "getState");
-        twoStateGetState = HostHandles.unreflect(stateMethod)
-                .asType(MethodType.methodType(Object.class, Object.class));
+        twoStateGetState = HostHandles.unreflect(stateMethod).asType(MethodType.methodType(Object.class, Object.class));
         checkBoxIsSelected = HostHandles.virtual(
                 checkBoxClass, "isSelected", "()Z", MethodType.methodType(boolean.class, Object.class));
     }
@@ -437,7 +429,8 @@ final class PartsPaletteHelper {
      * Checks whether the existing {@code CPartsTreeTable} matches current document, model, filter,
      * and search state; if so, refreshes selection/highlight and returns {@code true} to skip rebuild.
      */
-    boolean tryReusePartsPalette(final Object partsPanel, final boolean skipSelectionSync, final boolean expandToSelection) {
+    boolean tryReusePartsPalette(
+            final Object partsPanel, final boolean skipSelectionSync, final boolean expandToSelection) {
         if (partsPanel == null) {
             return false;
         }
@@ -625,22 +618,21 @@ final class PartsPaletteHelper {
 
     private static Method findNoArgListMethod(final Class<?> owner) throws NoSuchMethodException {
         for (final Method m : owner.getDeclaredMethods()) {
-            if (m.getParameterCount() == 0
-                    && !Modifier.isStatic(m.getModifiers())
-                    && m.getReturnType() == List.class) {
+            if (m.getParameterCount() == 0 && !Modifier.isStatic(m.getModifiers()) && m.getReturnType() == List.class) {
                 return m;
             }
         }
         throw new NoSuchMethodException(owner.getName() + " zero-arg List method");
     }
 
-    private static HostHandles.HostField findUniqueFieldByAssignableType(final Class<?> owner, final Class<?> targetType)
-            throws ReflectiveOperationException {
+    private static HostHandles.HostField findUniqueFieldByAssignableType(
+            final Class<?> owner, final Class<?> targetType) throws ReflectiveOperationException {
         String match = null;
         for (final Field f : owner.getDeclaredFields()) {
             if (!Modifier.isStatic(f.getModifiers()) && targetType.isAssignableFrom(f.getType())) {
                 if (match != null) {
-                    throw new NoSuchFieldException("Ambiguous field of type " + targetType.getName() + " on " + owner.getName());
+                    throw new NoSuchFieldException(
+                            "Ambiguous field of type " + targetType.getName() + " on " + owner.getName());
                 }
                 match = f.getName();
             }
@@ -668,7 +660,9 @@ final class PartsPaletteHelper {
         // In all reviewed versions, the last mutable instance boolean field (A or B) tracks initialized state.
         String candidate = null;
         for (final Field f : partsPanelClass.getDeclaredFields()) {
-            if (!Modifier.isStatic(f.getModifiers()) && !Modifier.isFinal(f.getModifiers()) && f.getType() == boolean.class) {
+            if (!Modifier.isStatic(f.getModifiers())
+                    && !Modifier.isFinal(f.getModifiers())
+                    && f.getType() == boolean.class) {
                 candidate = f.getName();
             }
         }

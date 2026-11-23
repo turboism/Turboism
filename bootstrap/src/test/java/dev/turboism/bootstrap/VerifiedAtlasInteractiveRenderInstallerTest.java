@@ -31,8 +31,8 @@ class VerifiedAtlasInteractiveRenderInstallerTest {
                 MISSING_ARTIFACT, enabledConfig, true, UNSUPPORTED_JVM));
         assertFalse(VerifiedAtlasInteractiveRenderInstaller.admitted(
                 MISSING_ARTIFACT, enabledConfig, true, MIN_SUPPORTED_JVM));
-        assertFalse(VerifiedAtlasInteractiveRenderInstaller.admitted(
-                MISSING_ARTIFACT, enabledConfig, true, FUTURE_JVM));
+        assertFalse(
+                VerifiedAtlasInteractiveRenderInstaller.admitted(MISSING_ARTIFACT, enabledConfig, true, FUTURE_JVM));
     }
 
     @Test
@@ -42,8 +42,11 @@ class VerifiedAtlasInteractiveRenderInstallerTest {
 
     @Test
     void declaresExpectedWeaveContractCounts() {
-        assertEquals(AtlasInteractiveRenderTarget.EXPECTED_MATCHES, VerifiedAtlasInteractiveRenderInstaller.EXPECTED_MATCHES);
-        assertEquals(AtlasInteractiveRenderTarget.EXPECTED_MATCHES, VerifiedAtlasInteractiveRenderInstaller.EXPECTED_OWNERS);
+        assertEquals(
+                AtlasInteractiveRenderTarget.EXPECTED_MATCHES,
+                VerifiedAtlasInteractiveRenderInstaller.EXPECTED_MATCHES);
+        assertEquals(
+                AtlasInteractiveRenderTarget.EXPECTED_MATCHES, VerifiedAtlasInteractiveRenderInstaller.EXPECTED_OWNERS);
         assertEquals(
                 AtlasInteractiveRenderTarget.SUPPORTED_VERSIONS.size(),
                 AtlasInteractiveRenderTarget.all().size());
@@ -62,14 +65,7 @@ class VerifiedAtlasInteractiveRenderInstallerTest {
                 VerifiedAtlasInteractiveRenderInstaller.ADMISSION, safeModeConfig, true, MIN_SUPPORTED_JVM));
 
         final RuntimeStartupConfig hookDisabledConfig = new RuntimeStartupConfig(
-                false,
-                true,
-                true,
-                true,
-                true,
-                true,
-                true,
-                Set.of(VerifiedAtlasInteractiveRenderInstaller.HOOK_ID));
+                false, true, true, true, true, true, true, Set.of(VerifiedAtlasInteractiveRenderInstaller.HOOK_ID));
         assertFalse(VerifiedInstall.admits(
                 VerifiedAtlasInteractiveRenderInstaller.ADMISSION, hookDisabledConfig, true, MIN_SUPPORTED_JVM));
         assertEquals("true", PerformanceSettingsConfig.Field.ATLAS_INTERACTIVE_RENDER.defaultValue(false));

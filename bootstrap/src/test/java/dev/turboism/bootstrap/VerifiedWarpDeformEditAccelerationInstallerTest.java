@@ -67,7 +67,9 @@ class VerifiedWarpDeformEditAccelerationInstallerTest {
             final HookEnvironment defaultEnv = HookEnvironment.builder()
                     .options(AgentOptions.parse("home=" + home, home))
                     .build();
-            assertTrue(defaultEnv.plan().admitted(dev.turboism.config.optimization.OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION));
+            assertTrue(defaultEnv
+                    .plan()
+                    .admitted(dev.turboism.config.optimization.OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION));
 
             Files.writeString(home.resolve("config.json"), """
                     {"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"warp-edit-test","launcher":{"warpDeformEditAcceleration":false}}
@@ -75,7 +77,9 @@ class VerifiedWarpDeformEditAccelerationInstallerTest {
             final HookEnvironment optOutEnv = HookEnvironment.builder()
                     .options(AgentOptions.parse("home=" + home, home))
                     .build();
-            assertFalse(optOutEnv.plan().admitted(dev.turboism.config.optimization.OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION));
+            assertFalse(optOutEnv
+                    .plan()
+                    .admitted(dev.turboism.config.optimization.OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION));
         } finally {
             if (prior == null) System.clearProperty(WarpDeformEditBridge.ENABLE_PROPERTY);
             else System.setProperty(WarpDeformEditBridge.ENABLE_PROPERTY, prior);

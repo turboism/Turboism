@@ -108,7 +108,10 @@ final class LifecycleCleanupHelper {
         final Class<?> modelSourceClass = HostHandles.load(loader, MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER);
         final Class<?> acEditModeClass = HostHandles.load(loader, AC_EDIT_MODE_CLASS);
         modelDocGetModes = HostHandles.virtual(
-                modelDocClass, "getAllEditModes", "()Ljava/util/List;", MethodType.methodType(List.class, Object.class));
+                modelDocClass,
+                "getAllEditModes",
+                "()Ljava/util/List;",
+                MethodType.methodType(List.class, Object.class));
         modelDocGetSource = HostHandles.virtual(
                 modelDocClass,
                 "getModelSource",
@@ -140,7 +143,8 @@ final class LifecycleCleanupHelper {
                 final Field f = holderCls.getDeclaredField(spec.field());
                 final Class<?> expectedType = spec.sceneSource() ? sceneSourceClass : modelSourceClass;
                 if (expectedType.isAssignableFrom(f.getType())) {
-                    resolvedHolders.add(new StaticHolderRef(spec, expectedType, HostHandles.field(holderCls, spec.field())));
+                    resolvedHolders.add(
+                            new StaticHolderRef(spec, expectedType, HostHandles.field(holderCls, spec.field())));
                 }
             } catch (final ReflectiveOperationException ignored) {
                 // Optional holder absent or different obfuscated type on this release.
@@ -161,13 +165,17 @@ final class LifecycleCleanupHelper {
                         void.class, Object.class, List.class, Object.class, boolean.class, boolean.class));
         editModeInterface = HostHandles.load(loader, EDIT_MODE_INTERFACE);
 
-        final Class<?> rowWidgetClass = HostHandles.load(loader, MemoryLeakMitigationTarget.PARAM_GROUP_ROW_WIDGET_OWNER);
+        final Class<?> rowWidgetClass =
+                HostHandles.load(loader, MemoryLeakMitigationTarget.PARAM_GROUP_ROW_WIDGET_OWNER);
         rowWidgetMainWidgetField = HostHandles.field(rowWidgetClass, "mainWidget");
         rowWidgetListenerField = HostHandles.field(rowWidgetClass, "textFieldListener");
         rowWidgetRenameFlagField = HostHandles.field(rowWidgetClass, "rename");
         final Class<?> cWidgetClass = HostHandles.load(loader, MemoryLeakMitigationTarget.C_WIDGET_OWNER);
         widgetGetJComponent = HostHandles.virtual(
-                cWidgetClass, "getJComponent", "()Ljavax/swing/JComponent;", MethodType.methodType(JComponent.class, Object.class));
+                cWidgetClass,
+                "getJComponent",
+                "()Ljavax/swing/JComponent;",
+                MethodType.methodType(JComponent.class, Object.class));
     }
 
     /** Enforces {@code CUndoManager.limit} (falling back to 100 when unbounded) by calling {@code die()} and evicting oldest entries. */
@@ -266,8 +274,7 @@ final class LifecycleCleanupHelper {
                     if (inspector == null) {
                         continue;
                     }
-                    inspectorSetValues.invokeExact(
-                            inspector, Collections.emptyList(), (Object) null, false, false);
+                    inspectorSetValues.invokeExact(inspector, Collections.emptyList(), (Object) null, false, false);
                     final Optional<MethodHandle> setEditMode = ciSetEditModeCache.get(inspector.getClass());
                     if (setEditMode.isPresent()) {
                         setEditMode.get().invokeExact(inspector, (Object) null);
@@ -308,8 +315,12 @@ final class LifecycleCleanupHelper {
                 public void hierarchyChanged(final HierarchyEvent event) {
                     final Component c = compRef.get();
                     final AWTEventListener l = listenerRef.get();
-                    if (c == null || l == null || ((event.getChangeFlags() & HierarchyEvent.DISPLAYABILITY_CHANGED) != 0 && !c.isDisplayable())
-                            || ((event.getChangeFlags() & HierarchyEvent.PARENT_CHANGED) != 0 && c.getParent() == null)) {
+                    if (c == null
+                            || l == null
+                            || ((event.getChangeFlags() & HierarchyEvent.DISPLAYABILITY_CHANGED) != 0
+                                    && !c.isDisplayable())
+                            || ((event.getChangeFlags() & HierarchyEvent.PARENT_CHANGED) != 0
+                                    && c.getParent() == null)) {
                         if (l != null) {
                             Toolkit.getDefaultToolkit().removeAWTEventListener(l);
                             statsListener.onRenameListenerCleaned();

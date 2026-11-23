@@ -56,10 +56,8 @@ final class AtlasInteractiveRenderSpriteCache {
     private static final double SUBPIXEL_EPSILON = 1.0e-4d;
     private static final AffineTransform IDENTITY = new AffineTransform();
 
-    private final Map<ArrayList<?>, CompiledEntry> compiledByList =
-            Collections.synchronizedMap(new WeakHashMap<>());
-    private final Map<SpriteKey, SoftReference<CachedSprite>> spritesByKey =
-            new LinkedHashMap<>(64, 0.75f, true);
+    private final Map<ArrayList<?>, CompiledEntry> compiledByList = Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<SpriteKey, SoftReference<CachedSprite>> spritesByKey = new LinkedHashMap<>(64, 0.75f, true);
     private final Map<CompiledOverlay, CachedSprite> latestSpriteByOverlay =
             Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -120,8 +118,8 @@ final class AtlasInteractiveRenderSpriteCache {
         final long m01Bits = Double.doubleToLongBits(currentTx.getShearX());
         final long m11Bits = Double.doubleToLongBits(currentTx.getScaleY());
 
-        final SpriteKey key = new SpriteKey(
-                compiled, fillArgb, strokeArgb, strokeBits, aaOn, m00Bits, m10Bits, m01Bits, m11Bits);
+        final SpriteKey key =
+                new SpriteKey(compiled, fillArgb, strokeArgb, strokeBits, aaOn, m00Bits, m10Bits, m01Bits, m11Bits);
         final CachedSprite exactHit = lookupSprite(key);
         if (exactHit != null) {
             blitExactSprite(g2d, exactHit, currentTx);
@@ -145,12 +143,7 @@ final class AtlasInteractiveRenderSpriteCache {
         }
 
         final AffineTransform linearTx = new AffineTransform(
-                currentTx.getScaleX(),
-                currentTx.getShearY(),
-                currentTx.getShearX(),
-                currentTx.getScaleY(),
-                0.0d,
-                0.0d);
+                currentTx.getScaleX(), currentTx.getShearY(), currentTx.getShearX(), currentTx.getScaleY(), 0.0d, 0.0d);
         final Rectangle2D linearBounds = transformBounds(linearTx, compiled.bounds);
         final double spanW = linearBounds.getWidth();
         final double spanH = linearBounds.getHeight();
@@ -165,16 +158,7 @@ final class AtlasInteractiveRenderSpriteCache {
                 && spriteH <= SPRITE_MAX_DIMENSION_PX
                 && (long) spriteW * spriteH <= SPRITE_MAX_AREA_PX) {
             final CachedSprite built = buildSprite(
-                    compiled,
-                    linearTx,
-                    linearBounds,
-                    spriteW,
-                    spriteH,
-                    fillColor,
-                    strokeColor,
-                    strokeWidth,
-                    aaOn,
-                    key);
+                    compiled, linearTx, linearBounds, spriteW, spriteH, fillColor, strokeColor, strokeWidth, aaOn, key);
             if (built != null) {
                 blitExactSprite(g2d, built, currentTx);
                 g2d.setTransform(currentTx);
@@ -214,10 +198,7 @@ final class AtlasInteractiveRenderSpriteCache {
         final int lastId = System.identityHashCode(last);
 
         final CompiledEntry existing = compiledByList.get(shapes);
-        if (existing != null
-                && existing.size == size
-                && existing.firstId == firstId
-                && existing.lastId == lastId) {
+        if (existing != null && existing.size == size && existing.firstId == firstId && existing.lastId == lastId) {
             return existing.overlay;
         }
 
@@ -270,10 +251,7 @@ final class AtlasInteractiveRenderSpriteCache {
         final float[] chunkBounds = buildChunkBounds(packedEdges);
         final Path2D.Float edgePath = buildEdgePath(packedEdges);
         final Rectangle2D.Double unionBounds = new Rectangle2D.Double(
-                unionMinX,
-                unionMinY,
-                Math.max(0.0d, unionMaxX - unionMinX),
-                Math.max(0.0d, unionMaxY - unionMinY));
+                unionMinX, unionMinY, Math.max(0.0d, unionMaxX - unionMinX), Math.max(0.0d, unionMaxY - unionMinY));
         return new CompiledOverlay(
                 unionBounds,
                 List.copyOf(shapeEntries),
@@ -522,7 +500,8 @@ final class AtlasInteractiveRenderSpriteCache {
 
     private static void blitScaledSprite(
             final Graphics2D g2d, final CachedSprite cached, final AffineTransform currentTx) {
-        final AffineTransform cachedLinear = new AffineTransform(cached.m00, cached.m10, cached.m01, cached.m11, 0.0d, 0.0d);
+        final AffineTransform cachedLinear =
+                new AffineTransform(cached.m00, cached.m10, cached.m01, cached.m11, 0.0d, 0.0d);
         final Object prevInterp = g2d.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
         try {
             final AffineTransform delta = new AffineTransform(currentTx);
@@ -708,20 +687,12 @@ final class AtlasInteractiveRenderSpriteCache {
             return null;
         }
         final Rectangle2D expanded = new Rectangle2D.Double(
-                clipBounds.x - pad,
-                clipBounds.y - pad,
-                clipBounds.width + pad * 2.0d,
-                clipBounds.height + pad * 2.0d);
+                clipBounds.x - pad, clipBounds.y - pad, clipBounds.width + pad * 2.0d, clipBounds.height + pad * 2.0d);
         return transformBounds(inv, expanded);
     }
 
-    private static boolean intersectsExpanded(
-            final Rectangle clip, final Rectangle2D bounds, final int pad) {
-        return bounds.intersects(
-                clip.x - pad,
-                clip.y - pad,
-                clip.width + pad * 2.0d,
-                clip.height + pad * 2.0d);
+    private static boolean intersectsExpanded(final Rectangle clip, final Rectangle2D bounds, final int pad) {
+        return bounds.intersects(clip.x - pad, clip.y - pad, clip.width + pad * 2.0d, clip.height + pad * 2.0d);
     }
 
     private static float resolveStrokeWidth(final Stroke stroke) {
@@ -732,8 +703,7 @@ final class AtlasInteractiveRenderSpriteCache {
     }
 
     private static boolean isAntialiased(final Graphics2D g2d) {
-        return Objects.equals(
-                g2d.getRenderingHint(RenderingHints.KEY_ANTIALIASING), RenderingHints.VALUE_ANTIALIAS_ON);
+        return Objects.equals(g2d.getRenderingHint(RenderingHints.KEY_ANTIALIASING), RenderingHints.VALUE_ANTIALIAS_ON);
     }
 
     /** Tracks cache performance counters during overlay rendering. */

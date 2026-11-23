@@ -39,7 +39,8 @@ final class AtlasInteractiveRenderHostAccess {
         Objects.requireNonNull(target, "target");
 
         final AtlasInteractiveRenderTarget.Generation gen = target.generation();
-        final Class<?> editLayerClass = Class.forName(toBinary(AtlasInteractiveRenderTarget.EDIT_LAYER_OWNER), false, loader);
+        final Class<?> editLayerClass =
+                Class.forName(toBinary(AtlasInteractiveRenderTarget.EDIT_LAYER_OWNER), false, loader);
         final Class<?> eventClass =
                 Class.forName(toBinary(AtlasInteractiveRenderTarget.LAYER_UPDATE_EVENT_OWNER), false, loader);
         final Class<?> cameraClass = Class.forName(toBinary(gen.cameraOwner()), false, loader);
@@ -99,10 +100,7 @@ final class AtlasInteractiveRenderHostAccess {
             this.dataModelStrokeColorGetter = HostHandles.virtual(
                     dataModelClass, "j", colorGetterDescriptor, MethodType.methodType(Object.class, Object.class));
             this.colorJColorGetter = HostHandles.virtual(
-                    colorClass,
-                    "getJColor",
-                    "()Ljava/awt/Color;",
-                    MethodType.methodType(Color.class, Object.class));
+                    colorClass, "getJColor", "()Ljava/awt/Color;", MethodType.methodType(Color.class, Object.class));
 
             try {
                 final Object companion = HostHandles.field(dataModelClass, "a").get(null);
@@ -195,9 +193,8 @@ final class AtlasInteractiveRenderHostAccess {
             if (viewportCanvas != null && anchor != null) {
                 viewportSetZoom.invoke(viewportCanvas, anchor, zoom);
             }
-            final JScrollPane scrollPane = cameraScrollPaneGetter.invoke(cameraPanel) instanceof JScrollPane sp
-                    ? sp
-                    : null;
+            final JScrollPane scrollPane =
+                    cameraScrollPaneGetter.invoke(cameraPanel) instanceof JScrollPane sp ? sp : null;
             if (scrollPane != null) {
                 scrollPane.repaint();
             }

@@ -302,13 +302,15 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         final Class<?> vec3Class = HostHandles.load(loader, WarpDeformEditTarget.GVECTOR3_OWNER);
         final Class<?> entityClass = HostHandles.load(loader, WarpDeformEditTarget.GENTITY_OWNER);
         final Class<?> simpleMeshEntityClass = HostHandles.load(loader, WarpDeformEditTarget.SIMPLE_MESH_ENTITY_OWNER);
-        final Class<?> simpleLinesEntityClass = HostHandles.load(loader, WarpDeformEditTarget.SIMPLE_LINES_ENTITY_OWNER);
+        final Class<?> simpleLinesEntityClass =
+                HostHandles.load(loader, WarpDeformEditTarget.SIMPLE_LINES_ENTITY_OWNER);
         final Class<?> transformClass = HostHandles.load(loader, WarpDeformEditTarget.GTRANSFORM_OWNER);
         final Class<?> meshContainerClass = HostHandles.load(loader, WarpDeformEditTarget.GMESH_CONTAINER_OWNER);
         final Class<?> meshRendererClass = HostHandles.load(loader, WarpDeformEditTarget.GMESH_RENDERER_OWNER);
         final Class<?> lineRendererClass = HostHandles.load(loader, WarpDeformEditTarget.GLINE_RENDERER_OWNER);
         final Class<?> pointRendererClass = HostHandles.load(loader, WarpDeformEditTarget.GPOINT_RENDERER_OWNER);
-        final Class<?> sortingLayerValueClass = HostHandles.load(loader, WarpDeformEditTarget.SORTING_LAYER_VALUE_OWNER);
+        final Class<?> sortingLayerValueClass =
+                HostHandles.load(loader, WarpDeformEditTarget.SORTING_LAYER_VALUE_OWNER);
         final Class<?> meshBaseClass = HostHandles.load(loader, WarpDeformEditTarget.MESH_BASE_OWNER);
         gmesh2Class = HostHandles.load(loader, WarpDeformEditTarget.GMESH2_OWNER);
         final Class<?> floatBufferClass = HostHandles.load(loader, WarpDeformEditTarget.FLOAT_BUFFER_OWNER);
@@ -338,19 +340,15 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 "get01",
                 "(DD[D)[D",
                 MethodType.methodType(Object.class, Object.class, double.class, double.class, double[].class));
-        debugFlagGetter = HostHandles.staticCall(debugFlagClass, "b", BOOLEAN_DESCRIPTOR, MethodType.methodType(boolean.class));
+        debugFlagGetter =
+                HostHandles.staticCall(debugFlagClass, "b", BOOLEAN_DESCRIPTOR, MethodType.methodType(boolean.class));
 
         warpDeformerGetSource = HostHandles.virtual(
-                warpDeformerClass,
-                "getSource",
-                "()L" + WarpDeformEditTarget.WARP_SOURCE_OWNER + ";",
-                objUnary);
+                warpDeformerClass, "getSource", "()L" + WarpDeformEditTarget.WARP_SOURCE_OWNER + ";", objUnary);
         warpDeformerGetCalculatedForm = HostHandles.virtual(
-                warpDeformerClass,
-                "getCalculatedForm",
-                "()L" + WarpDeformEditTarget.WARP_FORM_OWNER + ";",
-                objUnary);
-        warpSourceIsQuadTransform = HostHandles.virtual(warpSourceClass, "isQuadTransform", BOOLEAN_DESCRIPTOR, boolUnary);
+                warpDeformerClass, "getCalculatedForm", "()L" + WarpDeformEditTarget.WARP_FORM_OWNER + ";", objUnary);
+        warpSourceIsQuadTransform =
+                HostHandles.virtual(warpSourceClass, "isQuadTransform", BOOLEAN_DESCRIPTOR, boolUnary);
         warpSourceGetCol = HostHandles.virtual(warpSourceClass, "getCol", INT_DESCRIPTOR, intUnary);
         warpSourceGetRow = HostHandles.virtual(warpSourceClass, "getRow", INT_DESCRIPTOR, intUnary);
 
@@ -377,7 +375,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         grectfGetWidth = HostHandles.virtual(rectClass, "getWidth", FLOAT_DESCRIPTOR, floatUnary);
         grectfGetHeight = HostHandles.virtual(rectClass, "getHeight", FLOAT_DESCRIPTOR, floatUnary);
         grectfContains = HostHandles.virtual(
-                rectClass, "contains", "(FF)Z", MethodType.methodType(boolean.class, Object.class, float.class, float.class));
+                rectClass,
+                "contains",
+                "(FF)Z",
+                MethodType.methodType(boolean.class, Object.class, float.class, float.class));
 
         vec2CtorNoArgs = HostHandles.construct(vec2Class, VOID_DESCRIPTOR, MethodType.methodType(Object.class));
         vec2GetX = HostHandles.virtual(vec2Class, "getX", FLOAT_DESCRIPTOR, floatUnary);
@@ -398,14 +399,14 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 MethodType.methodType(Object[][].class, Object.class));
         bezierPtGetAnchor = HostHandles.virtual(
                 bezierPtClass, "getAnchor", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
-        bezierPtGetCn =
-                HostHandles.virtual(bezierPtClass, "getCn", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
-        bezierPtGetCs =
-                HostHandles.virtual(bezierPtClass, "getCs", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
-        bezierPtGetCw =
-                HostHandles.virtual(bezierPtClass, "getCw", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
-        bezierPtGetCe =
-                HostHandles.virtual(bezierPtClass, "getCe", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
+        bezierPtGetCn = HostHandles.virtual(
+                bezierPtClass, "getCn", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
+        bezierPtGetCs = HostHandles.virtual(
+                bezierPtClass, "getCs", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
+        bezierPtGetCw = HostHandles.virtual(
+                bezierPtClass, "getCw", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
+        bezierPtGetCe = HostHandles.virtual(
+                bezierPtClass, "getCe", "()L" + WarpDeformEditTarget.GVECTOR2_OWNER + ";", objUnary);
 
         entitySetEnabled = HostHandles.virtual(
                 entityClass,
@@ -448,8 +449,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 SET_STEP_METHOD,
                 SET_INT_DESCRIPTOR,
                 MethodType.methodType(void.class, Object.class, int.class));
-        lineRendererGetPositions =
-                HostHandles.virtual(lineRendererClass, GET_POSITIONS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
+        lineRendererGetPositions = HostHandles.virtual(
+                lineRendererClass, GET_POSITIONS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
         lineRendererSetPositions = HostHandles.virtual(
                 lineRendererClass,
                 SET_POSITIONS_METHOD,
@@ -465,13 +466,16 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         lineRendererUpdateMeshData =
                 HostHandles.virtual(lineRendererClass, UPDATE_MESH_DATA_METHOD, VOID_DESCRIPTOR, voidUnary);
         lineRendererGetPositionsBuffer = HostHandles.virtual(
-                lineRendererClass, "getPositionsBuffer", "()L" + WarpDeformEditTarget.FLOAT_BUFFER_OWNER + ";", objUnary);
+                lineRendererClass,
+                "getPositionsBuffer",
+                "()L" + WarpDeformEditTarget.FLOAT_BUFFER_OWNER + ";",
+                objUnary);
         lineRendererGetMaterial = HostHandles.virtual(
                 lineRendererClass, "getMaterial", "()L" + WarpDeformEditTarget.GMATERIAL_OWNER + ";", objUnary);
-        pointRendererGetPositions =
-                HostHandles.virtual(pointRendererClass, GET_POSITIONS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
-        pointRendererGetColors =
-                HostHandles.virtual(pointRendererClass, GET_COLORS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
+        pointRendererGetPositions = HostHandles.virtual(
+                pointRendererClass, GET_POSITIONS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
+        pointRendererGetColors = HostHandles.virtual(
+                pointRendererClass, GET_COLORS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
 
         meshGetPositions =
                 HostHandles.virtual(meshBaseClass, GET_POSITIONS_METHOD, "()" + FLOAT_ARRAY_DESCRIPTOR, floatArrUnary);
@@ -540,11 +544,15 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         final MethodHandle companionWhiteHandle = HostHandles.virtual(
                 colorCompanionClass, "a", "()L" + WarpDeformEditTarget.CCOLOR_OWNER + ";", objUnary);
         try {
-            bezierOffsetPow = (int) HostHandles.field(bezierGridClass, FIELD_OFF_SET).get(null);
-            bezierMinDiv = (int) HostHandles.field(bezierGridClass, FIELD_MIN_DIV).get(null);
-            bezierMaxDiv = (int) HostHandles.field(bezierGridClass, FIELD_MAX_DIV).get(null);
+            bezierOffsetPow =
+                    (int) HostHandles.field(bezierGridClass, FIELD_OFF_SET).get(null);
+            bezierMinDiv =
+                    (int) HostHandles.field(bezierGridClass, FIELD_MIN_DIV).get(null);
+            bezierMaxDiv =
+                    (int) HostHandles.field(bezierGridClass, FIELD_MAX_DIV).get(null);
             sortingLayerNormal = Objects.requireNonNull(
-                    HostHandles.field(sortingLayerValueClass, FIELD_SORTING_LAYER_A).get(null),
+                    HostHandles.field(sortingLayerValueClass, FIELD_SORTING_LAYER_A)
+                            .get(null),
                     "sortingLayerNormal");
             final Object companion = Objects.requireNonNull(
                     HostHandles.field(colorClass, FIELD_COMPANION).get(null), "CColor.Companion");
@@ -629,17 +637,13 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         slots.put(ACTIVE_PROPERTY, activeSlot);
         slots.put(
                 FORM_IS_INSIDE_PROPERTY,
-                lookup.bind(
-                        this,
-                        "formIsInside",
-                        MethodType.methodType(int.class, Object.class, Object.class)));
+                lookup.bind(this, "formIsInside", MethodType.methodType(int.class, Object.class, Object.class)));
         slots.put(
                 TRANSFORM_CANVAS_TO_LOCAL_PROPERTY,
                 lookup.bind(
                         this,
                         "transformCanvasToLocalQuad",
-                        MethodType.methodType(
-                                boolean.class, Object.class, float[].class, float[].class, int.class)));
+                        MethodType.methodType(boolean.class, Object.class, float[].class, float[].class, int.class)));
         slots.put(
                 GET01_EX_QUAD_PROPERTY,
                 lookup.bind(
@@ -767,7 +771,11 @@ public final class WarpDeformEditBridge implements AutoCloseable {
 
     private boolean transformCanvasToLocalQuad(
             final Object deformer, final float[] src, final float[] dst, final int numPoint) {
-        if (!isOperational() || deformer == null || src == null || dst == null || !warpDeformerClass.isInstance(deformer)) {
+        if (!isOperational()
+                || deformer == null
+                || src == null
+                || dst == null
+                || !warpDeformerClass.isInstance(deformer)) {
             return false;
         }
         if (numPoint < 0 || src.length < numPoint * 2 || dst.length < numPoint * 2) {
@@ -832,7 +840,11 @@ public final class WarpDeformEditBridge implements AutoCloseable {
 
     private Object gridGet01ExQuad(
             final Object simpleGrid, final float x, final float y, final Object targetVec, final float[] dst) {
-        if (!isOperational() || simpleGrid == null || dst == null || dst.length < 2 || !simpleGridClass.isInstance(simpleGrid)) {
+        if (!isOperational()
+                || simpleGrid == null
+                || dst == null
+                || dst.length < 2
+                || !simpleGridClass.isInstance(simpleGrid)) {
             return Boolean.FALSE;
         }
         get01ExQuadCalls.increment();
@@ -993,8 +1005,18 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         final Object seA = (Object) bezierPtGetAnchor.invokeExact(se);
         final Object seCw = (Object) bezierPtGetCw.invokeExact(se);
         final Object seCn = (Object) bezierPtGetCn.invokeExact(se);
-        if (nwA == null || nwCe == null || nwCs == null || neA == null || neCw == null || neCs == null
-                || swA == null || swCe == null || swCn == null || seA == null || seCw == null || seCn == null) {
+        if (nwA == null
+                || nwCe == null
+                || nwCs == null
+                || neA == null
+                || neCw == null
+                || neCs == null
+                || swA == null
+                || swCe == null
+                || swCn == null
+                || seA == null
+                || seCw == null
+                || seCn == null) {
             return false;
         }
 
@@ -1012,19 +1034,38 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         final float seCnX = (float) vec2GetX.invokeExact(seCn), seCnY = (float) vec2GetY.invokeExact(seCn);
 
         final int packedDiv = WarpDeformMath.computeCellDivisions(
-                nwX, nwY, nwCeX, nwCeY, nwCsX, nwCsY,
-                neX, neY, neCwX, neCwY, neCsX, neCsY,
-                swX, swY, swCeX, swCeY, swCnX, swCnY,
-                seX, seY, seCwX, seCwY, seCnX, seCnY,
-                bezierOffsetPow, bezierMinDiv, bezierMaxDiv);
+                nwX,
+                nwY,
+                nwCeX,
+                nwCeY,
+                nwCsX,
+                nwCsY,
+                neX,
+                neY,
+                neCwX,
+                neCwY,
+                neCsX,
+                neCsY,
+                swX,
+                swY,
+                swCeX,
+                swCeY,
+                swCnX,
+                swCnY,
+                seX,
+                seY,
+                seCwX,
+                seCwY,
+                seCnX,
+                seCnY,
+                bezierOffsetPow,
+                bezierMinDiv,
+                bezierMaxDiv);
         final int divX = packedDiv >>> 16;
         final int divY = packedDiv & 0xFFFF;
         final float[] lattice = WarpDeformMath.buildPatchCornerLattice(
-                nwX, nwY, nwCeX, nwCeY, nwCsX, nwCsY,
-                neX, neY, neCwX, neCwY, neCsX, neCsY,
-                swX, swY, swCeX, swCeY, swCnX, swCnY,
-                seX, seY, seCwX, seCwY, seCnX, seCnY,
-                divX, divY);
+                nwX, nwY, nwCeX, nwCeY, nwCsX, nwCsY, neX, neY, neCwX, neCwY, neCsX, neCsY, swX, swY, swCeX, swCeY,
+                swCnX, swCnY, seX, seY, seCwX, seCwY, seCnX, seCnY, divX, divY);
 
         final float rowDenom = row - 1;
         final float colDenom = col - 1;
@@ -1086,7 +1127,18 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             final float cb = (float) colorGetBlue.invokeExact(color);
 
             final boolean whiteOk = updateCornerEntity(
-                    whiteEntity, WHITE_CORNER_Z, WHITE_CORNER_SCALE, pos, col, sx, sy, row, ONE_F, ONE_F, ONE_F, opacity);
+                    whiteEntity,
+                    WHITE_CORNER_Z,
+                    WHITE_CORNER_SCALE,
+                    pos,
+                    col,
+                    sx,
+                    sy,
+                    row,
+                    ONE_F,
+                    ONE_F,
+                    ONE_F,
+                    opacity);
             final boolean blackOk = updateCornerEntity(
                     blackEntity, BLACK_CORNER_Z, BLACK_CORNER_SCALE, pos, col, sx, sy, row, cr, cg, cb, opacity);
             return whiteOk && blackOk;
@@ -1158,12 +1210,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     }
 
     private static void fillCornerPositions(
-            final float[] out,
-            final float[] pos,
-            final int col,
-            final int row,
-            final float fx,
-            final float fy) {
+            final float[] out, final float[] pos, final int col, final int row, final float fx, final float fy) {
         final int stride = col + 1;
         final int nwIdx = 0;
         final int nwS = stride * 2;
@@ -1213,7 +1260,12 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     }
 
     private boolean drawMajorLines(
-            final Object draw, final float[] pos, final int col, final int row, final Object color, final boolean hide) {
+            final Object draw,
+            final float[] pos,
+            final int col,
+            final int row,
+            final Object color,
+            final boolean hide) {
         if (!isOperational() || draw == null || pos == null || color == null) {
             return false;
         }
@@ -1237,7 +1289,12 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     }
 
     private boolean drawDetailLines(
-            final Object draw, final float[] pos, final int col, final int row, final Object color, final boolean show) {
+            final Object draw,
+            final float[] pos,
+            final int col,
+            final int row,
+            final Object color,
+            final boolean show) {
         if (!isOperational() || draw == null || pos == null || color == null) {
             return false;
         }
@@ -1271,9 +1328,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         final Object renderer = (Object) simpleLinesEntityGetRenderer.invokeExact(entity);
         lineRendererSetSortingLayer.invokeExact(renderer, sortingLayerNormal);
 
-        final int expectedIndices = majorOnly
-                ? 4 * row + 4 * col
-                : 2 * (col + 1) * row + 2 * col * (row + 1);
+        final int expectedIndices = majorOnly ? 4 * row + 4 * col : 2 * (col + 1) * row + 2 * col * (row + 1);
         final int step = (int) lineRendererGetStep.invokeExact(renderer);
         final float[] existingPos = (float[]) lineRendererGetPositions.invokeExact(renderer);
         final int[] existingIdx = (int[]) lineRendererGetIndices.invokeExact(renderer);
@@ -1286,7 +1341,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 || existingIdx.length != expectedIndices) {
             lineRendererSetPositions.invokeExact(renderer, pos);
             lineRendererSetStep.invokeExact(renderer, STEP_2D);
-            final int[] indices = majorOnly ? buildMajorLineIndices(col, row, expectedIndices) : buildDetailLineIndices(col, row, expectedIndices);
+            final int[] indices = majorOnly
+                    ? buildMajorLineIndices(col, row, expectedIndices)
+                    : buildDetailLineIndices(col, row, expectedIndices);
             lineRendererSetIndices.invokeExact(renderer, indices);
             lineRendererUpdateMeshData.invokeExact(renderer);
             uploadedViaUpdateMeshData = true;
@@ -1378,7 +1435,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             if (current == null) {
                 return true;
             }
-            final FloatArraySnapshot snapshot = selectedBufferCache.getOrCompute(bufferWrapper, FloatArraySnapshot::new);
+            final FloatArraySnapshot snapshot =
+                    selectedBufferCache.getOrCompute(bufferWrapper, FloatArraySnapshot::new);
             if (snapshot.matchesAndUpdate(current)) {
                 selectedUploadElided.increment();
                 return false;
@@ -1447,7 +1505,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 meshSetColors.invokeExact(mesh, meshColors);
             }
 
-            if (resizedPositions || resizedIndices || !cache.matchesGeometry(meshPositions, meshIndices, pos, col, row)) {
+            if (resizedPositions
+                    || resizedIndices
+                    || !cache.matchesGeometry(meshPositions, meshIndices, pos, col, row)) {
                 fillWeightMapGeometry(pos, col, row, meshPositions, meshIndices);
                 floatBufferUpload.invokeExact((Object) meshGetPositionsBuffer.invokeExact(mesh));
                 if (resizedIndices || !cache.matchesDimensions(meshIndices, col, row)) {
@@ -1467,9 +1527,18 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             final float[] weights = collectGridPointWeights(selection, gridPointCount);
 
             if (resizedColors
-                    || !cache.matchesColors(meshColors, weights, gridPointCount, baseRed, baseGreen, baseBlue, baseAlpha)) {
+                    || !cache.matchesColors(
+                            meshColors, weights, gridPointCount, baseRed, baseGreen, baseBlue, baseAlpha)) {
                 fillWeightMapColors(
-                        weights, gridPointCount, meshPosLen / 2, col, baseRed, baseGreen, baseBlue, baseAlpha, meshColors);
+                        weights,
+                        gridPointCount,
+                        meshPosLen / 2,
+                        col,
+                        baseRed,
+                        baseGreen,
+                        baseBlue,
+                        baseAlpha,
+                        meshColors);
                 floatBufferUpload.invokeExact((Object) meshGetColorsBuffer.invokeExact(mesh));
                 cache.recordColors(meshColors, weights, gridPointCount, baseRed, baseGreen, baseBlue, baseAlpha);
             } else {
@@ -1504,8 +1573,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private MethodHandle meshRendererSetSortingLayerHandle() throws ReflectiveOperationException {
         MethodHandle handle = meshRendererSetSortingLayer;
         if (handle == null) {
-            final Class<?> rendererClass = HostHandles.load(
-                    warpFormClass.getClassLoader(), WarpDeformEditTarget.GMESH_RENDERER_OWNER);
+            final Class<?> rendererClass =
+                    HostHandles.load(warpFormClass.getClassLoader(), WarpDeformEditTarget.GMESH_RENDERER_OWNER);
             handle = HostHandles.virtual(
                     rendererClass,
                     "setSortingLayer",
@@ -1519,8 +1588,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private MethodHandle meshRendererSetOrderInLayerHandle() throws ReflectiveOperationException {
         MethodHandle handle = meshRendererSetOrderInLayer;
         if (handle == null) {
-            final Class<?> rendererClass = HostHandles.load(
-                    warpFormClass.getClassLoader(), WarpDeformEditTarget.GMESH_RENDERER_OWNER);
+            final Class<?> rendererClass =
+                    HostHandles.load(warpFormClass.getClassLoader(), WarpDeformEditTarget.GMESH_RENDERER_OWNER);
             handle = HostHandles.virtual(
                     rendererClass,
                     "setOrderInLayer",
@@ -1577,8 +1646,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 final int centerOut = centersStart + c * 2;
                 meshPositions[centerOut] =
                         (pos[tl * 2] + pos[tr * 2] + pos[bl * 2] + pos[br * 2]) / WEIGHT_NEIGHBOR_DIVISOR;
-                meshPositions[centerOut + 1] =
-                        (pos[tl * 2 + 1] + pos[tr * 2 + 1] + pos[bl * 2 + 1] + pos[br * 2 + 1]) / WEIGHT_NEIGHBOR_DIVISOR;
+                meshPositions[centerOut + 1] = (pos[tl * 2 + 1] + pos[tr * 2 + 1] + pos[bl * 2 + 1] + pos[br * 2 + 1])
+                        / WEIGHT_NEIGHBOR_DIVISOR;
 
                 final int tlMesh = r * (colPlus1 + col) + c;
                 final int trMesh = tlMesh + 1;
@@ -1703,7 +1772,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         private float lastA;
 
         private boolean matchesGeometry(final float[] hostPos, final int[] hostIdx, final float[] candidate) {
-            return lastHostPositions == hostPos && lastHostIndices == hostIdx && Arrays.equals(lastPositions, candidate);
+            return lastHostPositions == hostPos
+                    && lastHostIndices == hostIdx
+                    && Arrays.equals(lastPositions, candidate);
         }
 
         private void recordGeometry(final float[] hostPos, final int[] hostIdx, final float[] candidate) {
@@ -1807,11 +1878,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         }
 
         private boolean matchesGeometry(
-                final float[] hostPositions,
-                final int[] hostIndices,
-                final float[] pos,
-                final int col,
-                final int row) {
+                final float[] hostPositions, final int[] hostIndices, final float[] pos, final int col, final int row) {
             return lastHostMeshPositions == hostPositions
                     && lastHostMeshIndices == hostIndices
                     && lastCol == col
@@ -1821,11 +1888,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         }
 
         private void recordGeometry(
-                final float[] hostPositions,
-                final int[] hostIndices,
-                final float[] pos,
-                final int col,
-                final int row) {
+                final float[] hostPositions, final int[] hostIndices, final float[] pos, final int col, final int row) {
             lastHostMeshPositions = hostPositions;
             lastHostMeshIndices = hostIndices;
             lastCol = col;

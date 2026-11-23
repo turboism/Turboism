@@ -291,7 +291,8 @@ class OptimizationPlanTest {
         final OptimizationPlan defaultEnabledPlan = plan();
         for (final Optimization optimization : hotpath) {
             assertTrue(defaultEnabledPlan.admitted(optimization), optimization.key() + " is enabled by default");
-            assertEquals("platform-default", defaultEnabledPlan.choice(optimization).source());
+            assertEquals(
+                    "platform-default", defaultEnabledPlan.choice(optimization).source());
         }
 
         final Map<String, Boolean> disabledLauncher = new LinkedHashMap<>();

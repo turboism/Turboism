@@ -137,9 +137,10 @@ class AtlasInteractiveRenderArtifactTest {
                 final Map<String, byte[]> transformedByBinary = new LinkedHashMap<>();
                 for (int i = 0; i < owners.size(); i++) {
                     final String owner = owners.get(i);
-                    final byte[] transformed = transformer.transform(
-                            null, loader, owner, hostClasses.get(i), domain, references.get(i));
-                    assertNotNull(transformed, version + " failed transform on " + owner + ": " + transformer.failure());
+                    final byte[] transformed =
+                            transformer.transform(null, loader, owner, hostClasses.get(i), domain, references.get(i));
+                    assertNotNull(
+                            transformed, version + " failed transform on " + owner + ": " + transformer.failure());
                     transformedByBinary.put(owner.replace('/', '.'), transformed);
                 }
 
@@ -187,14 +188,15 @@ class AtlasInteractiveRenderArtifactTest {
             assertNotNull(overlaySlot);
             assertNotNull(wheelSlot);
 
-            final Class<?> editLayerClass =
-                    Class.forName(AtlasInteractiveRenderTarget.EDIT_LAYER_OWNER.replace('/', '.'), true, syntheticLoader);
+            final Class<?> editLayerClass = Class.forName(
+                    AtlasInteractiveRenderTarget.EDIT_LAYER_OWNER.replace('/', '.'), true, syntheticLoader);
             final Object editLayer = editLayerClass.getDeclaredConstructor().newInstance();
             final ArrayList<Path2D> shapes = buildTriangleGridShapes();
             setField(editLayer, AtlasInteractiveRenderTarget.DRAW_DATA_SHAPES_FIELD, shapes);
 
             final AffineTransform txBase = AffineTransform.getTranslateInstance(16.0d, 16.0d);
-            final BufferedImage expectedImg = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+            final BufferedImage expectedImg =
+                    new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
             drawReferenceOverlay(expectedImg, shapes, txBase);
 
             final BufferedImage cachedImg = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
@@ -210,8 +212,8 @@ class AtlasInteractiveRenderArtifactTest {
             assertImagesSimilar(expectedImg, cachedImg);
 
             // Pan translation reuses compiled raster sprite without rebuilding.
-            final AffineTransform txPan = AffineTransform.getTranslateInstance(
-                    16.0d + PAN_OFFSET_X, 16.0d + PAN_OFFSET_Y);
+            final AffineTransform txPan =
+                    AffineTransform.getTranslateInstance(16.0d + PAN_OFFSET_X, 16.0d + PAN_OFFSET_Y);
             final BufferedImage panImg = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
             final Graphics2D gPan = panImg.createGraphics();
             gPan.setClip(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -258,12 +260,14 @@ class AtlasInteractiveRenderArtifactTest {
             assertEquals(2L, bridge.snapshot().get("overlayDirectDrawn"));
 
             // Offscreen layer is frustum-culled completely.
-            final AffineTransform txOffscreen = AffineTransform.getTranslateInstance(OFFSCREEN_SHIFT_X, OFFSCREEN_SHIFT_Y);
+            final AffineTransform txOffscreen =
+                    AffineTransform.getTranslateInstance(OFFSCREEN_SHIFT_X, OFFSCREEN_SHIFT_Y);
             final BufferedImage offImg = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
             final Graphics2D gOff = offImg.createGraphics();
             gOff.setClip(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             gOff.setTransform(txOffscreen);
-            assertTrue(overlaySlot.test(new Object[] {editLayer, gOff, new AffineTransform(txOffscreen), Boolean.FALSE}));
+            assertTrue(
+                    overlaySlot.test(new Object[] {editLayer, gOff, new AffineTransform(txOffscreen), Boolean.FALSE}));
             gOff.dispose();
             assertEquals(1L, bridge.snapshot().get("overlayFrustumCulled"));
 
@@ -271,7 +275,8 @@ class AtlasInteractiveRenderArtifactTest {
             final String prior = System.getProperty(AtlasInteractiveRenderTarget.ENABLE_PROPERTY);
             try {
                 System.setProperty(AtlasInteractiveRenderTarget.ENABLE_PROPERTY, "false");
-                assertFalse(overlaySlot.test(new Object[] {editLayer, gOff, new AffineTransform(txBase), Boolean.FALSE}));
+                assertFalse(
+                        overlaySlot.test(new Object[] {editLayer, gOff, new AffineTransform(txBase), Boolean.FALSE}));
             } finally {
                 restoreProperty(AtlasInteractiveRenderTarget.ENABLE_PROPERTY, prior);
             }
@@ -334,7 +339,8 @@ class AtlasInteractiveRenderArtifactTest {
             final Object dragEvent = eventClass.getDeclaredConstructor().newInstance();
             final Object unitPanel = new Object();
             final Object inspector = new Object();
-            // Warm up Swing text-field components before Pass 1 so L&F initialization does not skew the throttle window.
+            // Warm up Swing text-field components before Pass 1 so L&F initialization does not skew the throttle
+            // window.
             final JTextField xField = new JTextField("0.0");
             final JTextField yField = new JTextField("0.0");
 
@@ -402,10 +408,12 @@ class AtlasInteractiveRenderArtifactTest {
             final Class<?> cameraClass =
                     Class.forName(target.generation().cameraOwner().replace('/', '.'), true, syntheticLoader);
             final Object linkedCamera = cameraClass.getDeclaredConstructor().newInstance();
-            final JComponent viewportCanvas = (JComponent)
-                    cameraClass.getMethod(AtlasInteractiveRenderTarget.VIEWPORT_CANVAS_GETTER_METHOD).invoke(linkedCamera);
-            final JScrollPane scrollPane = (JScrollPane)
-                    cameraClass.getMethod(AtlasInteractiveRenderTarget.SCROLL_PANE_GETTER_METHOD).invoke(linkedCamera);
+            final JComponent viewportCanvas = (JComponent) cameraClass
+                    .getMethod(AtlasInteractiveRenderTarget.VIEWPORT_CANVAS_GETTER_METHOD)
+                    .invoke(linkedCamera);
+            final JScrollPane scrollPane = (JScrollPane) cameraClass
+                    .getMethod(AtlasInteractiveRenderTarget.SCROLL_PANE_GETTER_METHOD)
+                    .invoke(linkedCamera);
             viewportCanvas.setPreferredSize(new Dimension(CANVAS_WIDTH * 4, CANVAS_HEIGHT * 4));
             viewportCanvas.setSize(CANVAS_WIDTH * 4, CANVAS_HEIGHT * 4);
             scrollPane.setPreferredSize(new Dimension(CANVAS_WIDTH, CANVAS_HEIGHT));
@@ -450,7 +458,9 @@ class AtlasInteractiveRenderArtifactTest {
                 showingPane.setShowingState(true);
                 showingPane.fireShowingChanged();
                 assertEquals(LINKED_ZOOM_TARGET, (double) getField(viewportCanvas, "lastZoom"), 1.0e-6d);
-                assertEquals(new Point(LINKED_PAN_X, LINKED_PAN_Y), showingPane.getViewport().getViewPosition());
+                assertEquals(
+                        new Point(LINKED_PAN_X, LINKED_PAN_Y),
+                        showingPane.getViewport().getViewPosition());
                 assertEquals(1L, bridge.snapshot().get("linkedFlushes"));
                 return;
             } finally {
@@ -458,7 +468,9 @@ class AtlasInteractiveRenderArtifactTest {
             }
 
             assertEquals(LINKED_ZOOM_TARGET, (double) getField(viewportCanvas, "lastZoom"), 1.0e-6d);
-            assertEquals(new Point(LINKED_PAN_X, LINKED_PAN_Y), scrollPane.getViewport().getViewPosition());
+            assertEquals(
+                    new Point(LINKED_PAN_X, LINKED_PAN_Y),
+                    scrollPane.getViewport().getViewPosition());
             assertEquals(1L, bridge.snapshot().get("linkedFlushes"));
             assertEquals(0L, bridge.snapshot().get("failures"));
         }
@@ -607,7 +619,9 @@ class AtlasInteractiveRenderArtifactTest {
 
         // Mutating draw_exe method bytecode must reject transformation and record a failure message.
         final byte[] mutated = prependNoop(
-                references.get(0), AtlasInteractiveRenderTarget.DRAW_EXE_METHOD, AtlasInteractiveRenderTarget.DRAW_EXE_DESCRIPTOR);
+                references.get(0),
+                AtlasInteractiveRenderTarget.DRAW_EXE_METHOD,
+                AtlasInteractiveRenderTarget.DRAW_EXE_DESCRIPTOR);
         assertNull(transformer.transform(null, loader, primaryOwner, primaryClass, domain, mutated));
         assertNotNull(transformer.failure());
     }
@@ -634,14 +648,10 @@ class AtlasInteractiveRenderArtifactTest {
                 : AtlasInteractiveRenderTarget.Generation.TABLE_SYNC_HIDPI_ROBOT.cameraScrollField();
 
         classes.put(
-                AtlasInteractiveRenderTarget.EDIT_LAYER_OWNER.replace('/', '.'),
-                generateEditLayerBytes(legacyCamera));
+                AtlasInteractiveRenderTarget.EDIT_LAYER_OWNER.replace('/', '.'), generateEditLayerBytes(legacyCamera));
+        classes.put(AtlasInteractiveRenderTarget.LAYER_UPDATE_EVENT_OWNER.replace('/', '.'), generateEventBytes());
         classes.put(
-                AtlasInteractiveRenderTarget.LAYER_UPDATE_EVENT_OWNER.replace('/', '.'),
-                generateEventBytes());
-        classes.put(
-                AtlasInteractiveRenderTarget.VIEWPORT_CANVAS_OWNER.replace('/', '.'),
-                generateViewportCanvasBytes());
+                AtlasInteractiveRenderTarget.VIEWPORT_CANVAS_OWNER.replace('/', '.'), generateViewportCanvasBytes());
         classes.put(cameraOwner.replace('/', '.'), generateCameraBytes(cameraOwner, canvasField, scrollField));
 
         if (!legacyCamera) {
@@ -649,9 +659,7 @@ class AtlasInteractiveRenderArtifactTest {
             classes.put(
                     AtlasInteractiveRenderTarget.DATA_MODEL_COMPANION_OWNER.replace('/', '.'),
                     generateDataModelCompanionBytes());
-            classes.put(
-                    AtlasInteractiveRenderTarget.DATA_MODEL_OWNER.replace('/', '.'),
-                    generateDataModelBytes());
+            classes.put(AtlasInteractiveRenderTarget.DATA_MODEL_OWNER.replace('/', '.'), generateDataModelBytes());
         }
         return classes;
     }
@@ -820,7 +828,13 @@ class AtlasInteractiveRenderArtifactTest {
 
     private static byte[] generateColorBytes() {
         final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
-        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, AtlasInteractiveRenderTarget.COLOR_OWNER, null, "java/lang/Object", null);
+        cw.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC,
+                AtlasInteractiveRenderTarget.COLOR_OWNER,
+                null,
+                "java/lang/Object",
+                null);
         cw.visitField(Opcodes.ACC_PRIVATE, "argb", "I", null, null);
         final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(I)V", null, null);
         init.visitCode();
@@ -991,7 +1005,8 @@ class AtlasInteractiveRenderArtifactTest {
                 }
             }
         }
-        assertTrue(Math.abs(expectedNonZero - actualNonZero) <= expectedNonZero * 0.15d,
+        assertTrue(
+                Math.abs(expectedNonZero - actualNonZero) <= expectedNonZero * 0.15d,
                 "coverage mismatch expected=" + expectedNonZero + " actual=" + actualNonZero);
     }
 
@@ -1007,7 +1022,8 @@ class AtlasInteractiveRenderArtifactTest {
                             final String descriptor,
                             final String signature,
                             final String[] exceptions) {
-                        final MethodVisitor downstream = super.visitMethod(access, name, descriptor, signature, exceptions);
+                        final MethodVisitor downstream =
+                                super.visitMethod(access, name, descriptor, signature, exceptions);
                         if (!methodName.equals(name) || !methodDesc.equals(descriptor)) {
                             return downstream;
                         }
@@ -1085,7 +1101,8 @@ class AtlasInteractiveRenderArtifactTest {
             case org.objectweb.asm.Type.LONG -> long.class;
             case org.objectweb.asm.Type.DOUBLE -> double.class;
             case org.objectweb.asm.Type.VOID -> void.class;
-            case org.objectweb.asm.Type.ARRAY -> Class.forName(type.getDescriptor().replace('/', '.'), false, loader);
+            case org.objectweb.asm.Type.ARRAY ->
+                Class.forName(type.getDescriptor().replace('/', '.'), false, loader);
             default -> Class.forName(type.getClassName(), false, loader);
         };
     }
@@ -1127,8 +1144,8 @@ class AtlasInteractiveRenderArtifactTest {
         }
 
         private void fireShowingChanged() {
-            final HierarchyEvent event =
-                    new HierarchyEvent(this, HierarchyEvent.HIERARCHY_CHANGED, this, null, HierarchyEvent.SHOWING_CHANGED);
+            final HierarchyEvent event = new HierarchyEvent(
+                    this, HierarchyEvent.HIERARCHY_CHANGED, this, null, HierarchyEvent.SHOWING_CHANGED);
             for (final java.awt.event.HierarchyListener l : getHierarchyListeners()) {
                 l.hierarchyChanged(event);
             }
