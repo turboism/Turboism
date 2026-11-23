@@ -8,6 +8,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.70.3] - 2026-11-23
+
+Changes since the previous stable release, **0.70.2**.
+
+### Added
+
+- Settings -> Performance adds toggles for warp deformer and brush editing acceleration, interactive mesh editing acceleration, texture atlas canvas interaction acceleration, and Cubism memory and OpenGL resource leak mitigation. The Windows installer configuration merge accepts the four new fields, and the optimized preset enables all of them.
+
+### Changed
+
+- Edit-mode warp deformation, deform brushes, Bezier grid evaluation, and overlay uploads run faster through reinitialization buffer reuse, inverse-quadratic and Bezier fast paths, overlay dirty-gating, and fused float loops.
+- Interactive mesh editing runs faster through point-in-triangle acceleration, cached overlay sprites, viewport clipping, coalesced drag updates, and non-Delaunay auto-connect topology checks that skip unchanged arrays.
+- Texture Atlas zoom, pan, and tile dragging avoid per-frame vector rasterization and redundant drag user-interface synchronization.
+- Framework updates report real network download progress separately from verified bytes, and a staged or apply-pending update shows complete progress instead of an indeterminate bar.
+- Framework updates reuse an unchanged installed file that the target manifest renames, so a version bump that only moves paths no longer downloads those bytes again.
+- Framework JAR assembly fetches unchanged ZIP entry spans from the verified local archive and downloads only changed entries through HTTP ranges, with a full download whenever the archive format, range semantics, or savings threshold does not qualify.
+- Several previously opt-in optimizations now start enabled from their platform default: mesh interpolation, shader uniform lookup, matrix scratch reuse, warp position projection, model instance coalescing, extended interpolation sibling elision, warp grid interpolation, warp normal point elision, camera matrix cache, render pass traversal, mesh hit test, scene handler cache, cursor validation elision, warp deformer edit acceleration, and parameter row repaint. Explicit user choices in `config.json` still win, and every switch can be turned off in Settings -> Performance.
+- Warp position projection now admits any Java 17 or newer runtime instead of exactly Java 17.
+- Cursor validation elision recognizes the JDK 25 `MouseInfo.getPointerInfo` call shape, so the elision stays correct after `SecurityManager` removal.
+- Native shader uniform lookup uses method handles instead of reflective invocation, so a rejected lookup still falls back to the official query with the original exception.
+
+### Fixed
+
+- Verified memory and OpenGL mitigation releases disposed VBOs and textures, bounds the undo history, and clears closed document and inspector references so long editing sessions stop growing without limit.
+- Parts palette keeps a single key listener and skips redundant tree rebuilds, so the palette no longer accumulates listeners while a model stays open across document switches.
+- The build applies the pinned Palantir Java Format style to the hook sources that the earlier main commit left unformatted, so the release formatting gate passes again.
+
+[Full changes since 0.70.2](https://github.com/turboism/Turboism/compare/v0.70.2...v0.70.3)
+
 ## [0.70.2] - 2026-11-22
 
 Changes since the previous stable release, **0.70.1**. This release includes the intervening beta changes.
