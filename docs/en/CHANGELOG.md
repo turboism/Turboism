@@ -14,6 +14,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Added
 
+- ACP recognizes the agy CLI.
 - Settings -> Performance adds toggles for warp deformer and brush editing acceleration, interactive mesh editing acceleration, texture atlas canvas interaction acceleration, and Cubism memory and OpenGL resource leak mitigation. The Windows installer configuration merge accepts the four new fields, and the optimized preset enables all of them.
 
 ### Changed
@@ -31,6 +32,9 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Fixed
 
+- ACP renders Markdown tables, improves code block contrast, shows transcript errors, and displays the context hint once.
+- The Cubism Parts panel initializes again after a document closes, and native and core logs stay in sync.
+- The update window aligns the channel controls to the left.
 - Verified memory and OpenGL mitigation releases disposed VBOs and textures, bounds the undo history, and clears closed document and inspector references so long editing sessions stop growing without limit.
 - Parts palette keeps a single key listener and skips redundant tree rebuilds, so the palette no longer accumulates listeners while a model stays open across document switches.
 - The build applies the pinned Palantir Java Format style to the hook sources that the earlier main commit left unformatted, so the release formatting gate passes again.
