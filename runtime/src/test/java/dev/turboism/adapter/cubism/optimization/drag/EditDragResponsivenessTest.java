@@ -11,10 +11,13 @@ import java.awt.Cursor;
 import java.awt.EventQueue;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.InputEvent;
+import java.awt.event.InvocationEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.event.PaintEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -120,6 +123,40 @@ final class EditDragResponsivenessTest {
         host.openDragSession = false;
         queue.postEvent(drag2);
         assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag1));
+    }
+
+    @Test
+    void coalescesAcrossQueuedInvocationAndPaintEventsUnlessBoundaryIsQueued() {
+        final Object canvasListener = new Object();
+        final JPanel canvas = new JPanel();
+        host.canvasListener = canvasListener;
+        host.openDragSession = true;
+
+        final MouseEvent drag1 = dragEvent(canvas, 10, 10, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1);
+        final MouseEvent drag2 = dragEvent(canvas, 20, 20, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1);
+        final InvocationEvent repaintInvoke = new InvocationEvent(canvas, () -> {});
+        final PaintEvent repaint = new PaintEvent(canvas, PaintEvent.PAINT, new Rectangle(0, 0, 64, 64));
+
+        // Interleaved InvocationEvent / PaintEvent ahead of newer drag must not block coalescing.
+        queue.postEvent(repaintInvoke);
+        queue.postEvent(repaint);
+        queue.postEvent(drag2);
+        assertTrue(bridge.shouldCoalesceDrag(canvasListener, drag1));
+
+        // A queued MOUSE_RELEASED anywhere in the queue blocks coalescing cleanly.
+        final MouseEvent release = new MouseEvent(
+                canvas,
+                MouseEvent.MOUSE_RELEASED,
+                System.currentTimeMillis(),
+                0,
+                20,
+                20,
+                1,
+                false,
+                MouseEvent.BUTTON1);
+        queue.postEvent(release);
+        assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag1));
+        drainQueue(queue);
     }
 
     @Test
@@ -261,6 +298,16 @@ final class EditDragResponsivenessTest {
         @Override
         public AWTEvent peekEvent() {
             return events.peekFirst();
+        }
+
+        @Override
+        public AWTEvent peekEvent(final int id) {
+            for (final AWTEvent event : events) {
+                if (event.getID() == id) {
+                    return event;
+                }
+            }
+            return null;
         }
 
         @Override

@@ -11,6 +11,8 @@ import java.awt.KeyboardFocusManager;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.AWTEventListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.lang.invoke.MethodHandle;
@@ -78,6 +80,18 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
     private static final int FLUSH_IMMEDIATE_DELAY_MS = 0;
     private static final long DRAG_TIMEOUT_NANOS = 30_000_000_000L;
     private static final long TRACKED_AWT_MASK = AWTEvent.WINDOW_EVENT_MASK | AWTEvent.MOUSE_EVENT_MASK;
+    private static final int[] DRAG_BOUNDARY_EVENT_IDS = {
+        MouseEvent.MOUSE_RELEASED,
+        MouseEvent.MOUSE_PRESSED,
+        MouseEvent.MOUSE_EXITED,
+        MouseEvent.MOUSE_WHEEL,
+        KeyEvent.KEY_PRESSED,
+        KeyEvent.KEY_RELEASED,
+        FocusEvent.FOCUS_LOST,
+        WindowEvent.WINDOW_DEACTIVATED,
+        WindowEvent.WINDOW_LOST_FOCUS,
+        WindowEvent.WINDOW_ICONIFIED
+    };
 
     private static final String ALREADY_INSTALLED_MESSAGE = "edit drag responsiveness bridge already installed";
     private static final String SLOTS_OCCUPIED_MESSAGE = "edit drag responsiveness slots occupied: ";
@@ -380,9 +394,14 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                 dragPassed++;
                 return false;
             }
-            // Peek without an event-id filter so coalescing never crosses MOUSE_RELEASED or KEY_*.
-            final AWTEvent next = queue.peekEvent();
-            if (isContiguousMatchingDrag(mouseEvent, next)) {
+            // Coalesce an unblocked head drag directly, or scan past Paint/Invocation events when no boundary is queued.
+            final AWTEvent head = queue.peekEvent();
+            if (isMatchingDrag(mouseEvent, head)) {
+                dragCoalesced++;
+                return true;
+            }
+            final AWTEvent next = queue.peekEvent(MouseEvent.MOUSE_DRAGGED);
+            if (isMatchingDrag(mouseEvent, next) && !hasPendingBoundaryEvent(queue)) {
                 dragCoalesced++;
                 return true;
             }
@@ -396,7 +415,16 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
         }
     }
 
-    private static boolean isContiguousMatchingDrag(final MouseEvent current, final AWTEvent next) {
+    private static boolean hasPendingBoundaryEvent(final EventQueue queue) {
+        for (final int boundaryId : DRAG_BOUNDARY_EVENT_IDS) {
+            if (queue.peekEvent(boundaryId) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isMatchingDrag(final MouseEvent current, final AWTEvent next) {
         if (!(next instanceof MouseEvent nextMouse)) {
             return false;
         }
