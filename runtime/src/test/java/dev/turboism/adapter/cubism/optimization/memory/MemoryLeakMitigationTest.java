@@ -223,7 +223,19 @@ class MemoryLeakMitigationTest {
             forceGcUntilCollected(tree1Ref);
             assertNull(tree1Ref.get(), "old CPartsTreeTable must be collectable after replacement");
 
-            // Closing parts panel detaches the remaining tree's KeyListener cleanly.
+            // Closing parts panel detaches the remaining tree's KeyListener cleanly and resets init state.
+            panelCls.getMethod("y").invoke(panel);
+            assertEquals(0, keyRegistry.size());
+            assertNull(panelCls.getField("b").get(panel));
+            assertFalse(panelCls.getField("B").getBoolean(panel));
+
+            // Subsequent update rebuilds CTreeTable without invoking x()/k() on a cleared lateinit field.
+            panelCls.getMethod("b", boolean.class, boolean.class).invoke(panel, false, false);
+            assertNotNull(panelCls.getField("b").get(panel));
+            assertTrue(panelCls.getField("B").getBoolean(panel));
+            assertEquals(1, keyRegistry.size());
+
+            // Cleanup after post-close rebuild verification.
             panelCls.getMethod("y").invoke(panel);
             assertEquals(0, keyRegistry.size());
         } finally {
@@ -1456,9 +1468,50 @@ class MemoryLeakMitigationTest {
             setTree.visitMaxs(0, 0);
             setTree.visitEnd();
 
-            // b(ZZ): builds a new CTreeTable, registers KeyListener in f/n.e, calls a(CTreeTable), sets B=true.
+            // k(): returns lateinit CTreeTable field b or throws if null (matching Kotlin's accessor)
+            final MethodVisitor getTree = w.visitMethod(
+                    ACC_PUBLIC, "k", "()L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";", null, null);
+            getTree.visitCode();
+            getTree.visitVarInsn(ALOAD, 0);
+            getTree.visitFieldInsn(GETFIELD, owner, "b", "L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";");
+            getTree.visitInsn(DUP);
+            final Label nonNullTree = new Label();
+            getTree.visitJumpInsn(IFNONNULL, nonNullTree);
+            getTree.visitInsn(POP);
+            getTree.visitTypeInsn(NEW, "java/lang/IllegalStateException");
+            getTree.visitInsn(DUP);
+            getTree.visitLdcInsn("lateinit property b has not been initialized");
+            getTree.visitMethodInsn(
+                    INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
+            getTree.visitInsn(ATHROW);
+            getTree.visitLabel(nonNullTree);
+            getTree.visitInsn(ARETURN);
+            getTree.visitMaxs(0, 0);
+            getTree.visitEnd();
+
+            // x(): reads k() when B is true (mirroring Cubism's tree expansion state capture)
+            final MethodVisitor captureExpanded = w.visitMethod(ACC_PUBLIC, "x", "()Ljava/lang/String;", null, null);
+            captureExpanded.visitCode();
+            captureExpanded.visitVarInsn(ALOAD, 0);
+            captureExpanded.visitMethodInsn(
+                    INVOKEVIRTUAL, owner, "k", "()L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";", false);
+            captureExpanded.visitInsn(POP);
+            captureExpanded.visitLdcInsn("");
+            captureExpanded.visitInsn(ARETURN);
+            captureExpanded.visitMaxs(0, 0);
+            captureExpanded.visitEnd();
+
+            // b(ZZ): when B is true calls x() first; builds a new CTreeTable, registers KeyListener, sets B=true.
             final MethodVisitor upd = w.visitMethod(ACC_PUBLIC, "b", "(ZZ)V", null, null);
             upd.visitCode();
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitFieldInsn(GETFIELD, owner, "B", "Z");
+            final Label skipCapture = new Label();
+            upd.visitJumpInsn(IFEQ, skipCapture);
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitMethodInsn(INVOKEVIRTUAL, owner, "x", "()Ljava/lang/String;", false);
+            upd.visitInsn(POP);
+            upd.visitLabel(skipCapture);
             upd.visitTypeInsn(NEW, MemoryLeakMitigationTarget.TREE_TABLE_OWNER);
             upd.visitInsn(DUP);
             upd.visitMethodInsn(INVOKESPECIAL, MemoryLeakMitigationTarget.TREE_TABLE_OWNER, "<init>", "()V", false);

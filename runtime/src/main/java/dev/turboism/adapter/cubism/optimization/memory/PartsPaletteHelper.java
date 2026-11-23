@@ -407,6 +407,10 @@ final class PartsPaletteHelper {
                 detachTreeTable(current);
                 partsTreeTableField.set(partsPanel, null);
             }
+            // Keep the host panel's initialized flag aligned with the cleared lateinit CTreeTable.
+            if (partsInitFlagField != null) {
+                partsInitFlagField.set(partsPanel, Boolean.FALSE);
+            }
             if (partsInteractionField != null) {
                 final Object interaction = partsInteractionField.get(partsPanel);
                 if (interaction != null) {
@@ -445,6 +449,9 @@ final class PartsPaletteHelper {
             final long fingerprint = computeFingerprint(partsPanel, doc);
 
             if (currentTree == null || !initialized) {
+                if (currentTree == null && initialized && partsInitFlagField != null) {
+                    partsInitFlagField.set(partsPanel, Boolean.FALSE);
+                }
                 cachedStates.put(partsPanel, new CachedPartsState(doc, fingerprint));
                 return false;
             }
