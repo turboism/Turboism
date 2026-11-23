@@ -272,7 +272,7 @@ final class AgentAvailability {
     private static List<String> command(final AgentProfile profile, final Path executable) {
         final var command = new ArrayList<String>();
         command.add(executable.toString());
-        command.addAll(profile.arguments());
+        command.addAll(profile.argumentsFor(executable));
         return command;
     }
 }
