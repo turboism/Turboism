@@ -2250,6 +2250,7 @@ function Read-CubismOptimizationPreference {
         "imageArchiveReuse",
         "floatArrayParseCache",
         "textureUploadPreparation",
+        "warpPositionProjection",
         "reinitPairElision",
         "inspectorPropertyBypass"
     ) -cnotcontains $Name

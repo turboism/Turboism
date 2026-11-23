@@ -93,7 +93,7 @@ final class OptimizationPresetTest {
             OptimizationPreset.BALANCED.apply(service);
             assertEquals(OptimizationPreset.BALANCED, OptimizationPreset.detect(service));
             assertTrue(service.enabled(OptimizationCatalog.MATRIX_SCRATCH.key()));
-            assertTrue(service.enabled(OptimizationCatalog.WARP_POSITION_PROJECTION.key()));
+            assertFalse(service.enabled(OptimizationCatalog.WARP_POSITION_PROJECTION.key()));
             assertTrue(service.enabled(OptimizationCatalog.UPLOAD_ELISION.key()));
             assertTrue(service.enabled(OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION.key()));
             assertTrue(service.enabled(OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION.key()));

@@ -857,7 +857,7 @@ final class ConfigMerge {
             "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
             "memoryLeakMitigation");
     private static final Set<String> LEGACY_PROMOTED_DEFAULT_OFF_FIELDS = Set.of(
-            "meshInterpolation", "shaderUniform", "matrixScratch", "warpPositionProjection",
+            "meshInterpolation", "shaderUniform", "matrixScratch",
             "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
             "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
             "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint");

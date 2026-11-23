@@ -374,7 +374,6 @@ public final class ConfigMergeRegression {
                 "meshInterpolation",
                 "shaderUniform",
                 "matrixScratch",
-                "warpPositionProjection",
                 "modelInstanceCoalesce",
                 "extendedInterpolationSiblingElision",
                 "warpGridInterpolation",
@@ -386,8 +385,8 @@ public final class ConfigMergeRegression {
                 "cursorValidationElision",
                 "parameterRowRepaint");
 
-        // 1. Real v0.70.2 saved config: modelUpdateSkip=true, atlasLoading=true, 14 promoted=false,
-        // plus an explicit uploadElision=false and default-off uniformLocationCache=false.
+        // 1. Real v0.70.2 saved config: modelUpdateSkip=true, atlasLoading=true, 13 promoted=false,
+        // plus an explicit uploadElision=false and default-off uniformLocationCache/warpPositionProjection=false.
         final Path upgradeHome = Files.createTempDirectory("listener-v0702-upgrade-");
         try {
             final Map<String, Object> legacyLauncher = new LinkedHashMap<>();
@@ -395,6 +394,7 @@ public final class ConfigMergeRegression {
             legacyLauncher.put("modelUpdateSkip", Boolean.TRUE);
             legacyLauncher.put("uploadElision", Boolean.FALSE);
             legacyLauncher.put("uniformLocationCache", Boolean.FALSE);
+            legacyLauncher.put("warpPositionProjection", Boolean.FALSE);
             for (String key : promotedKeys) {
                 legacyLauncher.put(key, Boolean.FALSE);
             }
@@ -421,7 +421,8 @@ public final class ConfigMergeRegression {
                     Boolean.FALSE.equals(migratedLauncher.get("uploadElision")));
             check(
                     "v0.70.2 default-OFF switch stays false",
-                    Boolean.FALSE.equals(migratedLauncher.get("uniformLocationCache")));
+                    Boolean.FALSE.equals(migratedLauncher.get("uniformLocationCache"))
+                            && Boolean.FALSE.equals(migratedLauncher.get("warpPositionProjection")));
 
             // Post-migration explicit false opt-out stays false across subsequent installer runs.
             final Map<String, Object> editedLauncher = new LinkedHashMap<>();

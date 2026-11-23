@@ -146,7 +146,7 @@ ROOT_OPTIMIZATION_FIELDS = {
     "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation",
 }
 LEGACY_PROMOTED_DEFAULT_OFF_FIELDS = {
-    "meshInterpolation", "shaderUniform", "matrixScratch", "warpPositionProjection",
+    "meshInterpolation", "shaderUniform", "matrixScratch",
     "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
     "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
     "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint",
@@ -1918,8 +1918,8 @@ def main():
     out, backup = installer_write_config_with_backup("full", [], None)
     check("T9b fresh install creates no backup", backup is None)
 
-    # TM1: Real v0.70.2 Settings-saved config (14 promoted keys persisted false alongside enabled
-    # pre-existing optimizations) promotes the 14 keys, preserves default-off/unrelated opt-outs,
+    # TM1: Real v0.70.2 Settings-saved config (13 promoted keys persisted false alongside enabled
+    # pre-existing optimizations) promotes the 13 keys, preserves default-off/unrelated opt-outs,
     # records optimizationDefaultsVersion=1, and creates no corrupt backup.
     v0702_launcher = {
         "cubismJvm": "graalvm",
@@ -1927,6 +1927,7 @@ def main():
         "uploadElision": False,  # explicit user opt-out of a pre-existing default-ON switch
         "meshSetupElision": True,
         "uniformLocationCache": False,
+        "warpPositionProjection": False,
         "incrementalUpdate": False,
     }
     for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS:
@@ -1944,11 +1945,12 @@ def main():
     check("TM1 v0.70.2 migration creates no corrupt backup", backup is None)
     check("TM1 v0.70.2 migration records defaults version",
           doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1)
-    check("TM1 all 14 promoted keys become True",
+    check("TM1 all 13 promoted keys become True",
           all(doc["launcher"].get(key) is True for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS))
     check("TM1 pre-existing opt-out and default-off keys remain False",
           doc["launcher"]["uploadElision"] is False
           and doc["launcher"]["uniformLocationCache"] is False
+          and doc["launcher"]["warpPositionProjection"] is False
           and doc["launcher"]["incrementalUpdate"] is False)
 
     # TM2: Explicit OFF preset (modelUpdateSkip=False, atlasLoading=False, zero True flags)

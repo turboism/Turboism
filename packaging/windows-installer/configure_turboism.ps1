@@ -818,7 +818,7 @@ function Invoke-OptimizationDefaultsMigration {
     )
     $launcherOptimizationFields = @($modelUpdateSkipKey) + $remainingLauncherOptimizationFields
     $promotedLauncherFields = @(
-        "meshInterpolation", "shaderUniform", "matrixScratch", "warpPositionProjection",
+        "meshInterpolation", "shaderUniform", "matrixScratch",
         "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
         "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
         "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint"

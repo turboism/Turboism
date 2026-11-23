@@ -503,8 +503,7 @@ final class EditSubtreeHandles {
         selectorGetSelectedCount = HostHandles.virtual(guidSelectorClass, "getSelectedCount", "()I", intUnary);
         selectorGetHoveringObject = HostHandles.virtual(
                 guidSelectorClass, "getHoveringObject", "()L" + AC_GUID_SELECTION_OWNER + ";", objUnary);
-        selectionGetGuid =
-                HostHandles.virtual(guidSelectionClass, "getGuid", "()L" + GUID_OWNER + ";", objUnary);
+        selectionGetGuid = HostHandles.virtual(guidSelectionClass, "getGuid", "()L" + GUID_OWNER + ";", objUnary);
         selectorIsSelected = HostHandles.virtual(
                 guidSelectorClass,
                 "isSelected",

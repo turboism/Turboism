@@ -792,6 +792,7 @@ public final class OptimizationCatalog {
             IMAGE_ARCHIVE_REUSE,
             FLOAT_ARRAY_PARSE_CACHE,
             TEXTURE_UPLOAD_PREPARATION,
+            WARP_POSITION_PROJECTION,
             REINIT_PAIR_ELISION,
             INSPECTOR_PROPERTY_BYPASS);
 
@@ -803,7 +804,6 @@ public final class OptimizationCatalog {
             MESH_INTERPOLATION.key(),
             SHADER_UNIFORM.key(),
             MATRIX_SCRATCH.key(),
-            WARP_POSITION_PROJECTION.key(),
             MODEL_INSTANCE_COALESCE.key(),
             EXTENDED_INTERPOLATION_SIBLING_ELISION.key(),
             WARP_GRID_INTERPOLATION.key(),

@@ -26,7 +26,6 @@ class PerformanceSettingsConfigTest {
             Field.MESH_INTERPOLATION,
             Field.SHADER_UNIFORM,
             Field.MATRIX_SCRATCH,
-            Field.WARP_POSITION_PROJECTION,
             Field.CLIP_MASK_DEDUPLICATION,
             Field.CLIP_MASK_SCISSOR_CLEAR,
             Field.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
@@ -224,7 +223,7 @@ class PerformanceSettingsConfigTest {
         var launcher = root.putObject("launcher");
         launcher.put("cubismJvm", "graalvm");
         launcher.put("zgc", true);
-        // Simulate v0.70.2 Settings OK: existing default-ON switches persisted true, 14 promoted
+        // Simulate v0.70.2 Settings OK: existing default-ON switches persisted true, 13 promoted
         // switches + unpromoted default-OFF switches persisted false, no optimizationDefaultsVersion.
         for (Optimization optimization : OptimizationCatalog.persisted()) {
             if (Set.of(
@@ -249,6 +248,7 @@ class PerformanceSettingsConfigTest {
             assertEquals("true", loaded.value(Field.forKey(promoted.key())).value(), promoted.key());
         }
         assertEquals("false", loaded.value(Field.UNIFORM_LOCATION_CACHE).value());
+        assertEquals("false", loaded.value(Field.WARP_POSITION_PROJECTION).value());
         assertEquals("false", loaded.value(Field.INCREMENTAL_UPDATE).value());
         assertEquals("true", loaded.value(Field.WARP_DEFORM_EDIT_ACCELERATION).value());
 

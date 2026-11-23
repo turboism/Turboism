@@ -1146,15 +1146,22 @@ class WarpDeformEditAccelerationTest {
         final int[] vboBeforeA = readMeshPositionVboCounters(rew.subtreeAMeshes);
         final int[] vboBeforeB = readMeshPositionVboCounters(rew.subtreeBMeshes);
 
-        // Transition isModelEditing false -> true on Tick 1 and drag selected midRot WITHOUT setDirtyDeformedForm/setUpdated.
+        // Transition isModelEditing false -> true on Tick 1 and drag selected midRot WITHOUT
+        // setDirtyDeformedForm/setUpdated.
         orig.modelSource.getClass().getMethod("setModelEditing", boolean.class).invoke(orig.modelSource, true);
         rew.modelSource.getClass().getMethod("setModelEditing", boolean.class).invoke(rew.modelSource, true);
         final Class<?> acCtrlSrcClsOrig =
                 Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", false, orig.loader);
         final Class<?> acCtrlSrcClsRew =
                 Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", false, rew.loader);
-        origSelector.getClass().getMethod("addSelected", acCtrlSrcClsOrig, int.class).invoke(origSelector, orig.midRotSrc, 0);
-        rewSelector.getClass().getMethod("addSelected", acCtrlSrcClsRew, int.class).invoke(rewSelector, rew.midRotSrc, 0);
+        origSelector
+                .getClass()
+                .getMethod("addSelected", acCtrlSrcClsOrig, int.class)
+                .invoke(origSelector, orig.midRotSrc, 0);
+        rewSelector
+                .getClass()
+                .getMethod("addSelected", acCtrlSrcClsRew, int.class)
+                .invoke(rewSelector, rew.midRotSrc, 0);
 
         final long hashesBeforeRot = bridge.snapshot().get("fullArrayHashes");
         for (int tick = 1; tick <= 2; tick++) {
@@ -1165,7 +1172,8 @@ class WarpDeformEditAccelerationTest {
             assertAllMeshesRawFloatParity(orig, rew, "selector-rot-tick-" + tick);
             if (tick == 1) {
                 final Map<String, Long> sTick1 = bridge.snapshot();
-                assertEquals(fastBase + 1L, sTick1.get("fastModelUpdates"), "Tick 1 must not fall back on isEditing change");
+                assertEquals(
+                        fastBase + 1L, sTick1.get("fastModelUpdates"), "Tick 1 must not fall back on isEditing change");
                 assertEquals(fallbackBase, sTick1.get("fallbackModelUpdates"));
                 assertEquals(appearSkipBase + 36L, sTick1.get("appearanceSkipped"));
             }
@@ -1174,7 +1182,10 @@ class WarpDeformEditAccelerationTest {
         assertEquals(fastBase + 2L, sAfterRot.get("fastModelUpdates"));
         assertEquals(fallbackBase, sAfterRot.get("fallbackModelUpdates"));
         assertEquals(appearSkipBase + 2L * 36L, sAfterRot.get("appearanceSkipped"));
-        assertEquals(hashesBeforeRot, sAfterRot.get("fullArrayHashes"), "rotation drag + 40 meshes must perform 0 float[] hashes");
+        assertEquals(
+                hashesBeforeRot,
+                sAfterRot.get("fullArrayHashes"),
+                "rotation drag + 40 meshes must perform 0 float[] hashes");
 
         final int[] vboAfterRotA = readMeshPositionVboCounters(rew.subtreeAMeshes);
         final int[] vboAfterRotB = readMeshPositionVboCounters(rew.subtreeBMeshes);
@@ -1186,8 +1197,14 @@ class WarpDeformEditAccelerationTest {
         // Switch selection to rootWarpSrc and drag WITHOUT setDirtyDeformedForm/setUpdated: hashes strictly 1 deformer!
         origSelector.getClass().getMethod("clearSelection").invoke(origSelector);
         rewSelector.getClass().getMethod("clearSelection").invoke(rewSelector);
-        origSelector.getClass().getMethod("addSelected", acCtrlSrcClsOrig, int.class).invoke(origSelector, orig.rootWarpSrc, 0);
-        rewSelector.getClass().getMethod("addSelected", acCtrlSrcClsRew, int.class).invoke(rewSelector, rew.rootWarpSrc, 0);
+        origSelector
+                .getClass()
+                .getMethod("addSelected", acCtrlSrcClsOrig, int.class)
+                .invoke(origSelector, orig.rootWarpSrc, 0);
+        rewSelector
+                .getClass()
+                .getMethod("addSelected", acCtrlSrcClsRew, int.class)
+                .invoke(rewSelector, rew.rootWarpSrc, 0);
 
         final float[] baseGrid = rew.baseRootGridPositions.get(0);
         final float[] gridTick3 = baseGrid.clone();
@@ -1237,7 +1254,8 @@ class WarpDeformEditAccelerationTest {
                 fn1Cls);
         assertNotNull(rewEditMode);
         @SuppressWarnings("unchecked")
-        final List<Object> allRewDefs = (List<Object>) rew.model.getClass().getMethod("getAllDeformers").invoke(rew.model);
+        final List<Object> allRewDefs =
+                (List<Object>) rew.model.getClass().getMethod("getAllDeformers").invoke(rew.model);
         final Class<?> warpDefCls =
                 Class.forName(WarpDeformEditTarget.WARP_DEFORMER_OWNER.replace('/', '.'), false, rew.loader);
         Object unselectedWarp = null;
@@ -1251,12 +1269,18 @@ class WarpDeformEditAccelerationTest {
         final long hashesBeforeOvUpdate = bridge.snapshot().get("fullArrayHashes");
         ovMethod.invoke(kbInstance, unselectedWarp, rewSceneGraph, false, true, rotModeAuto, rewPackAction, falsePred);
         final long hashesBeforeOvElide = bridge.snapshot().get("fullArrayHashes");
-        assertEquals(hashesBeforeOvUpdate, hashesBeforeOvElide, "WarpDeformer overlay update under active epoch must skip float[] hashing");
+        assertEquals(
+                hashesBeforeOvUpdate,
+                hashesBeforeOvElide,
+                "WarpDeformer overlay update under active epoch must skip float[] hashing");
         final long elisionsBefore = bridge.snapshot().get("overlayElisions");
         ovMethod.invoke(kbInstance, unselectedWarp, rewSceneGraph, false, true, rotModeAuto, rewPackAction, falsePred);
         final Map<String, Long> afterOv = bridge.snapshot();
         assertTrue(afterOv.get("overlayElisions") > elisionsBefore);
-        assertEquals(hashesBeforeOvElide, afterOv.get("fullArrayHashes"), "WarpDeformer overlay elision under active epoch must skip float[] hashing");
+        assertEquals(
+                hashesBeforeOvElide,
+                afterOv.get("fullArrayHashes"),
+                "WarpDeformer overlay elision under active epoch must skip float[] hashing");
     }
 
     private static Object[] createEditViewContext(
@@ -1271,8 +1295,10 @@ class WarpDeformEditAccelerationTest {
         final Class<?> modelCls = Class.forName("com.live2d.cubism.doc.model.CModel", true, loader);
         final Class<?> packCls = Class.forName("com.live2d.cubism.pack.CECompletePack", false, loader);
         final Class<?> docCls = Class.forName("com.live2d.cubism.doc.modeling.CModelingDocument", true, loader);
-        final Class<?> editModeCls = Class.forName("com.live2d.cubism.doc.modeling.CModelingEditMode_Main", true, loader);
-        final Class<?> viewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext_ModelingView", false, loader);
+        final Class<?> editModeCls =
+                Class.forName("com.live2d.cubism.doc.modeling.CModelingEditMode_Main", true, loader);
+        final Class<?> viewCls =
+                Class.forName("com.live2d.cubism.view.context.CEViewContext_ModelingView", false, loader);
         final Class<?> absViewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext", false, loader);
         final Class<?> camCls = Class.forName("com.live2d.cubism.view.context.CECameraManager", false, loader);
         final Class<?> rsCls = Class.forName("com.live2d.graphics3d.rendering.e", false, loader);
@@ -1480,7 +1506,14 @@ class WarpDeformEditAccelerationTest {
                 loader, new Class<?>[] {fn1Cls}, (proxy, method, args) -> Boolean.FALSE);
         final Class<?> acDefCls = Class.forName("com.live2d.cubism.doc.model.deformer.ACDeformer", false, loader);
         final Method ovMethod = kbCls.getMethod(
-                "a", acDefCls, sceneGraph.getClass(), boolean.class, boolean.class, rotModeCls, packAction.getClass(), fn1Cls);
+                "a",
+                acDefCls,
+                sceneGraph.getClass(),
+                boolean.class,
+                boolean.class,
+                rotModeCls,
+                packAction.getClass(),
+                fn1Cls);
 
         // Pass 1: native overlay builds Draw child & marks volatile.
         final long updatesBeforePass1 = bridge.snapshot().get("overlayUpdates");

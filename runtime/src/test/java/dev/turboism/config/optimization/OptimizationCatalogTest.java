@@ -66,7 +66,6 @@ final class OptimizationCatalogTest {
             OptimizationCatalog.MESH_INTERPOLATION,
             OptimizationCatalog.SHADER_UNIFORM,
             OptimizationCatalog.MATRIX_SCRATCH,
-            OptimizationCatalog.WARP_POSITION_PROJECTION,
             OptimizationCatalog.CLIP_MASK_DEDUPLICATION,
             OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR,
             OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,

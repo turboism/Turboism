@@ -189,8 +189,17 @@ final class EditSubtreeCoordinator {
             final IdentityHashMap<Object, Boolean> activeEditSources = activeEditSourcesScratch.get();
             collectActiveEditSources(model, editMode, activeEditSources);
             cache.captureFullBaseline(
-                    model, modelSource, doc, viewCtx, updCtx, ctx5, paramSet, curEditing,
-                    activeEditSources, h, fullArrayHashes);
+                    model,
+                    modelSource,
+                    doc,
+                    viewCtx,
+                    updCtx,
+                    ctx5,
+                    paramSet,
+                    curEditing,
+                    activeEditSources,
+                    h,
+                    fullArrayHashes);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             final EditModelTopologyCache cache = latestCache;
@@ -446,8 +455,7 @@ final class EditSubtreeCoordinator {
                 continue;
             }
             finalDirtyMeshes++;
-            c.recordMeshSnapshot(
-                    m, activeEditSources.containsKey(c.visibleMeshSources[m]), h, fullArrayHashes);
+            c.recordMeshSnapshot(m, activeEditSources.containsKey(c.visibleMeshSources[m]), h, fullArrayHashes);
         }
         c.armAppearanceSkip(Thread.currentThread(), dirtyMesh);
         dirtyMeshesProcessed.add(finalDirtyMeshes);
@@ -502,10 +510,9 @@ final class EditSubtreeCoordinator {
             final int srcVer = (int) h.sourceGetUpdateVersion.invokeExact(src);
             final int copiedVer = (int) h.deformerGetCopiedUpdateVersion.invokeExact(d);
             final int kfStamp = EditModelTopologyCache.computeKeyformVersionStamp(src, h);
-            boolean versionOrKeyformChanged =
-                    srcVer != c.lastDefSourceUpdateVer[i]
-                            || copiedVer != srcVer
-                            || kfStamp != c.lastDefKeyformVersionStamp[i];
+            boolean versionOrKeyformChanged = srcVer != c.lastDefSourceUpdateVer[i]
+                    || copiedVer != srcVer
+                    || kfStamp != c.lastDefKeyformVersionStamp[i];
 
             boolean formMutated = versionOrKeyformChanged || (boolean) h.deformerGetDirtyDeformedForm.invokeExact(d);
             final Object form = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
@@ -542,9 +549,7 @@ final class EditSubtreeCoordinator {
     }
 
     private boolean verifyLocalMeshesUnchanged(
-            final EditModelTopologyCache c,
-            final int nMesh,
-            final IdentityHashMap<Object, Boolean> activeEditSources)
+            final EditModelTopologyCache c, final int nMesh, final IdentityHashMap<Object, Boolean> activeEditSources)
             throws Throwable {
         pruneUnselected(c.selectedMeshBaselines, activeEditSources);
         for (int m = 0; m < nMesh; m++) {

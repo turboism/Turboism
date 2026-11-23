@@ -326,6 +326,7 @@ class OptimizationPlanTest {
         v0702Launcher.put("modelUpdateSkip", true);
         v0702Launcher.put("uploadElision", false);
         v0702Launcher.put("uniformLocationCache", false);
+        v0702Launcher.put("warpPositionProjection", false);
         for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
             v0702Launcher.put(optimization.key(), false);
         }
@@ -338,6 +339,7 @@ class OptimizationPlanTest {
         }
         assertFalse(upgraded.admitted(OptimizationCatalog.UPLOAD_ELISION), "explicit false opt-out survives");
         assertFalse(upgraded.admitted(OptimizationCatalog.UNIFORM_LOCATION_CACHE), "default-off switch stays off");
+        assertFalse(upgraded.admitted(OptimizationCatalog.WARP_POSITION_PROJECTION), "demoted switch stays off");
 
         try (var settings = new dev.turboism.config.OptimizationSettingsFileService(home)) {
             settings.setEnabled(OptimizationCatalog.WARP_GRID_INTERPOLATION.key(), false);
