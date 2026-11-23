@@ -19,19 +19,23 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Changed
 
+- Heavy deformer dragging runs faster by updating only affected subtrees, combining queued drag events, and deferring inspector rebuilds.
+- Performance groups have a checkbox that controls the entire group. The Balanced preset follows verified defaults. Warp position projection starts disabled.
+- Startup settings clarify the update channel and startup options, and the dialog has fewer actions.
 - Edit-mode warp deformation, deform brushes, Bezier grid evaluation, and overlay uploads run faster through reinitialization buffer reuse, inverse-quadratic and Bezier fast paths, overlay dirty-gating, and fused float loops.
 - Interactive mesh editing runs faster through point-in-triangle acceleration, cached overlay sprites, viewport clipping, coalesced drag updates, and non-Delaunay auto-connect topology checks that skip unchanged arrays.
 - Texture Atlas zoom, pan, and tile dragging avoid per-frame vector rasterization and redundant drag user-interface synchronization.
 - Framework updates report real network download progress separately from verified bytes, and a staged or apply-pending update shows complete progress instead of an indeterminate bar.
 - Framework updates reuse an unchanged installed file that the target manifest renames, so a version bump that only moves paths no longer downloads those bytes again.
 - Framework JAR assembly fetches unchanged ZIP entry spans from the verified local archive and downloads only changed entries through HTTP ranges, with a full download whenever the archive format, range semantics, or savings threshold does not qualify.
-- Several previously opt-in optimizations now start enabled from their platform default: mesh interpolation, shader uniform lookup, matrix scratch reuse, warp position projection, model instance coalescing, extended interpolation sibling elision, warp grid interpolation, warp normal point elision, camera matrix cache, render pass traversal, mesh hit test, scene handler cache, cursor validation elision, warp deformer edit acceleration, and parameter row repaint. Explicit user choices in `config.json` still win, and every switch can be turned off in Settings -> Performance.
+- Several previously opt-in optimizations now start enabled from their platform default: mesh interpolation, shader uniform lookup, matrix scratch reuse, model instance coalescing, extended interpolation sibling elision, warp grid interpolation, warp normal point elision, camera matrix cache, render pass traversal, mesh hit test, scene handler cache, cursor validation elision, warp deformer edit acceleration, and parameter row repaint. Explicit user choices in `config.json` still win, and every switch can be turned off in Settings -> Performance.
 - Warp position projection now admits any Java 17 or newer runtime instead of exactly Java 17.
 - Cursor validation elision recognizes the JDK 25 `MouseInfo.getPointerInfo` call shape, so the elision stays correct after `SecurityManager` removal.
 - Native shader uniform lookup uses method handles instead of reflective invocation, so a rejected lookup still falls back to the official query with the original exception.
 
 ### Fixed
 
+- Automatic mesh generation resolves the correct ArtMesh update bridge on Cubism 5.3.
 - ACP renders Markdown tables, improves code block contrast, shows transcript errors, and displays the context hint once.
 - The Cubism Parts panel initializes again after a document closes, and native and core logs stay in sync.
 - The update window aligns the channel controls to the left.
