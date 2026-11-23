@@ -767,8 +767,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
 
         final float cxBase = QUARTER_F * (((pt[p00Idx] + pt[pC0Idx]) + pt[p0RIdx]) + pt[pCRIdx]);
         final float cyBase = QUARTER_F
-                * (((pt[p00Idx + Y_OFFSET] + pt[pC0Idx + Y_OFFSET]) + pt[p0RIdx + Y_OFFSET])
-                        + pt[pCRIdx + Y_OFFSET]);
+                * (((pt[p00Idx + Y_OFFSET] + pt[pC0Idx + Y_OFFSET]) + pt[p0RIdx + Y_OFFSET]) + pt[pCRIdx + Y_OFFSET]);
         final float dx1 = pt[pCRIdx] - pt[p00Idx];
         final float dy1 = pt[pCRIdx + Y_OFFSET] - pt[p00Idx + Y_OFFSET];
         final float dx2 = pt[pC0Idx] - pt[p0RIdx];

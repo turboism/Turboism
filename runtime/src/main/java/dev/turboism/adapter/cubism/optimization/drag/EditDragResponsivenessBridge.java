@@ -143,7 +143,8 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when any reviewed host member is missing or inaccessible
      */
     public EditDragResponsivenessBridge(final ClassLoader loader) throws ReflectiveOperationException {
-        this(ReflectiveHostBindings.resolve(Objects.requireNonNull(loader, "loader")),
+        this(
+                ReflectiveHostBindings.resolve(Objects.requireNonNull(loader, "loader")),
                 EditDragResponsivenessBridge::systemEventQueue,
                 System::nanoTime);
     }
@@ -618,9 +619,11 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
             return false;
         }
         if (component.isShowing()) {
-            final Window window = component instanceof Window owned ? owned : SwingUtilities.getWindowAncestor(component);
+            final Window window =
+                    component instanceof Window owned ? owned : SwingUtilities.getWindowAncestor(component);
             if (window != null) {
-                final Window activeWindow = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+                final Window activeWindow =
+                        KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
                 if (activeWindow != null && activeWindow != window) {
                     lastCursorWindow = new WeakReference<>(null);
                     lastCursorComponent = new WeakReference<>(null);

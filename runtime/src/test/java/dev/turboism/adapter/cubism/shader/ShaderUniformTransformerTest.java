@@ -230,12 +230,13 @@ final class ShaderUniformTransformerTest {
         assertEquals(1, stats[3]);
         assertEquals(4, stats[4], "normal and exception handlers for both loops must release entries");
 
-        try (var loader = new java.net.URLClassLoader(
-                new java.net.URL[] {out.toUri().toURL()}, ShaderUniformTransformerTest.class.getClassLoader()) {
-            Class<?> defineShader(final byte[] bytes) {
-                return defineClass(OWNER.replace('/', '.'), bytes, 0, bytes.length);
-            }
-        }) {
+        try (var loader =
+                new java.net.URLClassLoader(
+                        new java.net.URL[] {out.toUri().toURL()}, ShaderUniformTransformerTest.class.getClassLoader()) {
+                    Class<?> defineShader(final byte[] bytes) {
+                        return defineClass(OWNER.replace('/', '.'), bytes, 0, bytes.length);
+                    }
+                }) {
             final Class<?> shaderClass = loader.defineShader(patched);
             final Class<?> ctxClass = loader.loadClass("com.live2d.graphics3d.a");
             final Class<?> matClass = loader.loadClass("com.live2d.graphics3d.material.GMaterial");
@@ -248,8 +249,10 @@ final class ShaderUniformTransformerTest {
             final Object ctx = ctxClass.getConstructor().newInstance();
             final Object mat = matClass.getConstructor().newInstance();
             final Object matrix = matrixClass.getConstructor().newInstance();
-            final var uniforms = (java.util.HashMap<String, Object>) matClass.getField("uniforms").get(mat);
-            final var textures = (java.util.HashMap<String, Object>) matClass.getField("textures").get(mat);
+            final var uniforms = (java.util.HashMap<String, Object>)
+                    matClass.getField("uniforms").get(mat);
+            final var textures = (java.util.HashMap<String, Object>)
+                    matClass.getField("textures").get(mat);
 
             // Empty maps execute cleanly without failing.
             draw.invoke(shader, ctx, mat, matrix);
@@ -268,16 +271,15 @@ final class ShaderUniformTransformerTest {
             assertTrue(calls.contains("tex0:tex0"));
 
             // Pooled buffer must have been released cleanly and reused without allocation.
-            final java.util.Map.Entry<?, ?>[] afterDrawBuffer =
-                    NativeShaderUniformBridge.borrowMapEntries(uniforms);
+            final java.util.Map.Entry<?, ?>[] afterDrawBuffer = NativeShaderUniformBridge.borrowMapEntries(uniforms);
             assertSame(baselineBuffer, afterDrawBuffer);
             NativeShaderUniformBridge.releaseMapEntries(afterDrawBuffer);
 
             // Even when the loop body throws mid-iteration, catch-release must unlock the pooled buffer.
             shaderClass.getField("failNext").setBoolean(shader, true);
-            assertThrows(java.lang.reflect.InvocationTargetException.class, () -> draw.invoke(shader, ctx, mat, matrix));
-            final java.util.Map.Entry<?, ?>[] afterThrowBuffer =
-                    NativeShaderUniformBridge.borrowMapEntries(uniforms);
+            assertThrows(
+                    java.lang.reflect.InvocationTargetException.class, () -> draw.invoke(shader, ctx, mat, matrix));
+            final java.util.Map.Entry<?, ?>[] afterThrowBuffer = NativeShaderUniformBridge.borrowMapEntries(uniforms);
             assertSame(baselineBuffer, afterThrowBuffer);
             NativeShaderUniformBridge.releaseMapEntries(afterThrowBuffer);
         }
@@ -327,14 +329,16 @@ final class ShaderUniformTransformerTest {
             java.nio.file.Files.writeString(p, e.getValue());
             args.add(p.toString());
         }
-        assertEquals(0, javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        assertEquals(
+                0, javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
         return out;
     }
 
     private static byte[] kotlinLoopFixture() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
-        cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "log", "Ljava/util/List;", null, null).visitEnd();
+        cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "log", "Ljava/util/List;", null, null)
+                .visitEnd();
         cw.visitField(Opcodes.ACC_PUBLIC, "failNext", "Z", null, null).visitEnd();
 
         MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
@@ -351,14 +355,22 @@ final class ShaderUniformTransformerTest {
         init.visitEnd();
 
         MethodVisitor initExe = cw.visitMethod(
-                Opcodes.ACC_PUBLIC, ShaderUniformTransformer.LIFECYCLE_METHODS[0], ShaderUniformTransformer.LIFECYCLE_DESCS[0], null, null);
+                Opcodes.ACC_PUBLIC,
+                ShaderUniformTransformer.LIFECYCLE_METHODS[0],
+                ShaderUniformTransformer.LIFECYCLE_DESCS[0],
+                null,
+                null);
         initExe.visitCode();
         initExe.visitInsn(Opcodes.RETURN);
         initExe.visitMaxs(0, 0);
         initExe.visitEnd();
 
         MethodVisitor setProg = cw.visitMethod(
-                Opcodes.ACC_PUBLIC, ShaderUniformTransformer.LIFECYCLE_METHODS[1], ShaderUniformTransformer.LIFECYCLE_DESCS[1], null, null);
+                Opcodes.ACC_PUBLIC,
+                ShaderUniformTransformer.LIFECYCLE_METHODS[1],
+                ShaderUniformTransformer.LIFECYCLE_DESCS[1],
+                null,
+                null);
         setProg.visitCode();
         setProg.visitInsn(Opcodes.RETURN);
         setProg.visitMaxs(0, 0);
@@ -376,10 +388,17 @@ final class ShaderUniformTransformerTest {
         bind.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
         bind.visitInsn(Opcodes.DUP);
         bind.visitLdcInsn("tex0:");
-        bind.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
+        bind.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
         bind.visitVarInsn(Opcodes.ALOAD, 4);
-        bind.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
-        bind.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
+        bind.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/lang/StringBuilder",
+                "append",
+                "(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+                false);
+        bind.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
         bind.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
         bind.visitInsn(Opcodes.POP);
         bind.visitInsn(Opcodes.RETURN);
@@ -397,11 +416,21 @@ final class ShaderUniformTransformerTest {
         Label loopEnd = new Label();
         Label noThrow = new Label();
         draw.visitVarInsn(Opcodes.ALOAD, 2);
-        draw.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/graphics3d/material/GMaterial", "getUniformMap$core", "()Ljava/util/HashMap;", false);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "com/live2d/graphics3d/material/GMaterial",
+                "getUniformMap$core",
+                "()Ljava/util/HashMap;",
+                false);
         draw.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/HashMap", "entrySet", "()Ljava/util/Set;", false);
         draw.visitInsn(Opcodes.DUP);
         draw.visitLdcInsn("");
-        draw.visitMethodInsn(Opcodes.INVOKESTATIC, "kotlin/jvm/internal/Intrinsics", "checkNotNullExpressionValue", "(Ljava/lang/Object;Ljava/lang/String;)V", false);
+        draw.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                "kotlin/jvm/internal/Intrinsics",
+                "checkNotNullExpressionValue",
+                "(Ljava/lang/Object;Ljava/lang/String;)V",
+                false);
         draw.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Iterable");
         draw.visitVarInsn(Opcodes.ASTORE, 8);
         draw.visitInsn(Opcodes.ICONST_0);
@@ -425,7 +454,8 @@ final class ShaderUniformTransformerTest {
         draw.visitTypeInsn(Opcodes.NEW, "java/lang/IllegalStateException");
         draw.visitInsn(Opcodes.DUP);
         draw.visitLdcInsn("injected");
-        draw.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
+        draw.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
         draw.visitInsn(Opcodes.ATHROW);
         draw.visitLabel(noThrow);
         draw.visitVarInsn(Opcodes.ALOAD, 0);
@@ -439,22 +469,41 @@ final class ShaderUniformTransformerTest {
         draw.visitVarInsn(Opcodes.ALOAD, 12);
         draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Map$Entry", "getKey", "()Ljava/lang/Object;", true);
         draw.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/String");
-        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, ShaderUniformTransformer.GL_OWNER, ShaderUniformTransformer.QUERY_METHOD, ShaderUniformTransformer.QUERY_DESC, true);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEINTERFACE,
+                ShaderUniformTransformer.GL_OWNER,
+                ShaderUniformTransformer.QUERY_METHOD,
+                ShaderUniformTransformer.QUERY_DESC,
+                true);
         draw.visitInsn(Opcodes.POP);
         draw.visitJumpInsn(Opcodes.GOTO, loopTop);
         draw.visitLabel(loopEnd);
 
         draw.visitVarInsn(Opcodes.ALOAD, 2);
-        draw.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/graphics3d/material/GMaterial", "getOptionalTextures$core", "()Ljava/util/HashMap;", false);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "com/live2d/graphics3d/material/GMaterial",
+                "getOptionalTextures$core",
+                "()Ljava/util/HashMap;",
+                false);
         draw.visitTypeInsn(Opcodes.NEW, "com/live2d/graphics3d/shader/s");
         draw.visitInsn(Opcodes.DUP);
         draw.visitVarInsn(Opcodes.ALOAD, 0);
         draw.visitVarInsn(Opcodes.ALOAD, 1);
         draw.visitVarInsn(Opcodes.ALOAD, 4);
-        draw.visitMethodInsn(Opcodes.INVOKESPECIAL, "com/live2d/graphics3d/shader/s", "<init>", "(Lcom/live2d/graphics3d/shader/GShader;Lcom/live2d/graphics3d/a;Lcom/jogamp/opengl/GL3;)V", false);
+        draw.visitMethodInsn(
+                Opcodes.INVOKESPECIAL,
+                "com/live2d/graphics3d/shader/s",
+                "<init>",
+                "(Lcom/live2d/graphics3d/shader/GShader;Lcom/live2d/graphics3d/a;Lcom/jogamp/opengl/GL3;)V",
+                false);
         draw.visitTypeInsn(Opcodes.CHECKCAST, "kotlin/jvm/functions/Function2");
-        draw.visitInvokeDynamicInsn("accept", "(Lkotlin/jvm/functions/Function2;)Ljava/util/function/BiConsumer;", new Handle(Opcodes.H_INVOKESTATIC, "java/lang/Object", "bsm", "()V", false));
-        draw.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/HashMap", "forEach", "(Ljava/util/function/BiConsumer;)V", false);
+        draw.visitInvokeDynamicInsn(
+                "accept",
+                "(Lkotlin/jvm/functions/Function2;)Ljava/util/function/BiConsumer;",
+                new Handle(Opcodes.H_INVOKESTATIC, "java/lang/Object", "bsm", "()V", false));
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/HashMap", "forEach", "(Ljava/util/function/BiConsumer;)V", false);
 
         draw.visitInsn(Opcodes.RETURN);
         draw.visitMaxs(5, 13);

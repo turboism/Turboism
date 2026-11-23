@@ -74,7 +74,10 @@ final class EditSubtreeCoordinator {
         if (prior != null) {
             prior.disarmAppearanceSkip();
         }
-        if (inFastPath.get() || model == null || updCtx == null || !(visibleMeshesObj instanceof List<?> visibleMeshesList)) {
+        if (inFastPath.get()
+                || model == null
+                || updCtx == null
+                || !(visibleMeshesObj instanceof List<?> visibleMeshesList)) {
             return false;
         }
         inFastPath.set(Boolean.TRUE);
@@ -432,8 +435,8 @@ final class EditSubtreeCoordinator {
             final Object src = (Object) h.deformerGetSource.invokeExact(d);
             final int srcVer = (int) h.sourceGetUpdateVersion.invokeExact(src);
             final int copiedVer = (int) h.deformerGetCopiedUpdateVersion.invokeExact(d);
-            final int kfSum = EditModelTopologyCache.computeDeformerKeyformSignature(
-                    src, c.isWarp[i], c.isRotation[i], h);
+            final int kfSum =
+                    EditModelTopologyCache.computeDeformerKeyformSignature(src, c.isWarp[i], c.isRotation[i], h);
             final boolean versionOrKeyformChanged =
                     srcVer != c.lastDefSourceUpdateVer[i] || copiedVer != srcVer || kfSum != c.lastDefKeyformSum[i];
 
@@ -441,7 +444,8 @@ final class EditSubtreeCoordinator {
             final Object form = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
             if (!formMutated) {
                 if (form != c.lastDefInterpForm[i]
-                        || (form != null && (int) h.formGetEditVersion.invokeExact(form) != c.lastDefInterpEditVer[i])) {
+                        || (form != null
+                                && (int) h.formGetEditVersion.invokeExact(form) != c.lastDefInterpEditVer[i])) {
                     formMutated = true;
                 } else if (form != null) {
                     formMutated = localFormFieldsChanged(c, i, form);
@@ -522,12 +526,13 @@ final class EditSubtreeCoordinator {
                 return false;
             }
             if (form != null) {
-                if (Float.floatToRawIntBits((float) h.meshFormGetOpacity.invokeExact(form)) != c.lastMeshOpacityBits[m]) {
+                if (Float.floatToRawIntBits((float) h.meshFormGetOpacity.invokeExact(form))
+                        != c.lastMeshOpacityBits[m]) {
                     return false;
                 }
                 final long colorHash = EditSubtreeHandles.packColorRgba(
-                                h, (Object) h.meshFormGetMultiplyColor.invokeExact(form))
-                        * COLOR_HASH_PRIME
+                                        h, (Object) h.meshFormGetMultiplyColor.invokeExact(form))
+                                * COLOR_HASH_PRIME
                         + EditSubtreeHandles.packColorRgba(h, (Object) h.meshFormGetScreenColor.invokeExact(form));
                 if (colorHash != c.lastMeshColorHash[m]) {
                     return false;
@@ -578,12 +583,11 @@ final class EditSubtreeCoordinator {
             final Object aff = c.affecters[g];
             final Object src = (Object) h.glueGetSource.invokeExact(aff);
             final Object form = (Object) h.glueGetInterpolatedForm.invokeExact(aff);
-            final boolean ownDirty =
-                    (int) h.glueGetCachedEditVersion.invokeExact(aff) != c.lastGlueCachedVer[g]
-                            || (int) h.glueSourceGetEditVersion.invokeExact(src) != c.lastGlueSourceVer[g]
-                            || (form != null
-                                    && Float.floatToRawIntBits((float) h.glueFormGetIntensity.invokeExact(form))
-                                            != c.lastGlueIntensityBits[g]);
+            final boolean ownDirty = (int) h.glueGetCachedEditVersion.invokeExact(aff) != c.lastGlueCachedVer[g]
+                    || (int) h.glueSourceGetEditVersion.invokeExact(src) != c.lastGlueSourceVer[g]
+                    || (form != null
+                            && Float.floatToRawIntBits((float) h.glueFormGetIntensity.invokeExact(form))
+                                    != c.lastGlueIntensityBits[g]);
             final int a = c.glueMeshAVisibleIdx[g];
             final int b = c.glueMeshBVisibleIdx[g];
             if (ownDirty || (a >= 0 && dirtyMesh[a]) || (b >= 0 && dirtyMesh[b])) {
@@ -653,8 +657,9 @@ final class EditSubtreeCoordinator {
         for (final int i : defIndices) {
             final Object d = c.deformers[i];
             final int pIdx = c.deformerParentIdx[i];
-            final float localScale =
-                    c.isRotation[i] ? (float) h.rotFormGetScale.invokeExact((Object) h.deformerGetInterpolatedForm.invokeExact(d)) : UNIT_SCALE;
+            final float localScale = c.isRotation[i]
+                    ? (float) h.rotFormGetScale.invokeExact((Object) h.deformerGetInterpolatedForm.invokeExact(d))
+                    : UNIT_SCALE;
             final Object localForm = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
             final float localOp = (float) h.deformerFormGetOpacity.invokeExact(localForm);
             final Object localMul = (Object) h.deformerFormGetMultiplyColor.invokeExact(localForm);
@@ -735,7 +740,8 @@ final class EditSubtreeCoordinator {
         if (transformed != out) {
             h.meshSetDeformedForm.invokeExact(mesh, transformed);
         }
-        h.meshSetParamOutsideAnyParents.invokeExact(mesh, (boolean) h.deformerIsParamOutsideHierarchy.invokeExact(parent));
+        h.meshSetParamOutsideAnyParents.invokeExact(
+                mesh, (boolean) h.deformerIsParamOutsideHierarchy.invokeExact(parent));
     }
 
     private void transformArtMeshUnchecked(final EditModelTopologyCache c, final int mIdx) {

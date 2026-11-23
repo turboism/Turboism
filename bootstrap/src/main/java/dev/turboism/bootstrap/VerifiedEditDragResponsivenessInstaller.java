@@ -55,7 +55,8 @@ final class VerifiedEditDragResponsivenessInstaller implements AutoCloseable {
                 || !VerifiedInstall.admits(ADMISSION, config, requested, jvmFeature)) {
             return false;
         }
-        return EditDragResponsivenessTarget.of(HostArtifactDigest.cached(artifact)).isPresent();
+        return EditDragResponsivenessTarget.of(HostArtifactDigest.cached(artifact))
+                .isPresent();
     }
 
     private static Optional<EditDragResponsivenessTarget> resolve(final Path artifact) throws Exception {
@@ -83,7 +84,8 @@ final class VerifiedEditDragResponsivenessInstaller implements AutoCloseable {
     private static List<WeaveTarget> targets(final EditDragResponsivenessTarget target, final WeaveSource source)
             throws Exception {
         verifyDependencies(source);
-        final List<Class<?>> loadedClasses = new ArrayList<>(target.targetClasses().size());
+        final List<Class<?>> loadedClasses =
+                new ArrayList<>(target.targetClasses().size());
         final Map<String, byte[]> references = new LinkedHashMap<>();
         for (final String internalName : target.targetClasses()) {
             final Class<?> loaded = source.load(internalName);
@@ -97,11 +99,7 @@ final class VerifiedEditDragResponsivenessInstaller implements AutoCloseable {
             final String internalName = target.targetClasses().get(index);
             final Class<?> loaded = loadedClasses.get(index);
             weaveTargets.add(WeaveTarget.single(
-                    loaded,
-                    transformer,
-                    1,
-                    () -> transformer.matchesFor(internalName),
-                    transformer::failure));
+                    loaded, transformer, 1, () -> transformer.matchesFor(internalName), transformer::failure));
         }
         return weaveTargets;
     }

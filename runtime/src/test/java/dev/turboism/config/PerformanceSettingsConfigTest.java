@@ -228,19 +228,21 @@ class PerformanceSettingsConfigTest {
         // switches + unpromoted default-OFF switches persisted false, no optimizationDefaultsVersion.
         for (Optimization optimization : OptimizationCatalog.persisted()) {
             if (Set.of(
-                    OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
-                    OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
-                    OptimizationCatalog.MESH_EDIT_ACCELERATION,
-                    OptimizationCatalog.MEMORY_LEAK_MITIGATION).contains(optimization)) {
+                            OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
+                            OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
+                            OptimizationCatalog.MESH_EDIT_ACCELERATION,
+                            OptimizationCatalog.MEMORY_LEAK_MITIGATION)
+                    .contains(optimization)) {
                 continue;
             }
-            boolean v0702DefaultOn =
-                    OptimizationCatalog.isDefaultEnabled(optimization)
-                            && !OptimizationCatalog.isLegacyPromotedDefaultKey(optimization.key());
+            boolean v0702DefaultOn = OptimizationCatalog.isDefaultEnabled(optimization)
+                    && !OptimizationCatalog.isLegacyPromotedDefaultKey(optimization.key());
             var parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? launcher : root;
             parent.put(optimization.key(), v0702DefaultOn);
         }
-        Files.writeString(home.resolve("config.json"), json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
 
         var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
         for (Optimization promoted : OptimizationCatalog.legacyPromotedDefaults()) {
@@ -253,7 +255,9 @@ class PerformanceSettingsConfigTest {
         var persisted = json.readTree(home.resolve("config.json").toFile());
         assertEquals(
                 PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
-                persisted.path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD).asInt());
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
         try (var service = new OptimizationSettingsFileService(home)) {
             assertEquals(OptimizationPreset.BALANCED, OptimizationPreset.detect(service));
         }
@@ -270,16 +274,19 @@ class PerformanceSettingsConfigTest {
         launcher.put("cubismJvm", "graalvm");
         for (Optimization optimization : OptimizationCatalog.persisted()) {
             if (Set.of(
-                    OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
-                    OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
-                    OptimizationCatalog.MESH_EDIT_ACCELERATION,
-                    OptimizationCatalog.MEMORY_LEAK_MITIGATION).contains(optimization)) {
+                            OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
+                            OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
+                            OptimizationCatalog.MESH_EDIT_ACCELERATION,
+                            OptimizationCatalog.MEMORY_LEAK_MITIGATION)
+                    .contains(optimization)) {
                 continue;
             }
             var parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? launcher : root;
             parent.put(optimization.key(), false);
         }
-        Files.writeString(home.resolve("config.json"), json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
 
         var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
         for (Optimization optimization : OptimizationCatalog.persisted()) {
@@ -288,7 +295,9 @@ class PerformanceSettingsConfigTest {
         var persisted = json.readTree(home.resolve("config.json").toFile());
         assertEquals(
                 PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
-                persisted.path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD).asInt());
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
         try (var service = new OptimizationSettingsFileService(home)) {
             assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(service));
         }
@@ -303,7 +312,8 @@ class PerformanceSettingsConfigTest {
         }
         var reloaded = PerformanceSettingsConfig.load(home, ignored -> {});
         assertEquals("false", reloaded.value(Field.WARP_GRID_INTERPOLATION).value());
-        assertEquals("global-config", reloaded.value(Field.WARP_GRID_INTERPOLATION).source());
+        assertEquals(
+                "global-config", reloaded.value(Field.WARP_GRID_INTERPOLATION).source());
         assertEquals("false", reloaded.value(Field.MODEL_INSTANCE_COALESCE).value());
         assertEquals("true", reloaded.value(Field.MESH_INTERPOLATION).value());
         try (var service = new OptimizationSettingsFileService(home)) {

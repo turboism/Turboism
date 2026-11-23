@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.runtime.env.ProtonEnvironment;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -117,7 +118,8 @@ public final class PerformanceSettingsConfig {
      * Root field marking that legacy v0.70.2 default-off optimization preferences were already
      * migrated, preventing re-promotion after later explicit user opt-outs.
      */
-    public static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD = "optimizationDefaultsVersion";
+    public static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD =
+            RuntimeConfigValidator.OPTIMIZATION_DEFAULTS_VERSION_FIELD;
 
     /** Current optimization defaults migration epoch written to migrated and fresh configs. */
     public static final int CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1;
@@ -185,7 +187,9 @@ public final class PerformanceSettingsConfig {
     /** Reads an editable preference using the same field defaults as startup, without diagnostic overrides. */
     public static String saved(JsonNode root, Field field, boolean proton) {
         JsonNode node = (field.launcher ? root.path(LAUNCHER_FIELD) : root).get(field.key);
-        if (field.nativeOptimization() && root instanceof ObjectNode rootObject && needsLegacyDefaultsMigration(rootObject)) {
+        if (field.nativeOptimization()
+                && root instanceof ObjectNode rootObject
+                && needsLegacyDefaultsMigration(rootObject)) {
             if (isExplicitOffPreset(rootObject)) {
                 return node == null || node.isNull() ? Boolean.FALSE.toString() : node.asText();
             }

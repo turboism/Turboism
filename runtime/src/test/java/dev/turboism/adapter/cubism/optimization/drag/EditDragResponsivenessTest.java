@@ -83,15 +83,7 @@ final class EditDragResponsivenessTest {
         final MouseEvent drag2 = dragEvent(canvas, 20, 20, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1);
         final MouseEvent drag3 = dragEvent(canvas, 30, 30, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1);
         final MouseEvent release = new MouseEvent(
-                canvas,
-                MouseEvent.MOUSE_RELEASED,
-                System.currentTimeMillis(),
-                0,
-                30,
-                30,
-                1,
-                false,
-                MouseEvent.BUTTON1);
+                canvas, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0, 30, 30, 1, false, MouseEvent.BUTTON1);
         final MouseEvent afterReleaseDrag = dragEvent(canvas, 40, 40, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1);
 
         queue.postEvent(drag2);
@@ -110,11 +102,7 @@ final class EditDragResponsivenessTest {
 
         // Different modifiers, keys, or components block coalescing cleanly.
         final MouseEvent shiftedDrag = dragEvent(
-                canvas,
-                50,
-                50,
-                InputEvent.BUTTON1_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK,
-                MouseEvent.BUTTON1);
+                canvas, 50, 50, InputEvent.BUTTON1_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK, MouseEvent.BUTTON1);
         queue.postEvent(shiftedDrag);
         assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag3));
         assertEquals(shiftedDrag, queue.getNextEvent());
@@ -151,8 +139,8 @@ final class EditDragResponsivenessTest {
 
         // Non-canvas widget drags do not activate canvas drag suppression.
         final JPanel sliderComp = new JPanel();
-        final MouseEvent sliderPress = new MouseEvent(
-                sliderComp, MouseEvent.MOUSE_PRESSED, 1L, InputEvent.BUTTON1_DOWN_MASK, 0, 0, 1, false);
+        final MouseEvent sliderPress =
+                new MouseEvent(sliderComp, MouseEvent.MOUSE_PRESSED, 1L, InputEvent.BUTTON1_DOWN_MASK, 0, 0, 1, false);
         bridge.onMousePressed(sliderListener, sliderPress);
         assertFalse(bridge.isCanvasDragging());
         assertFalse(bridge.shouldDeferInspector(inspectorCtrl));
@@ -162,8 +150,7 @@ final class EditDragResponsivenessTest {
         final MouseEvent press = new MouseEvent(
                 canvasComp, MouseEvent.MOUSE_PRESSED, 2L, InputEvent.BUTTON1_DOWN_MASK, 10, 10, 1, false);
         final MouseEvent drag = dragEvent(canvasComp, 25, 25, InputEvent.BUTTON1_DOWN_MASK, MouseEvent.BUTTON1);
-        final MouseEvent release = new MouseEvent(
-                canvasComp, MouseEvent.MOUSE_RELEASED, 3L, 0, 25, 25, 1, false);
+        final MouseEvent release = new MouseEvent(canvasComp, MouseEvent.MOUSE_RELEASED, 3L, 0, 25, 25, 1, false);
 
         bridge.onMousePressed(canvasListener, press);
         assertTrue(bridge.isCanvasDragging());

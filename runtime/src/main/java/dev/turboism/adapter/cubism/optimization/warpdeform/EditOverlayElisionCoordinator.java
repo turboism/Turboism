@@ -36,8 +36,7 @@ final class EditOverlayElisionCoordinator {
     private Set<Object> cachedGDeformers = Set.of();
     private long legacyLastGlobalSig = Long.MIN_VALUE;
 
-    EditOverlayElisionCoordinator(
-            final EditSubtreeHandles handles, final EditSubtreeCoordinator subtreeCoordinator) {
+    EditOverlayElisionCoordinator(final EditSubtreeHandles handles, final EditSubtreeCoordinator subtreeCoordinator) {
         this.h = handles;
         this.subtreeCoordinator = subtreeCoordinator;
     }
@@ -75,7 +74,8 @@ final class EditOverlayElisionCoordinator {
             if (editMode == null) {
                 return false;
             }
-            final FrameGlobalState frame = captureFrameGlobal(actionPack, editMode, hideSelected, isDeformerVisible, rotMode);
+            final FrameGlobalState frame =
+                    captureFrameGlobal(actionPack, editMode, hideSelected, isDeformerVisible, rotMode);
             if (frame == null) {
                 return false;
             }
@@ -144,7 +144,8 @@ final class EditOverlayElisionCoordinator {
             if (editMode == null) {
                 return;
             }
-            final FrameGlobalState frame = captureFrameGlobal(actionPack, editMode, hideSelected, isDeformerVisible, rotMode);
+            final FrameGlobalState frame =
+                    captureFrameGlobal(actionPack, editMode, hideSelected, isDeformerVisible, rotMode);
             if (frame == null) {
                 return;
             }
@@ -154,7 +155,8 @@ final class EditOverlayElisionCoordinator {
             }
             final boolean showOverlay = (boolean) h.sourceIsVisibleHierarchy.invokeExact(src) && !hideSelected;
             final boolean isWarp = h.warpDeformerClass.isInstance(deformer);
-            final boolean useBone = !isWarp && h.rotDeformerClass.isInstance(deformer) && resolveUseBoneUi(src, rotMode);
+            final boolean useBone =
+                    !isWarp && h.rotDeformerClass.isInstance(deformer) && resolveUseBoneUi(src, rotMode);
             final Object draw = showOverlay ? findDrawEntity(deformer, isWarp, useBone) : null;
             if (showOverlay && draw == null) {
                 return;
@@ -241,8 +243,8 @@ final class EditOverlayElisionCoordinator {
                     if (useBone != entry.lastUseBone || !matchesDrawType(entry.primaryDraw, isWarp, useBone)) {
                         return false;
                     }
-                    dirtyFlags[i] = isDeformerAffectedOrSelected(d, src, frame)
-                            || !matchesDeformerGeometry(d, isWarp, entry);
+                    dirtyFlags[i] =
+                            isDeformerAffectedOrSelected(d, src, frame) || !matchesDeformerGeometry(d, isWarp, entry);
                 }
                 resolvedEntries[i] = entry;
                 showFlags[i] = show;
@@ -262,7 +264,8 @@ final class EditOverlayElisionCoordinator {
                     continue;
                 }
                 final Object guid = (Object) h.deformerGetGuid.invokeExact(d);
-                final boolean isSelected = guid != null && (boolean) h.selectorIsSelected.invokeExact(frame.selector, guid);
+                final boolean isSelected =
+                        guid != null && (boolean) h.selectorIsSelected.invokeExact(frame.selector, guid);
                 final boolean isWarp = h.warpDeformerClass.isInstance(d);
                 invokeLegacyDrawUpdate(entry.primaryDraw, actionPack, isSelected, isWarp, entry.lastUseBone);
                 h.sceneGraphSetVolatile.invokeExact(sceneGraph, entry.primaryDraw);
@@ -397,8 +400,8 @@ final class EditOverlayElisionCoordinator {
         return 0.0f;
     }
 
-    private boolean isDeformerAffectedOrSelected(
-            final Object deformer, final Object src, final FrameGlobalState frame) throws Throwable {
+    private boolean isDeformerAffectedOrSelected(final Object deformer, final Object src, final FrameGlobalState frame)
+            throws Throwable {
         if (frame.fDeformers.contains(deformer) || frame.gDeformers.contains(deformer)) {
             return true;
         }
@@ -423,8 +426,8 @@ final class EditOverlayElisionCoordinator {
         return false;
     }
 
-    private boolean matchesDeformerGeometry(
-            final Object deformer, final boolean isWarp, final OverlayEntry entry) throws Throwable {
+    private boolean matchesDeformerGeometry(final Object deformer, final boolean isWarp, final OverlayEntry entry)
+            throws Throwable {
         if ((boolean) h.deformerGetDirtyDeformedForm.invokeExact(deformer)) {
             return false;
         }
@@ -501,9 +504,8 @@ final class EditOverlayElisionCoordinator {
         if (!(childrenObj instanceof Iterable<?> children)) {
             return null;
         }
-        final Class<?> targetDrawClass = isWarp
-                ? h.warpDrawClass
-                : (useBone ? h.rotDrawBoneClass : h.rotDrawNormalClass);
+        final Class<?> targetDrawClass =
+                isWarp ? h.warpDrawClass : (useBone ? h.rotDrawBoneClass : h.rotDrawNormalClass);
         for (final Object child : children) {
             if (targetDrawClass.isInstance(child)) {
                 return child;
@@ -592,11 +594,7 @@ final class EditOverlayElisionCoordinator {
     }
 
     private record FrameGlobalState(
-            long globalSig,
-            Object selector,
-            Set<Object> rGuids,
-            Set<Object> fDeformers,
-            Set<Object> gDeformers) {}
+            long globalSig, Object selector, Set<Object> rGuids, Set<Object> fDeformers, Set<Object> gDeformers) {}
 
     private static final class OverlayEntry {
         Object primaryDraw;

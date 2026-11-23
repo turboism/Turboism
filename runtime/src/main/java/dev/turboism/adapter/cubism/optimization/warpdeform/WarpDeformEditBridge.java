@@ -63,12 +63,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     public static final String DRAW_SOFT_SELECTION_PROPERTY = "turboism.warp-deform-edit.draw-soft-selection";
 
     /** {@code MethodHandle} slot: {@code (updater, model, visibleMeshes, updCtx, viewCtx, ctx5) -> boolean}. */
-    public static final String EDIT_SUBTREE_UPDATE_MODEL_PROPERTY =
-            "turboism.warp-deform-edit.subtree-update-model";
+    public static final String EDIT_SUBTREE_UPDATE_MODEL_PROPERTY = "turboism.warp-deform-edit.subtree-update-model";
 
     /** {@code MethodHandle} slot: {@code (updater, model, visibleMeshes, updCtx, viewCtx, ctx5) -> void}. */
-    public static final String EDIT_SUBTREE_END_MODEL_PROPERTY =
-            "turboism.warp-deform-edit.subtree-end-model";
+    public static final String EDIT_SUBTREE_END_MODEL_PROPERTY = "turboism.warp-deform-edit.subtree-end-model";
 
     /** {@code MethodHandle} slot: {@code (artMesh, model) -> boolean}. */
     public static final String EDIT_SUBTREE_SKIP_MESH_APPEARANCE_PROPERTY =
@@ -81,12 +79,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     public static final String EDIT_OVERLAY_RECORD_PROPERTY = "turboism.warp-deform-edit.overlay-record";
 
     /** {@code MethodHandle} slot: {@code (jView) -> boolean}. */
-    public static final String EDIT_LEGACY_OVERLAY_ELIDE_PROPERTY =
-            "turboism.warp-deform-edit.legacy-overlay-elide";
+    public static final String EDIT_LEGACY_OVERLAY_ELIDE_PROPERTY = "turboism.warp-deform-edit.legacy-overlay-elide";
 
     /** {@code MethodHandle} slot: {@code (jView) -> void}. */
-    public static final String EDIT_LEGACY_OVERLAY_RECORD_PROPERTY =
-            "turboism.warp-deform-edit.legacy-overlay-record";
+    public static final String EDIT_LEGACY_OVERLAY_RECORD_PROPERTY = "turboism.warp-deform-edit.legacy-overlay-record";
 
     /** Diagnostic counter snapshot slot ({@code Supplier<Map<String, Long>>}). */
     public static final String STATS_PROPERTY = "turboism.warp-deform-edit.stats";
@@ -845,24 +841,13 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                         this,
                         "recordDeformerOverlay",
                         MethodType.methodType(
-                                void.class,
-                                Object.class,
-                                boolean.class,
-                                boolean.class,
-                                Object.class,
-                                Object.class)));
+                                void.class, Object.class, boolean.class, boolean.class, Object.class, Object.class)));
         slots.put(
                 EDIT_LEGACY_OVERLAY_ELIDE_PROPERTY,
-                lookup.bind(
-                        this,
-                        "tryElideLegacyDeformerOverlay",
-                        MethodType.methodType(boolean.class, Object.class)));
+                lookup.bind(this, "tryElideLegacyDeformerOverlay", MethodType.methodType(boolean.class, Object.class)));
         slots.put(
                 EDIT_LEGACY_OVERLAY_RECORD_PROPERTY,
-                lookup.bind(
-                        this,
-                        "recordLegacyDeformerOverlay",
-                        MethodType.methodType(void.class, Object.class)));
+                lookup.bind(this, "recordLegacyDeformerOverlay", MethodType.methodType(void.class, Object.class)));
         slots.put(STATS_PROPERTY, statistics);
         return Map.copyOf(slots);
     }

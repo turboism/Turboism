@@ -545,14 +545,10 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 null,
                 OBJECT_INTERNAL,
                 null);
-        writer.visitField(
-                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-                        BOOT_HANDLE_FIELD,
-                        VAR_HANDLE_DESCRIPTOR,
-                        null,
-                        null)
+        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, BOOT_HANDLE_FIELD, VAR_HANDLE_DESCRIPTOR, null, null)
                 .visitEnd();
-        final MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
+        final MethodVisitor init =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
         init.visitCode();
         init.visitVarInsn(Opcodes.ALOAD, 0);
         init.visitMethodInsn(Opcodes.INVOKESPECIAL, OBJECT_INTERNAL, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, false);
@@ -590,7 +586,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
         clinit.visitMaxs(0, 0);
         clinit.visitEnd();
 
-        final MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
+        final MethodVisitor init =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
         init.visitCode();
         init.visitVarInsn(Opcodes.ALOAD, 0);
         init.visitMethodInsn(Opcodes.INVOKESPECIAL, OBJECT_INTERNAL, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, false);
@@ -797,8 +794,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
     }
 
     private static void emitApplyAllocateMatrixMethod(final ClassWriter writer) {
-        final MethodVisitor mv = writer.visitMethod(
-                Opcodes.ACC_PUBLIC, "accept", "(L" + OBJECT_INTERNAL + ";)V", null, null);
+        final MethodVisitor mv =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, "accept", "(L" + OBJECT_INTERNAL + ";)V", null, null);
         mv.visitCode();
 
         mv.visitTypeInsn(Opcodes.NEW, MatrixScratchTransformer.MATRIX);

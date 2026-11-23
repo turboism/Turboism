@@ -24,8 +24,7 @@ final class EditSubtreeMethodWeavers {
     private static final String MH_SKIP_MESH_APPEARANCE_DESC = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
     private static final String MH_OVERLAY_ELIDE_DESC =
             "(Ljava/lang/Object;Ljava/lang/Object;ZZLjava/lang/Object;Ljava/lang/Object;)Z";
-    private static final String MH_OVERLAY_RECORD_DESC =
-            "(Ljava/lang/Object;ZZLjava/lang/Object;Ljava/lang/Object;)V";
+    private static final String MH_OVERLAY_RECORD_DESC = "(Ljava/lang/Object;ZZLjava/lang/Object;Ljava/lang/Object;)V";
     private static final String MH_LEGACY_OVERLAY_ELIDE_DESC = "(Ljava/lang/Object;)Z";
     private static final String MH_LEGACY_OVERLAY_RECORD_DESC = "(Ljava/lang/Object;)V";
 
@@ -193,10 +192,7 @@ final class EditSubtreeMethodWeavers {
         private final ArgEmitter headArgs;
 
         private HeadGateOnlyAdapter(
-                final MethodVisitor out,
-                final String headSlotKey,
-                final String headMhDesc,
-                final ArgEmitter headArgs) {
+                final MethodVisitor out, final String headSlotKey, final String headMhDesc, final ArgEmitter headArgs) {
             super(Opcodes.ASM9, out);
             this.headSlotKey = headSlotKey;
             this.headMhDesc = headMhDesc;

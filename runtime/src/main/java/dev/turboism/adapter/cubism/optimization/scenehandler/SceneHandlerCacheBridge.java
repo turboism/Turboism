@@ -51,11 +51,9 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
     private static final String PREDICATE_INTERNAL_NAME =
             "dev/turboism/adapter/cubism/optimization/scenehandler/SceneHandlerPredicate";
     private static final String SCAN_ENTITY_METHOD = "scanEntity";
-    private static final String SCAN_ENTITY_DESCRIPTOR =
-            "(L" + SceneHandlerCacheTarget.ENTITY_OWNER + ";)Z";
+    private static final String SCAN_ENTITY_DESCRIPTOR = "(L" + SceneHandlerCacheTarget.ENTITY_OWNER + ";)Z";
     private static final String SCAN_ENTITIES_METHOD = "scanEntities";
-    private static final String SCAN_ENTITIES_DESCRIPTOR =
-            "(L" + SceneHandlerCacheTarget.ENTITIES_OWNER + ";)Z";
+    private static final String SCAN_ENTITIES_DESCRIPTOR = "(L" + SceneHandlerCacheTarget.ENTITIES_OWNER + ";)Z";
 
     private final Predicate<Object> mouseHandlerDetector;
 
@@ -260,7 +258,8 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
                 OBJECT_INTERNAL,
                 new String[] {PREDICATE_INTERNAL});
 
-        final MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
+        final MethodVisitor init =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
         init.visitCode();
         init.visitVarInsn(Opcodes.ALOAD, 0);
         init.visitMethodInsn(Opcodes.INVOKESPECIAL, OBJECT_INTERNAL, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, false);
@@ -277,8 +276,8 @@ public final class SceneHandlerCacheBridge implements AutoCloseable {
     }
 
     private static void emitTestMethod(final ClassWriter writer) {
-        final MethodVisitor mv = writer.visitMethod(
-                Opcodes.ACC_PUBLIC, "test", "(L" + OBJECT_INTERNAL + ";)Z", null, null);
+        final MethodVisitor mv =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, "test", "(L" + OBJECT_INTERNAL + ";)Z", null, null);
         mv.visitCode();
         final Label checkHandler = new Label();
         final Label checkEntity = new Label();

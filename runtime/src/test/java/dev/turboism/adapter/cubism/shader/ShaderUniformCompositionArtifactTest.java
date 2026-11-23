@@ -71,11 +71,13 @@ class ShaderUniformCompositionArtifactTest {
                         version + ": the reviewed draw body must hold exactly one query");
                 assertEquals(
                         0,
-                        countInDraw(patched, (owner, name) -> owner.equals("java/util/HashMap") && name.equals("entrySet")),
+                        countInDraw(
+                                patched, (owner, name) -> owner.equals("java/util/HashMap") && name.equals("entrySet")),
                         version + ": entrySet() must be eliminated from preDraw_exe");
                 assertEquals(
                         0,
-                        countInDraw(patched, (owner, name) -> owner.equals("java/util/HashMap") && name.equals("forEach")),
+                        countInDraw(
+                                patched, (owner, name) -> owner.equals("java/util/HashMap") && name.equals("forEach")),
                         version + ": HashMap.forEach() must be eliminated from preDraw_exe");
                 assertEquals(
                         2,

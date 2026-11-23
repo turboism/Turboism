@@ -818,8 +818,9 @@ public final class OptimizationCatalog {
     private static final List<Optimization> PERSISTED =
             ALL.stream().filter(Optimization::persisted).toList();
 
-    private static final List<Optimization> DEFAULT_ENABLED =
-            PERSISTED.stream().filter(entry -> !DEFAULT_OFF_OPTIMIZATIONS.contains(entry)).toList();
+    private static final List<Optimization> DEFAULT_ENABLED = PERSISTED.stream()
+            .filter(entry -> !DEFAULT_OFF_OPTIMIZATIONS.contains(entry))
+            .toList();
 
     private static final List<Optimization> LEGACY_PROMOTED_DEFAULTS = DEFAULT_ENABLED.stream()
             .filter(entry -> LEGACY_PROMOTED_DEFAULT_OFF_KEYS.contains(entry.key()))

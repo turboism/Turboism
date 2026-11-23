@@ -189,13 +189,12 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     public static final String OVERLAY_HELPER_METHOD = "a";
 
     /** Reviewed overlay descriptor on {@code K$b} in 5.1+ builds. */
-    public static final String OVERLAY_HELPER_DESCRIPTOR =
-            "(Lcom/live2d/cubism/doc/model/deformer/ACDeformer;"
-                    + "Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;"
-                    + "ZZ"
-                    + "Lcom/live2d/cubism/setting/AppSetting$RotationDeformer$Mode;"
-                    + "Lcom/live2d/cubism/view/context/actionManager/aG;"
-                    + "Lkotlin/jvm/functions/Function1;)V";
+    public static final String OVERLAY_HELPER_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/deformer/ACDeformer;"
+            + "Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;"
+            + "ZZ"
+            + "Lcom/live2d/cubism/setting/AppSetting$RotationDeformer$Mode;"
+            + "Lcom/live2d/cubism/view/context/actionManager/aG;"
+            + "Lkotlin/jvm/functions/Function1;)V";
 
     /** Reviewed {@code updateModel} method name on {@code aj..ay} updater classes. */
     public static final String UPDATE_MODEL_METHOD = "a";

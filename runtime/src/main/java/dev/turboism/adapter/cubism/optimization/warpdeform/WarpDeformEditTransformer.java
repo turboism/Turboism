@@ -187,8 +187,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
             } else if (target.updaterOwner().equals(owner)) {
                 ownerMethods = List.of(
                         new MethodSpec(WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.coreUpdateDescriptor()),
-                        new MethodSpec(
-                                WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.artMeshAppearanceDescriptor()));
+                        new MethodSpec(WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.artMeshAppearanceDescriptor()));
             } else if (target.overlayOwner().equals(owner)) {
                 detectedOverlayMethod = WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER.equals(owner)
                         ? detectLegacyOverlayMethod(refBytes)

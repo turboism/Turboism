@@ -421,8 +421,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
         }
 
         @Override
-        public void visitFieldInsn(
-                final int opcode, final String owner, final String name, final String descriptor) {
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
@@ -478,7 +477,8 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 final Handle bootstrapMethodHandle,
                 final Object... bootstrapMethodArguments) {
             if (mode == Mode.TEXTURE_LAMBDA) {
-                buffer.add(mv -> mv.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments));
+                buffer.add(mv ->
+                        mv.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments));
                 if (step == 7 && BI_CONSUMER_ACCEPT.equals(name) && BI_CONSUMER_INDY_DESC.equals(descriptor)) {
                     step = 8;
                 } else {
@@ -699,7 +699,8 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
 
             // Stack has HashMap from getUniformMap$core(). Skip bridge calls when empty.
             super.visitInsn(Opcodes.DUP);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, HASH_MAP_OWNER, HASH_MAP_SIZE_METHOD, HASH_MAP_SIZE_DESC, false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, HASH_MAP_OWNER, HASH_MAP_SIZE_METHOD, HASH_MAP_SIZE_DESC, false);
             super.visitJumpInsn(Opcodes.IFNE, hasEntries);
             super.visitInsn(Opcodes.POP);
             super.visitJumpInsn(Opcodes.GOTO, afterLoop);
@@ -820,7 +821,8 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
 
             // Stack has HashMap from getOptionalTextures$core(). Skip bridge calls when empty.
             super.visitInsn(Opcodes.DUP);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, HASH_MAP_OWNER, HASH_MAP_SIZE_METHOD, HASH_MAP_SIZE_DESC, false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, HASH_MAP_OWNER, HASH_MAP_SIZE_METHOD, HASH_MAP_SIZE_DESC, false);
             super.visitJumpInsn(Opcodes.IFNE, hasEntries);
             super.visitInsn(Opcodes.POP);
             super.visitJumpInsn(Opcodes.GOTO, afterLoop);
@@ -858,8 +860,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
             super.visitVarInsn(Opcodes.ALOAD, entrySlot);
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, MAP_ENTRY_OWNER, MAP_ENTRY_GET_KEY_METHOD, NEXT_DESC, true);
             super.visitTypeInsn(Opcodes.CHECKCAST, STRING_OWNER);
-            super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL, OWNER, BIND_TEXTURE_METHOD, BIND_TEXTURE_DESC, false);
+            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, OWNER, BIND_TEXTURE_METHOD, BIND_TEXTURE_DESC, false);
 
             super.visitIincInsn(dummySlot, 1);
             super.visitJumpInsn(Opcodes.GOTO, texLoopTop);

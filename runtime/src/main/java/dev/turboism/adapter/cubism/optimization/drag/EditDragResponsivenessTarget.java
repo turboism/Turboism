@@ -16,8 +16,7 @@ import java.util.Optional;
  * @param version reviewed Cubism release version
  * @param targetClasses reviewed host internal class names for this build
  */
-public record EditDragResponsivenessTarget(
-        HostArtifactDigest digest, String version, List<String> targetClasses) {
+public record EditDragResponsivenessTarget(HostArtifactDigest digest, String version, List<String> targetClasses) {
 
     /** Shared preference property gating edit-mode acceleration features. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.warpDeformEditAcceleration";

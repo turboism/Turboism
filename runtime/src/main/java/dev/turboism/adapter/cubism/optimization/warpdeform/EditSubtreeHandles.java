@@ -4,7 +4,6 @@ import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ModelUpdateTargetTable;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.HashSet;
 import java.util.Objects;
@@ -38,10 +37,8 @@ final class EditSubtreeHandles {
     private static final String AC_CONTROLLABLE_SOURCE_OWNER =
             "com/live2d/cubism/doc/model/ACParameterControllableSource";
     private static final String AC_FORM_OWNER = "com/live2d/cubism/doc/model/ACForm";
-    private static final String ROT_DEFORMER_OWNER =
-            "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformer";
-    private static final String ROT_FORM_OWNER =
-            "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm";
+    private static final String ROT_DEFORMER_OWNER = "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformer";
+    private static final String ROT_FORM_OWNER = "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm";
     private static final String ROT_SOURCE_OWNER =
             "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerSource";
     private static final String ART_MESH_OWNER = "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh";
@@ -305,7 +302,8 @@ final class EditSubtreeHandles {
             Class<?> updateContextClass,
             Class<?> contextParamClass) {}
 
-    private EditSubtreeHandles(final ClassLoader loader, final UpdaterMatch updater) throws ReflectiveOperationException {
+    private EditSubtreeHandles(final ClassLoader loader, final UpdaterMatch updater)
+            throws ReflectiveOperationException {
         final MethodType objUnary = MethodType.methodType(Object.class, Object.class);
         final MethodType boolUnary = MethodType.methodType(boolean.class, Object.class);
         final MethodType intUnary = MethodType.methodType(int.class, Object.class);
@@ -387,22 +385,23 @@ final class EditSubtreeHandles {
             formAnimTInstance = Objects.requireNonNull(
                     HostHandles.field(formAnimTClass, SINGLETON_FIELD).get(null), "formAnimation.t.a");
             final Object defGuidComp = Objects.requireNonNull(
-                    HostHandles.field(HostHandles.load(loader, DEFORMER_GUID_OWNER), COMPANION_FIELD).get(null),
+                    HostHandles.field(HostHandles.load(loader, DEFORMER_GUID_OWNER), COMPANION_FIELD)
+                            .get(null),
                     "CDeformerGuid.Companion");
             emptyDeformerGuid = HostHandles.virtual(
-                            deformerGuidCompanionClass,
-                            SINGLETON_FIELD,
-                            "()L" + DEFORMER_GUID_OWNER + ";",
-                            objUnary)
+                            deformerGuidCompanionClass, SINGLETON_FIELD, "()L" + DEFORMER_GUID_OWNER + ";", objUnary)
                     .invokeExact(defGuidComp);
             final Object coordComp = Objects.requireNonNull(
-                    HostHandles.field(HostHandles.load(loader, COORD_TYPE_OWNER), COMPANION_FIELD).get(null),
+                    HostHandles.field(HostHandles.load(loader, COORD_TYPE_OWNER), COMPANION_FIELD)
+                            .get(null),
                     "CoordType.Companion");
             canvasCoordType = HostHandles.virtual(
                             coordTypeCompanionClass, "c", "()L" + COORD_TYPE_OWNER + ";", objUnary)
                     .invokeExact(coordComp);
-            rotModeAuto = Objects.requireNonNull(HostHandles.field(rotModeClass, "a").get(null), "Mode.a");
-            rotModeBone = Objects.requireNonNull(HostHandles.field(rotModeClass, "b").get(null), "Mode.b");
+            rotModeAuto =
+                    Objects.requireNonNull(HostHandles.field(rotModeClass, "a").get(null), "Mode.a");
+            rotModeBone =
+                    Objects.requireNonNull(HostHandles.field(rotModeClass, "b").get(null), "Mode.b");
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             throw new ReflectiveOperationException("Failed loading singleton/enum constants", failure);
@@ -466,7 +465,10 @@ final class EditSubtreeHandles {
         modelGetSubDivisionEnabled = HostHandles.virtual(modelClass, "getSubDivisionEnabled", "()Z", boolUnary);
         modelGetSyncPartVis = HostHandles.virtual(modelClass, "getSyncWithPartSourceVisibility", "()Z", boolUnary);
         modelSetLastUpdatedTime = HostHandles.virtual(
-                modelClass, "setLastUpdatedTimeMSec", "(J)V", MethodType.methodType(void.class, Object.class, long.class));
+                modelClass,
+                "setLastUpdatedTimeMSec",
+                "(J)V",
+                MethodType.methodType(void.class, Object.class, long.class));
         modelSourceIsEditing = HostHandles.virtual(modelSourceClass, "isModelEditing", "()Z", boolUnary);
 
         paramSetGetUpdateVersion = HostHandles.virtual(paramSetClass, "getUpdateVersion", "()I", intUnary);
@@ -491,7 +493,10 @@ final class EditSubtreeHandles {
                 HostHandles.virtual(selectorMainClass, "getSelectedObjects", "()Ljava/util/List;", objUnary);
         selectorGetSelectedCount = HostHandles.virtual(guidSelectorClass, "getSelectedCount", "()I", intUnary);
         selectorGetHoveringObject = HostHandles.virtual(
-                guidSelectorClass, "getHoveringObject", "()Lcom/live2d/cubism/doc/selection/ACGuidSelection;", objUnary);
+                guidSelectorClass,
+                "getHoveringObject",
+                "()Lcom/live2d/cubism/doc/selection/ACGuidSelection;",
+                objUnary);
         selectorIsSelected = HostHandles.virtual(
                 guidSelectorClass,
                 "isSelected",
@@ -510,8 +515,8 @@ final class EditSubtreeHandles {
                 HostHandles.virtual(canvasSettingClass, "getHideSelectedState", "()Z", boolUnary);
         appSettingGetDeformer =
                 HostHandles.virtual(appSettingClass, "getDeformer", "()L" + DEFORMER_SETTING_OWNER + ";", objUnary);
-        deformerSettingGetRotDeformer =
-                HostHandles.virtual(deformerSettingClass, "getRotationDeformer", "()L" + ROT_SETTING_OWNER + ";", objUnary);
+        deformerSettingGetRotDeformer = HostHandles.virtual(
+                deformerSettingClass, "getRotationDeformer", "()L" + ROT_SETTING_OWNER + ";", objUnary);
         rotSettingGetMode = HostHandles.virtual(rotSettingClass, "getMode", "()L" + ROT_MODE_OWNER + ";", objUnary);
         appSettingGetDev =
                 HostHandles.virtual(appSettingClass, "getDeveloper", "()L" + DEV_SETTING_OWNER + ";", objUnary);
@@ -529,18 +534,18 @@ final class EditSubtreeHandles {
         morphTargetApply = (MethodHandle) morphResolved[1];
 
         deformerGetGuid = HostHandles.virtual(acDeformerClass, "getGuid", "()L" + DEFORMER_GUID_OWNER + ";", objUnary);
-        deformerGetTargetGuid =
-                HostHandles.virtual(acDeformerClass, "getTargetDeformerGuid", "()L" + DEFORMER_GUID_OWNER + ";", objUnary);
+        deformerGetTargetGuid = HostHandles.virtual(
+                acDeformerClass, "getTargetDeformerGuid", "()L" + DEFORMER_GUID_OWNER + ";", objUnary);
         deformerGetSource =
                 HostHandles.virtual(acDeformerClass, "getSource", "()L" + AC_DEFORMER_SOURCE_OWNER + ";", objUnary);
         deformerGetDirtyDeformedForm = HostHandles.virtual(acDeformerClass, "getDirtyDeformedForm", "()Z", boolUnary);
         deformerSetDirtyDeformedForm = HostHandles.virtual(acDeformerClass, "setDirtyDeformedForm", "(Z)V", setBool);
-        deformerGetInterpolatedForm =
-                HostHandles.virtual(acDeformerClass, "getInterpolatedForm", "()L" + AC_DEFORMER_FORM_OWNER + ";", objUnary);
+        deformerGetInterpolatedForm = HostHandles.virtual(
+                acDeformerClass, "getInterpolatedForm", "()L" + AC_DEFORMER_FORM_OWNER + ";", objUnary);
         deformerGetDeformedForm =
                 HostHandles.virtual(acDeformerClass, "getDeformedForm", "()L" + AC_DEFORMER_FORM_OWNER + ";", objUnary);
-        deformerGetCalculatedForm =
-                HostHandles.virtual(acDeformerClass, "getCalculatedForm", "()L" + AC_DEFORMER_FORM_OWNER + ";", objUnary);
+        deformerGetCalculatedForm = HostHandles.virtual(
+                acDeformerClass, "getCalculatedForm", "()L" + AC_DEFORMER_FORM_OWNER + ";", objUnary);
         deformerGetAnimatedForm =
                 HostHandles.virtual(acDeformerClass, "getAnimatedForm", "()L" + AC_DEFORMER_FORM_OWNER + ";", objUnary);
         deformerGetLocalAnimatedForm = HostHandles.virtual(
@@ -555,7 +560,8 @@ final class EditSubtreeHandles {
         deformerSetCalcTotalScale = HostHandles.virtual(acDeformerClass, "setCalculatedTotalScale", "(F)V", setFloat);
         deformerGetCalcTotalOpacity =
                 HostHandles.virtual(acDeformerClass, "getCalculatedTotalOpacity", "()F", floatUnary);
-        deformerSetCalcTotalOpacity = HostHandles.virtual(acDeformerClass, "setCalculatedTotalOpacity", "(F)V", setFloat);
+        deformerSetCalcTotalOpacity =
+                HostHandles.virtual(acDeformerClass, "setCalculatedTotalOpacity", "(F)V", setFloat);
         deformerGetCalcTotalMultiplyColor = HostHandles.virtual(
                 acDeformerClass, "getCalculatedTotalMultiplyColor", "()L" + CFLOAT_COLOR_OWNER + ";", objUnary);
         deformerGetCalcTotalScreenColor = HostHandles.virtual(
@@ -563,10 +569,7 @@ final class EditSubtreeHandles {
         deformerGetCreateTransform = HostHandles.virtual(
                 acDeformerClass, "getCreateLocalToCanvasTransform", "()L" + TRANSFORM_INTERFACE_OWNER + ";", objUnary);
         deformerTransformTestImpl = HostHandles.virtual(
-                acDeformerClass,
-                "transformDeformer_testImpl",
-                "(L" + AC_DEFORMER_OWNER + ";)V",
-                setObj);
+                acDeformerClass, "transformDeformer_testImpl", "(L" + AC_DEFORMER_OWNER + ";)V", setObj);
         deformerGetChildren = HostHandles.virtual(
                 acDeformerClass, "getChildren", "()Lcom/live2d/graphics3d/entity/Entities;", objUnary);
 
@@ -581,14 +584,11 @@ final class EditSubtreeHandles {
                 "()L" + KEYFORM_GRID_SOURCE_OWNER + ";",
                 objUnary);
         sourceGetKeyformGrid = HostHandles.virtual(
-                acControllableSourceClass,
-                "getKeyformGridSource",
-                "()L" + KEYFORM_GRID_SOURCE_OWNER + ";",
-                objUnary);
-        sourceGetCoordType =
-                HostHandles.virtual(acControllableSourceClass, "getCoordType", "()L" + COORD_TYPE_OWNER + ";", objUnary);
-        sourceGetMorphTargets =
-                HostHandles.virtual(acControllableSourceClass, "getKeyformMorphTargets", "()Ljava/util/List;", objUnary);
+                acControllableSourceClass, "getKeyformGridSource", "()L" + KEYFORM_GRID_SOURCE_OWNER + ";", objUnary);
+        sourceGetCoordType = HostHandles.virtual(
+                acControllableSourceClass, "getCoordType", "()L" + COORD_TYPE_OWNER + ";", objUnary);
+        sourceGetMorphTargets = HostHandles.virtual(
+                acControllableSourceClass, "getKeyformMorphTargets", "()Ljava/util/List;", objUnary);
         sourceIsVisibleHierarchy = HostHandles.virtual(acDeformerSourceClass, "isVisibleInHierarchy", "()Z", boolUnary);
         rotSourceGetUseBoneUi = HostHandles.virtual(rotSourceClass, "getUseBoneUi_testImpl", "()Z", boolUnary);
 
@@ -601,8 +601,8 @@ final class EditSubtreeHandles {
         deformerFormSetCoordType =
                 HostHandles.virtual(acDeformerFormClass, "setCoordType", "(L" + COORD_TYPE_OWNER + ";)V", setObj);
         deformerFormGetOpacity = HostHandles.virtual(acDeformerFormClass, "getOpacity", "()F", floatUnary);
-        deformerFormGetMultiplyColor =
-                HostHandles.virtual(acDeformerFormClass, "getMultiplyColor", "()L" + CFLOAT_COLOR_OWNER + ";", objUnary);
+        deformerFormGetMultiplyColor = HostHandles.virtual(
+                acDeformerFormClass, "getMultiplyColor", "()L" + CFLOAT_COLOR_OWNER + ";", objUnary);
         deformerFormGetScreenColor =
                 HostHandles.virtual(acDeformerFormClass, "getScreenColor", "()L" + CFLOAT_COLOR_OWNER + ";", objUnary);
         warpFormGetPositions = HostHandles.virtual(warpFormClass, "getPositions", "()[F", floatArrUnary);
@@ -656,7 +656,8 @@ final class EditSubtreeHandles {
                 meshContainerClass, "getMesh", "()L" + WarpDeformEditTarget.MESH_BASE_OWNER + ";", objUnary);
         meshBaseGetPositions = HostHandles.virtual(meshBaseClass, "getPositions", "()[F", floatArrUnary);
         meshSourceGetMeshVersion = HostHandles.virtual(artMeshSourceClass, "getMeshVersion", "()I", intUnary);
-        meshSourceIsVisibleHierarchy = HostHandles.virtual(artMeshSourceClass, "isVisibleInHierarchy", "()Z", boolUnary);
+        meshSourceIsVisibleHierarchy =
+                HostHandles.virtual(artMeshSourceClass, "isVisibleInHierarchy", "()Z", boolUnary);
         meshSourceIsVisible = HostHandles.virtual(artMeshSourceClass, "isVisible", "()Z", boolUnary);
         meshFormGetPositions = HostHandles.virtual(artMeshFormClass, "getPositions", "()[F", floatArrUnary);
         meshFormTransform = HostHandles.virtual(
@@ -682,24 +683,26 @@ final class EditSubtreeHandles {
         partGetSource = HostHandles.virtual(partClass, "getSource", "()L" + CPART_SOURCE_OWNER + ";", objUnary);
         partSourceIsVisible = HostHandles.virtual(partSourceClass, "isVisible", "()Z", boolUnary);
         partSourceIsVisibleHierarchy = HostHandles.virtual(partSourceClass, "isVisibleInHierarchy", "()Z", boolUnary);
-        partGetInterpolatedForm = HostHandles.virtual(partClass, "getInterpolatedForm", "()L" + AC_FORM_OWNER + ";", objUnary);
+        partGetInterpolatedForm =
+                HostHandles.virtual(partClass, "getInterpolatedForm", "()L" + AC_FORM_OWNER + ";", objUnary);
         partGetDrawOrder = HostHandles.virtual(partClass, "getDrawOrder", "()I", intUnary);
 
         glueGetSource = HostHandles.virtual(glueClass, "getSource", "()L" + GLUE_SOURCE_OWNER + ";", objUnary);
         glueGetInterpolatedForm =
                 HostHandles.virtual(glueClass, "getInterpolatedForm", "()L" + GLUE_FORM_OWNER + ";", objUnary);
-        glueGetCachedEditVersion =
-                HostHandles.virtual(HostHandles.load(loader, AC_AFFECTER_OWNER), "getCached_editVersion", "()I", intUnary);
+        glueGetCachedEditVersion = HostHandles.virtual(
+                HostHandles.load(loader, AC_AFFECTER_OWNER), "getCached_editVersion", "()I", intUnary);
         glueSourceGetEditVersion = HostHandles.virtual(glueSourceClass, "getEditVersion$cubism", "()I", intUnary);
-        glueSourceGetMeshAGuid =
-                HostHandles.virtual(glueSourceClass, "getTargetArtMeshA_guid", "()L" + DRAWABLE_GUID_OWNER + ";", objUnary);
-        glueSourceGetMeshBGuid =
-                HostHandles.virtual(glueSourceClass, "getTargetArtMeshB_guid", "()L" + DRAWABLE_GUID_OWNER + ";", objUnary);
+        glueSourceGetMeshAGuid = HostHandles.virtual(
+                glueSourceClass, "getTargetArtMeshA_guid", "()L" + DRAWABLE_GUID_OWNER + ";", objUnary);
+        glueSourceGetMeshBGuid = HostHandles.virtual(
+                glueSourceClass, "getTargetArtMeshB_guid", "()L" + DRAWABLE_GUID_OWNER + ";", objUnary);
         glueFormGetIntensity = HostHandles.virtual(glueFormClass, "getIntensity", "()F", floatUnary);
 
         if (conflictPolygonFlag) {
             conflictPolyInterface = HostHandles.load(loader, CONFLICT_POLY_OWNER);
-            conflictGetCount = HostHandles.virtual(conflictPolyInterface, "getCalcConflictPolygonCount", "()I", intUnary);
+            conflictGetCount =
+                    HostHandles.virtual(conflictPolyInterface, "getCalcConflictPolygonCount", "()I", intUnary);
         } else {
             conflictPolyInterface = null;
             conflictGetCount = null;
@@ -729,9 +732,10 @@ final class EditSubtreeHandles {
 
         entitySetEnabled = HostHandles.virtual(entityClass, "setEnabled", "(Z)V", setBool);
         entityGetEnabled = HostHandles.virtual(entityClass, "getEnabled", "()Z", boolUnary);
-        entityGetParent = HostHandles.virtual(entityClass, "getParentEntity", "()L" + WarpDeformEditTarget.GENTITY_OWNER + ";", objUnary);
-        sceneGraphSetVolatile =
-                HostHandles.virtual(sceneGraphClass, "setVolatile", "(L" + WarpDeformEditTarget.GENTITY_OWNER + ";)V", setObj);
+        entityGetParent = HostHandles.virtual(
+                entityClass, "getParentEntity", "()L" + WarpDeformEditTarget.GENTITY_OWNER + ";", objUnary);
+        sceneGraphSetVolatile = HostHandles.virtual(
+                sceneGraphClass, "setVolatile", "(L" + WarpDeformEditTarget.GENTITY_OWNER + ";)V", setObj);
         final MethodType drawUpdateType = MethodType.methodType(void.class, Object.class, Object.class, boolean.class);
         final String drawUpdateDesc = "(L" + ACTION_PACK_OWNER + ";Z)V";
         warpDrawUpdate = HostHandles.virtual(warpDrawClass, "update", drawUpdateDesc, drawUpdateType);
@@ -749,8 +753,13 @@ final class EditSubtreeHandles {
     private static UpdaterMatch findUpdaterMatch(final ClassLoader loader) throws ReflectiveOperationException {
         final Set<String> tried = new HashSet<>();
         for (final ModelUpdateTargetTable.Row row : ModelUpdateTargetTable.all()) {
-            final String key =
-                    row.updater() + '|' + row.updateContext() + '|' + row.contextParam() + '|' + row.conflictPolygonFlag();
+            final String key = row.updater()
+                    + '|'
+                    + row.updateContext()
+                    + '|'
+                    + row.contextParam()
+                    + '|'
+                    + row.conflictPolygonFlag();
             if (!tried.add(key)) {
                 continue;
             }

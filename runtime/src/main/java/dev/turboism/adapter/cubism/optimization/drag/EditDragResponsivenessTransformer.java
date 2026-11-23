@@ -75,7 +75,8 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
             final Map<String, byte[]> references,
             final EditDragResponsivenessTarget contract) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         this.contract = Objects.requireNonNull(contract, "contract");
         Objects.requireNonNull(references, "references");
 
@@ -190,27 +191,30 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
             return switch (name) {
                 case EditDragResponsivenessTarget.MOUSE_LISTENER_OWNER -> transformMouseListener(bytes);
                 case EditDragResponsivenessTarget.WIDGET_OWNER -> transformWidget(bytes);
-                case EditDragResponsivenessTarget.INSPECTOR_VIEW_CTRL_OWNER -> transformSinglePredicateOwner(
-                        bytes,
-                        EditDragResponsivenessTarget.INSPECTOR_VIEW_CTRL_OWNER,
-                        EditDragResponsivenessTarget.UPDATE_METHOD,
-                        EditDragResponsivenessTarget.UPDATE_DELAY_DESCRIPTOR,
-                        inspectorCtrlShape,
-                        EditDragResponsivenessBridge.DEFER_INSPECTOR_PROPERTY);
-                case EditDragResponsivenessTarget.INSPECTOR_INTERNAL_OWNER -> transformSinglePredicateOwner(
-                        bytes,
-                        EditDragResponsivenessTarget.INSPECTOR_INTERNAL_OWNER,
-                        EditDragResponsivenessTarget.INSPECTOR_INTERNAL_METHOD,
-                        EditDragResponsivenessTarget.INSPECTOR_APPLY_DESCRIPTOR,
-                        inspectorPanelShape,
-                        EditDragResponsivenessBridge.DEFER_INSPECTOR_APPLY_PROPERTY);
-                case EditDragResponsivenessTarget.DEFORMER_SELECTOR_OWNER -> transformSinglePredicateOwner(
-                        bytes,
-                        EditDragResponsivenessTarget.DEFORMER_SELECTOR_OWNER,
-                        EditDragResponsivenessTarget.UPDATE_WIDGET_METHOD,
-                        EditDragResponsivenessTarget.VOID_DESCRIPTOR,
-                        deformerSelectorShape,
-                        EditDragResponsivenessBridge.DEFER_DEFORMER_SELECTOR_PROPERTY);
+                case EditDragResponsivenessTarget.INSPECTOR_VIEW_CTRL_OWNER ->
+                    transformSinglePredicateOwner(
+                            bytes,
+                            EditDragResponsivenessTarget.INSPECTOR_VIEW_CTRL_OWNER,
+                            EditDragResponsivenessTarget.UPDATE_METHOD,
+                            EditDragResponsivenessTarget.UPDATE_DELAY_DESCRIPTOR,
+                            inspectorCtrlShape,
+                            EditDragResponsivenessBridge.DEFER_INSPECTOR_PROPERTY);
+                case EditDragResponsivenessTarget.INSPECTOR_INTERNAL_OWNER ->
+                    transformSinglePredicateOwner(
+                            bytes,
+                            EditDragResponsivenessTarget.INSPECTOR_INTERNAL_OWNER,
+                            EditDragResponsivenessTarget.INSPECTOR_INTERNAL_METHOD,
+                            EditDragResponsivenessTarget.INSPECTOR_APPLY_DESCRIPTOR,
+                            inspectorPanelShape,
+                            EditDragResponsivenessBridge.DEFER_INSPECTOR_APPLY_PROPERTY);
+                case EditDragResponsivenessTarget.DEFORMER_SELECTOR_OWNER ->
+                    transformSinglePredicateOwner(
+                            bytes,
+                            EditDragResponsivenessTarget.DEFORMER_SELECTOR_OWNER,
+                            EditDragResponsivenessTarget.UPDATE_WIDGET_METHOD,
+                            EditDragResponsivenessTarget.VOID_DESCRIPTOR,
+                            deformerSelectorShape,
+                            EditDragResponsivenessBridge.DEFER_DEFORMER_SELECTOR_PROPERTY);
                 case EditDragResponsivenessTarget.DEFORMER_VIEW_CTRL_OWNER -> transformDeformerCtrl(bytes);
                 default -> null;
             };
@@ -710,8 +714,7 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
         }
 
         @Override
-        public void visitFieldInsn(
-                final int opcode, final String owner, final String name, final String descriptor) {
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
             ensureTryStarted();
             super.visitFieldInsn(opcode, owner, name, descriptor);
         }
@@ -757,8 +760,7 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
         }
 
         @Override
-        public void visitTableSwitchInsn(
-                final int min, final int max, final Label dflt, final Label... labels) {
+        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
             ensureTryStarted();
             super.visitTableSwitchInsn(min, max, dflt, labels);
         }

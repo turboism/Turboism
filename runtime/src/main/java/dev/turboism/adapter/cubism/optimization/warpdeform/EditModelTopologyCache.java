@@ -334,8 +334,7 @@ final class EditModelTopologyCache {
             final Object drawablesObj = (Object) h.modelGetAllDrawables.invokeExact(model);
             if (drawablesObj instanceof List<?> drawables) {
                 for (final Object dr : drawables) {
-                    if (h.conflictPolyInterface.isInstance(dr)
-                            && (int) h.conflictGetCount.invokeExact(dr) != 0) {
+                    if (h.conflictPolyInterface.isInstance(dr) && (int) h.conflictGetCount.invokeExact(dr) != 0) {
                         hasAnyConflictPolygon = true;
                         break;
                     }
@@ -677,7 +676,8 @@ final class EditModelTopologyCache {
         final Object src = (Object) h.glueGetSource.invokeExact(aff);
         lastGlueSourceVer[i] = (int) h.glueSourceGetEditVersion.invokeExact(src);
         final Object form = (Object) h.glueGetInterpolatedForm.invokeExact(aff);
-        lastGlueIntensityBits[i] = form == null ? 0 : Float.floatToRawIntBits((float) h.glueFormGetIntensity.invokeExact(form));
+        lastGlueIntensityBits[i] =
+                form == null ? 0 : Float.floatToRawIntBits((float) h.glueFormGetIntensity.invokeExact(form));
     }
 
     void captureParameters(final Object paramSet, final EditSubtreeHandles h) throws Throwable {

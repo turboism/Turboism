@@ -58,7 +58,8 @@ final class EditDragResponsivenessArtifactTest {
 
         for (final Path jarPath : jars) {
             final HostArtifactDigest digest = HostArtifactDigest.cached(jarPath);
-            final EditDragResponsivenessTarget contract = EditDragResponsivenessTarget.of(digest).orElse(null);
+            final EditDragResponsivenessTarget contract =
+                    EditDragResponsivenessTarget.of(digest).orElse(null);
             if (contract == null) {
                 continue;
             }
@@ -81,7 +82,8 @@ final class EditDragResponsivenessArtifactTest {
                     final byte[] raw = references.get(owner);
                     final byte[] transformed = transformer.transform(null, loader, owner, null, domain, raw);
                     assertNull(transformer.failure(), contract.version() + " failed " + owner);
-                    assertTrue(transformed != null && transformed.length > raw.length, contract.version() + " " + owner);
+                    assertTrue(
+                            transformed != null && transformed.length > raw.length, contract.version() + " " + owner);
                     writePatchedClass(versionOutDir, owner, transformed);
                     manifestLines.add(contract.version() + "\t" + jarPath + "\t" + versionOutDir + "\t" + owner);
                 }
@@ -176,7 +178,8 @@ final class EditDragResponsivenessArtifactTest {
                             currentLoader.close();
                         }
                         currentTag = tag;
-                        currentLoader = new PatchedJarLoader(jarPath, patchRoot, StrictChildVerifier.class.getClassLoader());
+                        currentLoader =
+                                new PatchedJarLoader(jarPath, patchRoot, StrictChildVerifier.class.getClassLoader());
                     }
                     final Class<?> defined = Class.forName(internalName.replace('/', '.'), false, currentLoader);
                     defined.getDeclaredMethods();
@@ -210,9 +213,7 @@ final class EditDragResponsivenessArtifactTest {
             final List<URL> urls = new ArrayList<>();
             try (var files = Files.walk(jarPath.getParent(), 2)) {
                 for (final Path file : files.toList()) {
-                    if (Files.isRegularFile(file)
-                            && file.toString().endsWith(".jar")
-                            && !file.equals(jarPath)) {
+                    if (Files.isRegularFile(file) && file.toString().endsWith(".jar") && !file.equals(jarPath)) {
                         urls.add(file.toUri().toURL());
                     }
                 }
