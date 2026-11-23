@@ -6,7 +6,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -18,18 +17,12 @@ import java.util.function.Predicate;
 public enum OptimizationPreset {
     /** Disables every persisted native optimization. */
     OFF("off", "settings.performance.preset.off"),
-    /** Enables universal optimizations and omits workload trade-offs. */
+    /** Enables verified default-on optimizations and leaves opt-in or workload trade-off switches off. */
     BALANCED("balanced", "settings.performance.preset.balanced"),
     /** Enables all persisted native optimizations for maximum heavy-model editing throughput. */
     HEAVY_EDITING("heavy-editing", "settings.performance.preset.heavy-editing"),
     /** Represents any user-edited flag combination that does not match a built-in preset. */
     CUSTOM("custom", "settings.performance.preset.custom");
-
-    private static final Set<Optimization> WORKLOAD_TRADE_OFF_OPTIMIZATIONS = Set.of(
-            OptimizationCatalog.INCREMENTAL_UPDATE,
-            OptimizationCatalog.INCREMENTAL_UPDATE_AFFECTERS,
-            OptimizationCatalog.ASYNC_READBACK,
-            OptimizationCatalog.MESA_GL_THREAD);
 
     private final String configValue;
     private final String labelKey;
@@ -67,7 +60,7 @@ public enum OptimizationPreset {
         }
         return switch (this) {
             case OFF -> Optional.of(Boolean.FALSE);
-            case BALANCED -> Optional.of(!WORKLOAD_TRADE_OFF_OPTIMIZATIONS.contains(optimization));
+            case BALANCED -> Optional.of(OptimizationCatalog.isDefaultEnabled(optimization));
             case HEAVY_EDITING -> Optional.of(Boolean.TRUE);
             case CUSTOM -> Optional.empty();
         };
@@ -164,7 +157,7 @@ public enum OptimizationPreset {
             } else {
                 matchesHeavyEditing = false;
             }
-            final boolean expectedBalanced = !WORKLOAD_TRADE_OFF_OPTIMIZATIONS.contains(optimization);
+            final boolean expectedBalanced = OptimizationCatalog.isDefaultEnabled(optimization);
             if (enabled != expectedBalanced) {
                 matchesBalanced = false;
             }

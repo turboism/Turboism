@@ -2130,10 +2130,10 @@ function Remove-TurboismJdkOptions {
 # Every launcher.<name> optimization field the agent persists appears in exactly
 # one of the four machine-readable lines below, and the cross-check also verifies
 # each name against the emission code that follows these lines.
-# optimization-emit-false: modelUpdateSkip, uniformLocationCache, uploadElision, meshSetupElision, reinitPairElision, clipMaskDeduplication, clipMaskScissorClear, extendedInterpolationIncrementalSetup, modelInstanceCoalesce, inspectorPropertyBypass
+# optimization-emit-false: modelUpdateSkip, uploadElision, meshSetupElision, reinitPairElision, clipMaskDeduplication, clipMaskScissorClear, extendedInterpolationIncrementalSetup
 # optimization-emit-true: incrementalUpdate, incrementalUpdateAffecters
-# optimization-explicit-false: inputPathElision, mesaGlThread
-# optimization-not-emitted: asyncReadback, meshInterpolation, shaderUniform, matrixScratch, imageArchiveReuse, floatArrayParseCache, textureUploadPreparation, warpPositionProjection, extendedInterpolationSiblingElision, warpGridInterpolation, warpNormalPointElision, cameraMatrixCache, renderPassTraversal, meshHitTest, sceneHandlerCache, cursorValidationElision, parameterRowRepaint, warpDeformEditAcceleration
+# optimization-explicit-false: uniformLocationCache, inputPathElision, mesaGlThread, inspectorPropertyBypass
+# optimization-not-emitted: asyncReadback, meshInterpolation, shaderUniform, matrixScratch, imageArchiveReuse, floatArrayParseCache, textureUploadPreparation, warpPositionProjection, modelInstanceCoalesce, extendedInterpolationSiblingElision, warpGridInterpolation, warpNormalPointElision, cameraMatrixCache, renderPassTraversal, meshHitTest, sceneHandlerCache, cursorValidationElision, parameterRowRepaint, warpDeformEditAcceleration
 
 function Get-CubismManagedJdkOptionTokens {
     param([string]$TurboismHome = "")
@@ -2177,7 +2177,7 @@ function Get-CubismManagedJdkOptionTokens {
     if (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "incrementalUpdateAffecters") {
         $tokens += "-Dturboism.optimization.incrementalUpdateAffecters=true"
     }
-    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uniformLocationCache")) {
+    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "uniformLocationCache") {
         $tokens += "-Dturboism.optimization.uniformLocationCache=false"
     }
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "uploadElision")) {
@@ -2198,10 +2198,7 @@ function Get-CubismManagedJdkOptionTokens {
     if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "extendedInterpolationIncrementalSetup")) {
         $tokens += "-Dturboism.optimization.extendedInterpolationIncrementalSetup=false"
     }
-    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "modelInstanceCoalesce")) {
-        $tokens += "-Dturboism.optimization.modelInstanceCoalesce=false"
-    }
-    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "inspectorPropertyBypass")) {
+    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inspectorPropertyBypass") {
         $tokens += "-Dturboism.optimization.inspectorPropertyBypass=false"
     }
     # inputPathElision/mesaGlThread are Proton-scoped: the Linux launcher is
@@ -2239,11 +2236,23 @@ function Read-CubismMeshTriangulationEdgeIndexPreference {
 
 function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
-    # Verified optimizations default on; the incremental experiment and the
+    # Verified optimizations default on; opt-in, conflicting, workload trade-off, and
     # Proton-scoped options default off on this native-Windows path.
     # inputPathElision/mesaGlThread default on only under Wine/Proton, which
     # the Linux launcher resolves — this script never runs there.
-    $defaultValue = $Name -ne "incrementalUpdate" -and $Name -ne "incrementalUpdateAffecters" -and $Name -ne "inputPathElision" -and $Name -ne "mesaGlThread" -and $Name -ne "reinitPairElision"
+    $defaultValue = @(
+        "incrementalUpdate",
+        "incrementalUpdateAffecters",
+        "uniformLocationCache",
+        "inputPathElision",
+        "mesaGlThread",
+        "asyncReadback",
+        "imageArchiveReuse",
+        "floatArrayParseCache",
+        "textureUploadPreparation",
+        "reinitPairElision",
+        "inspectorPropertyBypass"
+    ) -cnotcontains $Name
     if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $defaultValue }
     $path = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $path)) { return $defaultValue }

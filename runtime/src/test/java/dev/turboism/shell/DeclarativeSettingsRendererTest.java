@@ -1178,13 +1178,12 @@ class DeclarativeSettingsRendererTest {
                         OptimizationPreset.CUSTOM.configValue(),
                         ((SettingsControl.Option) combo.getSelectedItem()).value());
 
-                // 3. Flipping the remaining three trade-off checkboxes switches preset to HEAVY_EDITING.
-                findCheckBoxByName(boxes, OptimizationCatalog.INCREMENTAL_UPDATE_AFFECTERS.contributionId())
-                        .doClick();
-                findCheckBoxByName(boxes, OptimizationCatalog.MESA_GL_THREAD.contributionId())
-                        .doClick();
-                findCheckBoxByName(boxes, OptimizationCatalog.ASYNC_READBACK.contributionId())
-                        .doClick();
+                // 3. Flipping the remaining unchecked checkboxes switches preset to HEAVY_EDITING.
+                for (final JCheckBox box : boxes) {
+                    if (!box.isSelected()) {
+                        box.doClick();
+                    }
+                }
                 assertEquals(
                         OptimizationPreset.HEAVY_EDITING.configValue(),
                         ((SettingsControl.Option) combo.getSelectedItem()).value());

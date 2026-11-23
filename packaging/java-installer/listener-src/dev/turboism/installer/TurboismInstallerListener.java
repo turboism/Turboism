@@ -147,12 +147,14 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
             }
         }
 
-        List<String> disabled = ConfigMerge.mergeDisabled(seed, bundled, selected, lite);
+        final Map<String, Object> mutableSeed = new java.util.LinkedHashMap<>(seed);
+        final boolean defaultsMigrated = ConfigMerge.migrateOptimizationDefaults(mutableSeed);
+        List<String> disabled = ConfigMerge.mergeDisabled(mutableSeed, bundled, selected, lite);
         disabled = closeRequiredPluginDependencies(disabled, bundled);
-        final boolean selectionChanged = !ConfigMerge.disabledSelectionMatches(seed, disabled);
-        final Map<String, Object> updated = ConfigMerge.applyPolicy(seed, disabled);
+        final boolean selectionChanged = !ConfigMerge.disabledSelectionMatches(mutableSeed, disabled);
+        final Map<String, Object> updated = ConfigMerge.applyPolicy(mutableSeed, disabled);
         ConfigMerge.validateCurrent(updated);
-        if (!current || selectionChanged) {
+        if (!current || selectionChanged || defaultsMigrated) {
             // N1: normalization drops unknown fields and invalid values, so keep one image of the
             // document this build cannot read before the normalized replacement overwrites it. A
             // current v1 document (only disabledPlugins updated) and a fresh install keep none.

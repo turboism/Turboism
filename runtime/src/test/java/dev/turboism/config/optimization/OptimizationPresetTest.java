@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -29,23 +28,18 @@ final class OptimizationPresetTest {
             "messages_zh_Hans.properties",
             "messages_zh_Hant.properties");
 
-    private static final Set<String> TRADE_OFF_KEYS = Set.of(
-            OptimizationCatalog.INCREMENTAL_UPDATE.key(),
-            OptimizationCatalog.INCREMENTAL_UPDATE_AFFECTERS.key(),
-            OptimizationCatalog.ASYNC_READBACK.key(),
-            OptimizationCatalog.MESA_GL_THREAD.key());
-
     @TempDir
     Path home;
 
     @Test
-    void balancedEnablesAllThirtyNineUniversalOptimizationsAndLeavesFourTradeOffsOff() {
+    void balancedMatchesCatalogDefaultEnabledSetAndExcludesDefaultOffOptimizations() {
         final Map<String, Boolean> balanced = OptimizationPreset.BALANCED.flags();
         assertEquals(43, balanced.size());
         assertEquals(
-                39, balanced.values().stream().filter(Boolean::booleanValue).count());
+                OptimizationCatalog.defaultEnabled().size(),
+                balanced.values().stream().filter(Boolean::booleanValue).count());
         for (final Optimization optimization : OptimizationCatalog.persisted()) {
-            final boolean expected = !TRADE_OFF_KEYS.contains(optimization.key());
+            final boolean expected = OptimizationCatalog.isDefaultEnabled(optimization);
             assertEquals(expected, balanced.get(optimization.key()), optimization.key());
         }
 
@@ -94,15 +88,17 @@ final class OptimizationPresetTest {
     @Test
     void appliesPresetsThroughFileServiceWithoutSchemaChanges() throws Exception {
         try (OptimizationSettingsFileService service = new OptimizationSettingsFileService(home)) {
-            assertEquals(OptimizationPreset.CUSTOM, OptimizationPreset.detect(service));
+            assertEquals(OptimizationPreset.BALANCED, OptimizationPreset.detect(service));
 
             OptimizationPreset.BALANCED.apply(service);
             assertEquals(OptimizationPreset.BALANCED, OptimizationPreset.detect(service));
             assertTrue(service.enabled(OptimizationCatalog.MATRIX_SCRATCH.key()));
             assertTrue(service.enabled(OptimizationCatalog.WARP_POSITION_PROJECTION.key()));
-            assertTrue(service.enabled(OptimizationCatalog.INPUT_PATH_ELISION.key()));
+            assertTrue(service.enabled(OptimizationCatalog.UPLOAD_ELISION.key()));
             assertTrue(service.enabled(OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION.key()));
             assertTrue(service.enabled(OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION.key()));
+            assertFalse(service.enabled(OptimizationCatalog.INPUT_PATH_ELISION.key()));
+            assertFalse(service.enabled(OptimizationCatalog.UNIFORM_LOCATION_CACHE.key()));
             assertFalse(service.enabled(OptimizationCatalog.INCREMENTAL_UPDATE.key()));
             assertFalse(service.enabled(OptimizationCatalog.ASYNC_READBACK.key()));
             assertFalse(service.enabled(OptimizationCatalog.MESA_GL_THREAD.key()));

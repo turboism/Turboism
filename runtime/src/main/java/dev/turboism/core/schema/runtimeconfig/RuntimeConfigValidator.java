@@ -1,6 +1,7 @@
 package dev.turboism.core.schema.runtimeconfig;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.turboism.config.PerformanceSettingsConfig;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
@@ -26,6 +27,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "disabledPlugins",
             "logLevel",
             "maxLogStorageMiB",
+            PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD,
             "locale",
             "useTextIcon",
             "safeMode",
@@ -147,6 +149,21 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                                 + RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB + " and "
                                 + RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
                         "maxLogStorageMiB",
+                        source));
+            }
+        }
+
+        if (node.has(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+            final JsonNode defaultsVersion = node.get(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD);
+            if (defaultsVersion == null
+                    || !defaultsVersion.isIntegralNumber()
+                    || !defaultsVersion.canConvertToInt()
+                    || defaultsVersion.intValue() < 1) {
+                errors.add(error(
+                        "RUNTIME_CONFIG_BAD_TYPE",
+                        PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD
+                                + " must be a positive integer",
+                        PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD,
                         source));
             }
         }

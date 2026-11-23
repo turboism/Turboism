@@ -840,14 +840,27 @@ final class ConfigMerge {
 
     private static final String RUNTIME_CONFIG_FORMAT = "turboism.runtime.config";
     private static final long CURRENT_SCHEMA_VERSION = 1L;
+    private static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD = "optimizationDefaultsVersion";
+    private static final long CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1L;
     private static final Set<String> V1_FIELDS = Set.of(
-            "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+            "format", "schemaVersion", OPTIMIZATION_DEFAULTS_VERSION_FIELD,
+            "worktreeId", "pluginDirs", "disabledPlugins",
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
             "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
             "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
             "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
             "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
             "memoryLeakMitigation");
+    private static final Set<String> ROOT_OPTIMIZATION_FIELDS = Set.of(
+            "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
+            "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+            "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration",
+            "memoryLeakMitigation");
+    private static final Set<String> LEGACY_PROMOTED_DEFAULT_OFF_FIELDS = Set.of(
+            "meshInterpolation", "shaderUniform", "matrixScratch", "warpPositionProjection",
+            "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
+            "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
+            "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> LOCALES = Set.of(
@@ -920,6 +933,13 @@ final class ConfigMerge {
         }
         if (schemaVersion(map) != CURRENT_SCHEMA_VERSION) {
             throw new ConfigException("existing config.json schemaVersion must be 1");
+        }
+        if (map.containsKey(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+            final Object defaultsVersion = map.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD);
+            if (!(defaultsVersion instanceof Long) || (Long) defaultsVersion < 1L) {
+                throw new ConfigException(
+                        "existing config.json optimizationDefaultsVersion must be a positive integer");
+            }
         }
 
         final Object worktree = map.get("worktreeId");
@@ -1135,6 +1155,10 @@ final class ConfigMerge {
         final Map<String, Object> normalized = new LinkedHashMap<>();
         normalized.put("format", RUNTIME_CONFIG_FORMAT);
         normalized.put("schemaVersion", CURRENT_SCHEMA_VERSION);
+        final Object defaultsVersion = source.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD);
+        if (defaultsVersion instanceof Long && (Long) defaultsVersion >= 1L) {
+            normalized.put(OPTIMIZATION_DEFAULTS_VERSION_FIELD, defaultsVersion);
+        }
 
         final Object worktree = source.get("worktreeId");
         if (worktree instanceof String
@@ -1286,6 +1310,86 @@ final class ConfigMerge {
 
         validateCurrent(normalized);
         return normalized;
+    }
+
+    /**
+     * Migrates an unversioned v0.70.2 optimization configuration once while preserving an explicit
+     * {@code OFF} preset or untouched minimal configs.
+     */
+    static boolean migrateOptimizationDefaults(Map<String, Object> document) {
+        if (document == null || document.containsKey(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+            return false;
+        }
+        final boolean explicitOff = isExplicitOffPreset(document);
+        if (!explicitOff && !hasEnabledOptimization(document)) {
+            return false;
+        }
+        final Map<String, Object> launcher = mutableLauncher(document);
+        if (explicitOff) {
+            for (String field : ROOT_OPTIMIZATION_FIELDS) {
+                if (!(document.get(field) instanceof Boolean)) {
+                    document.put(field, Boolean.FALSE);
+                }
+            }
+            for (String field : BOOLEAN_LAUNCHER_FIELDS) {
+                if (!"zgc".equals(field) && !(launcher.get(field) instanceof Boolean)) {
+                    launcher.put(field, Boolean.FALSE);
+                }
+            }
+            if (!launcher.isEmpty()) {
+                document.put("launcher", launcher);
+            }
+        } else {
+            for (String field : LEGACY_PROMOTED_DEFAULT_OFF_FIELDS) {
+                if (Boolean.FALSE.equals(launcher.get(field))) {
+                    launcher.put(field, Boolean.TRUE);
+                }
+            }
+            if (!launcher.isEmpty()) {
+                document.put("launcher", launcher);
+            }
+        }
+        document.put(OPTIMIZATION_DEFAULTS_VERSION_FIELD, CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
+        return true;
+    }
+
+    private static Map<String, Object> mutableLauncher(Map<String, Object> document) {
+        final Map<String, Object> launcher = new LinkedHashMap<>();
+        if (document.get("launcher") instanceof Map<?, ?> existing) {
+            for (Map.Entry<?, ?> entry : existing.entrySet()) {
+                if (entry.getKey() instanceof String key) {
+                    launcher.put(key, entry.getValue());
+                }
+            }
+        }
+        return launcher;
+    }
+
+    private static boolean hasEnabledOptimization(Map<String, Object> document) {
+        for (String field : ROOT_OPTIMIZATION_FIELDS) {
+            if (Boolean.TRUE.equals(document.get(field))) {
+                return true;
+            }
+        }
+        if (document.get("launcher") instanceof Map<?, ?> launcher) {
+            for (String field : BOOLEAN_LAUNCHER_FIELDS) {
+                if (!"zgc".equals(field) && Boolean.TRUE.equals(launcher.get(field))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isExplicitOffPreset(Map<String, Object> document) {
+        if (!Boolean.FALSE.equals(document.get("atlasLoading"))) {
+            return false;
+        }
+        if (!(document.get("launcher") instanceof Map<?, ?> launcher)
+                || !Boolean.FALSE.equals(launcher.get("modelUpdateSkip"))) {
+            return false;
+        }
+        return !hasEnabledOptimization(document);
     }
     /**
      * Loads the bundled retired-plugin manifest ({@link #RETIRED_PLUGINS_RESOURCE}).

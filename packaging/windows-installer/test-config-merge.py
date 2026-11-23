@@ -129,13 +129,27 @@ REAL_MODULES = load_manifest()  # Regression oracle: a manifest drift, an additi
 
 
 CURRENT_SCHEMA = 1
+OPTIMIZATION_DEFAULTS_VERSION_FIELD = "optimizationDefaultsVersion"
+CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1
 V1_FIELDS = {
-    "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+    "format", "schemaVersion", OPTIMIZATION_DEFAULTS_VERSION_FIELD,
+    "worktreeId", "pluginDirs", "disabledPlugins",
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
     "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
     "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
     "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
     "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation",
+}
+ROOT_OPTIMIZATION_FIELDS = {
+    "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
+    "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+    "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation",
+}
+LEGACY_PROMOTED_DEFAULT_OFF_FIELDS = {
+    "meshInterpolation", "shaderUniform", "matrixScratch", "warpPositionProjection",
+    "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
+    "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
+    "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
@@ -173,6 +187,10 @@ def validate_v1(doc):
         raise ValueError("current schema format mismatch")
     if type(doc.get("schemaVersion")) is not int or doc["schemaVersion"] != CURRENT_SCHEMA:
         raise ValueError("schemaVersion must be the JSON integer 1")
+    if OPTIMIZATION_DEFAULTS_VERSION_FIELD in doc:
+        defaults_ver = doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD]
+        if type(defaults_ver) is not int or defaults_ver < 1:
+            raise ValueError("optimizationDefaultsVersion must be a positive integer")
     worktree = doc.get("worktreeId")
     if not isinstance(worktree, str) or not re.fullmatch(r"[a-z][a-z0-9-]{2,63}", worktree):
         raise ValueError("worktreeId is invalid")
@@ -276,6 +294,9 @@ def normalize_v1(doc):
         "format": "turboism.runtime.config",
         "schemaVersion": CURRENT_SCHEMA,
     }
+    if (type(doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) is int
+            and doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD] >= 1):
+        normalized[OPTIMIZATION_DEFAULTS_VERSION_FIELD] = doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD]
     worktree = doc.get("worktreeId")
     normalized["worktreeId"] = (
         worktree if isinstance(worktree, str)
@@ -356,6 +377,50 @@ def normalize_v1(doc):
     return validate_v1(normalized)
 
 
+def _has_enabled_optimization(doc):
+    for field in ROOT_OPTIMIZATION_FIELDS:
+        if doc.get(field) is True:
+            return True
+    launcher = doc.get("launcher")
+    if isinstance(launcher, dict):
+        for field in BOOLEAN_LAUNCHER_FIELDS - {"zgc"}:
+            if launcher.get(field) is True:
+                return True
+    return False
+
+
+def _is_explicit_off_preset(doc):
+    launcher = doc.get("launcher")
+    return (doc.get("atlasLoading") is False
+            and isinstance(launcher, dict)
+            and launcher.get("modelUpdateSkip") is False
+            and not _has_enabled_optimization(doc))
+
+
+def migrate_optimization_defaults(doc):
+    if not isinstance(doc, dict) or OPTIMIZATION_DEFAULTS_VERSION_FIELD in doc:
+        return False
+    explicit_off = _is_explicit_off_preset(doc)
+    if not explicit_off and not _has_enabled_optimization(doc):
+        return False
+    launcher = dict(doc["launcher"]) if isinstance(doc.get("launcher"), dict) else {}
+    if explicit_off:
+        for field in ROOT_OPTIMIZATION_FIELDS:
+            if type(doc.get(field)) is not bool:
+                doc[field] = False
+        for field in BOOLEAN_LAUNCHER_FIELDS - {"zgc"}:
+            if type(launcher.get(field)) is not bool:
+                launcher[field] = False
+        doc["launcher"] = launcher
+    elif launcher:
+        for field in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS:
+            if launcher.get(field) is False:
+                launcher[field] = True
+        doc["launcher"] = launcher
+    doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD] = CURRENT_OPTIMIZATION_DEFAULTS_VERSION
+    return True
+
+
 def desired_disabled(doc, mode="full", unchecked=None, bundled_ids=BUNDLED_IDS):
     existing = list(doc.get("disabledPlugins", []))
     require_string_array(existing, "disabledPlugins")
@@ -377,6 +442,7 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
         document = {
             "format": "turboism.runtime.config",
             "schemaVersion": CURRENT_SCHEMA,
+            OPTIMIZATION_DEFAULTS_VERSION_FIELD: CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
             "worktreeId": "turboism-runtime",
             "pluginDirs": ["plugins"],
             "useTextIcon": False,
@@ -387,10 +453,11 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
         document = json.loads(existing_text)
         try:
             validate_v1(document)
-            current = document
+            current = json.loads(existing_text)
         except ValueError:
             document = normalize_v1(document)
 
+    defaults_migrated = migrate_optimization_defaults(document)
     disabled = desired_disabled(document, mode, unchecked, bundled_ids)
     updated = dict(document)
     if disabled:
@@ -399,7 +466,7 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
         updated.pop("disabledPlugins", None)
     validate_v1(updated)
 
-    if current is not None and sorted(set(current.get("disabledPlugins", []))) == disabled:
+    if current is not None and not defaults_migrated and sorted(set(current.get("disabledPlugins", []))) == disabled:
         return existing_text
     return json.dumps(updated, ensure_ascii=False, separators=(",", ":")) + "\r\n"
 
@@ -591,6 +658,14 @@ def check_config_migration_contract():
           and "if ($published -and (Test-Path -LiteralPath $backup -PathType Leaf))" in configure
           and "CONFIG_SELECTION_FAILED" in configure
           and "ConfigMigrationError" in section)
+    launcher = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+    check("CM8 v0.70.2 defaults migration and launcher parity hooks exist",
+          "function Invoke-OptimizationDefaultsMigration" in configure
+          and OPTIMIZATION_DEFAULTS_VERSION_FIELD in configure
+          and 'Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "uniformLocationCache"' in launcher
+          and 'Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inspectorPropertyBypass"' in launcher
+          and "# optimization-not-emitted:" in launcher
+          and "modelInstanceCoalesce" in launcher.split("# optimization-not-emitted:", 1)[1].splitlines()[0])
 
 
 def ps_function_body(text, name):
@@ -1684,6 +1759,7 @@ def main():
     doc = json.loads(out)
     check("T1 template fields", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
           and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
+          and doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1
           and doc["launcher"] == {"cubismJvm": "graalvm"} and doc["useTextIcon"] is False
           and doc["guide"] == {"showOnStartup": True})
     check("T1 no disabledPlugins", "disabledPlugins" not in doc)
@@ -1841,6 +1917,71 @@ def main():
     check("T9b v0 migration preserves pre-normalize backup", backup == legacy and json.loads(out)["schemaVersion"] == 1)
     out, backup = installer_write_config_with_backup("full", [], None)
     check("T9b fresh install creates no backup", backup is None)
+
+    # TM1: Real v0.70.2 Settings-saved config (14 promoted keys persisted false alongside enabled
+    # pre-existing optimizations) promotes the 14 keys, preserves default-off/unrelated opt-outs,
+    # records optimizationDefaultsVersion=1, and creates no corrupt backup.
+    v0702_launcher = {
+        "cubismJvm": "graalvm",
+        "modelUpdateSkip": True,
+        "uploadElision": False,  # explicit user opt-out of a pre-existing default-ON switch
+        "meshSetupElision": True,
+        "uniformLocationCache": False,
+        "incrementalUpdate": False,
+    }
+    for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS:
+        v0702_launcher[key] = False
+    v0702_saved = json.dumps({
+        "format": "turboism.runtime.config",
+        "schemaVersion": 1,
+        "worktreeId": "turboism-runtime",
+        "pluginDirs": ["plugins"],
+        "atlasLoading": True,
+        "launcher": v0702_launcher,
+    })
+    out, backup = installer_write_config_with_backup("full", [], v0702_saved)
+    doc = json.loads(out)
+    check("TM1 v0.70.2 migration creates no corrupt backup", backup is None)
+    check("TM1 v0.70.2 migration records defaults version",
+          doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1)
+    check("TM1 all 14 promoted keys become True",
+          all(doc["launcher"].get(key) is True for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS))
+    check("TM1 pre-existing opt-out and default-off keys remain False",
+          doc["launcher"]["uploadElision"] is False
+          and doc["launcher"]["uniformLocationCache"] is False
+          and doc["launcher"]["incrementalUpdate"] is False)
+
+    # TM2: Explicit OFF preset (modelUpdateSkip=False, atlasLoading=False, zero True flags)
+    # stays disabled across all switches and still records optimizationDefaultsVersion=1.
+    off_launcher = {"cubismJvm": "graalvm", "modelUpdateSkip": False}
+    for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS:
+        off_launcher[key] = False
+    v0702_off = json.dumps({
+        "format": "turboism.runtime.config",
+        "schemaVersion": 1,
+        "worktreeId": "turboism-runtime",
+        "pluginDirs": ["plugins"],
+        "atlasLoading": False,
+        "launcher": off_launcher,
+    })
+    out_off, backup_off = installer_write_config_with_backup("full", [], v0702_off)
+    doc_off = json.loads(out_off)
+    check("TM2 OFF preset migration creates no corrupt backup", backup_off is None)
+    check("TM2 OFF preset preserves all false flags and sets defaults version",
+          doc_off.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1
+          and all(doc_off["launcher"].get(key) is False for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS)
+          and doc_off["launcher"].get("warpDeformEditAcceleration") is False
+          and doc_off.get("atlasInteractiveRender") is False)
+
+    # TM3: Post-migration explicit false opt-out stays false idempotently.
+    doc["launcher"]["warpGridInterpolation"] = False
+    post_migration = json.dumps(doc)
+    re_upgraded = installer_write_config("full", [], post_migration)
+    re_doc = json.loads(re_upgraded)
+    check("TM3 post-migration explicit false opt-out never re-flips to True",
+          re_upgraded == post_migration
+          and re_doc["launcher"]["warpGridInterpolation"] is False
+          and re_doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD] == 1)
 
     # ---- Plugin payload inventory simulation of the hidden payload section and the checkbox semantics ----
     # TI1: a fresh partial Full install with {a, c} unselected installs every JAR and writes disabledPlugins=[a,c]

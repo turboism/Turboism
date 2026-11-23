@@ -243,7 +243,7 @@ function Assert-RuntimeConfigV1 {
     param([object]$Document)
 
     Assert-RuntimeAllowedProperties $Document @(
-        "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+        "format", "schemaVersion", "optimizationDefaultsVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
@@ -258,6 +258,17 @@ function Assert-RuntimeConfigV1 {
     }
     if ((Get-RuntimeConfigSchemaVersion $Document) -ne 1) {
         throw "config.json schemaVersion must be 1"
+    }
+    $defaultsVersion = $Document.PSObject.Properties["optimizationDefaultsVersion"]
+    if ($null -ne $defaultsVersion) {
+        if (-not (Test-RuntimeConfigIntegerToken $defaultsVersion.Value)) {
+            throw "config.json optimizationDefaultsVersion must be a positive integer"
+        }
+        $parsedDefaultsVersion = 0L
+        if (-not [long]::TryParse([string]$defaultsVersion.Value, [ref]$parsedDefaultsVersion) `
+            -or $parsedDefaultsVersion -lt 1) {
+            throw "config.json optimizationDefaultsVersion must be a positive integer"
+        }
     }
 
     $worktree = $Document.PSObject.Properties["worktreeId"]
@@ -449,7 +460,7 @@ function Convert-RuntimeConfigToV1 {
 
     $known = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($name in @(
-        "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+        "format", "schemaVersion", "optimizationDefaultsVersion", "worktreeId", "pluginDirs", "disabledPlugins",
         "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "guide", "launcher", "textureAtlas", "reduceAutoBackup",
         "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
@@ -459,6 +470,17 @@ function Convert-RuntimeConfigToV1 {
     )) { [void]$known.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
         if (-not $known.Contains($property.Name)) { [void]$dropped.Add($property.Name) }
+    }
+
+    $defaultsVersion = $Document.PSObject.Properties["optimizationDefaultsVersion"]
+    if ($null -ne $defaultsVersion) {
+        $parsedDefaultsVersion = 0L
+        if ((Test-RuntimeConfigIntegerToken $defaultsVersion.Value) `
+            -and [long]::TryParse([string]$defaultsVersion.Value, [ref]$parsedDefaultsVersion) `
+            -and $parsedDefaultsVersion -ge 1) {
+            $normalized["optimizationDefaultsVersion"] = $parsedDefaultsVersion
+        }
+        else { [void]$dropped.Add("optimizationDefaultsVersion") }
     }
 
     $worktree = $Document.PSObject.Properties["worktreeId"]
@@ -771,6 +793,95 @@ function Save-RuntimeConfigPreNormalizeBackup {
     }
 }
 
+function Invoke-OptimizationDefaultsMigration {
+    param([pscustomobject]$Document)
+
+    if ($null -eq $Document -or $null -ne $Document.PSObject.Properties["optimizationDefaultsVersion"]) {
+        return $false
+    }
+    $rootOptimizationFields = @(
+        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
+        "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+        "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
+    )
+    $modelUpdateSkipKey = "modelUpdateSkip"
+    $remainingLauncherOptimizationFields = @(
+        "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache",
+        "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback",
+        "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse",
+        "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection",
+        "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear",
+        "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass",
+        "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision",
+        "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache",
+        "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration"
+    )
+    $launcherOptimizationFields = @($modelUpdateSkipKey) + $remainingLauncherOptimizationFields
+    $promotedLauncherFields = @(
+        "meshInterpolation", "shaderUniform", "matrixScratch", "warpPositionProjection",
+        "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
+        "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
+        "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint"
+    )
+
+    $launcherProp = $Document.PSObject.Properties["launcher"]
+    $launcherObj = if ($null -ne $launcherProp -and $launcherProp.Value -is [pscustomobject]) {
+        $launcherProp.Value
+    } else { $null }
+
+    $hasEnabled = $false
+    foreach ($name in $rootOptimizationFields) {
+        $p = $Document.PSObject.Properties[$name]
+        if ($null -ne $p -and $p.Value -is [bool] -and $p.Value) { $hasEnabled = $true; break }
+    }
+    if (-not $hasEnabled -and $null -ne $launcherObj) {
+        foreach ($name in $launcherOptimizationFields) {
+            $p = $launcherObj.PSObject.Properties[$name]
+            if ($null -ne $p -and $p.Value -is [bool] -and $p.Value) { $hasEnabled = $true; break }
+        }
+    }
+
+    $atlasLoadingProp = $Document.PSObject.Properties["atlasLoading"]
+    $modelUpdateSkipProp = if ($null -ne $launcherObj) { $launcherObj.PSObject.Properties[$modelUpdateSkipKey] } else { $null }
+    $explicitOff = (-not $hasEnabled) `
+        -and ($null -ne $atlasLoadingProp -and $atlasLoadingProp.Value -is [bool] -and -not $atlasLoadingProp.Value) `
+        -and ($null -ne $modelUpdateSkipProp -and $modelUpdateSkipProp.Value -is [bool] -and -not $modelUpdateSkipProp.Value)
+
+    if (-not $explicitOff -and -not $hasEnabled) {
+        return $false
+    }
+
+    if ($explicitOff) {
+        if ($null -eq $launcherObj) {
+            $launcherObj = [pscustomobject][ordered]@{}
+            $Document | Add-Member -NotePropertyName "launcher" -NotePropertyValue $launcherObj -Force
+        }
+        foreach ($name in $rootOptimizationFields) {
+            $p = $Document.PSObject.Properties[$name]
+            if ($null -eq $p -or $p.Value -isnot [bool]) {
+                $Document | Add-Member -NotePropertyName $name -NotePropertyValue $false -Force
+            }
+        }
+        foreach ($name in $launcherOptimizationFields) {
+            $p = $launcherObj.PSObject.Properties[$name]
+            if ($null -eq $p -or $p.Value -isnot [bool]) {
+                $launcherObj | Add-Member -NotePropertyName $name -NotePropertyValue $false -Force
+            }
+        }
+    }
+    elseif ($null -ne $launcherObj) {
+        foreach ($name in $promotedLauncherFields) {
+            $p = $launcherObj.PSObject.Properties[$name]
+            if ($null -ne $p -and $p.Value -is [bool] -and -not $p.Value) {
+                $p.Value = $true
+            }
+        }
+    }
+
+    $Document | Add-Member -NotePropertyName "optimizationDefaultsVersion" -NotePropertyValue 1 -Force
+    return $true
+}
+
 function Invoke-RuntimeConfigMigration {
     if (-not (Test-Path -LiteralPath $configPath)) {
         Write-Host "TURBOISM_CONFIG absent"
@@ -779,16 +890,33 @@ function Invoke-RuntimeConfigMigration {
     $document = Read-RuntimeConfigForMigration
     $schema = $null
     try { $schema = Get-RuntimeConfigSchemaVersion $document } catch { }
+    $wasValid = $false
     try {
         Assert-RuntimeConfigV1 $document
-        Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1"
-        return
+        $wasValid = $true
     }
     catch { }
-    $migrated = Convert-RuntimeConfigToV1 $document
-    Save-RuntimeConfigPreNormalizeBackup
+    if ($wasValid) {
+        if (-not (Invoke-OptimizationDefaultsMigration $document)) {
+            Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1"
+            return
+        }
+        $migrated = $document
+        Assert-RuntimeConfigV1 $migrated
+    }
+    else {
+        $migrated = Convert-RuntimeConfigToV1 $document
+        [void](Invoke-OptimizationDefaultsMigration $migrated)
+        Assert-RuntimeConfigV1 $migrated
+        Save-RuntimeConfigPreNormalizeBackup
+    }
     Write-RuntimeConfigAtomic $migrated
-    Write-Host ("TURBOISM_CONFIG migrated from={0} to=1" -f $(if ($null -ne $schema) { $schema } else { "unknown" }))
+    if ($wasValid) {
+        Write-Host "TURBOISM_CONFIG migrated-defaults optimizationDefaultsVersion=1"
+    }
+    else {
+        Write-Host ("TURBOISM_CONFIG migrated from={0} to=1" -f $(if ($null -ne $schema) { $schema } else { "unknown" }))
+    }
 }
 
 function Convert-InstallerPluginIdList {
@@ -868,6 +996,7 @@ function Invoke-InstallerPluginSelection {
             $document = [pscustomobject][ordered]@{
                 format = "turboism.runtime.config"
                 schemaVersion = 1
+                optimizationDefaultsVersion = 1
                 worktreeId = "turboism-runtime"
                 pluginDirs = @("plugins")
                 useTextIcon = $false
@@ -876,6 +1005,7 @@ function Invoke-InstallerPluginSelection {
             Assert-RuntimeConfigV1 $document
         }
 
+        $defaultsMigrated = Invoke-OptimizationDefaultsMigration $document
         $staleGraal = Remove-StaleGraalVmPath $document
         $existing = @()
         $existingProperty = $document.PSObject.Properties["disabledPlugins"]
@@ -897,7 +1027,7 @@ function Invoke-InstallerPluginSelection {
         $desiredList.Sort([System.StringComparer]::Ordinal)
         $desired = [string[]]$desiredList.ToArray()
 
-        if ($hadConfig -and $wasValid -and -not $staleGraal `
+        if ($hadConfig -and $wasValid -and -not $staleGraal -and -not $defaultsMigrated `
             -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
             Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
             return
@@ -951,6 +1081,7 @@ function Invoke-InstallerPluginSelection {
         $document = [pscustomobject][ordered]@{
             format = "turboism.runtime.config"
             schemaVersion = 1
+            optimizationDefaultsVersion = 1
             worktreeId = "turboism-runtime"
             pluginDirs = @("plugins")
             useTextIcon = $false
@@ -959,6 +1090,7 @@ function Invoke-InstallerPluginSelection {
         Assert-RuntimeConfigV1 $document
     }
 
+    $defaultsMigrated = Invoke-OptimizationDefaultsMigration $document
     $staleGraal = Remove-StaleGraalVmPath $document
     $existing = @()
     $existingProperty = $document.PSObject.Properties["disabledPlugins"]
@@ -983,7 +1115,7 @@ function Invoke-InstallerPluginSelection {
     $desiredList.Sort([System.StringComparer]::Ordinal)
     $desired = [string[]]$desiredList.ToArray()
 
-    if ($hadConfig -and $wasValid -and -not $staleGraal `
+    if ($hadConfig -and $wasValid -and -not $staleGraal -and -not $defaultsMigrated `
         -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
         Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
         return
@@ -1756,10 +1888,16 @@ $saveButton.Add_Click({
             Write-InstallerLog "BAT_INTEGRATION_RESTORED"
         }
 
-        $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
+        $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; optimizationDefaultsVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
         if ($null -ne $existingConfig) {
+            $config.Remove("optimizationDefaultsVersion")
             foreach ($property in $existingConfig.PSObject.Properties) {
                 if (@("format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins") -notcontains $property.Name) { $config[$property.Name] = $property.Value }
+            }
+            $configObject = [pscustomobject]$config
+            if (Invoke-OptimizationDefaultsMigration $configObject) {
+                $config = [ordered]@{}
+                foreach ($property in $configObject.PSObject.Properties) { $config[$property.Name] = $property.Value }
             }
         }
         if ($unchecked.Count -gt 0) { $config.disabledPlugins = $unchecked } else { $config.Remove("disabledPlugins") }
