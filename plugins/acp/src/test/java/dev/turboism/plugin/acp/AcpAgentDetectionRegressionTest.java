@@ -69,6 +69,13 @@ final class AcpAgentDetectionRegressionTest {
             } else if ("deepseek".equals(profile.id())) {
                 assertEquals(List.of("dsh"), profile.executableCandidates());
                 assertEquals(List.of("--profile", "acp"), profile.arguments());
+            } else if ("antigravity".equals(profile.id())) {
+                assertEquals(List.of("agy", "agy-acp"), profile.executableCandidates());
+                assertEquals(List.of("acp"), profile.argumentsFor(Path.of("/usr/local/bin/agy")));
+                assertEquals(List.of("acp"), profile.argumentsFor(Path.of("C:\\Tools\\agy.exe")));
+                assertEquals(List.of(), profile.argumentsFor(Path.of("/usr/local/bin/agy-acp")));
+                assertEquals(List.of("acp", "--login"), profile.loginArgumentsFor(Path.of("/usr/local/bin/agy")));
+                assertEquals(List.of(), profile.loginArgumentsFor(Path.of("/usr/local/bin/agy-acp")));
             }
         }
     }
@@ -288,7 +295,16 @@ final class AcpAgentDetectionRegressionTest {
     @Test
     void missingExecutableInConnectLogsClearWarningAndFailsWithKey() throws Exception {
         final MemoryConfig config = new MemoryConfig();
-        config.values.put("agentId", "antigravity");
+        final String missingAgentId = AgentCatalog.profiles().stream()
+                .filter(profile -> AgentAvailability.locate(profile).isEmpty())
+                .map(AgentProfile::id)
+                .findFirst()
+                .orElse(AgentCatalog.CUSTOM_AGENT_ID);
+        config.values.put("agentId", missingAgentId);
+        if (AgentCatalog.CUSTOM_AGENT_ID.equals(missingAgentId)) {
+            config.values.put(
+                    "customCommand", temporaryDirectory.resolve("missing-agent").toString());
+        }
         final TestFixture fixture = new TestFixture(config);
         try (AcpChatController controller = fixture.controller()) {
             controller.connect();
@@ -297,7 +313,7 @@ final class AcpAgentDetectionRegressionTest {
 
             assertTrue(
                     fixture.logger.warnings.stream()
-                            .anyMatch(msg -> msg.contains("ACP connection") && msg.contains("antigravity")),
+                            .anyMatch(msg -> msg.contains("ACP connection") && msg.contains(missingAgentId)),
                     "Controller must log warning with agent ID on launch resolution failure");
         }
     }

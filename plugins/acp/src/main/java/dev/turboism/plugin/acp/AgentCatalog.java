@@ -1,6 +1,7 @@
 package dev.turboism.plugin.acp;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Built-in native CLI providers and compatible ACP agents. */
@@ -53,12 +54,14 @@ final class AgentCatalog {
                     "https://devin.ai"),
             new AgentProfile(
                     "antigravity",
-                    "Google Antigravity (agy-acp)",
-                    List.of("agy-acp"),
-                    List.of(),
-                    List.of(),
-                    "npm install -g agy-acp",
-                    "https://www.npmjs.com/package/agy-acp"),
+                    "Google Antigravity",
+                    List.of("agy", "agy-acp"),
+                    List.of("acp"),
+                    List.of("acp", "--login"),
+                    Map.of("agy-acp", List.of()),
+                    Map.of("agy-acp", List.of()),
+                    "https://antigravity.google",
+                    "https://antigravity.google"),
             new AgentProfile(
                     "deepseek",
                     "DeepSeek Harness",

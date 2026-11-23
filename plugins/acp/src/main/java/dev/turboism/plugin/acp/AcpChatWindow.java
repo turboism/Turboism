@@ -553,10 +553,20 @@ final class AcpChatWindow implements AcpChatController.View {
         authMethods = List.of();
         authenticate.setVisible(false);
         final long elapsed = elapsedTaskSeconds();
-        showLifecycleStatus(localizationKey, StatusTone.ERROR);
+        final String text = localization.text(localizationKey);
+        currentStatusTone = StatusTone.ERROR;
+        setStatusText(text, statusColor(StatusTone.ERROR));
+        if (recordLifecycleMessage(lastLifecycleMessage, text)) {
+            lastLifecycleMessage = text;
+            if ("status.disconnected".equals(localizationKey)) {
+                appendSystem(text);
+            } else {
+                appendError(text);
+            }
+        }
         if (wasWorking) {
             taskElapsedSeconds = elapsed;
-            finishTask("failed", localization.text(localizationKey));
+            finishTask("failed", "");
         }
         connect.setText(localization.text("button.connect"));
         connect.setEnabled(true);
@@ -574,9 +584,11 @@ final class AcpChatWindow implements AcpChatController.View {
     public void showSessionFailure(final String localizationKey, final String details) {
         if (!acceptingEvents.get()) return;
         prompting = false;
-        final String error = details == null || details.isBlank() ? localization.text(localizationKey) : details;
+        final String summary = localization.text(localizationKey);
+        final String errorText = details == null || details.isBlank() ? summary : summary + "\n" + details;
+        appendError(errorText);
         if (!taskState.equals("working")) taskElapsedSeconds = 0;
-        finishTask("failed", error);
+        finishTask("failed", "");
         connect.setEnabled(true);
         setConversationControls(connected, false);
     }
@@ -1158,7 +1170,10 @@ final class AcpChatWindow implements AcpChatController.View {
                 profile.installHint().isEmpty()
                         ? profile.homepage()
                         : localization.format("label.agent-install-hint", profile.installHint()));
-        agentLogin.setEnabled(!profile.loginArguments().isEmpty());
+        final boolean canTerminalLogin = detected != null && !detected.isBlank()
+                ? !profile.loginArgumentsFor(java.nio.file.Path.of(detected)).isEmpty()
+                : !profile.loginArguments().isEmpty();
+        agentLogin.setEnabled(canTerminalLogin);
     }
 
     private JPanel agentContent() {
@@ -1292,11 +1307,6 @@ final class AcpChatWindow implements AcpChatController.View {
         panel.add(agentDetection, constraints);
         constraints.gridy++;
         add(panel, constraints, localization.text("label.custom-command"), customCommand);
-        constraints.gridy++;
-        constraints.gridx = 0;
-        constraints.gridwidth = 3;
-        constraints.weightx = 1;
-        panel.add(new JLabel("<html>" + localization.text("label.custom-command-detail") + "</html>"), constraints);
         constraints.gridy++;
         constraints.gridx = 0;
         constraints.gridwidth = 3;
@@ -2402,7 +2412,9 @@ final class AcpChatWindow implements AcpChatController.View {
         if (taskState.isEmpty()) return;
         final long seconds = elapsedTaskSeconds();
         final String duration = seconds >= 60 ? seconds / 60 + "m" + seconds % 60 + "s" : seconds + "s";
-        final String text = localization.format("status.task-" + taskState, duration, taskError);
+        final String text = localization
+                .format("status.task-" + taskState, duration, taskError)
+                .strip();
         agentStatus.setText(text);
         agentStatus.setToolTipText(text);
         managerStatus.setText(text);
@@ -2426,6 +2438,10 @@ final class AcpChatWindow implements AcpChatController.View {
 
     private void appendSystem(final String text) {
         appendEntry(Sender.SYSTEM, null, null, null, text, false);
+    }
+
+    private void appendError(final String text) {
+        appendEntry(Sender.ERROR, null, null, null, text, false);
     }
 
     private void appendEntry(
@@ -2899,7 +2915,12 @@ final class AcpChatWindow implements AcpChatController.View {
                 StyleConstants.setLeftIndent(paragraph, 4F);
                 StyleConstants.setRightIndent(paragraph, 12F);
                 StyleConstants.setSpaceAbove(paragraph, 10F);
-                StyleConstants.setSpaceBelow(paragraph, 4F);
+                // Preserve zero spacing on compact multi-line blocks such as tables and fenced code.
+                if (StyleConstants.getSpaceBelow(
+                                document.getParagraphElement(start).getAttributes())
+                        > 0F) {
+                    StyleConstants.setSpaceBelow(paragraph, 4F);
+                }
                 document.setParagraphAttributes(start, 1, paragraph, false);
             }
         }
@@ -3350,7 +3371,11 @@ final class AcpChatWindow implements AcpChatController.View {
     }
 
     private Color senderColor(final Sender sender) {
-        return sender == Sender.USER ? AcpChatTheme.accent() : AcpChatTheme.muted();
+        return switch (sender) {
+            case USER -> AcpChatTheme.accent();
+            case ERROR -> AcpChatTheme.error();
+            default -> AcpChatTheme.muted();
+        };
     }
 
     static void installFallbackSwingUis(final javax.swing.UIDefaults defaults) {
@@ -3509,6 +3534,7 @@ final class AcpChatWindow implements AcpChatController.View {
         USER,
         AGENT,
         SYSTEM,
+        ERROR,
         TOOL,
         THINKING
     }

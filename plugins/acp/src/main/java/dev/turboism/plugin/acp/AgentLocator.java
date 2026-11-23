@@ -234,6 +234,7 @@ final class AgentLocator {
         if (windows) {
             add(directories, env.get("APPDATA"), "npm");
             add(directories, env.get("LOCALAPPDATA"), "Programs");
+            add(directories, env.get("LOCALAPPDATA"), "Programs", "Antigravity", "bin");
             add(directories, env.get("LOCALAPPDATA"), "Microsoft", "WinGet", "Links");
             add(directories, env.get("LOCALAPPDATA"), "pnpm");
             add(directories, env.get("LOCALAPPDATA"), "Yarn", "bin");

@@ -5,6 +5,9 @@ import javax.swing.UIManager;
 
 /** Reads the same semantic defaults published by the host's appearance/theme service. */
 final class AcpChatTheme {
+    private static final int CODE_BACKGROUND_TINT_PERCENT = 7;
+    private static final int FULL_PERCENT = 100;
+
     private AcpChatTheme() {}
 
     static Color background() {
@@ -13,6 +16,11 @@ final class AcpChatTheme {
 
     static Color surface() {
         return color("CubismCommon.surface", "Table.background", background());
+    }
+
+    /** Derives a subtle code fill from background toward foreground so light themes avoid stark white boxes. */
+    static Color codeBackground() {
+        return blend(background(), foreground(), CODE_BACKGROUND_TINT_PERCENT, FULL_PERCENT);
     }
 
     static Color inputBackground() {
@@ -66,5 +74,13 @@ final class AcpChatTheme {
         if (value != null) return value;
         final Color nativeValue = UIManager.getColor(fallback);
         return nativeValue == null ? defaultValue : nativeValue;
+    }
+
+    private static Color blend(final Color base, final Color target, final int weight, final int scale) {
+        final int keep = scale - weight;
+        return new Color(
+                (base.getRed() * keep + target.getRed() * weight) / scale,
+                (base.getGreen() * keep + target.getGreen() * weight) / scale,
+                (base.getBlue() * keep + target.getBlue() * weight) / scale);
     }
 }

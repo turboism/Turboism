@@ -196,6 +196,11 @@ final class AcpChatWindowRenderingTest {
                 final var manager = component(window, "agentManager", javax.swing.JDialog.class);
                 assertTrue(manager.isVisible());
                 assertTrue(SwingUtilities.isDescendingFrom(window.agentSelector(), manager));
+                window.showAgentSelected(AgentCatalog.CUSTOM_AGENT_ID);
+                assertEquals(
+                        1,
+                        countLabelsContaining(
+                                manager.getContentPane(), localization().text("label.custom-command-detail")));
             } finally {
                 window.dispose();
             }
@@ -298,17 +303,26 @@ final class AcpChatWindowRenderingTest {
                 clock.addAndGet(1_000_000_000L);
                 window.showSessionFailure("status.prompt-failed", "API unavailable\nretry later");
                 assertFalse(timer.isRunning());
-                assertEquals("Failed 1s API unavailable retry later", status.getText());
-                assertEquals(status.getText(), status.getToolTipText());
+                assertEquals("Failed 1s", status.getText());
                 assertEquals("●", dot.getText());
                 assertEquals(AcpChatTheme.error(), dot.getForeground());
+                final JTextPane transcript = component(window, "transcript", JTextPane.class);
+                final String errorTranscript = transcriptText(transcript);
+                assertTrue(errorTranscript.contains("API unavailable\nretry later"));
+                assertEquals(
+                        AcpChatTheme.error(),
+                        StyleConstants.getForeground(transcript
+                                .getStyledDocument()
+                                .getCharacterElement(errorTranscript.indexOf("API unavailable"))
+                                .getAttributes()));
                 window.refreshTheme();
                 assertEquals(AcpChatTheme.error(), dot.getForeground());
-                assertEquals("Failed 1s API unavailable retry later", status.getText());
+                assertEquals("Failed 1s", status.getText());
                 window.showPrompting();
                 clock.addAndGet(2_000_000_000L);
                 window.showFailure("status.process-terminated");
-                assertTrue(status.getText().startsWith("Failed 2s "));
+                assertEquals("Failed 2s", status.getText());
+                assertTrue(transcriptText(transcript).contains(localization().text("status.process-terminated")));
                 assertFalse(timer.isRunning());
                 window.showPrompting();
                 window.dispose();
@@ -1250,6 +1264,33 @@ final class AcpChatWindowRenderingTest {
         });
     }
 
+    @Test
+    void streamsMarkdownTablesInTranscriptWithCompactBordersAndTintedCode() throws Exception {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        SwingUtilities.invokeAndWait(() -> {
+            final AcpChatWindow window = new AcpChatWindow(localization(), "", "", "");
+            try {
+                window.clearTranscript();
+                window.appendAgent("| 项 | 数值 |\n|---|---|\n");
+                window.appendAgent("| `ParamEye` | **173** |\n\n完成");
+                final JTextPane transcript = component(window, "transcript", JTextPane.class);
+                final String text = transcriptText(transcript);
+                assertTrue(text.contains("┌"));
+                assertTrue(text.contains("ParamEye"));
+                assertTrue(text.contains("完成"));
+                assertFalse(text.contains("|---|"));
+                assertEquals(
+                        0F,
+                        StyleConstants.getSpaceBelow(transcript
+                                .getStyledDocument()
+                                .getParagraphElement(0)
+                                .getAttributes()));
+            } finally {
+                window.dispose();
+            }
+        });
+    }
+
     /**
      * Returns the transcript text exactly as the document stores it.
      *
@@ -1275,6 +1316,20 @@ final class AcpChatWindowRenderingTest {
         transcript.setCaretPosition(transcriptText(transcript).indexOf(label));
         final Object key = transcript.getInputMap().get(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0));
         transcript.getActionMap().get(key).actionPerformed(new ActionEvent(transcript, 0, "toggle"));
+    }
+
+    private static int countLabelsContaining(final java.awt.Container container, final String snippet) {
+        int count = 0;
+        for (java.awt.Component child : container.getComponents()) {
+            if (child instanceof javax.swing.JLabel label
+                    && label.getText() != null
+                    && label.getText().contains(snippet)) {
+                count++;
+            } else if (child instanceof java.awt.Container nested) {
+                count += countLabelsContaining(nested, snippet);
+            }
+        }
+        return count;
     }
 
     private static <T> T component(final AcpChatWindow window, final String name, final Class<T> type) {

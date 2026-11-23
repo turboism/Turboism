@@ -41,7 +41,7 @@ final class AcpRealAgentSmokeTest {
 
         final java.util.List<String> argv = new java.util.ArrayList<>();
         argv.add(executable.toString());
-        argv.addAll(profile.arguments());
+        argv.addAll(profile.argumentsFor(executable));
         final AgentLaunchSpec spec = new AgentLaunchSpec(List.copyOf(argv), temporaryDirectory);
         try (AcpClient client = AcpClient.start(spec, new AcpListener() {})) {
             assertNotNull(client.agentInfo());

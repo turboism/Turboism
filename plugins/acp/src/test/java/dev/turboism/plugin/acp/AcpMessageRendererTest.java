@@ -138,6 +138,115 @@ final class AcpMessageRendererTest {
         assertTrue(elapsedMillis < 2500L, "streamed render took " + elapsedMillis + "ms");
     }
 
+    @Test
+    void rendersMarkdownTablesWithBoxBordersInlineFormattingAndAlignment() throws Exception {
+        final String markdown = """
+                | 项 | 数值 | 参考基准 |
+                |:---|---:|:---:|
+                | **顶点** | `106,317` | 商用模型 |
+                | 贴图 | 239.1 M | 严重超预算 |
+                """;
+        final DefaultStyledDocument document = render(markdown);
+        final String text = document.getText(0, document.getLength());
+        assertTrue(text.contains("┌"));
+        assertTrue(text.contains("│ 项"));
+        assertTrue(text.contains("├"));
+        assertTrue(text.contains("└"));
+        assertFalse(text.contains("|---"));
+        assertFalse(text.contains("**顶点**"));
+        assertFalse(text.contains("`106,317`"));
+        assertTrue(StyleConstants.isBold(
+                document.getCharacterElement(text.indexOf("参考基准")).getAttributes()));
+        assertTrue(StyleConstants.isBold(
+                document.getCharacterElement(text.indexOf("顶点")).getAttributes()));
+        assertEquals(
+                Font.MONOSPACED,
+                StyleConstants.getFontFamily(
+                        document.getCharacterElement(text.indexOf("106,317")).getAttributes()));
+        final String[] lines = text.split("\n");
+        final int headerCols = AcpMessageRenderer.codePointDisplayWidth('项') > 0 ? displayLength(lines[1]) : 0;
+        for (int index = 0; index < lines.length; index++) {
+            assertEquals(headerCols, displayLength(lines[index]), "line " + index + " misaligned: " + lines[index]);
+        }
+    }
+
+    @Test
+    void wrapsLongTableCellsWithinMaximumTableWidth() throws Exception {
+        final String markdown = """
+                | 项 | 数值 | 参考基准 |
+                |---|---|---|
+                | 顶点 / 三角面 | 106,317 / 164,194 | 商用模型常见 10k–40k 面，此为其 4–16 倍，需要大幅优化贴图与网格 |
+                """;
+        final DefaultStyledDocument document = render(markdown);
+        final String text = document.getText(0, document.getLength());
+        for (String line : text.split("\n")) {
+            assertTrue(displayLength(line) <= 76, "line exceeded width budget: " + line);
+        }
+        assertTrue(text.contains("商用模型常见"));
+        assertTrue(text.contains("需要大幅优化贴图与网格"));
+    }
+
+    @Test
+    void incrementalStreamMatchesFullRenderAcrossTablesAndThematicBreaks() throws Exception {
+        final String markdown = """
+                # 客观规模
+
+                ---
+
+                | 项 | 数值 | 参考基准 |
+                |---|---|---|
+                | 参数 | 173 | 重型 |
+                | 蒙版 | `255` | 深度 **0** |
+
+                后续结论
+                """;
+        final DefaultStyledDocument streamed = stream(markdown, 5);
+        final DefaultStyledDocument full = render(markdown);
+        assertEquals(full.getText(0, full.getLength()), streamed.getText(0, streamed.getLength()));
+        final String text = streamed.getText(0, streamed.getLength());
+        assertTrue(StyleConstants.isBold(
+                streamed.getCharacterElement(text.indexOf("0")).getAttributes()));
+    }
+
+    @Test
+    void codeBackgroundAvoidsStarkWhiteSurfaceInLightTheme() throws Exception {
+        final String[] keys = {"CubismCommon.background", "CubismCommon.surface", "CubismCommon.foreground"};
+        final var previous = new java.util.HashMap<String, Object>();
+        for (String key : keys) previous.put(key, javax.swing.UIManager.get(key));
+        try {
+            final java.awt.Color bg = new java.awt.Color(0xF2F2F2);
+            final java.awt.Color whiteSurface = new java.awt.Color(0xFFFFFF);
+            final java.awt.Color fg = new java.awt.Color(0x1E1E1E);
+            javax.swing.UIManager.put("CubismCommon.background", bg);
+            javax.swing.UIManager.put("CubismCommon.surface", whiteSurface);
+            javax.swing.UIManager.put("CubismCommon.foreground", fg);
+            final DefaultStyledDocument document = render("通道 `ParamEyeJellyPhyXL/XR` 说明");
+            final String text = document.getText(0, document.getLength());
+            final java.awt.Color codeBg =
+                    StyleConstants.getBackground(document.getCharacterElement(text.indexOf("ParamEyeJellyPhyXL/XR"))
+                            .getAttributes());
+            assertNotEquals(whiteSurface, codeBg);
+            assertNotEquals(bg, codeBg);
+            assertEquals(AcpChatTheme.codeBackground(), codeBg);
+        } finally {
+            for (String key : keys) {
+                if (previous.get(key) == null)
+                    javax.swing.UIManager.getDefaults().remove(key);
+                else javax.swing.UIManager.put(key, previous.get(key));
+            }
+        }
+    }
+
+    private static int displayLength(final String line) {
+        int width = 0;
+        for (int offset = 0; offset < line.length(); ) {
+            final int cp = line.codePointAt(offset);
+            width += AcpMessageRenderer.codePointDisplayWidth(cp);
+            offset += Character.charCount(cp);
+        }
+        return width;
+    }
+
     private static String text(final CountingDocument document) throws Exception {
         return document.getText(0, document.getLength());
     }

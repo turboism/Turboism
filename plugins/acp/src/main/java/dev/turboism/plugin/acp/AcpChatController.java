@@ -302,7 +302,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 final AgentLaunchSpec spec = launchSpec != null ? launchSpec : resolveLaunchSpec();
                 final AgentProfile profile =
                         AgentCatalog.profile(settings.agentId()).orElse(null);
-                final List<String> arguments = profile != null ? profile.loginArguments() : List.of();
+                final List<String> arguments = profile != null
+                        ? profile.loginArgumentsFor(java.nio.file.Path.of(spec.executable()))
+                        : List.of();
                 if (arguments.isEmpty()) {
                     ui(() -> view.showSessionFailure("status.auth-terminal-unavailable"));
                     return;
@@ -399,7 +401,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                     .orElseThrow(() -> new IllegalStateException("status.agent-not-found-generic"));
             final AgentProtocol protocol = AgentProtocol.forExecutable(profile, executable);
             argv.add(executable.toString());
-            if (protocol == AgentProtocol.ACP) argv.addAll(profile.arguments());
+            if (protocol == AgentProtocol.ACP) argv.addAll(profile.argumentsFor(executable));
             return new AgentLaunchSpec(List.copyOf(argv), context.paths().stateDir(), Map.of(), protocol);
         }
         return new AgentLaunchSpec(List.copyOf(argv), context.paths().stateDir());
