@@ -19,6 +19,7 @@ class TargetClassTableTest {
 
     /** Tables that ship in the runtime jar and must resolve every reviewed version. */
     private static final List<String> SHIPPED_TABLES = List.of(
+            "edit-drag-responsiveness",
             "float-array-parse",
             "image-archive-reuse",
             "incremental-update",

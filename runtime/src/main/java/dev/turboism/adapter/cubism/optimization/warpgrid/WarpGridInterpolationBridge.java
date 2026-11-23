@@ -6,19 +6,22 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * Publishes runtime gates and out-of-bounds tail handling for warp grid interpolation.
+ * Publishes runtime gates and out-of-bounds run handling for warp grid interpolation.
  *
  * <p>The woven host method executes the in-bounds fast path without allocations and invokes the
- * bound {@link MethodHandle} only when a point exits grid bounds. Keeping out-of-bounds math in
- * specialized Java loops reduces host bytecode pressure and preserves IEEE-754 bit parity.</p>
+ * bound {@link MethodHandle} only for contiguous out-of-bounds runs, returning the next in-bounds
+ * index so remaining vertices continue inside the compiled loop without fallback overhead.</p>
  */
 public final class WarpGridInterpolationBridge implements AutoCloseable {
 
@@ -28,7 +31,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     /** System property slot holding the {@link AtomicBoolean} diagnostic gate. */
     public static final String ACTIVE_PROPERTY = "turboism.warp-grid-interpolation.active";
 
-    /** System property slot holding the {@link MethodHandle} out-of-bounds tail handler. */
+    /** System property slot holding the {@link MethodHandle} out-of-bounds run handler. */
     public static final String OOB_PROPERTY = "turboism.warp-grid-interpolation.oob";
 
     /** System property slot holding the {@link Supplier} counters snapshot. */
@@ -49,13 +52,21 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private static final int NEXT_X_OFFSET = 2;
     private static final int NEXT_Y_OFFSET = 3;
 
+    private static final int BASIS_CX = 0;
+    private static final int BASIS_CY = 1;
+    private static final int BASIS_UX = 2;
+    private static final int BASIS_UY = 3;
+    private static final int BASIS_VX = 4;
+    private static final int BASIS_VY = 5;
+    private static final int BASIS_LENGTH = 6;
+
     private static final long ZERO_COUNT = 0L;
     private static final long BOUND_PRESENT = 1L;
     private static final long BOUND_ABSENT = 0L;
 
-    private static final String OOB_HANDLER_METHOD = "handleOobTail";
+    private static final String OOB_HANDLER_METHOD = "handleOobRun";
     private static final MethodType OOB_HANDLER_TYPE = MethodType.methodType(
-            void.class,
+            int.class,
             float[].class,
             float[].class,
             int.class,
@@ -81,10 +92,12 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private final MethodHandle transformHandle;
     private final MethodHandle oobHandle;
     private final AtomicBoolean active = new AtomicBoolean(true);
-    private final AtomicLong oobTailCalls = new AtomicLong();
-    private final AtomicLong oobPoints = new AtomicLong();
-    private final AtomicLong inBoundsFallbackPoints = new AtomicLong();
-    private final AtomicLong failures = new AtomicLong();
+    private final Set<ThreadStats> threadStatsSet = ConcurrentHashMap.newKeySet();
+    private final AtomicLong retiredOobTailCalls = new AtomicLong();
+    private final AtomicLong retiredOobPoints = new AtomicLong();
+    private final AtomicLong retiredInBoundsFallbackPoints = new AtomicLong();
+    private final AtomicLong retiredFailures = new AtomicLong();
+    private final ThreadLocal<ThreadStats> threadStats = ThreadLocal.withInitial(this::registerThreadStats);
     private final Supplier<Map<String, Long>> statsSupplier = this::snapshot;
 
     private WarpGridInterpolationBridge(
@@ -196,6 +209,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     @Override
     public void close() {
         active.set(false);
+        threadStats.remove();
         final Properties props = System.getProperties();
         props.remove(ACTIVE_PROPERTY, active);
         props.remove(OOB_PROPERTY, oobHandle);
@@ -204,12 +218,37 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
 
     /** Returns an immutable counters snapshot for diagnostics. */
     public Map<String, Long> snapshot() {
+        long calls = retiredOobTailCalls.get();
+        long points = retiredOobPoints.get();
+        long fallbackPoints = retiredInBoundsFallbackPoints.get();
+        long failCount = retiredFailures.get();
+        final Iterator<ThreadStats> iterator = threadStatsSet.iterator();
+        while (iterator.hasNext()) {
+            final ThreadStats stats = iterator.next();
+            calls += stats.oobTailCalls;
+            points += stats.oobPoints;
+            fallbackPoints += stats.inBoundsFallbackPoints;
+            failCount += stats.failures;
+            if (!stats.owner.isAlive()) {
+                retiredOobTailCalls.addAndGet(stats.oobTailCalls);
+                retiredOobPoints.addAndGet(stats.oobPoints);
+                retiredInBoundsFallbackPoints.addAndGet(stats.inBoundsFallbackPoints);
+                retiredFailures.addAndGet(stats.failures);
+                iterator.remove();
+            }
+        }
         return Map.of(
-                STAT_OOB_TAIL_CALLS, oobTailCalls.get(),
-                STAT_OOB_POINTS, oobPoints.get(),
-                STAT_IN_BOUNDS_FALLBACK_POINTS, inBoundsFallbackPoints.get(),
-                STAT_FAILURES, failures.get(),
+                STAT_OOB_TAIL_CALLS, calls,
+                STAT_OOB_POINTS, points,
+                STAT_IN_BOUNDS_FALLBACK_POINTS, fallbackPoints,
+                STAT_FAILURES, failCount,
                 STAT_BOUND, isSingletonBound() ? BOUND_PRESENT : BOUND_ABSENT);
+    }
+
+    private ThreadStats registerThreadStats() {
+        final ThreadStats stats = new ThreadStats();
+        threadStatsSet.add(stats);
+        return stats;
     }
 
     private boolean isSingletonBound() {
@@ -222,7 +261,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     }
 
     @SuppressWarnings("unused")
-    private void handleOobTail(
+    private int handleOobRun(
             final float[] src,
             final float[] dst,
             final int startIndex,
@@ -232,11 +271,12 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final int col,
             final int row,
             final boolean isQuad) {
+        final ThreadStats stats = threadStats.get();
         try {
-            transformTail(src, dst, startIndex, limit, srcStep, pt, col, row, isQuad);
+            return processOobRun(src, dst, startIndex, limit, srcStep, pt, col, row, stats);
         } catch (final Throwable t) {
             FatalErrors.rethrowIfFatal(t);
-            failures.incrementAndGet();
+            stats.failures++;
             if (t instanceof RuntimeException runtime) {
                 throw runtime;
             }
@@ -247,8 +287,46 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         }
     }
 
+    private static int processOobRun(
+            final float[] src,
+            final float[] dst,
+            final int startIndex,
+            final int limit,
+            final int srcStep,
+            final float[] pt,
+            final int col,
+            final int row,
+            final ThreadStats stats) {
+        final int colPlus1 = col + CELL_STEP;
+        final float fCol = (float) col;
+        final float fRow = (float) row;
+        final float[] basis = stats.basis;
+        computeCornerBasis(pt, col, row, colPlus1, basis);
+
+        long oobCount = ZERO_COUNT;
+        int i = startIndex;
+        while (i < limit) {
+            final float sx = src[i];
+            final float sy = src[i + Y_OFFSET];
+            final float x = sx * fCol;
+            final float y = sy * fRow;
+
+            // Keep exact host NaN comparison routing so NaN and in-bounds points resume ASM.
+            if (!(x < ZERO_F) && !(y < ZERO_F) && !(fCol <= x) && !(fRow <= y)) {
+                break;
+            }
+            oobCount++;
+            interpolateOobPoint(dst, i, pt, col, row, colPlus1, fCol, fRow, sx, sy, x, y, basis);
+            i += srcStep;
+        }
+
+        stats.oobTailCalls++;
+        stats.oobPoints += oobCount;
+        return i;
+    }
+
     /**
-     * Completes transformation from the first out-of-bounds index with strict IEEE-754 order.
+     * Completes transformation from an out-of-bounds index with strict IEEE-754 order.
      */
     void transformTail(
             final float[] src,
@@ -260,14 +338,15 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final int col,
             final int row,
             final boolean isQuad) {
+        final ThreadStats stats = threadStats.get();
         if (isQuad) {
-            transformTailQuad(src, dst, startIndex, limit, srcStep, pt, col, row);
+            transformTailQuad(src, dst, startIndex, limit, srcStep, pt, col, row, stats);
         } else {
-            transformTailTriangle(src, dst, startIndex, limit, srcStep, pt, col, row);
+            transformTailTriangle(src, dst, startIndex, limit, srcStep, pt, col, row, stats);
         }
     }
 
-    private void transformTailQuad(
+    private static void transformTailQuad(
             final float[] src,
             final float[] dst,
             final int startIndex,
@@ -275,13 +354,15 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final int srcStep,
             final float[] pt,
             final int col,
-            final int row) {
+            final int row,
+            final ThreadStats stats) {
         final int colPlus1 = col + CELL_STEP;
         final int rowStride = colPlus1 << SHIFT_PAIR;
         final float fCol = (float) col;
         final float fRow = (float) row;
+        final float[] basis = stats.basis;
 
-        CornerBasis basis = null;
+        boolean basisReady = false;
         long inBoundsCount = ZERO_COUNT;
         long oobCount = ZERO_COUNT;
 
@@ -312,16 +393,17 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             }
 
             oobCount++;
-            if (basis == null) {
-                basis = CornerBasis.compute(pt, col, row, colPlus1);
+            if (!basisReady) {
+                computeCornerBasis(pt, col, row, colPlus1, basis);
+                basisReady = true;
             }
             interpolateOobPoint(dst, i, pt, col, row, colPlus1, fCol, fRow, sx, sy, x, y, basis);
         }
 
-        flushTailCounters(inBoundsCount, oobCount);
+        flushTailCounters(stats, inBoundsCount, oobCount);
     }
 
-    private void transformTailTriangle(
+    private static void transformTailTriangle(
             final float[] src,
             final float[] dst,
             final int startIndex,
@@ -329,13 +411,15 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final int srcStep,
             final float[] pt,
             final int col,
-            final int row) {
+            final int row,
+            final ThreadStats stats) {
         final int colPlus1 = col + CELL_STEP;
         final int rowStride = colPlus1 << SHIFT_PAIR;
         final float fCol = (float) col;
         final float fRow = (float) row;
+        final float[] basis = stats.basis;
 
-        CornerBasis basis = null;
+        boolean basisReady = false;
         long inBoundsCount = ZERO_COUNT;
         long oobCount = ZERO_COUNT;
 
@@ -372,22 +456,23 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             }
 
             oobCount++;
-            if (basis == null) {
-                basis = CornerBasis.compute(pt, col, row, colPlus1);
+            if (!basisReady) {
+                computeCornerBasis(pt, col, row, colPlus1, basis);
+                basisReady = true;
             }
             interpolateOobPoint(dst, i, pt, col, row, colPlus1, fCol, fRow, sx, sy, x, y, basis);
         }
 
-        flushTailCounters(inBoundsCount, oobCount);
+        flushTailCounters(stats, inBoundsCount, oobCount);
     }
 
-    private void flushTailCounters(final long inBoundsCount, final long oobCount) {
-        oobTailCalls.incrementAndGet();
+    private static void flushTailCounters(final ThreadStats stats, final long inBoundsCount, final long oobCount) {
+        stats.oobTailCalls++;
         if (inBoundsCount != ZERO_COUNT) {
-            inBoundsFallbackPoints.addAndGet(inBoundsCount);
+            stats.inBoundsFallbackPoints += inBoundsCount;
         }
         if (oobCount != ZERO_COUNT) {
-            oobPoints.addAndGet(oobCount);
+            stats.oobPoints += oobCount;
         }
     }
 
@@ -404,12 +489,12 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float sy,
             final float x,
             final float y,
-            final CornerBasis basis) {
+            final float[] basis) {
         if (sx > NEG_TWO_F && sx < THREE_F && sy > NEG_TWO_F && sy < THREE_F) {
             interpolateBorderBand(dst, outIdx, pt, col, row, colPlus1, fCol, fRow, sx, sy, x, y, basis);
         } else {
-            dst[outIdx] = (basis.cx + sx * basis.ux) + sy * basis.vx;
-            dst[outIdx + Y_OFFSET] = (basis.cy + sx * basis.uy) + sy * basis.vy;
+            dst[outIdx] = (basis[BASIS_CX] + sx * basis[BASIS_UX]) + sy * basis[BASIS_VX];
+            dst[outIdx + Y_OFFSET] = (basis[BASIS_CY] + sx * basis[BASIS_UY]) + sy * basis[BASIS_VY];
         }
     }
 
@@ -426,7 +511,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float sy,
             final float x,
             final float y,
-            final CornerBasis basis) {
+            final float[] basis) {
         if (sx <= ZERO_F) {
             interpolateLeftBand(dst, outIdx, pt, row, colPlus1, fRow, sx, sy, y, basis);
         } else if (sx >= ONE_F) {
@@ -450,16 +535,22 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float sx,
             final float sy,
             final float y,
-            final CornerBasis basis) {
+            final float[] basis) {
+        final float cx = basis[BASIS_CX];
+        final float cy = basis[BASIS_CY];
+        final float ux = basis[BASIS_UX];
+        final float uy = basis[BASIS_UY];
+        final float vx = basis[BASIS_VX];
+        final float vy = basis[BASIS_VY];
         if (sy <= ZERO_F) {
             final float p11x = pt[ORIGIN_INDEX];
             final float p11y = pt[Y_OFFSET];
-            final float p01x = basis.cx - TWO_F * basis.ux;
-            final float p01y = basis.cy - TWO_F * basis.uy;
-            final float p10x = basis.cx - TWO_F * basis.vx;
-            final float p10y = basis.cy - TWO_F * basis.vy;
-            final float p00x = p01x - TWO_F * basis.vx;
-            final float p00y = p01y - TWO_F * basis.vy;
+            final float p01x = cx - TWO_F * ux;
+            final float p01y = cy - TWO_F * uy;
+            final float p10x = cx - TWO_F * vx;
+            final float p10y = cy - TWO_F * vy;
+            final float p00x = p01x - TWO_F * vx;
+            final float p00y = p01y - TWO_F * vy;
             final float tx = HALF_F * (sx - NEG_TWO_F);
             final float ty = HALF_F * (sy - NEG_TWO_F);
             interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
@@ -467,12 +558,12 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final int rowBase = (row * colPlus1) << SHIFT_PAIR;
             final float p10x = pt[rowBase];
             final float p10y = pt[rowBase + Y_OFFSET];
-            final float p00x = (basis.cx - TWO_F * basis.ux) + ONE_F * basis.vx;
-            final float p00y = (basis.cy - TWO_F * basis.uy) + ONE_F * basis.vy;
-            final float p11x = basis.cx + THREE_F * basis.vx;
-            final float p11y = basis.cy + THREE_F * basis.vy;
-            final float p01x = (basis.cx - TWO_F * basis.ux) + THREE_F * basis.vx;
-            final float p01y = (basis.cy - TWO_F * basis.uy) + THREE_F * basis.vy;
+            final float p00x = (cx - TWO_F * ux) + ONE_F * vx;
+            final float p00y = (cy - TWO_F * uy) + ONE_F * vy;
+            final float p11x = cx + THREE_F * vx;
+            final float p11y = cy + THREE_F * vy;
+            final float p01x = (cx - TWO_F * ux) + THREE_F * vx;
+            final float p01y = (cy - TWO_F * uy) + THREE_F * vy;
             final float tx = HALF_F * (sx - NEG_TWO_F);
             final float ty = HALF_F * (sy - ONE_F);
             interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
@@ -491,10 +582,10 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float p10y = pt[idx0 + Y_OFFSET];
             final float p11x = pt[idx1];
             final float p11y = pt[idx1 + Y_OFFSET];
-            final float p00x = (basis.cx - TWO_F * basis.ux) + t0 * basis.vx;
-            final float p00y = (basis.cy - TWO_F * basis.uy) + t0 * basis.vy;
-            final float p01x = (basis.cx - TWO_F * basis.ux) + t1 * basis.vx;
-            final float p01y = (basis.cy - TWO_F * basis.uy) + t1 * basis.vy;
+            final float p00x = (cx - TWO_F * ux) + t0 * vx;
+            final float p00y = (cy - TWO_F * uy) + t0 * vy;
+            final float p01x = (cx - TWO_F * ux) + t1 * vx;
+            final float p01y = (cy - TWO_F * uy) + t1 * vy;
             interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
         }
     }
@@ -510,17 +601,23 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float sx,
             final float sy,
             final float y,
-            final CornerBasis basis) {
+            final float[] basis) {
+        final float cx = basis[BASIS_CX];
+        final float cy = basis[BASIS_CY];
+        final float ux = basis[BASIS_UX];
+        final float uy = basis[BASIS_UY];
+        final float vx = basis[BASIS_VX];
+        final float vy = basis[BASIS_VY];
         if (sy <= ZERO_F) {
             final int cIdx = col << SHIFT_PAIR;
             final float p01x = pt[cIdx];
             final float p01y = pt[cIdx + Y_OFFSET];
-            final float p11x = basis.cx + THREE_F * basis.ux;
-            final float p11y = basis.cy + THREE_F * basis.uy;
-            final float p00x = (basis.cx + ONE_F * basis.ux) - TWO_F * basis.vx;
-            final float p00y = (basis.cy + ONE_F * basis.uy) - TWO_F * basis.vy;
-            final float p10x = p11x - TWO_F * basis.vx;
-            final float p10y = p11y - TWO_F * basis.vy;
+            final float p11x = cx + THREE_F * ux;
+            final float p11y = cy + THREE_F * uy;
+            final float p00x = (cx + ONE_F * ux) - TWO_F * vx;
+            final float p00y = (cy + ONE_F * uy) - TWO_F * vy;
+            final float p10x = p11x - TWO_F * vx;
+            final float p10y = p11y - TWO_F * vy;
             final float tx = HALF_F * (sx - ONE_F);
             final float ty = HALF_F * (sy - NEG_TWO_F);
             interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
@@ -528,12 +625,12 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final int crIdx = (col + row * colPlus1) << SHIFT_PAIR;
             final float p00x = pt[crIdx];
             final float p00y = pt[crIdx + Y_OFFSET];
-            final float p10x = (basis.cx + THREE_F * basis.ux) + ONE_F * basis.vx;
-            final float p10y = (basis.cy + THREE_F * basis.uy) + ONE_F * basis.vy;
-            final float p01x = (basis.cx + ONE_F * basis.ux) + THREE_F * basis.vx;
-            final float p01y = (basis.cy + ONE_F * basis.uy) + THREE_F * basis.vy;
-            final float p11x = (basis.cx + THREE_F * basis.ux) + THREE_F * basis.vx;
-            final float p11y = (basis.cy + THREE_F * basis.uy) + THREE_F * basis.vy;
+            final float p10x = (cx + THREE_F * ux) + ONE_F * vx;
+            final float p10y = (cy + THREE_F * uy) + ONE_F * vy;
+            final float p01x = (cx + ONE_F * ux) + THREE_F * vx;
+            final float p01y = (cy + ONE_F * uy) + THREE_F * vy;
+            final float p11x = (cx + THREE_F * ux) + THREE_F * vx;
+            final float p11y = (cy + THREE_F * uy) + THREE_F * vy;
             final float tx = HALF_F * (sx - ONE_F);
             final float ty = HALF_F * (sy - ONE_F);
             interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
@@ -552,10 +649,10 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float p00y = pt[idx0 + Y_OFFSET];
             final float p01x = pt[idx1];
             final float p01y = pt[idx1 + Y_OFFSET];
-            final float p10x = (basis.cx + THREE_F * basis.ux) + t0 * basis.vx;
-            final float p10y = (basis.cy + THREE_F * basis.uy) + t0 * basis.vy;
-            final float p11x = (basis.cx + THREE_F * basis.ux) + t1 * basis.vx;
-            final float p11y = (basis.cy + THREE_F * basis.uy) + t1 * basis.vy;
+            final float p10x = (cx + THREE_F * ux) + t0 * vx;
+            final float p10y = (cy + THREE_F * uy) + t0 * vy;
+            final float p11x = (cx + THREE_F * ux) + t1 * vx;
+            final float p11y = (cy + THREE_F * uy) + t1 * vy;
             interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
         }
     }
@@ -569,7 +666,13 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float sx,
             final float sy,
             final float x,
-            final CornerBasis basis) {
+            final float[] basis) {
+        final float cx = basis[BASIS_CX];
+        final float cy = basis[BASIS_CY];
+        final float ux = basis[BASIS_UX];
+        final float uy = basis[BASIS_UY];
+        final float vx = basis[BASIS_VX];
+        final float vy = basis[BASIS_VY];
         int ix = (int) x;
         if (ix == col) {
             ix = col - CELL_STEP;
@@ -584,10 +687,10 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         final float p01y = pt[idx0 + Y_OFFSET];
         final float p11x = pt[idx1];
         final float p11y = pt[idx1 + Y_OFFSET];
-        final float p00x = (basis.cx + s0 * basis.ux) - TWO_F * basis.vx;
-        final float p00y = (basis.cy + s0 * basis.uy) - TWO_F * basis.vy;
-        final float p10x = (basis.cx + s1 * basis.ux) - TWO_F * basis.vx;
-        final float p10y = (basis.cy + s1 * basis.uy) - TWO_F * basis.vy;
+        final float p00x = (cx + s0 * ux) - TWO_F * vx;
+        final float p00y = (cy + s0 * uy) - TWO_F * vy;
+        final float p10x = (cx + s1 * ux) - TWO_F * vx;
+        final float p10y = (cy + s1 * uy) - TWO_F * vy;
         interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
     }
 
@@ -602,7 +705,13 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             final float sx,
             final float sy,
             final float x,
-            final CornerBasis basis) {
+            final float[] basis) {
+        final float cx = basis[BASIS_CX];
+        final float cy = basis[BASIS_CY];
+        final float ux = basis[BASIS_UX];
+        final float uy = basis[BASIS_UY];
+        final float vx = basis[BASIS_VX];
+        final float vy = basis[BASIS_VY];
         int ix = (int) x;
         if (ix == col) {
             ix = col - CELL_STEP;
@@ -618,10 +727,10 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         final float p00y = pt[idx0 + Y_OFFSET];
         final float p10x = pt[idx1];
         final float p10y = pt[idx1 + Y_OFFSET];
-        final float p01x = (basis.cx + s0 * basis.ux) + THREE_F * basis.vx;
-        final float p01y = (basis.cy + s0 * basis.uy) + THREE_F * basis.vy;
-        final float p11x = (basis.cx + s1 * basis.ux) + THREE_F * basis.vx;
-        final float p11y = (basis.cy + s1 * basis.uy) + THREE_F * basis.vy;
+        final float p01x = (cx + s0 * ux) + THREE_F * vx;
+        final float p01y = (cy + s0 * uy) + THREE_F * vy;
+        final float p11x = (cx + s1 * ux) + THREE_F * vx;
+        final float p11y = (cy + s1 * uy) + THREE_F * vy;
         interpolateTriangleCell(dst, outIdx, tx, ty, p00x, p00y, p10x, p10y, p01x, p01y, p11x, p11y);
     }
 
@@ -649,28 +758,38 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         }
     }
 
-    private record CornerBasis(float cx, float cy, float ux, float uy, float vx, float vy) {
-        private static CornerBasis compute(final float[] pt, final int col, final int row, final int colPlus1) {
-            final int p00Idx = ORIGIN_INDEX;
-            final int pC0Idx = col << SHIFT_PAIR;
-            final int p0RIdx = (row * colPlus1) << SHIFT_PAIR;
-            final int pCRIdx = (col + row * colPlus1) << SHIFT_PAIR;
+    private static void computeCornerBasis(
+            final float[] pt, final int col, final int row, final int colPlus1, final float[] basis) {
+        final int p00Idx = ORIGIN_INDEX;
+        final int pC0Idx = col << SHIFT_PAIR;
+        final int p0RIdx = (row * colPlus1) << SHIFT_PAIR;
+        final int pCRIdx = (col + row * colPlus1) << SHIFT_PAIR;
 
-            final float cxBase = QUARTER_F * (((pt[p00Idx] + pt[pC0Idx]) + pt[p0RIdx]) + pt[pCRIdx]);
-            final float cyBase = QUARTER_F
-                    * (((pt[p00Idx + Y_OFFSET] + pt[pC0Idx + Y_OFFSET]) + pt[p0RIdx + Y_OFFSET])
-                            + pt[pCRIdx + Y_OFFSET]);
-            final float dx1 = pt[pCRIdx] - pt[p00Idx];
-            final float dy1 = pt[pCRIdx + Y_OFFSET] - pt[p00Idx + Y_OFFSET];
-            final float dx2 = pt[pC0Idx] - pt[p0RIdx];
-            final float dy2 = pt[pC0Idx + Y_OFFSET] - pt[p0RIdx + Y_OFFSET];
-            final float ux = (dx1 + dx2) * HALF_F;
-            final float uy = (dy1 + dy2) * HALF_F;
-            final float vx = (dx1 - dx2) * HALF_F;
-            final float vy = (dy1 - dy2) * HALF_F;
-            final float cx = cxBase - HALF_F * (ux + vx);
-            final float cy = cyBase - HALF_F * (uy + vy);
-            return new CornerBasis(cx, cy, ux, uy, vx, vy);
-        }
+        final float cxBase = QUARTER_F * (((pt[p00Idx] + pt[pC0Idx]) + pt[p0RIdx]) + pt[pCRIdx]);
+        final float cyBase = QUARTER_F
+                * (((pt[p00Idx + Y_OFFSET] + pt[pC0Idx + Y_OFFSET]) + pt[p0RIdx + Y_OFFSET]) + pt[pCRIdx + Y_OFFSET]);
+        final float dx1 = pt[pCRIdx] - pt[p00Idx];
+        final float dy1 = pt[pCRIdx + Y_OFFSET] - pt[p00Idx + Y_OFFSET];
+        final float dx2 = pt[pC0Idx] - pt[p0RIdx];
+        final float dy2 = pt[pC0Idx + Y_OFFSET] - pt[p0RIdx + Y_OFFSET];
+        final float ux = (dx1 + dx2) * HALF_F;
+        final float uy = (dy1 + dy2) * HALF_F;
+        final float vx = (dx1 - dx2) * HALF_F;
+        final float vy = (dy1 - dy2) * HALF_F;
+        basis[BASIS_CX] = cxBase - HALF_F * (ux + vx);
+        basis[BASIS_CY] = cyBase - HALF_F * (uy + vy);
+        basis[BASIS_UX] = ux;
+        basis[BASIS_UY] = uy;
+        basis[BASIS_VX] = vx;
+        basis[BASIS_VY] = vy;
+    }
+
+    private static final class ThreadStats {
+        final Thread owner = Thread.currentThread();
+        final float[] basis = new float[BASIS_LENGTH];
+        long oobTailCalls;
+        long oobPoints;
+        long inBoundsFallbackPoints;
+        long failures;
     }
 }

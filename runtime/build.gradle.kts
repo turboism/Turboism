@@ -422,6 +422,8 @@ val admissionUnitTests by tasks.registering(Test::class) {
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
+    // Host-structure AST inspection and CanonicalRgbaImage large-image tests exceed Gradle's 512 MiB default heap.
+    maxHeapSize = "2g"
     systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
     listOf(
         "turboism.test.cubismEditorJar",

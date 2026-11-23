@@ -204,4 +204,43 @@ final class NativeShaderUniformBridgeTest {
         assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
         assertEquals(1, gl.calls);
     }
+
+    @Test
+    void borrowAndReleaseMapEntriesReusesPooledBufferAndClearsReferences() {
+        final HashMap<String, Object> empty = new HashMap<>();
+        final Map.Entry<?, ?>[] emptyBorrow = NativeShaderUniformBridge.borrowMapEntries(empty);
+        assertEquals(0, emptyBorrow.length);
+        NativeShaderUniformBridge.releaseMapEntries(emptyBorrow);
+
+        final HashMap<String, Object> uniforms = new HashMap<>();
+        uniforms.put("uAlpha", 1.0f);
+        uniforms.put("uBeta", 2.0f);
+        final Map.Entry<?, ?>[] first = NativeShaderUniformBridge.borrowMapEntries(uniforms);
+        assertSame("uAlpha", first[0].getKey());
+        assertEquals(2, countEntries(first));
+        NativeShaderUniformBridge.releaseMapEntries(first);
+        assertNull(first[0]);
+
+        final Map.Entry<?, ?>[] reused = NativeShaderUniformBridge.borrowMapEntries(uniforms);
+        assertSame(first, reused, "released buffer should be reused without array reallocation");
+
+        // Re-entrant borrow before release must use a distinct buffer without clobbering outer entries.
+        final HashMap<String, Object> textures = new HashMap<>();
+        textures.put("tex0", "value0");
+        final Map.Entry<?, ?>[] nested = NativeShaderUniformBridge.borrowMapEntries(textures);
+        assertNotSame(reused, nested);
+        assertEquals(1, countEntries(nested));
+        assertEquals(2, countEntries(reused));
+
+        NativeShaderUniformBridge.releaseMapEntries(nested);
+        NativeShaderUniformBridge.releaseMapEntries(reused);
+    }
+
+    private static int countEntries(final Map.Entry<?, ?>[] entries) {
+        int count = 0;
+        while (count < entries.length && entries[count] != null) {
+            count++;
+        }
+        return count;
+    }
 }

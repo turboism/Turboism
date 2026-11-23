@@ -2,8 +2,10 @@ package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.runtime.env.ProtonEnvironment;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -16,49 +18,49 @@ import java.util.function.Consumer;
 public final class PerformanceSettingsConfig {
     /** Existing global paths are retained so old launchers and configuration files remain compatible. */
     public enum Field {
-        MODEL_UPDATE_SKIP("modelUpdateSkip", true, "true"),
-        INCREMENTAL_UPDATE("incrementalUpdate", true, "false"),
-        INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters", true, "false"),
-        UNIFORM_LOCATION_CACHE("uniformLocationCache", true, "false"),
-        UPLOAD_ELISION("uploadElision", true, "true"),
-        MESH_SETUP_ELISION("meshSetupElision", true, "true"),
-        INPUT_PATH_ELISION("inputPathElision", true, "false"),
-        MESA_GL_THREAD("mesaGlThread", true, "false"),
-        ASYNC_READBACK("asyncReadback", true, "false"),
-        MESH_INTERPOLATION("meshInterpolation", true, "true"),
-        SHADER_UNIFORM("shaderUniform", true, "true"),
-        MATRIX_SCRATCH("matrixScratch", true, "true"),
-        IMAGE_ARCHIVE_REUSE("imageArchiveReuse", true, "false"),
-        FLOAT_ARRAY_PARSE_CACHE("floatArrayParseCache", true, "false"),
-        TEXTURE_UPLOAD_PREPARATION("textureUploadPreparation", true, "false"),
-        WARP_POSITION_PROJECTION("warpPositionProjection", true, "true"),
-        REINIT_PAIR_ELISION("reinitPairElision", true, "false"),
-        CLIP_MASK_DEDUPLICATION("clipMaskDeduplication", true, "true"),
-        CLIP_MASK_SCISSOR_CLEAR("clipMaskScissorClear", true, "true"),
-        EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup", true, "true"),
-        MODEL_INSTANCE_COALESCE("modelInstanceCoalesce", true, "true"),
-        INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass", true, "false"),
-        EXTENDED_INTERPOLATION_SIBLING_ELISION("extendedInterpolationSiblingElision", true, "true"),
-        WARP_GRID_INTERPOLATION("warpGridInterpolation", true, "true"),
-        WARP_NORMAL_POINT_ELISION("warpNormalPointElision", true, "true"),
-        CAMERA_MATRIX_CACHE("cameraMatrixCache", true, "true"),
-        RENDER_PASS_TRAVERSAL("renderPassTraversal", true, "true"),
-        MESH_HIT_TEST("meshHitTest", true, "true"),
-        SCENE_HANDLER_CACHE("sceneHandlerCache", true, "true"),
-        CURSOR_VALIDATION_ELISION("cursorValidationElision", true, "true"),
-        PARAMETER_ROW_REPAINT("parameterRowRepaint", true, "true"),
-        WARP_DEFORM_EDIT_ACCELERATION("warpDeformEditAcceleration", true, "true"),
-        MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false, "true"),
-        TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false, "true"),
-        ATLAS_TILE_BBOX("atlasTileBbox", false, "true"),
-        ATLAS_CACHE_REUSE("atlasCacheReuse", false, "true"),
-        ATLAS_LOADING("atlasLoading", false, "true"),
-        ATLAS_INTERACTIVE_RENDER("atlasInteractiveRender", false, "true"),
-        TRIANGULATION_SPATIAL_INDEX("triangulationSpatialIndex", false, "true"),
-        MESH_EDIT_ACCELERATION("meshEditAcceleration", false, "true"),
-        MODEL_OPEN_ACCELERATION("modelOpenAcceleration", false, "true"),
-        RUNTIME_EXPORT_ACCELERATION("runtimeExportAcceleration", false, "true"),
-        MEMORY_LEAK_MITIGATION("memoryLeakMitigation", false, "true"),
+        MODEL_UPDATE_SKIP("modelUpdateSkip", true),
+        INCREMENTAL_UPDATE("incrementalUpdate", true),
+        INCREMENTAL_UPDATE_AFFECTERS("incrementalUpdateAffecters", true),
+        UNIFORM_LOCATION_CACHE("uniformLocationCache", true),
+        UPLOAD_ELISION("uploadElision", true),
+        MESH_SETUP_ELISION("meshSetupElision", true),
+        INPUT_PATH_ELISION("inputPathElision", true),
+        MESA_GL_THREAD("mesaGlThread", true),
+        ASYNC_READBACK("asyncReadback", true),
+        MESH_INTERPOLATION("meshInterpolation", true),
+        SHADER_UNIFORM("shaderUniform", true),
+        MATRIX_SCRATCH("matrixScratch", true),
+        IMAGE_ARCHIVE_REUSE("imageArchiveReuse", true),
+        FLOAT_ARRAY_PARSE_CACHE("floatArrayParseCache", true),
+        TEXTURE_UPLOAD_PREPARATION("textureUploadPreparation", true),
+        WARP_POSITION_PROJECTION("warpPositionProjection", true),
+        REINIT_PAIR_ELISION("reinitPairElision", true),
+        CLIP_MASK_DEDUPLICATION("clipMaskDeduplication", true),
+        CLIP_MASK_SCISSOR_CLEAR("clipMaskScissorClear", true),
+        EXTENDED_INTERPOLATION_INCREMENTAL_SETUP("extendedInterpolationIncrementalSetup", true),
+        MODEL_INSTANCE_COALESCE("modelInstanceCoalesce", true),
+        INSPECTOR_PROPERTY_BYPASS("inspectorPropertyBypass", true),
+        EXTENDED_INTERPOLATION_SIBLING_ELISION("extendedInterpolationSiblingElision", true),
+        WARP_GRID_INTERPOLATION("warpGridInterpolation", true),
+        WARP_NORMAL_POINT_ELISION("warpNormalPointElision", true),
+        CAMERA_MATRIX_CACHE("cameraMatrixCache", true),
+        RENDER_PASS_TRAVERSAL("renderPassTraversal", true),
+        MESH_HIT_TEST("meshHitTest", true),
+        SCENE_HANDLER_CACHE("sceneHandlerCache", true),
+        CURSOR_VALIDATION_ELISION("cursorValidationElision", true),
+        PARAMETER_ROW_REPAINT("parameterRowRepaint", true),
+        WARP_DEFORM_EDIT_ACCELERATION("warpDeformEditAcceleration", true),
+        MESH_TRIANGULATION_HASH("meshTriangulationHashFix", false),
+        TRIANGULATION_EDGE_INDEX("meshTriangulationEdgeIndex", false),
+        ATLAS_TILE_BBOX("atlasTileBbox", false),
+        ATLAS_CACHE_REUSE("atlasCacheReuse", false),
+        ATLAS_LOADING("atlasLoading", false),
+        ATLAS_INTERACTIVE_RENDER("atlasInteractiveRender", false),
+        TRIANGULATION_SPATIAL_INDEX("triangulationSpatialIndex", false),
+        MESH_EDIT_ACCELERATION("meshEditAcceleration", false),
+        MODEL_OPEN_ACCELERATION("modelOpenAcceleration", false),
+        RUNTIME_EXPORT_ACCELERATION("runtimeExportAcceleration", false),
+        MEMORY_LEAK_MITIGATION("memoryLeakMitigation", false),
         CUBISM_JVM("cubismJvm", true, "graalvm"),
         GRAAL_VM_PATH("graalVmPath", true, ""),
         REDUCE_AUTO_BACKUP("reduceAutoBackup", false, "false"),
@@ -68,6 +70,10 @@ public final class PerformanceSettingsConfig {
         private final String key;
         private final boolean launcher;
         private final String defaultValue;
+
+        Field(String key, boolean launcher) {
+            this(key, launcher, "");
+        }
 
         Field(String key, boolean launcher, String defaultValue) {
             this.key = key;
@@ -96,6 +102,9 @@ public final class PerformanceSettingsConfig {
         }
         /** Platform default used only when the user has not made an explicit choice. */
         public String defaultValue(boolean proton) {
+            if (nativeOptimization()) {
+                return Boolean.toString(OptimizationCatalog.isDefaultEnabled(OptimizationCatalog.requireByKey(key)));
+            }
             return defaultValue;
         }
         /** Looks up a supported performance field. */
@@ -104,6 +113,18 @@ public final class PerformanceSettingsConfig {
             throw new IllegalArgumentException("Unknown performance setting: " + key);
         }
     }
+
+    /**
+     * Root field marking that legacy v0.70.2 default-off optimization preferences were already
+     * migrated, preventing re-promotion after later explicit user opt-outs.
+     */
+    public static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD =
+            RuntimeConfigValidator.OPTIMIZATION_DEFAULTS_VERSION_FIELD;
+
+    /** Current optimization defaults migration epoch written to migrated and fresh configs. */
+    public static final int CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1;
+
+    private static final String LAUNCHER_FIELD = "launcher";
 
     /**
      * Source reported for every field when {@code config.json} could not be read: native
@@ -126,8 +147,12 @@ public final class PerformanceSettingsConfig {
         JsonNode root = JsonNodeFactory.instance.objectNode();
         boolean valid = true;
         if (home != null && Files.exists(home.resolve("config.json"), LinkOption.NOFOLLOW_LINKS)) {
+            RuntimeConfigRepository repository = new RuntimeConfigRepository(home, diagnostic);
             try {
-                root = new RuntimeConfigRepository(home, diagnostic).read();
+                root = repository.read();
+                if (root instanceof ObjectNode rootObject && needsLegacyDefaultsMigration(rootObject)) {
+                    root = persistLegacyDefaultsMigration(repository, rootObject);
+                }
             } catch (RuntimeException failure) {
                 valid = false;
                 diagnostic.accept("PERFORMANCE_CONFIG_INVALID");
@@ -136,7 +161,7 @@ public final class PerformanceSettingsConfig {
         boolean proton = ProtonEnvironment.underWineOrProton();
         Map<Field, Value> values = new EnumMap<>(Field.class);
         for (Field field : Field.values()) {
-            JsonNode node = (field.launcher ? root.path("launcher") : root).get(field.key);
+            JsonNode node = (field.launcher ? root.path(LAUNCHER_FIELD) : root).get(field.key);
             String value = saved(root, field, proton);
             String source = node == null ? "platform-default" : "global-config";
             final String overridden = jvmOverride(field);
@@ -161,8 +186,102 @@ public final class PerformanceSettingsConfig {
 
     /** Reads an editable preference using the same field defaults as startup, without diagnostic overrides. */
     public static String saved(JsonNode root, Field field, boolean proton) {
-        JsonNode node = (field.launcher ? root.path("launcher") : root).get(field.key);
+        JsonNode node = (field.launcher ? root.path(LAUNCHER_FIELD) : root).get(field.key);
+        if (field.nativeOptimization()
+                && root instanceof ObjectNode rootObject
+                && needsLegacyDefaultsMigration(rootObject)) {
+            if (isExplicitOffPreset(rootObject)) {
+                return node == null || node.isNull() ? Boolean.FALSE.toString() : node.asText();
+            }
+            if (OptimizationCatalog.isLegacyPromotedDefaultKey(field.key) && isExplicitFalse(node)) {
+                return Boolean.TRUE.toString();
+            }
+        }
         return node == null || node.isNull() ? field.defaultValue(proton) : node.asText();
+    }
+
+    /**
+     * Migrates an unversioned saved configuration once so promoted v0.70.2 defaults activate while
+     * preserving an explicit {@code OFF} preset, and records {@link #OPTIMIZATION_DEFAULTS_VERSION_FIELD}.
+     *
+     * @param root configuration document to migrate in place
+     * @return {@code true} when the document changed
+     */
+    public static boolean migrateLegacyDefaults(final ObjectNode root) {
+        if (!needsLegacyDefaultsMigration(root)) {
+            return false;
+        }
+        if (isExplicitOffPreset(root)) {
+            for (final Optimization optimization : OptimizationCatalog.persisted()) {
+                final ObjectNode parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER
+                        ? root.withObject(LAUNCHER_FIELD)
+                        : root;
+                final JsonNode existing = parent.get(optimization.key());
+                if (existing == null || existing.isNull()) {
+                    parent.put(optimization.key(), false);
+                }
+            }
+        } else {
+            final JsonNode launcher = root.get(LAUNCHER_FIELD);
+            if (launcher instanceof ObjectNode launcherObject) {
+                for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
+                    if (isExplicitFalse(launcherObject.get(optimization.key()))) {
+                        launcherObject.put(optimization.key(), true);
+                    }
+                }
+            }
+        }
+        root.put(OPTIMIZATION_DEFAULTS_VERSION_FIELD, CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
+        return true;
+    }
+
+    private static ObjectNode persistLegacyDefaultsMigration(
+            final RuntimeConfigRepository repository, final ObjectNode readRoot) {
+        try {
+            return repository.update(current -> {
+                migrateLegacyDefaults(current);
+                return current;
+            });
+        } catch (RuntimeException failure) {
+            final ObjectNode fallback = readRoot.deepCopy();
+            migrateLegacyDefaults(fallback);
+            return fallback;
+        }
+    }
+
+    private static boolean needsLegacyDefaultsMigration(final ObjectNode root) {
+        if (root == null || root.has(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+            return false;
+        }
+        return isExplicitOffPreset(root) || hasEnabledPersistedOptimization(root);
+    }
+
+    private static boolean isExplicitOffPreset(final JsonNode root) {
+        final JsonNode modelUpdateSkip = readOptimizationNode(root, OptimizationCatalog.MODEL_UPDATE_SKIP);
+        final JsonNode atlasLoading = readOptimizationNode(root, OptimizationCatalog.ATLAS_LOADING);
+        return isExplicitFalse(modelUpdateSkip)
+                && isExplicitFalse(atlasLoading)
+                && !hasEnabledPersistedOptimization(root);
+    }
+
+    private static boolean hasEnabledPersistedOptimization(final JsonNode root) {
+        for (final Optimization optimization : OptimizationCatalog.persisted()) {
+            final JsonNode node = readOptimizationNode(root, optimization);
+            if (node != null && node.isBoolean() && node.booleanValue()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static JsonNode readOptimizationNode(final JsonNode root, final Optimization optimization) {
+        final JsonNode container =
+                optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? root.get(LAUNCHER_FIELD) : root;
+        return container instanceof ObjectNode object ? object.get(optimization.key()) : null;
+    }
+
+    private static boolean isExplicitFalse(final JsonNode node) {
+        return node != null && node.isBoolean() && !node.booleanValue();
     }
 
     /**
@@ -207,7 +326,8 @@ public final class PerformanceSettingsConfig {
     /** Explicitly persists a selection through the validated atomic global repository. */
     public static void save(RuntimeConfigRepository repository, Field field, String value) {
         repository.update(root -> {
-            var parent = field.launcher ? root.withObject("launcher") : root;
+            migrateLegacyDefaults(root);
+            var parent = field.launcher ? root.withObject(LAUNCHER_FIELD) : root;
             if (field == Field.GRAAL_VM_PATH && value.isEmpty()) {
                 parent.remove(field.key);
             } else if (field.booleanValue()) {
@@ -216,6 +336,9 @@ public final class PerformanceSettingsConfig {
                 parent.put(field.key, Boolean.parseBoolean(value));
             } else {
                 parent.put(field.key, value);
+            }
+            if (field.nativeOptimization() || field == Field.ZGC) {
+                root.put(OPTIMIZATION_DEFAULTS_VERSION_FIELD, CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
             }
             return root;
         });

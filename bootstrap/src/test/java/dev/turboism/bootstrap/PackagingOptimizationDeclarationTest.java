@@ -175,6 +175,35 @@ class PackagingOptimizationDeclarationTest {
                 "the settings page and the launcher must agree on the edge-index default");
     }
 
+    @Test
+    void installersAgreeWithCatalogueOnPromotedDefaultsAndRootFields() throws IOException {
+        final Set<String> promoted = OptimizationCatalog.legacyPromotedDefaults().stream()
+                .map(dev.turboism.config.optimization.Optimization::key)
+                .collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+        final Set<String> rootFields = new TreeSet<>(OptimizationCatalog.rootFieldNames());
+
+        final String configMerge =
+                read("packaging/java-installer/listener-src/dev/turboism/installer/ConfigMerge.java");
+        assertEquals(
+                promoted,
+                new TreeSet<>(declaredNames(
+                        configMerge,
+                        "private static final Set<String> LEGACY_PROMOTED_DEFAULT_OFF_FIELDS = Set.of(",
+                        ");")));
+        assertEquals(
+                rootFields,
+                new TreeSet<>(declaredNames(
+                        configMerge, "private static final Set<String> ROOT_OPTIMIZATION_FIELDS = Set.of(", ");")));
+
+        final String configure = read("packaging/windows-installer/configure_turboism.ps1");
+        assertEquals(promoted, new TreeSet<>(declaredNames(configure, "$promotedLauncherFields = @(", ")")));
+        assertEquals(rootFields, new TreeSet<>(declaredNames(configure, "$rootOptimizationFields = @(", ")")));
+
+        final String mirror = read("packaging/windows-installer/test-config-merge.py");
+        assertEquals(promoted, new TreeSet<>(declaredNames(mirror, "\nLEGACY_PROMOTED_DEFAULT_OFF_FIELDS = {", "}")));
+        assertEquals(rootFields, new TreeSet<>(declaredNames(mirror, "\nROOT_OPTIMIZATION_FIELDS = {", "}")));
+    }
+
     private static void assertDisjoint(final List<Set<String>> lists) {
         final Set<String> seen = new LinkedHashSet<>();
         for (final Set<String> list : lists) {

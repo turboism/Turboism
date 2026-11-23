@@ -1136,6 +1136,8 @@ class DeclarativeSettingsRendererTest {
                 OptimizationSettingsContribution.create(localization(), service)) {
             entries.add(new SettingsSnapshot.Entry("turboism.core", contribution));
         }
+        entries.sort(java.util.Comparator.comparingInt(
+                entry -> entry.contribution().index().orElse(Integer.MAX_VALUE)));
 
         SwingUtilities.invokeAndWait(() -> {
             try (CoreWindows windows = new CoreWindows(
@@ -1160,6 +1162,18 @@ class DeclarativeSettingsRendererTest {
                 assertEquals(43, boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
+                final List<JPanel> sections = findCollapsibleSections(scroll);
+                assertEquals(7, sections.size());
+                for (int index = 0; index < 6; index++) {
+                    final JCheckBox groupBox = findGroupToggleCheckBox(sections.get(index));
+                    assertTrue(groupBox != null, "toggle section must expose a group checkbox");
+                    assertFalse(groupBox.isSelected());
+                    assertNull(groupBox.getClientProperty("JButton.selectedState"));
+                }
+                assertNull(
+                        findGroupToggleCheckBox(sections.get(6)),
+                        "section without boolean toggles must omit its header checkbox");
+
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
                 selectOption(combo, OptimizationPreset.BALANCED.configValue());
                 for (final Optimization optimization : OptimizationCatalog.persisted()) {
@@ -1170,6 +1184,22 @@ class DeclarativeSettingsRendererTest {
                             "live checkbox must sync to BALANCED for " + optimization.contributionId());
                 }
                 assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(stored));
+                for (int index = 0; index < 6; index++) {
+                    final String sectionId = OptimizationCatalog.SECTIONS.get(index);
+                    final List<Optimization> sectionOpts = OptimizationCatalog.placed().stream()
+                            .filter(opt ->
+                                    opt.placement().orElseThrow().section().equals(sectionId))
+                            .toList();
+                    final boolean expectedAll = sectionOpts.stream()
+                            .allMatch(opt ->
+                                    OptimizationPreset.BALANCED.targetFlag(opt).orElseThrow());
+                    final boolean expectedAny = sectionOpts.stream()
+                            .anyMatch(opt ->
+                                    OptimizationPreset.BALANCED.targetFlag(opt).orElseThrow());
+                    final boolean expectedIndeterminate = !expectedAll && expectedAny;
+                    assertGroupCheckBoxState(
+                            findGroupToggleCheckBox(sections.get(index)), expectedAll, expectedIndeterminate);
+                }
 
                 // 2. Flipping one trade-off checkbox switches preset to CUSTOM.
                 findCheckBoxByName(boxes, OptimizationCatalog.INCREMENTAL_UPDATE.contributionId())
@@ -1178,16 +1208,18 @@ class DeclarativeSettingsRendererTest {
                         OptimizationPreset.CUSTOM.configValue(),
                         ((SettingsControl.Option) combo.getSelectedItem()).value());
 
-                // 3. Flipping the remaining three trade-off checkboxes switches preset to HEAVY_EDITING.
-                findCheckBoxByName(boxes, OptimizationCatalog.INCREMENTAL_UPDATE_AFFECTERS.contributionId())
-                        .doClick();
-                findCheckBoxByName(boxes, OptimizationCatalog.MESA_GL_THREAD.contributionId())
-                        .doClick();
-                findCheckBoxByName(boxes, OptimizationCatalog.ASYNC_READBACK.contributionId())
-                        .doClick();
+                // 3. Flipping the remaining unchecked checkboxes switches preset to HEAVY_EDITING.
+                for (final JCheckBox box : boxes) {
+                    if (!box.isSelected()) {
+                        box.doClick();
+                    }
+                }
                 assertEquals(
                         OptimizationPreset.HEAVY_EDITING.configValue(),
                         ((SettingsControl.Option) combo.getSelectedItem()).value());
+                for (int index = 0; index < 6; index++) {
+                    assertGroupCheckBoxState(findGroupToggleCheckBox(sections.get(index)), true, false);
+                }
 
                 // 4. Selecting CUSTOM manually preserves all current checkbox states.
                 selectOption(combo, OptimizationPreset.CUSTOM.configValue());
@@ -1208,6 +1240,10 @@ class DeclarativeSettingsRendererTest {
                         ((SettingsControl.Option) reopenedCombo.getSelectedItem()).value());
                 selectOption(reopenedCombo, OptimizationPreset.OFF.configValue());
                 assertTrue(checkboxes(reopenedScroll).stream().noneMatch(JCheckBox::isSelected));
+                final List<JPanel> reopenedSections = findCollapsibleSections(reopenedScroll);
+                for (int index = 0; index < 6; index++) {
+                    assertGroupCheckBoxState(findGroupToggleCheckBox(reopenedSections.get(index)), false, false);
+                }
                 assertTrue(reopened.save().getAsBoolean());
                 assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(stored));
             }
@@ -1293,6 +1329,9 @@ class DeclarativeSettingsRendererTest {
                             hotpath.stream().map(Optimization::contributionId).toList(),
                             sectionBoxes.stream().map(JCheckBox::getName).toList(),
                             "hotpath section must render all 9 promoted checkboxes in placement order");
+                    final JCheckBox topGroupToggle = findGroupToggleCheckBox(topSection);
+                    assertTrue(topGroupToggle != null, "hotpath section must render its left group toggle checkbox");
+                    assertGroupCheckBoxState(topGroupToggle, true, false);
 
                     final JButton referenceButton = findButtonByName(
                             topSection,
@@ -1364,6 +1403,436 @@ class DeclarativeSettingsRendererTest {
         } finally {
             CoreWindows.clearTestSettingsLinkObserver();
         }
+    }
+
+    @Test
+    void collapsibleGroupToggleSupportsAllOnAllOffIndeterminateAndDoesNotCollapse() throws Exception {
+        final boolean[] zgc = {true};
+        final boolean[] disableBackup = {false};
+        final CubismJvmSettingsService.CubismJvm[] jvmChoice = {CubismJvmSettingsService.CubismJvm.BUNDLED};
+        final String[] graalPath = {""};
+        final CubismJvmSettingsService.MemoryProfile[] memProfile = {CubismJvmSettingsService.MemoryProfile.SYSTEM};
+        final CubismJvmSettingsService jvmService = new CubismJvmSettingsService() {
+            @Override
+            public CubismJvm read() {
+                return jvmChoice[0];
+            }
+
+            @Override
+            public CubismJvm save(final CubismJvm value) {
+                return jvmChoice[0] = value;
+            }
+
+            @Override
+            public String graalVmPath() {
+                return graalPath[0];
+            }
+
+            @Override
+            public String saveGraalVmPath(final String value) {
+                return graalPath[0] = value;
+            }
+
+            @Override
+            public boolean reduceAutoBackup() {
+                return disableBackup[0];
+            }
+
+            @Override
+            public boolean saveReduceAutoBackup(final boolean value) {
+                return disableBackup[0] = value;
+            }
+
+            @Override
+            public boolean zgc() {
+                return zgc[0];
+            }
+
+            @Override
+            public boolean saveZgc(final boolean value) {
+                return zgc[0] = value;
+            }
+
+            @Override
+            public MemoryProfile memoryProfile() {
+                return memProfile[0];
+            }
+
+            @Override
+            public MemoryProfile saveMemoryProfile(final MemoryProfile value) {
+                return memProfile[0] = value;
+            }
+        };
+        final SettingsTab tab = new SettingsTab("performance", "Performance", OptionalInt.of(200));
+        final List<SettingsSnapshot.Entry> entries = List.of(
+                new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        new SettingsContribution(
+                                "performance.section.empty",
+                                tab,
+                                OptionalInt.of(40),
+                                new SettingsControl.Note("performance.section.empty", "Notes only"))),
+                new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        new SettingsContribution(
+                                "empty-note",
+                                tab,
+                                OptionalInt.of(41),
+                                new SettingsControl.Note("empty-note", "No toggles inside"))),
+                new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        new SettingsContribution(
+                                "performance.section.jvm",
+                                tab,
+                                OptionalInt.of(110),
+                                new SettingsControl.Note("performance.section.jvm", "JVM and memory"))),
+                new SettingsSnapshot.Entry(
+                        "turboism.core", CubismJvmSettingsContribution.createZgcToggle(localization(), jvmService)),
+                new SettingsSnapshot.Entry(
+                        "turboism.core", CubismJvmSettingsContribution.createBackupDisable(localization(), jvmService)),
+                new SettingsSnapshot.Entry(
+                        "turboism.core", CubismJvmSettingsContribution.create(localization(), jvmService)),
+                new SettingsSnapshot.Entry(
+                        "turboism.core", CubismJvmSettingsContribution.createPath(localization(), jvmService)),
+                new SettingsSnapshot.Entry(
+                        "turboism.core", CubismJvmSettingsContribution.createMemoryProfile(localization(), jvmService)),
+                new SettingsSnapshot.Entry(
+                        "turboism.core", CubismJvmSettingsContribution.createMemoryProfileNote(localization())));
+
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    () -> List.of(new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200), entries)),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = render(windows);
+                final JTabbedPane tabs = rendered.tabs();
+                tabs.setSize(780, 560);
+                layoutTree(tabs);
+                final JScrollPane scroll = assertInstanceOf(JScrollPane.class, tabs.getComponentAt(0));
+                final List<JPanel> sections = findCollapsibleSections(scroll);
+                assertEquals(2, sections.size());
+
+                final JPanel emptySection = sections.get(0);
+                assertNull(
+                        findGroupToggleCheckBox(emptySection),
+                        "a section with zero boolean checkboxes must omit its header checkbox");
+
+                final JPanel jvmSection = sections.get(1);
+                final JCheckBox headerBox = findGroupToggleCheckBox(jvmSection);
+                assertTrue(headerBox != null, "mixed JVM section must expose a group toggle checkbox");
+                assertTrue(headerBox.getX() >= 0 && headerBox.getY() >= 0);
+                assertTrue(headerBox.getWidth() > 0 && headerBox.getHeight() > 0);
+                assertTrue(headerBox.getY() + headerBox.getHeight() <= jvmSection.getInsets().top);
+                assertGroupCheckBoxState(headerBox, false, true);
+
+                final JCheckBox zgcBox = findCheckBoxByName(checkboxes(jvmSection), "cubism-zgc");
+                final JCheckBox backupBox = findCheckBoxByName(checkboxes(jvmSection), "cubism-disable-auto-backup");
+                final JComboBox<?> jvmCombo = findComboBox(jvmSection);
+                assertTrue(jvmCombo != null);
+                assertEquals("bundled", ((SettingsControl.Option) jvmCombo.getSelectedItem()).value());
+
+                final JPanel content = (JPanel) jvmSection.getComponent(0);
+                assertTrue(content.isVisible());
+
+                // Indeterminate -> click turns all boolean toggles ON without collapsing or touching combo/text.
+                headerBox.doClick();
+                assertTrue(zgcBox.isSelected());
+                assertTrue(backupBox.isSelected());
+                assertGroupCheckBoxState(headerBox, true, false);
+                assertTrue(content.isVisible(), "clicking group checkbox must not collapse section");
+                assertEquals("bundled", ((SettingsControl.Option) jvmCombo.getSelectedItem()).value());
+
+                // All ON -> click turns all boolean toggles OFF.
+                headerBox.doClick();
+                assertFalse(zgcBox.isSelected());
+                assertFalse(backupBox.isSelected());
+                assertGroupCheckBoxState(headerBox, false, false);
+                assertTrue(content.isVisible());
+
+                // Clicking one child checkbox puts header back into indeterminate state.
+                zgcBox.doClick();
+                assertTrue(zgcBox.isSelected());
+                assertFalse(backupBox.isSelected());
+                assertGroupCheckBoxState(headerBox, false, true);
+
+                // Clicking the title collapses and expands cleanly while header checkbox remains visible.
+                final java.awt.image.BufferedImage paintBuffer =
+                        new java.awt.image.BufferedImage(800, 600, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                final java.awt.Graphics2D g = paintBuffer.createGraphics();
+                try {
+                    jvmSection.paint(g);
+                } finally {
+                    g.dispose();
+                }
+                final var border = jvmSection.getBorder();
+                final java.lang.reflect.Field titleBoundsField =
+                        border.getClass().getDeclaredField("titleBounds");
+                titleBoundsField.setAccessible(true);
+                final Rectangle titleBounds = (Rectangle) titleBoundsField.get(border);
+                final java.awt.Point titlePoint = new java.awt.Point(
+                        titleBounds.x + titleBounds.width / 2, titleBounds.y + titleBounds.height / 2);
+                jvmSection.dispatchEvent(new java.awt.event.MouseEvent(
+                        jvmSection,
+                        java.awt.event.MouseEvent.MOUSE_CLICKED,
+                        System.currentTimeMillis(),
+                        0,
+                        titlePoint.x,
+                        titlePoint.y,
+                        1,
+                        false,
+                        java.awt.event.MouseEvent.BUTTON1));
+                assertFalse(content.isVisible(), "clicking section title must toggle collapse");
+
+                // Group toggle still works while collapsed without expanding the section.
+                headerBox.doClick();
+                assertTrue(zgcBox.isSelected() && backupBox.isSelected());
+                assertFalse(content.isVisible(), "group checkbox must not expand a collapsed section");
+
+                assertTrue(rendered.save().getAsBoolean());
+                assertTrue(zgc[0]);
+                assertTrue(disableBackup[0]);
+                assertEquals(CubismJvmSettingsService.CubismJvm.BUNDLED, jvmChoice[0]);
+            } catch (ReflectiveOperationException failure) {
+                throw new AssertionError(failure);
+            }
+        });
+    }
+
+    @Test
+    void groupToggleEnforcesCatalogMutualExclusionBetweenUploadElisionAndUniformLocationCache() throws Exception {
+        final Map<String, Boolean> stored = new LinkedHashMap<>();
+        for (final Optimization optimization : OptimizationCatalog.persisted()) {
+            stored.put(optimization.key(), false);
+        }
+        stored.put(OptimizationCatalog.UPLOAD_ELISION.key(), true);
+        final OptimizationSettingsService service = new OptimizationSettingsService() {
+            @Override
+            public boolean enabled(final String key) {
+                return Boolean.TRUE.equals(stored.get(key));
+            }
+
+            @Override
+            public void setEnabled(final String key, final boolean enabled) {
+                stored.put(key, enabled);
+            }
+        };
+        final List<SettingsSnapshot.Entry> entries = new java.util.ArrayList<>();
+        entries.add(new SettingsSnapshot.Entry(
+                "turboism.core", OptimizationSettingsContribution.createPreset(localization(), service)));
+        for (final SettingsContribution contribution :
+                OptimizationSettingsContribution.create(localization(), service)) {
+            entries.add(new SettingsSnapshot.Entry("turboism.core", contribution));
+        }
+        entries.sort(java.util.Comparator.comparingInt(
+                entry -> entry.contribution().index().orElse(Integer.MAX_VALUE)));
+
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    () -> List.of(new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200), entries)),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = render(windows);
+                final JScrollPane scroll =
+                        assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
+                final List<JPanel> sections = findCollapsibleSections(scroll);
+                final JPanel renderingSection = sections.get(OptimizationCatalog.SECTIONS.indexOf("rendering"));
+                final JPanel uploadSection = sections.get(OptimizationCatalog.SECTIONS.indexOf("upload"));
+                final JCheckBox renderingGroup = findGroupToggleCheckBox(renderingSection);
+                final JCheckBox uploadGroup = findGroupToggleCheckBox(uploadSection);
+                final JCheckBox uniformBox = findCheckBoxByName(
+                        checkboxes(renderingSection), OptimizationCatalog.UNIFORM_LOCATION_CACHE.contributionId());
+                final JCheckBox shaderUniformBox = findCheckBoxByName(
+                        checkboxes(renderingSection), OptimizationCatalog.SHADER_UNIFORM.contributionId());
+                final JCheckBox uploadElisionBox = findCheckBoxByName(
+                        checkboxes(uploadSection), OptimizationCatalog.UPLOAD_ELISION.contributionId());
+                final JCheckBox inputElisionBox = findCheckBoxByName(
+                        checkboxes(uploadSection), OptimizationCatalog.INPUT_PATH_ELISION.contributionId());
+
+                // 1. With uploadElision ON, toggling rendering ON must skip conflicting uniformLocationCache.
+                assertTrue(uploadElisionBox.isSelected());
+                assertFalse(uniformBox.isSelected());
+                renderingGroup.doClick();
+                assertTrue(shaderUniformBox.isSelected(), "non-conflicting rendering options turn ON");
+                assertFalse(uniformBox.isSelected(), "conflicting uniformLocationCache stays OFF");
+                assertGroupCheckBoxState(renderingGroup, false, true);
+
+                // Clicking rendering again when only conflicting opt-in remains OFF turns compatible items OFF.
+                renderingGroup.doClick();
+                assertFalse(shaderUniformBox.isSelected());
+                assertGroupCheckBoxState(renderingGroup, false, false);
+
+                // 2. Turn uploadElision OFF, turn rendering ALL ON (including uniformLocationCache), then toggle upload
+                // ON.
+                uploadElisionBox.doClick();
+                assertFalse(uploadElisionBox.isSelected());
+                renderingGroup.doClick();
+                assertTrue(uniformBox.isSelected());
+                assertGroupCheckBoxState(renderingGroup, true, false);
+
+                uploadGroup.doClick();
+                assertTrue(inputElisionBox.isSelected(), "non-conflicting upload options turn ON");
+                assertFalse(uploadElisionBox.isSelected(), "conflicting uploadElision stays OFF");
+                assertGroupCheckBoxState(uploadGroup, false, true);
+            }
+        });
+
+        // 3. Same-group mutual exclusion prefers default-ON uploadElision over opt-in uniformLocationCache.
+        final SettingsTab tab = new SettingsTab("performance", "Performance", OptionalInt.of(200));
+        final Map<String, Boolean> sameGroupState = new LinkedHashMap<>();
+        final OptimizationSettingsService sameGroupService = new OptimizationSettingsService() {
+            @Override
+            public boolean enabled(final String key) {
+                return Boolean.TRUE.equals(sameGroupState.get(key));
+            }
+
+            @Override
+            public void setEnabled(final String key, final boolean enabled) {
+                sameGroupState.put(key, enabled);
+            }
+        };
+        final List<SettingsSnapshot.Entry> sameGroupEntries = List.of(
+                new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        new SettingsContribution(
+                                "performance.section.rendering",
+                                tab,
+                                OptionalInt.of(80),
+                                new SettingsControl.Note("performance.section.rendering", "Rendering"))),
+                new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        OptimizationSettingsContribution.create(
+                                localization(), sameGroupService, OptimizationCatalog.UNIFORM_LOCATION_CACHE)),
+                new SettingsSnapshot.Entry(
+                        "turboism.core",
+                        OptimizationSettingsContribution.create(
+                                localization(), sameGroupService, OptimizationCatalog.UPLOAD_ELISION)));
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    () -> List.of(new SettingsSnapshot.Tab(
+                            "performance", "Performance", OptionalInt.of(200), sameGroupEntries)),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = render(windows);
+                final JScrollPane scroll =
+                        assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
+                final JPanel section = findCollapsibleSection(scroll);
+                final JCheckBox groupBox = findGroupToggleCheckBox(section);
+                groupBox.doClick();
+                final JCheckBox uploadBox =
+                        findCheckBoxByName(checkboxes(section), OptimizationCatalog.UPLOAD_ELISION.contributionId());
+                final JCheckBox uniformBox = findCheckBoxByName(
+                        checkboxes(section), OptimizationCatalog.UNIFORM_LOCATION_CACHE.contributionId());
+                assertTrue(uploadBox.isSelected(), "default-ON uploadElision wins within same group");
+                assertFalse(uniformBox.isSelected(), "conflicting opt-in uniformLocationCache stays OFF");
+                assertGroupCheckBoxState(groupBox, false, true);
+
+                groupBox.doClick();
+                assertFalse(uploadBox.isSelected());
+                assertFalse(uniformBox.isSelected());
+                assertGroupCheckBoxState(groupBox, false, false);
+            }
+        });
+    }
+
+    @Test
+    void performanceTabOmitsOptimizationStatusButton() throws Exception {
+        final OptimizationSettingsService service = new OptimizationSettingsService() {
+            @Override
+            public boolean enabled(final String key) {
+                return false;
+            }
+
+            @Override
+            public void setEnabled(final String key, final boolean enabled) {}
+        };
+        final List<SettingsSnapshot.Entry> entries = new java.util.ArrayList<>();
+        entries.add(new SettingsSnapshot.Entry(
+                "turboism.core", OptimizationSettingsContribution.createPreset(localization(), service)));
+        entries.add(new SettingsSnapshot.Entry(
+                "turboism.core", CubismJvmSettingsContribution.createPerformanceRecommendationNote(localization())));
+        for (final SettingsContribution contribution :
+                OptimizationSettingsContribution.create(localization(), service)) {
+            entries.add(new SettingsSnapshot.Entry("turboism.core", contribution));
+        }
+        entries.sort(java.util.Comparator.comparingInt(
+                entry -> entry.contribution().index().orElse(Integer.MAX_VALUE)));
+        SwingUtilities.invokeAndWait(() -> {
+            try (CoreWindows windows = new CoreWindows(
+                    localization(),
+                    settings(),
+                    () -> List.of(new SettingsSnapshot.Tab("performance", "Performance", OptionalInt.of(200), entries)),
+                    plugins(),
+                    RuntimeLogReader.unavailable(),
+                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                final CoreWindows.RenderedSettings rendered = render(windows);
+                final JScrollPane scroll =
+                        assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
+                assertNull(
+                        findButtonByText(scroll, "settings.performance.status"),
+                        "optimization status button must be removed from the Performance tab");
+            }
+        });
+    }
+
+    private static JButton findButtonByText(final Component root, final String text) {
+        if (root instanceof JButton button && text.equals(button.getText())) return button;
+        if (root instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                final JButton found = findButtonByText(child, text);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private static List<JPanel> findCollapsibleSections(final Component root) {
+        final List<JPanel> found = new java.util.ArrayList<>();
+        collectCollapsibleSections(root, found);
+        return found;
+    }
+
+    private static void collectCollapsibleSections(final Component root, final List<JPanel> found) {
+        if (root instanceof JPanel panel
+                && panel.getBorder() != null
+                && panel.getBorder().getClass().getName().contains("CollapsibleTitledBorder")) {
+            found.add(panel);
+            return;
+        }
+        if (root instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                collectCollapsibleSections(child, found);
+            }
+        }
+    }
+
+    private static JCheckBox findGroupToggleCheckBox(final JPanel section) {
+        for (final Component child : section.getComponents()) {
+            if (child instanceof JCheckBox box
+                    && box.getName() != null
+                    && box.getName().startsWith("performance.section.")
+                    && box.getName().endsWith(".toggle")) {
+                return box;
+            }
+        }
+        return null;
+    }
+
+    private static void assertGroupCheckBoxState(
+            final JCheckBox box, final boolean expectedSelected, final boolean expectedIndeterminate) {
+        assertEquals(expectedSelected, box.isSelected(), "group checkbox selection state");
+        assertEquals(
+                expectedIndeterminate ? "indeterminate" : null,
+                box.getClientProperty("JButton.selectedState"),
+                "group checkbox indeterminate client property");
     }
 
     private static JButton findButtonByName(final Component root, final String name) {
@@ -1444,8 +1913,14 @@ class DeclarativeSettingsRendererTest {
     private static List<JCheckBox> checkboxes(Container container) {
         List<JCheckBox> found = new java.util.ArrayList<>();
         for (Component child : container.getComponents()) {
-            if (child instanceof JCheckBox box) found.add(box);
-            else if (child instanceof Container nested) found.addAll(checkboxes(nested));
+            if (child instanceof JCheckBox box) {
+                final String name = box.getName();
+                if (name == null || !(name.startsWith("performance.section.") && name.endsWith(".toggle"))) {
+                    found.add(box);
+                }
+            } else if (child instanceof Container nested) {
+                found.addAll(checkboxes(nested));
+            }
         }
         return found;
     }

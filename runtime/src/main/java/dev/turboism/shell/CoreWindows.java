@@ -2,7 +2,6 @@ package dev.turboism.shell;
 
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
-import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.internal.core.CorePluginManagement;
@@ -103,11 +102,13 @@ final class CoreWindows implements AutoCloseable {
     private static final int REFERENCE_LINK_HORIZONTAL_PADDING = 4;
     private static final String HTML_UNDERLINE_PREFIX = "<html><u>";
     private static final String HTML_UNDERLINE_SUFFIX = "</u></html>";
+    private static final String PERFORMANCE_SECTION_PREFIX = "performance.section.";
+    private static final int TOOLTIP_WRAP_THRESHOLD = 40;
+    private static final int TOOLTIP_WIDTH_PX = 360;
     private PluginTableModel pluginTableModel;
     private JTable pluginTable;
     private TableRowSorter<PluginTableModel> pluginSorter;
     private JLabel pluginStatus;
-    private final dev.turboism.internal.core.CubismJvmSettingsService performanceSettings;
     private final PluginSettingsWindow pluginSettingsWindow;
     private final PluginMarketWindow pluginMarketWindow;
 
@@ -118,18 +119,6 @@ final class CoreWindows implements AutoCloseable {
             final CorePluginManagement plugins,
             final RuntimeLogReader logs,
             final dev.turboism.internal.core.KeybindingService keybindings) {
-        this(i18n, settings, settingsContributions, plugins, logs, keybindings, null);
-    }
-
-    CoreWindows(
-            final PluginLocalization i18n,
-            final RuntimeSettingsService settings,
-            final SettingsContributionSource settingsContributions,
-            final CorePluginManagement plugins,
-            final RuntimeLogReader logs,
-            final dev.turboism.internal.core.KeybindingService keybindings,
-            final dev.turboism.internal.core.CubismJvmSettingsService performanceSettings) {
-        this.performanceSettings = performanceSettings;
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
@@ -436,27 +425,34 @@ final class CoreWindows implements AutoCloseable {
                         renderedTabs.add(created);
                         return created;
                     });
-            final OptimizationPresetCoordinator presetSync = new OptimizationPresetCoordinator();
+            final PerformanceToggleCoordinator toggleCoordinator = new PerformanceToggleCoordinator();
             final JPanel outer = rendered.panel();
             JPanel content = outer;
+            PendingSection activeSection = null;
             int row = nextRow(outer);
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
                 final SettingsControl control = entry.contribution().control();
                 if (STARTUP_TAB_ID.equals(tab.id())
                         && CoreUpdateSettingsContribution.CHANNEL_CONTRIBUTION_ID.equals(control.id())) {
-                    saves.add(renderControl(owner, outer, STARTUP_CHANNEL_ROW, control, presetSync));
+                    saves.add(renderControl(owner, outer, STARTUP_CHANNEL_ROW, control));
                 } else if (control instanceof SettingsControl.Note note
-                        && note.id().startsWith("performance.section.")) {
-                    final JPanel sectionContent = form();
-                    final JPanel section = CollapsibleSection.create(note.label(), sectionContent, true, i18n.locale());
-                    applyControlTooltip(note.id(), section);
-                    addSection(outer, nextRow(outer), section);
-                    content = sectionContent;
+                        && note.id().startsWith(PERFORMANCE_SECTION_PREFIX)) {
+                    flushSection(outer, activeSection, toggleCoordinator);
+                    activeSection = new PendingSection(note.id(), note.label(), form(), new ArrayList<>());
+                    content = activeSection.content();
                     row = 0;
                 } else {
-                    saves.add(renderControl(owner, content, row++, control, presetSync));
+                    saves.add(renderControl(
+                            owner,
+                            content,
+                            row++,
+                            control,
+                            toggleCoordinator,
+                            activeSection != null ? activeSection.toggles() : null));
                 }
             }
+            flushSection(outer, activeSection, toggleCoordinator);
+            toggleCoordinator.syncGroupStates();
         }
         if (plugins instanceof PluginAutoUpdateControl pluginUpdates && pluginUpdates.autoUpdateAvailable()) {
             final boolean alreadyContributed = settingsContributions.snapshot().stream()
@@ -478,15 +474,6 @@ final class CoreWindows implements AutoCloseable {
                         });
             }
         }
-        if (performanceSettings != null) {
-            final JPanel performance = builtins.get("performance").panel();
-            final JButton status = new JButton(text("settings.performance.status"));
-            status.addActionListener(ignored -> CoreDialogs.scrollableMessage(
-                    owner,
-                    text("settings.performance.status"),
-                    CubismJvmSettingsContribution.optimizationStatusMessage(i18n, performanceSettings)));
-            add(performance, nextRow(performance), status, new JLabel());
-        }
         renderedTabs.sort(java.util.Comparator.comparingInt(RenderedTab::index).thenComparing(RenderedTab::id));
         final JTabbedPane tabs = new JTabbedPane();
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
@@ -507,7 +494,22 @@ final class CoreWindows implements AutoCloseable {
 
     java.util.function.BooleanSupplier renderControl(
             final JDialog owner, final JPanel panel, final int row, final SettingsControl control) {
-        return renderControl(owner, panel, row, control, null);
+        return renderControl(owner, panel, row, control, null, null);
+    }
+
+    private void flushSection(
+            final JPanel outer, final PendingSection pending, final PerformanceToggleCoordinator toggleCoordinator) {
+        if (pending == null) {
+            return;
+        }
+        final String groupToggleTooltip =
+                formatTooltipForKey(OptimizationSettingsContribution.GROUP_TOGGLE_TOOLTIP_KEY);
+        final JCheckBox groupCheckBox = toggleCoordinator.createGroupCheckBox(
+                pending.noteId(), pending.title(), groupToggleTooltip, pending.toggles());
+        final JPanel section =
+                CollapsibleSection.create(pending.title(), pending.content(), true, i18n.locale(), groupCheckBox);
+        applyControlTooltip(pending.noteId(), section);
+        addSection(outer, nextRow(outer), section);
     }
 
     private java.util.function.BooleanSupplier renderControl(
@@ -515,7 +517,8 @@ final class CoreWindows implements AutoCloseable {
             final JPanel panel,
             final int row,
             final SettingsControl control,
-            final OptimizationPresetCoordinator presetSync) {
+            final PerformanceToggleCoordinator toggleCoordinator,
+            final List<PerformanceToggleCoordinator.ToggleEntry> sectionToggles) {
         if (control instanceof SettingsControl.Choice choice) {
             final JComboBox<SettingsControl.Option> combo =
                     new JComboBox<>(choice.options().toArray(SettingsControl.Option[]::new));
@@ -523,10 +526,10 @@ final class CoreWindows implements AutoCloseable {
             select(combo, initial);
             final String[] accepted = {initial};
             final boolean[] changing = {false};
-            final boolean isPresetChoice =
-                    presetSync != null && OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(choice.id());
+            final boolean isPresetChoice = toggleCoordinator != null
+                    && OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(choice.id());
             if (isPresetChoice) {
-                presetSync.registerPreset(combo, accepted, changing);
+                toggleCoordinator.registerPreset(combo, accepted, changing);
             }
             combo.addActionListener(ignored -> {
                 if (changing[0]) return;
@@ -540,7 +543,7 @@ final class CoreWindows implements AutoCloseable {
                 if (decision.accepted()) {
                     accepted[0] = selected.value();
                     if (isPresetChoice) {
-                        presetSync.onPresetSelected(selected.value());
+                        toggleCoordinator.onPresetSelected(selected.value());
                     }
                     return;
                 }
@@ -581,9 +584,10 @@ final class CoreWindows implements AutoCloseable {
             final boolean[] accepted = {initial};
             final boolean[] changing = {false};
             final Optional<Optimization> optimization =
-                    presetSync != null ? OptimizationCatalog.byContributionId(toggle.id()) : Optional.empty();
-            if (optimization.isPresent()) {
-                presetSync.registerToggle(optimization.get().key(), checkbox, accepted, changing);
+                    toggleCoordinator != null ? OptimizationCatalog.byContributionId(toggle.id()) : Optional.empty();
+            if (toggleCoordinator != null) {
+                toggleCoordinator.registerToggle(
+                        toggle.id(), optimization, checkbox, toggle, accepted, changing, sectionToggles);
             }
             checkbox.addActionListener(ignored -> {
                 if (changing[0]) return;
@@ -591,8 +595,8 @@ final class CoreWindows implements AutoCloseable {
                 final SettingsChangeDecision decision = toggle.validator().validate(accepted[0], proposed);
                 if (decision.accepted()) {
                     accepted[0] = proposed;
-                    if (optimization.isPresent()) {
-                        presetSync.onToggleChanged();
+                    if (toggleCoordinator != null) {
+                        toggleCoordinator.onToggleChanged(optimization.isPresent());
                     }
                     return;
                 }
@@ -677,20 +681,33 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void setControlTooltip(final String key, final javax.swing.JComponent... components) {
-        if (!i18n.contains(key)) return;
+        final String tip = formatTooltipForKey(key);
+        if (tip == null) {
+            return;
+        }
+        for (javax.swing.JComponent component : components) {
+            component.setToolTipText(tip);
+        }
+    }
+
+    private String formatTooltipForKey(final String key) {
+        if (!i18n.contains(key)) {
+            return null;
+        }
         final String raw = text(key);
-        if (raw == null || raw.isBlank()) return;
-        final String tip = raw.length() > 40 && !raw.startsWith("<html>")
-                ? "<html><div style='width: 360px;'>"
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return raw.length() > TOOLTIP_WRAP_THRESHOLD && !raw.startsWith("<html>")
+                ? "<html><div style='width: "
+                        + TOOLTIP_WIDTH_PX
+                        + "px;'>"
                         + raw.replace("&", "&amp;")
                                 .replace("<", "&lt;")
                                 .replace(">", "&gt;")
                                 .replace("\n", "<br>")
                         + "</div></html>"
                 : raw;
-        for (javax.swing.JComponent component : components) {
-            component.setToolTipText(tip);
-        }
     }
 
     private static String requireChoiceValue(final SettingsControl.Choice choice, final String value) {
@@ -1687,74 +1704,6 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
-    /** Synchronizes the optimization preset dropdown with the native optimization checkboxes. */
-    private static final class OptimizationPresetCoordinator {
-        private JComboBox<SettingsControl.Option> presetCombo;
-        private String[] presetAccepted;
-        private boolean[] presetChanging;
-        private final Map<String, OptimizationToggleBinding> toggles = new LinkedHashMap<>();
-        private boolean applyingPreset;
-
-        void registerPreset(
-                final JComboBox<SettingsControl.Option> combo, final String[] accepted, final boolean[] changing) {
-            this.presetCombo = combo;
-            this.presetAccepted = accepted;
-            this.presetChanging = changing;
-        }
-
-        void registerToggle(
-                final String optimizationKey,
-                final JCheckBox checkbox,
-                final boolean[] accepted,
-                final boolean[] changing) {
-            toggles.put(optimizationKey, new OptimizationToggleBinding(checkbox, accepted, changing));
-        }
-
-        void onPresetSelected(final String configValue) {
-            if (presetChanging != null && presetChanging[0]) return;
-            final OptimizationPreset preset = OptimizationPreset.fromConfigValue(configValue);
-            if (!preset.appliesFlags()) {
-                return;
-            }
-            applyingPreset = true;
-            try {
-                for (final Map.Entry<String, OptimizationToggleBinding> entry : toggles.entrySet()) {
-                    final Optimization optimization = OptimizationCatalog.requireByKey(entry.getKey());
-                    final boolean target = preset.targetFlag(optimization).orElseThrow();
-                    entry.getValue().setSelected(target);
-                }
-            } finally {
-                applyingPreset = false;
-            }
-        }
-
-        void onToggleChanged() {
-            if (applyingPreset || presetCombo == null) return;
-            final OptimizationPreset detected = OptimizationPreset.detect(key -> {
-                final OptimizationToggleBinding binding = toggles.get(key);
-                return binding != null && binding.accepted[0];
-            });
-            final String nextValue = detected.configValue();
-            presetAccepted[0] = nextValue;
-            presetChanging[0] = true;
-            try {
-                select(presetCombo, nextValue);
-            } finally {
-                presetChanging[0] = false;
-            }
-        }
-    }
-
-    private record OptimizationToggleBinding(JCheckBox checkbox, boolean[] accepted, boolean[] changing) {
-        void setSelected(final boolean selected) {
-            accepted[0] = selected;
-            if (checkbox.isSelected() == selected) return;
-            changing[0] = true;
-            try {
-                checkbox.setSelected(selected);
-            } finally {
-                changing[0] = false;
-            }
-        }
-    }
+    private record PendingSection(
+            String noteId, String title, JPanel content, List<PerformanceToggleCoordinator.ToggleEntry> toggles) {}
 }

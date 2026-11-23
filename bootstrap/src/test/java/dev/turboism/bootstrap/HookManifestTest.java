@@ -106,6 +106,7 @@ final class HookManifestTest {
                         DeclarativeHookContributor.class,
                         DeclarativeHookContributor.class,
                         DeclarativeHookContributor.class,
+                        EditDragResponsivenessHookContributor.class,
                         DeclarativeHookContributor.class,
                         DeclarativeHookContributor.class),
                 contributors.stream().map(HookContributor::getClass).toList());

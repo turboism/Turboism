@@ -26,6 +26,9 @@ public record WarpGridInterpolationTarget(HostArtifactDigest digest, String vers
     /** JVM descriptor of {@code o.a(float[], float[], int, int, int, float[], int, int, boolean)}. */
     public static final String DESCRIPTOR = "([F[FIII[FIIZ)V";
 
+    /** JVM descriptor of the out-of-bounds run delegate returning the next index. */
+    public static final String OOB_RUN_DESCRIPTOR = "([F[FIII[FIIZ)I";
+
     /** Static singleton field name on {@code o}. */
     public static final String SINGLETON_FIELD = "a";
 

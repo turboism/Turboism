@@ -320,6 +320,46 @@ class OptimizationPlanTest {
         }
     }
 
+    @Test
+    void v0702UpgradePromotesLegacyDefaultsAndRespectsOffPresetAndPostMigrationOptOuts() throws Exception {
+        final Map<String, Boolean> v0702Launcher = new LinkedHashMap<>();
+        v0702Launcher.put("modelUpdateSkip", true);
+        v0702Launcher.put("uploadElision", false);
+        v0702Launcher.put("uniformLocationCache", false);
+        v0702Launcher.put("warpPositionProjection", false);
+        for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
+            v0702Launcher.put(optimization.key(), false);
+        }
+        writeConfig(v0702Launcher, Map.of("atlasLoading", true));
+
+        final OptimizationPlan upgraded = plan();
+        for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
+            assertTrue(upgraded.admitted(optimization), optimization.key() + " must be promoted on v0.70.2 upgrade");
+            assertEquals("global-config", upgraded.choice(optimization).source());
+        }
+        assertFalse(upgraded.admitted(OptimizationCatalog.UPLOAD_ELISION), "explicit false opt-out survives");
+        assertFalse(upgraded.admitted(OptimizationCatalog.UNIFORM_LOCATION_CACHE), "default-off switch stays off");
+        assertFalse(upgraded.admitted(OptimizationCatalog.WARP_POSITION_PROJECTION), "demoted switch stays off");
+
+        try (var settings = new dev.turboism.config.OptimizationSettingsFileService(home)) {
+            settings.setEnabled(OptimizationCatalog.WARP_GRID_INTERPOLATION.key(), false);
+        }
+        final OptimizationPlan optedOut = plan();
+        assertFalse(optedOut.admitted(OptimizationCatalog.WARP_GRID_INTERPOLATION), "post-migration opt-out persists");
+        assertTrue(optedOut.admitted(OptimizationCatalog.MESH_INTERPOLATION));
+
+        final Map<String, Boolean> offLauncher = new LinkedHashMap<>();
+        offLauncher.put("modelUpdateSkip", false);
+        for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
+            offLauncher.put(optimization.key(), false);
+        }
+        writeConfig(offLauncher, Map.of("atlasLoading", false));
+        final OptimizationPlan offPlan = plan();
+        for (final Optimization optimization : OptimizationCatalog.persisted()) {
+            assertFalse(offPlan.admitted(optimization), "OFF preset must keep " + optimization.key() + " disabled");
+        }
+    }
+
     /** The catalogue's relation list is what the plan reads; a hand-built row is not in it. */
     private static Optimization undeclaredEntry() {
         return new Optimization(

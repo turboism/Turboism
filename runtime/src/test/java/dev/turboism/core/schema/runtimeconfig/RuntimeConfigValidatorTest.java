@@ -245,4 +245,23 @@ class RuntimeConfigValidatorTest {
         assertTrue(codes(scalar).contains("RUNTIME_CONFIG_BAD_TYPE"));
         assertTrue(codes(nonTextEntry).contains("RUNTIME_CONFIG_BAD_TYPE"));
     }
+
+    @Test
+    void acceptsPositiveOptimizationDefaultsVersionAndRejectsInvalidValues() {
+        final ObjectNode accepted = base();
+        accepted.put("optimizationDefaultsVersion", 1);
+        assertTrue(validator.validate(accepted, "test.json").isEmpty());
+
+        for (final Object bad : new Object[] {0, -1, "1", true}) {
+            final ObjectNode invalid = base();
+            if (bad instanceof Integer integer) {
+                invalid.put("optimizationDefaultsVersion", integer);
+            } else if (bad instanceof String text) {
+                invalid.put("optimizationDefaultsVersion", text);
+            } else if (bad instanceof Boolean bool) {
+                invalid.put("optimizationDefaultsVersion", bool);
+            }
+            assertTrue(codes(invalid).contains("RUNTIME_CONFIG_BAD_TYPE"), "bad=" + bad);
+        }
+    }
 }

@@ -55,6 +55,7 @@ public final class ConfigMergeRegression {
         platformPolicy();
         canonicalIdentity();
         runtimeConfigMigration();
+        legacyOptimizationDefaultsMigration();
         runtimeConfigValidation();
         pluginSelectionUpdatesCurrentConfig();
         listenerAppliesSelectionAndPreservesNoOpBytes();
@@ -364,6 +365,114 @@ public final class ConfigMergeRegression {
                             && !resolved.containsKey("cubismJvm"));
         } finally {
             deleteTree(dir);
+        }
+    }
+
+    /** Validates v0.70.2 defaults migration across listener, OFF preset, and idempotency. */
+    private static void legacyOptimizationDefaultsMigration() throws Exception {
+        final List<String> promotedKeys = List.of(
+                "meshInterpolation",
+                "shaderUniform",
+                "matrixScratch",
+                "modelInstanceCoalesce",
+                "extendedInterpolationSiblingElision",
+                "warpGridInterpolation",
+                "warpNormalPointElision",
+                "cameraMatrixCache",
+                "renderPassTraversal",
+                "meshHitTest",
+                "sceneHandlerCache",
+                "cursorValidationElision",
+                "parameterRowRepaint");
+
+        // 1. Real v0.70.2 saved config: modelUpdateSkip=true, atlasLoading=true, 13 promoted=false,
+        // plus an explicit uploadElision=false and default-off uniformLocationCache/warpPositionProjection=false.
+        final Path upgradeHome = Files.createTempDirectory("listener-v0702-upgrade-");
+        try {
+            final Map<String, Object> legacyLauncher = new LinkedHashMap<>();
+            legacyLauncher.put("cubismJvm", "graalvm");
+            legacyLauncher.put("modelUpdateSkip", Boolean.TRUE);
+            legacyLauncher.put("uploadElision", Boolean.FALSE);
+            legacyLauncher.put("uniformLocationCache", Boolean.FALSE);
+            legacyLauncher.put("warpPositionProjection", Boolean.FALSE);
+            for (String key : promotedKeys) {
+                legacyLauncher.put(key, Boolean.FALSE);
+            }
+            final Map<String, Object> legacyConfig = validRuntimeConfig();
+            legacyConfig.put("atlasLoading", Boolean.TRUE);
+            legacyConfig.put("launcher", legacyLauncher);
+            ConfigMerge.write(upgradeHome, legacyConfig);
+
+            listener(upgradeHome, "full").beforePacks(List.of());
+            check(
+                    "v0.70.2 valid v1 defaults migration creates no corrupt backup",
+                    !Files.exists(upgradeHome.resolve("config.json.corrupt.bak")));
+            final Map<String, Object> migrated = ConfigMerge.loadExisting(upgradeHome);
+            ConfigMerge.validateCurrent(migrated);
+            check(
+                    "v0.70.2 defaults migration stamps optimizationDefaultsVersion=1",
+                    Long.valueOf(1L).equals(migrated.get("optimizationDefaultsVersion")));
+            final Map<?, ?> migratedLauncher = (Map<?, ?>) migrated.get("launcher");
+            for (String key : promotedKeys) {
+                check("v0.70.2 promoted key flipped to true: " + key, Boolean.TRUE.equals(migratedLauncher.get(key)));
+            }
+            check(
+                    "v0.70.2 explicit false on pre-existing default-ON switch survives",
+                    Boolean.FALSE.equals(migratedLauncher.get("uploadElision")));
+            check(
+                    "v0.70.2 default-OFF switch stays false",
+                    Boolean.FALSE.equals(migratedLauncher.get("uniformLocationCache"))
+                            && Boolean.FALSE.equals(migratedLauncher.get("warpPositionProjection")));
+
+            // Post-migration explicit false opt-out stays false across subsequent installer runs.
+            final Map<String, Object> editedLauncher = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : migratedLauncher.entrySet()) {
+                editedLauncher.put((String) entry.getKey(), entry.getValue());
+            }
+            editedLauncher.put("warpGridInterpolation", Boolean.FALSE);
+            migrated.put("launcher", editedLauncher);
+            ConfigMerge.write(upgradeHome, migrated);
+            final String beforeSecondInstall =
+                    Files.readString(upgradeHome.resolve("config.json"), StandardCharsets.UTF_8);
+            listener(upgradeHome, "full").beforePacks(List.of());
+            check(
+                    "post-migration opt-out is idempotent across re-installs",
+                    beforeSecondInstall.equals(
+                            Files.readString(upgradeHome.resolve("config.json"), StandardCharsets.UTF_8)));
+        } finally {
+            deleteTree(upgradeHome);
+        }
+
+        // 2. Explicit OFF preset respects false choices and records optimizationDefaultsVersion=1.
+        final Path offHome = Files.createTempDirectory("listener-v0702-off-");
+        try {
+            final Map<String, Object> offLauncher = new LinkedHashMap<>();
+            offLauncher.put("cubismJvm", "graalvm");
+            offLauncher.put("modelUpdateSkip", Boolean.FALSE);
+            for (String key : promotedKeys) {
+                offLauncher.put(key, Boolean.FALSE);
+            }
+            final Map<String, Object> offConfig = validRuntimeConfig();
+            offConfig.put("atlasLoading", Boolean.FALSE);
+            offConfig.put("launcher", offLauncher);
+            ConfigMerge.write(offHome, offConfig);
+
+            listener(offHome, "full").beforePacks(List.of());
+            final Map<String, Object> migratedOff = ConfigMerge.loadExisting(offHome);
+            ConfigMerge.validateCurrent(migratedOff);
+            check(
+                    "OFF preset migration records optimizationDefaultsVersion=1",
+                    Long.valueOf(1L).equals(migratedOff.get("optimizationDefaultsVersion")));
+            final Map<?, ?> migratedOffLauncher = (Map<?, ?>) migratedOff.get("launcher");
+            for (String key : promotedKeys) {
+                check("OFF preset preserves false for " + key, Boolean.FALSE.equals(migratedOffLauncher.get(key)));
+            }
+            check(
+                    "OFF preset sets absent default-ON switches to false",
+                    Boolean.FALSE.equals(migratedOffLauncher.get("warpDeformEditAcceleration"))
+                            && Boolean.FALSE.equals(migratedOff.get("atlasInteractiveRender")));
+        } finally {
+            deleteTree(offHome);
         }
     }
 

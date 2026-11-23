@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -568,13 +569,13 @@ public final class OptimizationCatalog {
             "settings.optimization.triangulation-spatial-index.tooltip",
             List.of());
 
-    /** Speeds up edit-mode warp deformer transforms, overlays, bezier grids, and deform brush loops. */
+    /** Speeds up edit-mode warp deformer transforms, overlays, bezier grids, deform brush loops, and drag responsiveness. */
     public static final Optimization WARP_DEFORM_EDIT_ACCELERATION = new Optimization(
             "warpDeformEditAcceleration",
             "warp-deform-edit-acceleration",
             Optimization.Access.PERSISTED_LAUNCHER,
             List.of("turboism.optimization.warpDeformEditAcceleration"),
-            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION"),
+            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION", "TURBOISM_EDIT_DRAG_RESPONSIVENESS"),
             Set.of("cubism.deformer.warp-deform-edit-acceleration"),
             Optional.of(new Optimization.Placement("rendering", 85)),
             "settings.optimization.warp-deform-edit-acceleration",
@@ -780,8 +781,54 @@ public final class OptimizationCatalog {
         validate(ALL);
     }
 
+    /** Switches that stay off by default unless enabled explicitly or via Heavy Editing. */
+    private static final Set<Optimization> DEFAULT_OFF_OPTIMIZATIONS = Set.of(
+            INCREMENTAL_UPDATE,
+            INCREMENTAL_UPDATE_AFFECTERS,
+            UNIFORM_LOCATION_CACHE,
+            INPUT_PATH_ELISION,
+            MESA_GL_THREAD,
+            ASYNC_READBACK,
+            IMAGE_ARCHIVE_REUSE,
+            FLOAT_ARRAY_PARSE_CACHE,
+            TEXTURE_UPLOAD_PREPARATION,
+            WARP_POSITION_PROJECTION,
+            REINIT_PAIR_ELISION,
+            INSPECTOR_PROPERTY_BYPASS);
+
+    /**
+     * Keys that shipped default-off in v0.70.2 and were later promoted to default-on; legacy
+     * unversioned configs promote only keys from this set that remain default-enabled today.
+     */
+    private static final Set<String> LEGACY_PROMOTED_DEFAULT_OFF_KEYS = Set.of(
+            MESH_INTERPOLATION.key(),
+            SHADER_UNIFORM.key(),
+            MATRIX_SCRATCH.key(),
+            MODEL_INSTANCE_COALESCE.key(),
+            EXTENDED_INTERPOLATION_SIBLING_ELISION.key(),
+            WARP_GRID_INTERPOLATION.key(),
+            WARP_NORMAL_POINT_ELISION.key(),
+            CAMERA_MATRIX_CACHE.key(),
+            RENDER_PASS_TRAVERSAL.key(),
+            MESH_HIT_TEST.key(),
+            SCENE_HANDLER_CACHE.key(),
+            CURSOR_VALIDATION_ELISION.key(),
+            PARAMETER_ROW_REPAINT.key());
+
     private static final List<Optimization> PERSISTED =
             ALL.stream().filter(Optimization::persisted).toList();
+
+    private static final List<Optimization> DEFAULT_ENABLED = PERSISTED.stream()
+            .filter(entry -> !DEFAULT_OFF_OPTIMIZATIONS.contains(entry))
+            .toList();
+
+    private static final List<Optimization> LEGACY_PROMOTED_DEFAULTS = DEFAULT_ENABLED.stream()
+            .filter(entry -> LEGACY_PROMOTED_DEFAULT_OFF_KEYS.contains(entry.key()))
+            .toList();
+
+    private static final Set<String> LEGACY_PROMOTED_DEFAULT_KEY_SET = LEGACY_PROMOTED_DEFAULTS.stream()
+            .map(Optimization::key)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     private static final List<Optimization> PLACED = PERSISTED.stream()
             .sorted(Comparator.comparingInt((Optimization entry) ->
@@ -806,6 +853,27 @@ public final class OptimizationCatalog {
     /** The entries that persist a preference, i.e. the ones with a config key and a settings row. */
     public static List<Optimization> persisted() {
         return PERSISTED;
+    }
+
+    /** Returns {@code true} when {@code entry} defaults to enabled in clean configs and Balanced. */
+    public static boolean isDefaultEnabled(final Optimization entry) {
+        Objects.requireNonNull(entry, "entry");
+        return entry.persisted() && !DEFAULT_OFF_OPTIMIZATIONS.contains(entry);
+    }
+
+    /** Returns persisted optimizations enabled by default in clean configs and Balanced. */
+    public static List<Optimization> defaultEnabled() {
+        return DEFAULT_ENABLED;
+    }
+
+    /** Returns persisted optimizations promoted from v0.70.2 default-off to current default-on. */
+    public static List<Optimization> legacyPromotedDefaults() {
+        return LEGACY_PROMOTED_DEFAULTS;
+    }
+
+    /** Returns {@code true} when {@code key} belongs to the v0.70.2 promoted-defaults set. */
+    public static boolean isLegacyPromotedDefaultKey(final String key) {
+        return key != null && LEGACY_PROMOTED_DEFAULT_KEY_SET.contains(key);
     }
 
     /**

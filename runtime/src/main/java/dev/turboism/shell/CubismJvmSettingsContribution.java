@@ -229,23 +229,6 @@ final class CubismJvmSettingsContribution {
                 new SettingsControl.Note("performance-recommendation", label));
     }
 
-    static String optimizationStatusMessage(final PluginLocalization i18n, final CubismJvmSettingsService settings) {
-        final StringBuilder message =
-                new StringBuilder(i18n.format("settings.performance.status-file", settings.globalConfigPath()));
-        for (var status : settings.performanceStatuses()) {
-            message.append("\n\n")
-                    .append(i18n.format(
-                            "settings.performance.status-all-row",
-                            status.key(),
-                            status.saved(),
-                            status.requested(),
-                            status.source(),
-                            status.actual(),
-                            status.pendingRestart()));
-        }
-        return message.toString();
-    }
-
     private static SettingsActionHandle install(
             final PluginLocalization i18n, final CubismJvmSettingsService settings) {
         final CubismJvmSettingsService.ManagedRuntimeOperation operation = settings.installManagedRuntime();

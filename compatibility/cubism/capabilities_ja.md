@@ -300,6 +300,7 @@ Cubism Editor 自体に機能が存在しない確認済みホスト境界。公
 
 | ソース | シンボル | バージョン |
 |---|---|---|
+| target-classes/`edit-drag-responsiveness.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`incremental-update.json` | `TargetClassTable` | 5.0.00–5.3.05 |

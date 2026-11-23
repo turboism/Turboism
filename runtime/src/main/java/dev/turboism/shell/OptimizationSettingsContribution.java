@@ -30,6 +30,7 @@ final class OptimizationSettingsContribution {
 
     static final String PRESET_CONTRIBUTION_ID = "performance-preset";
     static final String PRESET_TOOLTIP_KEY = "settings.performance.preset.tooltip";
+    static final String GROUP_TOGGLE_TOOLTIP_KEY = "settings.performance.section.toggle-all.tooltip";
     private static final String PRESET_LABEL_KEY = "settings.performance.preset";
     private static final int PRESET_INDEX = 48;
     private static final String PERFORMANCE_TAB_ID = "performance";

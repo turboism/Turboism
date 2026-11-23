@@ -3,9 +3,14 @@ package dev.turboism.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.config.PerformanceSettingsConfig.Field;
+import dev.turboism.config.optimization.Optimization;
+import dev.turboism.config.optimization.OptimizationCatalog;
+import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.internal.core.CubismJvmSettingsService;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,7 +26,6 @@ class PerformanceSettingsConfigTest {
             Field.MESH_INTERPOLATION,
             Field.SHADER_UNIFORM,
             Field.MATRIX_SCRATCH,
-            Field.WARP_POSITION_PROJECTION,
             Field.CLIP_MASK_DEDUPLICATION,
             Field.CLIP_MASK_SCISSOR_CLEAR,
             Field.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,
@@ -205,6 +209,117 @@ class PerformanceSettingsConfigTest {
             throw new RuntimeException(e);
         } finally {
             System.clearProperty("turboism.meshInterpolation.enabled");
+        }
+    }
+
+    @Test
+    void migratesV0702SavedConfigToBalancedAndRecordsMarker() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("worktreeId", "turboism-runtime");
+        root.putArray("pluginDirs").add("plugins");
+        var launcher = root.putObject("launcher");
+        launcher.put("cubismJvm", "graalvm");
+        launcher.put("zgc", true);
+        // Simulate v0.70.2 Settings OK: existing default-ON switches persisted true, 13 promoted
+        // switches + unpromoted default-OFF switches persisted false, no optimizationDefaultsVersion.
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            if (Set.of(
+                            OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
+                            OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
+                            OptimizationCatalog.MESH_EDIT_ACCELERATION,
+                            OptimizationCatalog.MEMORY_LEAK_MITIGATION)
+                    .contains(optimization)) {
+                continue;
+            }
+            boolean v0702DefaultOn = OptimizationCatalog.isDefaultEnabled(optimization)
+                    && !OptimizationCatalog.isLegacyPromotedDefaultKey(optimization.key());
+            var parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? launcher : root;
+            parent.put(optimization.key(), v0702DefaultOn);
+        }
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        for (Optimization promoted : OptimizationCatalog.legacyPromotedDefaults()) {
+            assertEquals("true", loaded.value(Field.forKey(promoted.key())).value(), promoted.key());
+        }
+        assertEquals("false", loaded.value(Field.UNIFORM_LOCATION_CACHE).value());
+        assertEquals("false", loaded.value(Field.WARP_POSITION_PROJECTION).value());
+        assertEquals("false", loaded.value(Field.INCREMENTAL_UPDATE).value());
+        assertEquals("true", loaded.value(Field.WARP_DEFORM_EDIT_ACCELERATION).value());
+
+        var persisted = json.readTree(home.resolve("config.json").toFile());
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+        try (var service = new OptimizationSettingsFileService(home)) {
+            assertEquals(OptimizationPreset.BALANCED, OptimizationPreset.detect(service));
+        }
+    }
+
+    @Test
+    void migratesExplicitOffPresetWithoutPromotingOptimizations() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("worktreeId", "turboism-runtime");
+        var launcher = root.putObject("launcher");
+        launcher.put("cubismJvm", "graalvm");
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            if (Set.of(
+                            OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION,
+                            OptimizationCatalog.ATLAS_INTERACTIVE_RENDER,
+                            OptimizationCatalog.MESH_EDIT_ACCELERATION,
+                            OptimizationCatalog.MEMORY_LEAK_MITIGATION)
+                    .contains(optimization)) {
+                continue;
+            }
+            var parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? launcher : root;
+            parent.put(optimization.key(), false);
+        }
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            assertEquals("false", loaded.value(Field.forKey(optimization.key())).value(), optimization.key());
+        }
+        var persisted = json.readTree(home.resolve("config.json").toFile());
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+        try (var service = new OptimizationSettingsFileService(home)) {
+            assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(service));
+        }
+    }
+
+    @Test
+    void postMigrationExplicitFalseOptOutPersistsIdempotentlyAcrossReloads() throws Exception {
+        migratesV0702SavedConfigToBalancedAndRecordsMarker();
+        try (var service = new OptimizationSettingsFileService(home)) {
+            service.setEnabled(OptimizationCatalog.WARP_GRID_INTERPOLATION.key(), false);
+            service.setEnabled(OptimizationCatalog.MODEL_INSTANCE_COALESCE.key(), false);
+        }
+        var reloaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        assertEquals("false", reloaded.value(Field.WARP_GRID_INTERPOLATION).value());
+        assertEquals(
+                "global-config", reloaded.value(Field.WARP_GRID_INTERPOLATION).source());
+        assertEquals("false", reloaded.value(Field.MODEL_INSTANCE_COALESCE).value());
+        assertEquals("true", reloaded.value(Field.MESH_INTERPOLATION).value());
+        try (var service = new OptimizationSettingsFileService(home)) {
+            assertFalse(service.enabled(OptimizationCatalog.WARP_GRID_INTERPOLATION.key()));
+            assertFalse(service.enabled(OptimizationCatalog.MODEL_INSTANCE_COALESCE.key()));
+            assertEquals(OptimizationPreset.CUSTOM, OptimizationPreset.detect(service));
         }
     }
 }

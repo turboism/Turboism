@@ -300,6 +300,7 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 
 | 소스 | 심볼 | 버전 |
 |---|---|---|
+| target-classes/`edit-drag-responsiveness.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`incremental-update.json` | `TargetClassTable` | 5.0.00–5.3.05 |

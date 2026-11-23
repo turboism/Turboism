@@ -56,7 +56,7 @@ final class OptimizationCatalogTest {
         assertEquals(32, OptimizationCatalog.launcherFieldNames().size());
         assertEquals(32, OptimizationCatalog.booleanLauncherFieldNames().size());
         assertEquals(11, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(49, OptimizationCatalog.protocols().size(), "44 reported protocols plus 5 probe protocols");
+        assertEquals(50, OptimizationCatalog.protocols().size(), "45 reported protocols plus 5 probe protocols");
     }
 
     private static final java.util.Set<Optimization> DEFAULT_ON = java.util.Set.of(
@@ -66,7 +66,6 @@ final class OptimizationCatalogTest {
             OptimizationCatalog.MESH_INTERPOLATION,
             OptimizationCatalog.SHADER_UNIFORM,
             OptimizationCatalog.MATRIX_SCRATCH,
-            OptimizationCatalog.WARP_POSITION_PROJECTION,
             OptimizationCatalog.CLIP_MASK_DEDUPLICATION,
             OptimizationCatalog.CLIP_MASK_SCISSOR_CLEAR,
             OptimizationCatalog.EXTENDED_INTERPOLATION_INCREMENTAL_SETUP,

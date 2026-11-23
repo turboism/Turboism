@@ -213,6 +213,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
         private void emitFastPath() {
             final Label fallback = new Label();
             final Label hasPoints = new Label();
+            final Label quadTop = new Label();
+            final Label triTop = new Label();
             final Label triLoop = new Label();
             final Label oobExit = new Label();
 
@@ -254,10 +256,10 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitVarInsn(Opcodes.ILOAD, LOCAL_IS_QUAD);
             visitJumpInsn(Opcodes.IFEQ, triLoop);
 
-            emitQuadLoop(oobExit);
+            emitQuadLoop(quadTop, oobExit);
             visitLabel(triLoop);
-            emitTriangleLoop(oobExit);
-            emitOobDelegation(oobExit);
+            emitTriangleLoop(triTop, oobExit);
+            emitOobDelegation(oobExit, quadTop, triTop);
 
             visitLabel(fallback);
         }
@@ -277,8 +279,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitJumpInsn(Opcodes.IFEQ, fallback);
         }
 
-        private void emitQuadLoop(final Label oobExit) {
-            final Label quadTop = new Label();
+        private void emitQuadLoop(final Label quadTop, final Label oobExit) {
             visitLabel(quadTop);
 
             emitPointBoundsAndCellSetup(oobExit);
@@ -299,8 +300,7 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             emitLoopAdvance(quadTop);
         }
 
-        private void emitTriangleLoop(final Label oobExit) {
-            final Label triTop = new Label();
+        private void emitTriangleLoop(final Label triTop, final Label oobExit) {
             final Label triUpper = new Label();
             final Label triAdvance = new Label();
 
@@ -533,7 +533,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitInsn(Opcodes.RETURN);
         }
 
-        private void emitOobDelegation(final Label oobExit) {
+        private void emitOobDelegation(final Label oobExit, final Label quadTop, final Label triTop) {
+            final Label done = new Label();
             visitLabel(oobExit);
             visitVarInsn(Opcodes.ALOAD, LOCAL_BRIDGE_SLOT);
             visitTypeInsn(Opcodes.CHECKCAST, METHOD_HANDLE_INTERNAL);
@@ -550,8 +551,16 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
                     Opcodes.INVOKEVIRTUAL,
                     METHOD_HANDLE_INTERNAL,
                     INVOKE_EXACT_METHOD,
-                    WarpGridInterpolationTarget.DESCRIPTOR,
+                    WarpGridInterpolationTarget.OOB_RUN_DESCRIPTOR,
                     false);
+            visitVarInsn(Opcodes.ISTORE, LOCAL_INDEX_I);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_INDEX_I);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_LIMIT);
+            visitJumpInsn(Opcodes.IF_ICMPGE, done);
+            visitVarInsn(Opcodes.ILOAD, LOCAL_IS_QUAD);
+            visitJumpInsn(Opcodes.IFEQ, triTop);
+            visitJumpInsn(Opcodes.GOTO, quadTop);
+            visitLabel(done);
             visitInsn(Opcodes.RETURN);
         }
     }

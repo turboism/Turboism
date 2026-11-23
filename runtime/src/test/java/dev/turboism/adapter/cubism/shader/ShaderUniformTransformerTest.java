@@ -192,4 +192,328 @@ final class ShaderUniformTransformerTest {
         assertNull(ShaderUniformTransformer.composedShape(fixture(OWNER, 2, true, true)));
         assertNull(ShaderUniformTransformer.composedShape(fixture("other/Owner", 1, true, true)));
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void kotlinLoopShapeReplacesEntrySetIteratorAndForEachLambdaWithPooledEntries(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path out = compileLoopStubs(dir);
+        final byte[] original = kotlinLoopFixture();
+        final byte[] patched = ShaderUniformTransformer.patch(original);
+
+        int[] stats = new int[5];
+        new ClassReader(patched)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String desc, String sig, String[] ex) {
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int op, String owner, String called, String md, boolean itf) {
+                                        if (owner.equals("java/util/HashMap") && called.equals("entrySet")) stats[0]++;
+                                        if (owner.equals("java/util/HashMap") && called.equals("forEach")) stats[1]++;
+                                        if (owner.equals(ShaderUniformTransformer.BRIDGE_OWNER)
+                                                && called.equals("borrowMapEntries")) stats[2]++;
+                                        if (owner.equals(OWNER) && called.equals("bindTexture")) stats[3]++;
+                                        if (owner.equals(ShaderUniformTransformer.BRIDGE_OWNER)
+                                                && called.equals("releaseMapEntries")) stats[4]++;
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        assertEquals(0, stats[0]);
+        assertEquals(0, stats[1]);
+        assertEquals(2, stats[2]);
+        assertEquals(1, stats[3]);
+        assertEquals(4, stats[4], "normal and exception handlers for both loops must release entries");
+
+        try (var loader =
+                new java.net.URLClassLoader(
+                        new java.net.URL[] {out.toUri().toURL()}, ShaderUniformTransformerTest.class.getClassLoader()) {
+                    Class<?> defineShader(final byte[] bytes) {
+                        return defineClass(OWNER.replace('/', '.'), bytes, 0, bytes.length);
+                    }
+                }) {
+            final Class<?> shaderClass = loader.defineShader(patched);
+            final Class<?> ctxClass = loader.loadClass("com.live2d.graphics3d.a");
+            final Class<?> matClass = loader.loadClass("com.live2d.graphics3d.material.GMaterial");
+            final Class<?> texClass = loader.loadClass("com.live2d.graphics3d.texture.GTexture");
+            final Class<?> matrixClass = loader.loadClass("com.live2d.graphics3d.type.GMatrix44");
+            final var draw = shaderClass.getDeclaredMethod(DRAW, ctxClass, matClass, matrixClass);
+            draw.setAccessible(true);
+
+            final Object shader = shaderClass.getConstructor().newInstance();
+            final Object ctx = ctxClass.getConstructor().newInstance();
+            final Object mat = matClass.getConstructor().newInstance();
+            final Object matrix = matrixClass.getConstructor().newInstance();
+            final var uniforms = (java.util.HashMap<String, Object>)
+                    matClass.getField("uniforms").get(mat);
+            final var textures = (java.util.HashMap<String, Object>)
+                    matClass.getField("textures").get(mat);
+
+            // Empty maps execute cleanly without failing.
+            draw.invoke(shader, ctx, mat, matrix);
+            assertEquals(List.of(), getRecordedCalls(shader));
+
+            // Populated maps iterate all entries and invoke bindTexture directly.
+            uniforms.put("uAlpha", 1.0f);
+            uniforms.put("uBeta", 2.0f);
+            textures.put("tex0", texClass.getConstructor().newInstance());
+            final java.util.Map.Entry<?, ?>[] baselineBuffer = NativeShaderUniformBridge.borrowMapEntries(uniforms);
+            NativeShaderUniformBridge.releaseMapEntries(baselineBuffer);
+            draw.invoke(shader, ctx, mat, matrix);
+            final List<String> calls = getRecordedCalls(shader);
+            assertTrue(calls.contains("uAlpha"));
+            assertTrue(calls.contains("uBeta"));
+            assertTrue(calls.contains("tex0:tex0"));
+
+            // Pooled buffer must have been released cleanly and reused without allocation.
+            final java.util.Map.Entry<?, ?>[] afterDrawBuffer = NativeShaderUniformBridge.borrowMapEntries(uniforms);
+            assertSame(baselineBuffer, afterDrawBuffer);
+            NativeShaderUniformBridge.releaseMapEntries(afterDrawBuffer);
+
+            // Even when the loop body throws mid-iteration, catch-release must unlock the pooled buffer.
+            shaderClass.getField("failNext").setBoolean(shader, true);
+            assertThrows(
+                    java.lang.reflect.InvocationTargetException.class, () -> draw.invoke(shader, ctx, mat, matrix));
+            final java.util.Map.Entry<?, ?>[] afterThrowBuffer = NativeShaderUniformBridge.borrowMapEntries(uniforms);
+            assertSame(baselineBuffer, afterThrowBuffer);
+            NativeShaderUniformBridge.releaseMapEntries(afterThrowBuffer);
+        }
+    }
+
+    private static java.nio.file.Path compileLoopStubs(final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path src = dir.resolve("Sources");
+        final java.nio.file.Path out = dir.resolve("Out");
+        java.nio.file.Files.createDirectories(src);
+        java.nio.file.Files.createDirectories(out);
+        final java.util.Map<String, String> files = java.util.Map.of(
+                "GL3.java",
+                "package com.jogamp.opengl; public interface GL3 { int glGetUniformLocation(int p, String n); }",
+                "a.java",
+                "package com.live2d.graphics3d; public class a { public GL3Impl gl = new GL3Impl(); }",
+                "GL3Impl.java",
+                """
+                package com.live2d.graphics3d;
+                import com.jogamp.opengl.GL3;
+                public final class GL3Impl implements GL3 {
+                    public Object getContext() { return null; }
+                    @Override public int glGetUniformLocation(int p, String n) { return 7; }
+                }
+                """,
+                "GMatrix44.java",
+                "package com.live2d.graphics3d.type; public class GMatrix44 {}",
+                "GTexture.java",
+                "package com.live2d.graphics3d.texture; public class GTexture {}",
+                "GMaterial.java",
+                """
+                package com.live2d.graphics3d.material;
+                import java.util.HashMap;
+                public class GMaterial {
+                    public final HashMap<String, Object> uniforms = new HashMap<>();
+                    public final HashMap<String, com.live2d.graphics3d.texture.GTexture> textures = new HashMap<>();
+                    public HashMap<String, Object> getUniformMap$core() { return uniforms; }
+                    public HashMap<String, com.live2d.graphics3d.texture.GTexture> getOptionalTextures$core() { return textures; }
+                }
+                """,
+                "Intrinsics.java",
+                "package kotlin.jvm.internal; public class Intrinsics { public static void checkNotNullExpressionValue(Object o, String s) {} }",
+                "Function2.java",
+                "package kotlin.jvm.functions; public interface Function2<A, B, R> { R invoke(A a, B b); }");
+        final var args = new ArrayList<String>(List.of("--release", "17", "-d", out.toString()));
+        for (final var e : files.entrySet()) {
+            final java.nio.file.Path p = src.resolve(e.getKey());
+            java.nio.file.Files.writeString(p, e.getValue());
+            args.add(p.toString());
+        }
+        assertEquals(
+                0, javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        return out;
+    }
+
+    private static byte[] kotlinLoopFixture() {
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
+        cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "log", "Ljava/util/List;", null, null)
+                .visitEnd();
+        cw.visitField(Opcodes.ACC_PUBLIC, "failNext", "Z", null, null).visitEnd();
+
+        MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        init.visitCode();
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitTypeInsn(Opcodes.NEW, "java/util/ArrayList");
+        init.visitInsn(Opcodes.DUP);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+        init.visitFieldInsn(Opcodes.PUTFIELD, OWNER, "log", "Ljava/util/List;");
+        init.visitInsn(Opcodes.RETURN);
+        init.visitMaxs(0, 0);
+        init.visitEnd();
+
+        MethodVisitor initExe = cw.visitMethod(
+                Opcodes.ACC_PUBLIC,
+                ShaderUniformTransformer.LIFECYCLE_METHODS[0],
+                ShaderUniformTransformer.LIFECYCLE_DESCS[0],
+                null,
+                null);
+        initExe.visitCode();
+        initExe.visitInsn(Opcodes.RETURN);
+        initExe.visitMaxs(0, 0);
+        initExe.visitEnd();
+
+        MethodVisitor setProg = cw.visitMethod(
+                Opcodes.ACC_PUBLIC,
+                ShaderUniformTransformer.LIFECYCLE_METHODS[1],
+                ShaderUniformTransformer.LIFECYCLE_DESCS[1],
+                null,
+                null);
+        setProg.visitCode();
+        setProg.visitInsn(Opcodes.RETURN);
+        setProg.visitMaxs(0, 0);
+        setProg.visitEnd();
+
+        MethodVisitor bind = cw.visitMethod(
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                "bindTexture",
+                "(Lcom/live2d/graphics3d/a;Lcom/jogamp/opengl/GL3;Lcom/live2d/graphics3d/texture/GTexture;Ljava/lang/String;)V",
+                null,
+                null);
+        bind.visitCode();
+        bind.visitVarInsn(Opcodes.ALOAD, 0);
+        bind.visitFieldInsn(Opcodes.GETFIELD, OWNER, "log", "Ljava/util/List;");
+        bind.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
+        bind.visitInsn(Opcodes.DUP);
+        bind.visitLdcInsn("tex0:");
+        bind.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
+        bind.visitVarInsn(Opcodes.ALOAD, 4);
+        bind.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/lang/StringBuilder",
+                "append",
+                "(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+                false);
+        bind.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
+        bind.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
+        bind.visitInsn(Opcodes.POP);
+        bind.visitInsn(Opcodes.RETURN);
+        bind.visitMaxs(0, 0);
+        bind.visitEnd();
+
+        // preDraw_exe with local 4 = GL3, locals 8..12 = uniform loop
+        MethodVisitor draw = cw.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, DRAW, DRAW_DESC, null, null);
+        draw.visitCode();
+        draw.visitVarInsn(Opcodes.ALOAD, 1);
+        draw.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/graphics3d/a", "gl", "Lcom/live2d/graphics3d/GL3Impl;");
+        draw.visitVarInsn(Opcodes.ASTORE, 4);
+
+        Label loopTop = new Label();
+        Label loopEnd = new Label();
+        Label noThrow = new Label();
+        draw.visitVarInsn(Opcodes.ALOAD, 2);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "com/live2d/graphics3d/material/GMaterial",
+                "getUniformMap$core",
+                "()Ljava/util/HashMap;",
+                false);
+        draw.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/HashMap", "entrySet", "()Ljava/util/Set;", false);
+        draw.visitInsn(Opcodes.DUP);
+        draw.visitLdcInsn("");
+        draw.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                "kotlin/jvm/internal/Intrinsics",
+                "checkNotNullExpressionValue",
+                "(Ljava/lang/Object;Ljava/lang/String;)V",
+                false);
+        draw.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Iterable");
+        draw.visitVarInsn(Opcodes.ASTORE, 8);
+        draw.visitInsn(Opcodes.ICONST_0);
+        draw.visitVarInsn(Opcodes.ISTORE, 9);
+        draw.visitVarInsn(Opcodes.ALOAD, 8);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Iterable", "iterator", "()Ljava/util/Iterator;", true);
+        draw.visitVarInsn(Opcodes.ASTORE, 10);
+        draw.visitLabel(loopTop);
+        draw.visitVarInsn(Opcodes.ALOAD, 10);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Iterator", "hasNext", "()Z", true);
+        draw.visitJumpInsn(Opcodes.IFEQ, loopEnd);
+        draw.visitVarInsn(Opcodes.ALOAD, 10);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Iterator", "next", "()Ljava/lang/Object;", true);
+        draw.visitVarInsn(Opcodes.ASTORE, 11);
+        draw.visitVarInsn(Opcodes.ALOAD, 11);
+        draw.visitTypeInsn(Opcodes.CHECKCAST, "java/util/Map$Entry");
+        draw.visitVarInsn(Opcodes.ASTORE, 12);
+        draw.visitVarInsn(Opcodes.ALOAD, 0);
+        draw.visitFieldInsn(Opcodes.GETFIELD, OWNER, "failNext", "Z");
+        draw.visitJumpInsn(Opcodes.IFEQ, noThrow);
+        draw.visitTypeInsn(Opcodes.NEW, "java/lang/IllegalStateException");
+        draw.visitInsn(Opcodes.DUP);
+        draw.visitLdcInsn("injected");
+        draw.visitMethodInsn(
+                Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
+        draw.visitInsn(Opcodes.ATHROW);
+        draw.visitLabel(noThrow);
+        draw.visitVarInsn(Opcodes.ALOAD, 0);
+        draw.visitFieldInsn(Opcodes.GETFIELD, OWNER, "log", "Ljava/util/List;");
+        draw.visitVarInsn(Opcodes.ALOAD, 12);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Map$Entry", "getKey", "()Ljava/lang/Object;", true);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
+        draw.visitInsn(Opcodes.POP);
+        draw.visitVarInsn(Opcodes.ALOAD, 4);
+        draw.visitInsn(Opcodes.ICONST_1);
+        draw.visitVarInsn(Opcodes.ALOAD, 12);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Map$Entry", "getKey", "()Ljava/lang/Object;", true);
+        draw.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/String");
+        draw.visitMethodInsn(
+                Opcodes.INVOKEINTERFACE,
+                ShaderUniformTransformer.GL_OWNER,
+                ShaderUniformTransformer.QUERY_METHOD,
+                ShaderUniformTransformer.QUERY_DESC,
+                true);
+        draw.visitInsn(Opcodes.POP);
+        draw.visitJumpInsn(Opcodes.GOTO, loopTop);
+        draw.visitLabel(loopEnd);
+
+        draw.visitVarInsn(Opcodes.ALOAD, 2);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "com/live2d/graphics3d/material/GMaterial",
+                "getOptionalTextures$core",
+                "()Ljava/util/HashMap;",
+                false);
+        draw.visitTypeInsn(Opcodes.NEW, "com/live2d/graphics3d/shader/s");
+        draw.visitInsn(Opcodes.DUP);
+        draw.visitVarInsn(Opcodes.ALOAD, 0);
+        draw.visitVarInsn(Opcodes.ALOAD, 1);
+        draw.visitVarInsn(Opcodes.ALOAD, 4);
+        draw.visitMethodInsn(
+                Opcodes.INVOKESPECIAL,
+                "com/live2d/graphics3d/shader/s",
+                "<init>",
+                "(Lcom/live2d/graphics3d/shader/GShader;Lcom/live2d/graphics3d/a;Lcom/jogamp/opengl/GL3;)V",
+                false);
+        draw.visitTypeInsn(Opcodes.CHECKCAST, "kotlin/jvm/functions/Function2");
+        draw.visitInvokeDynamicInsn(
+                "accept",
+                "(Lkotlin/jvm/functions/Function2;)Ljava/util/function/BiConsumer;",
+                new Handle(Opcodes.H_INVOKESTATIC, "java/lang/Object", "bsm", "()V", false));
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/HashMap", "forEach", "(Ljava/util/function/BiConsumer;)V", false);
+
+        draw.visitInsn(Opcodes.RETURN);
+        draw.visitMaxs(5, 13);
+        draw.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> getRecordedCalls(final Object shader) throws Exception {
+        return (List<String>) shader.getClass().getField("log").get(shader);
+    }
 }

@@ -15,6 +15,9 @@ import java.util.Set;
  */
 public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
+    /** Root schema field marking the legacy optimization defaults migration epoch. */
+    public static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD = "optimizationDefaultsVersion";
+
     /**
      * Root-level fields that are not native optimizations. The rest of the root booleans come from
      * {@link OptimizationCatalog#rootFieldNames()}, so a new persisted optimization cannot be
@@ -26,6 +29,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             "disabledPlugins",
             "logLevel",
             "maxLogStorageMiB",
+            OPTIMIZATION_DEFAULTS_VERSION_FIELD,
             "locale",
             "useTextIcon",
             "safeMode",
@@ -147,6 +151,20 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                                 + RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB + " and "
                                 + RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
                         "maxLogStorageMiB",
+                        source));
+            }
+        }
+
+        if (node.has(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+            final JsonNode defaultsVersion = node.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD);
+            if (defaultsVersion == null
+                    || !defaultsVersion.isIntegralNumber()
+                    || !defaultsVersion.canConvertToInt()
+                    || defaultsVersion.intValue() < 1) {
+                errors.add(error(
+                        "RUNTIME_CONFIG_BAD_TYPE",
+                        OPTIMIZATION_DEFAULTS_VERSION_FIELD + " must be a positive integer",
+                        OPTIMIZATION_DEFAULTS_VERSION_FIELD,
                         source));
             }
         }

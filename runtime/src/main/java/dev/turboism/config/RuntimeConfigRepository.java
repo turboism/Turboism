@@ -317,6 +317,9 @@ public final class RuntimeConfigRepository {
         final ObjectNode root = JSON.createObjectNode();
         root.put("format", "turboism.runtime.config");
         root.put("schemaVersion", 1);
+        root.put(
+                PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD,
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
         root.put("worktreeId", "turboism-runtime");
         root.putArray("pluginDirs").add("plugins");
         root.putArray("disabledPlugins");

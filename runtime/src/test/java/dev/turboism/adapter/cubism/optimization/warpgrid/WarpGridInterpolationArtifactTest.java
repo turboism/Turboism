@@ -134,7 +134,7 @@ class WarpGridInterpolationArtifactTest {
                 final MethodHandle publishedHandle = assertInstanceOf(
                         MethodHandle.class, System.getProperties().get(WarpGridInterpolationBridge.OOB_PROPERTY));
                 assertEquals(
-                        WarpGridInterpolationTarget.DESCRIPTOR,
+                        WarpGridInterpolationTarget.OOB_RUN_DESCRIPTOR,
                         publishedHandle.type().descriptorString());
 
                 verifyMixedTailCountersAndParity(originalInvoker, rewrittenInvoker, bridge);
@@ -368,17 +368,17 @@ class WarpGridInterpolationArtifactTest {
 
         assertBitParity(original, rewritten, mixed, count, 0, COORD_STRIDE, grid, 2, 2, true, false);
         final Map<String, Long> afterQuad = bridge.snapshot();
-        assertEquals(1L, afterQuad.get(STAT_OOB_TAIL_CALLS));
+        assertEquals(2L, afterQuad.get(STAT_OOB_TAIL_CALLS));
         assertEquals(2L, afterQuad.get(STAT_OOB_POINTS));
-        assertEquals(1L, afterQuad.get(STAT_IN_BOUNDS_FALLBACK_POINTS));
+        assertEquals(0L, afterQuad.get(STAT_IN_BOUNDS_FALLBACK_POINTS));
         assertEquals(0L, afterQuad.get(STAT_FAILURES));
         assertEquals(1L, afterQuad.get(STAT_BOUND));
 
         assertBitParity(original, rewritten, mixed, count, 0, COORD_STRIDE, grid, 2, 2, false, false);
         final Map<String, Long> afterTri = bridge.snapshot();
-        assertEquals(2L, afterTri.get(STAT_OOB_TAIL_CALLS));
+        assertEquals(4L, afterTri.get(STAT_OOB_TAIL_CALLS));
         assertEquals(4L, afterTri.get(STAT_OOB_POINTS));
-        assertEquals(2L, afterTri.get(STAT_IN_BOUNDS_FALLBACK_POINTS));
+        assertEquals(0L, afterTri.get(STAT_IN_BOUNDS_FALLBACK_POINTS));
         assertEquals(0L, afterTri.get(STAT_FAILURES));
         assertEquals(1L, afterTri.get(STAT_BOUND));
     }
@@ -453,7 +453,7 @@ class WarpGridInterpolationArtifactTest {
                         propertyLookups++;
                     } else if (METHOD_HANDLE_INTERNAL.equals(owner)
                             && INVOKE_EXACT_METHOD.equals(methodName)
-                            && WarpGridInterpolationTarget.DESCRIPTOR.equals(methodDesc)) {
+                            && WarpGridInterpolationTarget.OOB_RUN_DESCRIPTOR.equals(methodDesc)) {
                         invokeExactCalls++;
                     } else if (CONSUMER_INTERNAL.equals(owner)) {
                         consumerCalls++;
