@@ -395,7 +395,7 @@ final class PartsPaletteHelper {
         }
     }
 
-    /** Detaches active tree tables and interaction node lists on panel close ({@code y()} / {@code w()}). */
+    /** Detaches active tree tables, resets init state, and clears interaction node lists on panel close ({@code y()} / {@code w()}). */
     void onPartsPanelClosed(final Object partsPanel) {
         if (partsPanel == null) {
             return;
@@ -405,7 +405,14 @@ final class PartsPaletteHelper {
             final Object current = partsTreeTableField.get(partsPanel);
             if (current != null) {
                 detachTreeTable(current);
-                partsTreeTableField.set(partsPanel, null);
+                if (partsInitFlagField != null) {
+                    // Reset the Kotlin init flag before clearing the lateinit tree field so the next rebuild skips
+                    // x()/k().
+                    partsInitFlagField.set(partsPanel, Boolean.FALSE);
+                    partsTreeTableField.set(partsPanel, null);
+                }
+            } else if (partsInitFlagField != null) {
+                partsInitFlagField.set(partsPanel, Boolean.FALSE);
             }
             if (partsInteractionField != null) {
                 final Object interaction = partsInteractionField.get(partsPanel);

@@ -394,8 +394,12 @@ public class PaletteFilterHostOperations
                 && (!textPane.isDisplayable() || !PaletteComponentFinder.isInVisibleCubismWindow(textPane))) {
             return false;
         }
-        if (state.kind == PaletteKind.LOG && state.filteredDoc != null) {
-            if (state.sourceTextPane == null || state.sourceTextPane.getDocument() != state.filteredDoc) {
+        if (state.kind == PaletteKind.LOG && state.sourceDoc != null) {
+            final javax.swing.text.Document expectedDoc =
+                    PaletteLogFilter.isFilterActive(state) ? state.filteredDoc : state.sourceDoc;
+            if (state.sourceTextPane == null
+                    || expectedDoc == null
+                    || state.sourceTextPane.getDocument() != expectedDoc) {
                 return false;
             }
             if (!state.sourceTextPane.isDisplayable()
@@ -465,6 +469,8 @@ public class PaletteFilterHostOperations
         state.sourceTextPane = null;
         state.sourceDoc = null;
         state.filteredDoc = null;
+        state.sourceDocumentListener = null;
+        state.mirroringToSource = false;
         state.viewport = null;
         state.scrollShell = null;
         state.wrapper = null;
@@ -684,18 +690,23 @@ public class PaletteFilterHostOperations
 
     private boolean attachLog(
             final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
-        if (contribution == null && state.filteredDoc != null) {
+        if (contribution == null && (state.sourceDoc != null || state.filteredDoc != null)) {
             resetBinding(state, true);
             return false;
         }
         if (contribution != null
-                && state.filteredDoc != null
+                && state.sourceDoc != null
                 && state.sourceTextPane != null
-                && state.sourceTextPane.getDocument() == state.filteredDoc
                 && state.sourceTextPane.isDisplayable()) {
-            PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, state.toolbarPanel);
-            PaletteLogFilter.refreshFilteredLogText(state);
-            return true;
+            final javax.swing.text.Document expectedDoc =
+                    PaletteLogFilter.isFilterActive(state) ? state.filteredDoc : state.sourceDoc;
+            if (expectedDoc != null && state.sourceTextPane.getDocument() == expectedDoc) {
+                PaletteToolbarSupport.syncToolbarButtons(PaletteFilterHostOperations.this, state, state.toolbarPanel);
+                if (PaletteLogFilter.isFilterActive(state)) {
+                    PaletteLogFilter.refreshFilteredLogText(state);
+                }
+                return true;
+            }
         }
         final JComponent component = state.root;
         if (component == null) return false;

@@ -223,9 +223,17 @@ class MemoryLeakMitigationTest {
             forceGcUntilCollected(tree1Ref);
             assertNull(tree1Ref.get(), "old CPartsTreeTable must be collectable after replacement");
 
-            // Closing parts panel detaches the remaining tree's KeyListener cleanly.
+            // Closing parts panel detaches the remaining tree's KeyListener and resets init flag B before nulling b.
             panelCls.getMethod("y").invoke(panel);
             assertEquals(0, keyRegistry.size());
+            assertNull(panelCls.getField("b").get(panel));
+            assertFalse(panelCls.getField("B").getBoolean(panel));
+
+            // Reopening a model calls b(ZZ) after close; without resetting B, Kotlin's x()->k() throws on null b.
+            panelCls.getMethod("b", boolean.class, boolean.class).invoke(panel, false, false);
+            assertNotNull(panelCls.getField("b").get(panel));
+            assertTrue(panelCls.getField("B").getBoolean(panel));
+            assertEquals(1, keyRegistry.size());
         } finally {
             Files.deleteIfExists(fakeJar);
         }
@@ -1456,9 +1464,39 @@ class MemoryLeakMitigationTest {
             setTree.visitMaxs(0, 0);
             setTree.visitEnd();
 
-            // b(ZZ): builds a new CTreeTable, registers KeyListener in f/n.e, calls a(CTreeTable), sets B=true.
+            // k(): Kotlin lateinit getter throwing when b is null.
+            final MethodVisitor getTree = w.visitMethod(
+                    ACC_PUBLIC, "k", "()L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";", null, null);
+            getTree.visitCode();
+            final Label nonNullTree = new Label();
+            getTree.visitVarInsn(ALOAD, 0);
+            getTree.visitFieldInsn(GETFIELD, owner, "b", "L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";");
+            getTree.visitInsn(DUP);
+            getTree.visitJumpInsn(IFNONNULL, nonNullTree);
+            getTree.visitInsn(POP);
+            getTree.visitTypeInsn(NEW, "java/lang/IllegalStateException");
+            getTree.visitInsn(DUP);
+            getTree.visitLdcInsn("lateinit property b has not been initialized");
+            getTree.visitMethodInsn(
+                    INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
+            getTree.visitInsn(ATHROW);
+            getTree.visitLabel(nonNullTree);
+            getTree.visitInsn(ARETURN);
+            getTree.visitMaxs(0, 0);
+            getTree.visitEnd();
+
+            // b(ZZ): checks k() when B is already true (matching Cubism x()->k()), then builds a new CTreeTable.
             final MethodVisitor upd = w.visitMethod(ACC_PUBLIC, "b", "(ZZ)V", null, null);
             upd.visitCode();
+            final Label skipSnapshot = new Label();
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitFieldInsn(GETFIELD, owner, "B", "Z");
+            upd.visitJumpInsn(IFEQ, skipSnapshot);
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitMethodInsn(
+                    INVOKEVIRTUAL, owner, "k", "()L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";", false);
+            upd.visitInsn(POP);
+            upd.visitLabel(skipSnapshot);
             upd.visitTypeInsn(NEW, MemoryLeakMitigationTarget.TREE_TABLE_OWNER);
             upd.visitInsn(DUP);
             upd.visitMethodInsn(INVOKESPECIAL, MemoryLeakMitigationTarget.TREE_TABLE_OWNER, "<init>", "()V", false);
