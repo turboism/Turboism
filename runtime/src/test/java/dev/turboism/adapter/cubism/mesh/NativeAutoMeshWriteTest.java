@@ -11,8 +11,14 @@ import com.live2d.core.a;
 import dev.turboism.automesh.AutoMeshWriteLayout;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Point2;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import kotlin.jvm.functions.Function1;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -272,13 +278,13 @@ class NativeAutoMeshWriteTest {
      */
     @Test
     void everyHostClassNameTheWriteLoadsExistsInEachReviewedArtifact() throws Exception {
-        final java.nio.file.Path root = referenceRoot();
+        final Path root = referenceRoot();
         org.junit.jupiter.api.Assumptions.assumeTrue(root != null, NO_ARCHIVE_MESSAGE);
         final List<String> missing = new ArrayList<>();
         int inspected = 0;
         for (final String version : dev.turboism.automesh.host.AutoMeshHostProfile.supportedHostVersions()) {
-            final java.nio.file.Path jar = root.resolve(version).resolve(EDITOR_JAR);
-            if (!java.nio.file.Files.isRegularFile(jar)) {
+            final Path jar = root.resolve(version).resolve(EDITOR_JAR);
+            if (!Files.isRegularFile(jar)) {
                 continue;
             }
             inspected++;
@@ -296,45 +302,40 @@ class NativeAutoMeshWriteTest {
 
     @Test
     void eachReviewedArtifactCarriesOneSourceUpdateActionTheModelingWriteNames() throws Exception {
-        final java.nio.file.Path root = referenceRoot();
+        final Path root = referenceRoot();
         org.junit.jupiter.api.Assumptions.assumeTrue(root != null, NO_ARCHIVE_MESSAGE);
+        // The isolated loader keeps test doubles out of the Editor's reflective signatures.
+        final URL kotlinRuntime =
+                Function1.class.getProtectionDomain().getCodeSource().getLocation();
         final List<String> missing = new ArrayList<>();
         int inspected = 0;
         for (final String version : dev.turboism.automesh.host.AutoMeshHostProfile.supportedHostVersions()) {
-            final java.nio.file.Path jar = root.resolve(version).resolve(EDITOR_JAR);
-            if (!java.nio.file.Files.isRegularFile(jar)) {
+            final Path jar = root.resolve(version).resolve(EDITOR_JAR);
+            if (!Files.isRegularFile(jar)) {
                 continue;
             }
             inspected++;
-            try (java.net.URLClassLoader loader =
-                    new java.net.URLClassLoader(new java.net.URL[] {jar.toUri().toURL()}, null)) {
-                boolean found = false;
-                for (final String name : NativeAutoMeshWrite.SOURCE_UPDATE_ACTIONS) {
-                    final byte[] bytes;
-                    try (java.io.InputStream input =
-                            loader.getResourceAsStream(name.replace('.', '/') + CLASS_SUFFIX)) {
-                        bytes = input == null ? null : input.readAllBytes();
-                    }
-                    if (bytes != null
-                            && new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1)
-                                    .contains(SOURCE_UPDATE_DESCRIPTOR)) {
-                        found = true;
-                    }
-                }
-                if (!found) missing.add(version);
+            try (URLClassLoader loader =
+                    new URLClassLoader(new URL[] {jar.toUri().toURL(), kotlinRuntime}, null)) {
+                final Method action = NativeAutoMeshWrite.sourceUpdateAction(
+                        loader.loadClass(ART_MESH_SOURCE), loader.loadClass(EDITABLE_MESH));
+                assertSame(
+                        action.getDeclaringClass(),
+                        action.getDeclaringClass().getField(SINGLETON_FIELD).getType());
+            } catch (ReflectiveOperationException failure) {
+                missing.add(version + " " + failure);
             }
         }
         assertTrue(inspected > 0, NO_ARCHIVE_MESSAGE);
         assertEquals(List.of(), missing, "each reviewed artifact must carry the ArtMesh source-update action");
     }
 
-    private static java.nio.file.Path referenceRoot() {
+    private static Path referenceRoot() {
         for (final String candidate :
                 new String[] {System.getProperty(REFERENCE_PROPERTY), System.getenv(REFERENCE_ENVIRONMENT)}) {
             if (candidate != null && !candidate.isBlank()) {
-                final java.nio.file.Path root =
-                        java.nio.file.Path.of(candidate).toAbsolutePath().normalize();
-                return java.nio.file.Files.isDirectory(root) ? root : null;
+                final Path root = Path.of(candidate).toAbsolutePath().normalize();
+                return Files.isDirectory(root) ? root : null;
             }
         }
         return null;
@@ -344,10 +345,9 @@ class NativeAutoMeshWriteTest {
     private static final String REFERENCE_ENVIRONMENT = "TURBOISM_CUBISM_REF";
     private static final String EDITOR_JAR = "Live2D_Cubism.jar";
     private static final String CLASS_SUFFIX = ".class";
-    /** Descriptor prefix of the action that rebuilds an ArtMesh source from an editable mesh. */
-    private static final String SOURCE_UPDATE_DESCRIPTOR =
-            "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
-                    + "Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/Map;";
+    private static final String ART_MESH_SOURCE = "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource";
+    private static final String EDITABLE_MESH = "com.live2d.graphics3d.editableMesh.GEditableMesh2";
+    private static final String SINGLETON_FIELD = "a";
 
     private static final String NO_ARCHIVE_MESSAGE =
             "reviewed Cubism artifact archive is not configured; set TURBOISM_CUBISM_REF";

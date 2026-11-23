@@ -52,8 +52,10 @@ final class NativeAutoMeshWrite {
      * indices into the source, and then copies the mesh into the editable-mesh extension. The class
      * name is obfuscated per release, so each reviewed generation names its own owner.</p>
      */
-    static final List<String> SOURCE_UPDATE_ACTIONS = List.of(
+    private static final List<String> SOURCE_UPDATE_ACTIONS = List.of(
             "com.live2d.cubism.view.context.action.action_meshEditor.r",
+            "com.live2d.cubism.view.context.action.action_meshEditor.p",
+            "com.live2d.cubism.view.context.action.action_meshEditor.k",
             "com.live2d.cubism.view.context.action.action_meshEditor.j");
 
     /** Every host class this write loads by name; the reviewed-artifact contract test resolves each one. */
@@ -131,7 +133,7 @@ final class NativeAutoMeshWrite {
         addEdges(fresh, edgePairs);
         invoke(fresh, "setPositionUpdated");
         invoke(fresh, "setEdgeUpdated");
-        final Method action = sourceUpdateAction(source.getClass().getClassLoader(), source, fresh);
+        final Method action = sourceUpdateAction(source.getClass(), fresh.getClass());
         final Object owner =
                 action.getParameterTypes()[0].getField(SINGLETON_FIELD).get(null);
         action.invoke(null, owner, source, fresh, null, null, null, SOURCE_UPDATE_DEFAULTS_MASK, null);
@@ -178,24 +180,26 @@ final class NativeAutoMeshWrite {
      * with their mask bits set lets the action build them from the mesh, as the Editor does when
      * its generator carries no cached remapper.</p>
      */
-    private static Method sourceUpdateAction(final ClassLoader loader, final Object source, final Object mesh)
+    static Method sourceUpdateAction(final Class<?> sourceType, final Class<?> meshType)
             throws ReflectiveOperationException {
         for (final String name : SOURCE_UPDATE_ACTIONS) {
             final Class<?> owner;
             try {
-                owner = Class.forName(name, false, loader);
+                owner = Class.forName(name, false, sourceType.getClassLoader());
             } catch (ClassNotFoundException absent) {
                 continue;
             }
             for (final Method candidate : owner.getDeclaredMethods()) {
                 final Class<?>[] parameters = candidate.getParameterTypes();
                 if (Modifier.isStatic(candidate.getModifiers())
+                        && candidate.getReturnType() == void.class
                         && parameters.length == SOURCE_UPDATE_BRIDGE_ARITY
                         && parameters[0] == owner
-                        && parameters[1].isInstance(source)
-                        && parameters[2].isInstance(mesh)
+                        && parameters[1].isAssignableFrom(sourceType)
+                        && parameters[2].isAssignableFrom(meshType)
                         && parameters[3] == java.util.Map.class
-                        && parameters[6] == int.class) {
+                        && parameters[6] == int.class
+                        && parameters[7] == Object.class) {
                     ReflectAccess.open(candidate);
                     return candidate;
                 }
