@@ -42,8 +42,7 @@ final class SubtreeParallelExecutor implements AutoCloseable {
             final ClassLoader effectiveLoader = contextLoader != null
                     ? contextLoader
                     : RuntimeThreads.contextClassLoader(SubtreeParallelExecutor.class);
-            final ThreadFactory factory =
-                    RuntimeThreads.daemonThreads(WORKER_THREAD_PREFIX, effectiveLoader);
+            final ThreadFactory factory = RuntimeThreads.daemonThreads(WORKER_THREAD_PREFIX, effectiveLoader);
             this.pool = RuntimeThreads.fixedLane(workerCount, workerCount * QUEUE_MULTIPLIER, factory);
         }
     }

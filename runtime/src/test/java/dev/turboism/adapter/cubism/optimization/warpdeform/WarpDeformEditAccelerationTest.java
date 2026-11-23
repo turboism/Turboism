@@ -165,7 +165,8 @@ class WarpDeformEditAccelerationTest {
                         .toURI())
                 .toString();
         final Process child = new ProcessBuilder(
-                        Path.of(System.getProperty(JAVA_HOME_PROPERTY), JAVA_BIN_DIR, JAVA_EXECUTABLE).toString(),
+                        Path.of(System.getProperty(JAVA_HOME_PROPERTY), JAVA_BIN_DIR, JAVA_EXECUTABLE)
+                                .toString(),
                         BOOTCLASSPATH_ARG_PREFIX + runtimeClasses + File.pathSeparator + testClasses,
                         CLASSPATH_FLAG,
                         System.getProperty(JAVA_CLASS_PATH_PROPERTY),
@@ -2108,8 +2109,7 @@ class WarpDeformEditAccelerationTest {
             }
         }
 
-        static void runAndVerify(
-                final SubtreeParallelExecutor exec, final ClassLoader expectedWorkerLoader) {
+        static void runAndVerify(final SubtreeParallelExecutor exec, final ClassLoader expectedWorkerLoader) {
             final AtomicIntegerArray hits = new AtomicIntegerArray(BATCH_ITEMS);
             final AtomicReference<Throwable> mismatch = new AtomicReference<>();
             exec.executeBatch(BATCH_ITEMS, SubtreeParallelExecutor.MIN_PARALLEL_MESHES, index -> {

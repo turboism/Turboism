@@ -394,7 +394,8 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                 dragPassed++;
                 return false;
             }
-            // Coalesce an unblocked head drag directly, or scan past Paint/Invocation events when no boundary is queued.
+            // Coalesce an unblocked head drag directly, or scan past Paint/Invocation events when no boundary is
+            // queued.
             final AWTEvent head = queue.peekEvent();
             if (isMatchingDrag(mouseEvent, head)) {
                 dragCoalesced++;

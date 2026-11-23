@@ -76,7 +76,8 @@ final class SceneHandlerCacheBridgeTest {
                 assertEquals(3L, stats.get("skippedInvalidations"));
                 assertEquals(2L, stats.get("hits"));
 
-                // Direct handler, nested handler entity, handler Entities collection, and null must invalidate live caches.
+                // Direct handler, nested handler entity, handler Entities collection, and null must invalidate live
+                // caches.
                 final List<Object> triggers = List.of(mouseHandler, nestedParent, handlerEntities);
                 for (final Object trigger : triggers) {
                     putFn.apply(sceneRoot, expected);
@@ -106,8 +107,8 @@ final class SceneHandlerCacheBridgeTest {
                         (Function<Object, Object>) System.getProperties().get(SceneHandlerCacheBridge.GET_PROPERTY);
                 final BiFunction<Object, Object, Object> putFn = (BiFunction<Object, Object, Object>)
                         System.getProperties().get(SceneHandlerCacheBridge.PUT_PROPERTY);
-                final Consumer<Object> invalidateFn = (Consumer<Object>)
-                        System.getProperties().get(SceneHandlerCacheBridge.INVALIDATE_PROPERTY);
+                final Consumer<Object> invalidateFn =
+                        (Consumer<Object>) System.getProperties().get(SceneHandlerCacheBridge.INVALIDATE_PROPERTY);
 
                 final Object sceneRoot = f.newEntity(false, null);
                 final Object overlay = f.newEntity(false, null);

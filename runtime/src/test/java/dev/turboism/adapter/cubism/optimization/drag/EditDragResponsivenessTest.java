@@ -145,15 +145,7 @@ final class EditDragResponsivenessTest {
 
         // A queued MOUSE_RELEASED anywhere in the queue blocks coalescing cleanly.
         final MouseEvent release = new MouseEvent(
-                canvas,
-                MouseEvent.MOUSE_RELEASED,
-                System.currentTimeMillis(),
-                0,
-                20,
-                20,
-                1,
-                false,
-                MouseEvent.BUTTON1);
+                canvas, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0, 20, 20, 1, false, MouseEvent.BUTTON1);
         queue.postEvent(release);
         assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag1));
         drainQueue(queue);
