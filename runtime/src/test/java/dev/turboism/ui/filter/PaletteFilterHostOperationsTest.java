@@ -206,6 +206,68 @@ class PaletteFilterHostOperationsTest {
     }
 
     @Test
+    void logPaletteKeepsSharedPopupDocumentSynchronizedUnfilteredFilteredAndOnClear() throws Exception {
+        final JTextPane docked = new JTextPane();
+        docked.setEditable(false);
+        docked.setText("INFO startup");
+        final JTextPane popup = new JTextPane();
+        popup.setEditable(false);
+        // Cubism's CEPaletteCtrl_Log binds the double-click popup pane to the docked pane's Document.
+        popup.setDocument(docked.getDocument());
+
+        final JScrollPane scroll = new JScrollPane(docked);
+        final JPanel parent = new JPanel(new BorderLayout());
+        parent.add(scroll, BorderLayout.CENTER);
+        final JPanel paletteRoot = new JPanel(new BorderLayout());
+        paletteRoot.add(parent, BorderLayout.CENTER);
+
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+                kind -> kind == PaletteFilterHostOperations.PaletteKind.LOG ? paletteRoot : null);
+        host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("log", "LOG")));
+        SwingUtilities.invokeAndWait(() -> {});
+
+        // Unfiltered default keeps the shared document installed so late logs reach the double-click popup.
+        assertSame(popup.getDocument(), docked.getDocument());
+        onEdt(() -> appendStyled(docked, "\n[INFO] [runtime] Turboism started"));
+        assertEquals("INFO startup\n[INFO] [runtime] Turboism started", docked.getText());
+        assertEquals("INFO startup\n[INFO] [runtime] Turboism started", popup.getText());
+
+        // Filtering isolates docked view while mirroring new appends to the shared popup document.
+        final JTextField field = findFilterField(paletteRoot);
+        assertNotNull(field);
+        onEdt(() -> field.setText("ERROR"));
+        assertEquals("", docked.getText());
+        onEdt(() -> appendStyled(docked, "[INFO] background noise"));
+        onEdt(() -> appendStyled(docked, "[ERROR] boom"));
+        assertEquals("[ERROR] boom", docked.getText());
+        assertEquals(
+                "INFO startup\n[INFO] [runtime] Turboism started\n[INFO] background noise\n[ERROR] boom",
+                popup.getText());
+
+        // Clearing the filter restores the shared document with all logs appended while filtered intact.
+        onEdt(() -> field.setText(""));
+        assertSame(popup.getDocument(), docked.getDocument());
+        assertEquals(
+                "INFO startup\n[INFO] [runtime] Turboism started\n[INFO] background noise\n[ERROR] boom",
+                docked.getText());
+
+        // Clearing via Cubism's native clear button (setText("")) while filtered clears the popup document too.
+        onEdt(() -> field.setText("ERROR"));
+        onEdt(() -> docked.setText(""));
+        assertEquals("", docked.getText());
+        assertEquals("", popup.getText());
+    }
+
+    private static void appendStyled(final JTextPane pane, final String text) {
+        try {
+            final var doc = pane.getStyledDocument();
+            doc.insertString(doc.getLength(), text, null);
+        } catch (javax.swing.text.BadLocationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    @Test
     void logSurfaceKeepsFilterAndToolbarLifecycleIndependent() throws Exception {
         final JTextPane source = new JTextPane();
         source.setEditable(false);

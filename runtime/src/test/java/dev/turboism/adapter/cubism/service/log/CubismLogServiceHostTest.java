@@ -145,6 +145,82 @@ class CubismLogServiceHostTest {
         host.close();
     }
 
+    @Test
+    void hostErrorsForwardFormattedMessagesAndThrowablesToRuntimeDiagnosticsWithoutLoopback() {
+        final List<String> recorded = new ArrayList<>();
+        final List<Throwable> recordedThrowables = new ArrayList<>();
+        dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
+            recorded.add(level + ":" + component + ":" + message);
+            recordedThrowables.add(failure);
+        });
+        final CubismLogServiceHost host = new CubismLogServiceHost();
+        try {
+            final IllegalStateException boom = new IllegalStateException("lateinit");
+            host.handleLogEvent(new FakeLogEvent("INFO", "com.live2d.cubism", new FakeMessage("ignored info"), null));
+            host.handleLogEvent(new FakeLogEvent("ERROR", "dev.turboism", new FakeMessage("own bridge error"), null));
+            final CubismLogService.LogEntry entry = host.handleLogEvent(new FakeLogEvent(
+                    "ERROR",
+                    "com.live2d.util.log.c",
+                    new FakeMessage("kotlin.UninitializedPropertyAccessException"),
+                    boom));
+
+            assertEquals("kotlin.UninitializedPropertyAccessException", entry.message());
+            assertEquals(List.of("ERROR:cubism-host:kotlin.UninitializedPropertyAccessException"), recorded);
+            assertEquals(List.of(boom), recordedThrowables);
+        } finally {
+            host.close();
+            dev.turboism.runtime.log.RuntimeDiagnostics.clear();
+        }
+    }
+
+    private record FakeMessage(String formatted) {
+        public String getFormattedMessage() {
+            return formatted;
+        }
+
+        @Override
+        public String toString() {
+            return "ParameterizedMessage[" + formatted + "]";
+        }
+    }
+
+    private record FakeLevel(String name) {}
+
+    private static final class FakeLogEvent {
+        private final FakeLevel level;
+        private final String loggerName;
+        private final FakeMessage message;
+        private final Throwable thrown;
+
+        private FakeLogEvent(
+                final String levelName, final String loggerName, final FakeMessage message, final Throwable thrown) {
+            this.level = new FakeLevel(levelName);
+            this.loggerName = loggerName;
+            this.message = message;
+            this.thrown = thrown;
+        }
+
+        public FakeLevel getLevel() {
+            return level;
+        }
+
+        public String getLoggerName() {
+            return loggerName;
+        }
+
+        public FakeMessage getMessage() {
+            return message;
+        }
+
+        public Throwable getThrown() {
+            return thrown;
+        }
+
+        public long getTimeMillis() {
+            return 100L;
+        }
+    }
+
     private static RuntimeScheduler scheduler() {
         final Clock clock = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
         return new RuntimeScheduler(

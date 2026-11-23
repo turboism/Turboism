@@ -41,6 +41,17 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     private static final String REDACTED_PATH = "<redacted-path>";
     private static final String REDACTED_URI = "<redacted-uri>";
     private static final String REDACTED_SECRET = "<redacted-secret>";
+    private static final String HOST_ERROR_COMPONENT = "cubism-host";
+    private static final String TURBOISM_LOGGER_NAME = "dev.turboism";
+    private static final String TURBOISM_LOGGER_PREFIX = "dev.turboism.";
+    private static final String KERNEL_LOG_WRITER_THREAD_NAME = "Turboism-KernelLog-Writer";
+    private static final String METHOD_GET_LEVEL = "getLevel";
+    private static final String METHOD_LEVEL_NAME = "name";
+    private static final String METHOD_GET_MESSAGE = "getMessage";
+    private static final String METHOD_GET_FORMATTED_MESSAGE = "getFormattedMessage";
+    private static final String METHOD_GET_TIME_MILLIS = "getTimeMillis";
+    private static final String METHOD_GET_LOGGER_NAME = "getLoggerName";
+    private static final String METHOD_GET_THROWN = "getThrown";
     private static final Pattern URI = Pattern.compile("(?i)\\b(?:https?|file)://[^\\s\\\"']+");
     private static final Pattern UNC_PATH = Pattern.compile("\\\\\\\\[^\\s\\\"'<>]+(?:\\\\[^\\s\\\"'<>]+)+");
     private static final Pattern WINDOWS_PATH = Pattern.compile("(?i)(?<![A-Za-z0-9])(?:[A-Z]:[\\\\/])[^\\s\\\"'<>]+");
@@ -55,6 +66,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     private final List<Consumer<LogEntry>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicReference<LogFilter> filter = new AtomicReference<>(LogFilter.all());
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final ThreadLocal<Boolean> forwardingHostError = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final Object eventLock = new Object();
     private final ArrayDeque<CubismLogBatchEvent.Entry> eventQueue = new ArrayDeque<>();
     private final int eventQueueCapacity;
@@ -162,8 +174,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
                         case "append" -> {
                             final Object event = args[0];
                             if (event != null) {
-                                final LogEntry entry = toEntry(event);
-                                publish(entry.level(), entry.message(), entry.timestampNanos());
+                                final LogEntry entry = handleLogEvent(event);
                                 if (filter.get().matches(entry)) {
                                     try {
                                         method.invoke(delegate, args);
@@ -207,21 +218,91 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         RuntimeDiagnostics.debug("cubism-log", "Native log appender wrapped for pre-render filtering");
     }
 
+    /**
+     * Publishes one host Log4j2 event to subscribers and mirrors host ERROR/FATAL records to
+     * {@link RuntimeDiagnostics} so Turboism's log window captures Cubism failures.
+     */
+    LogEntry handleLogEvent(final Object event) {
+        final LogEntry entry = toEntry(event);
+        publish(entry.level(), entry.message(), entry.timestampNanos());
+        forwardHostErrorIfApplicable(event, entry);
+        return entry;
+    }
+
     /** Converts a log4j2 LogEvent into a typed log entry (real level, no text guessing). */
     private LogEntry toEntry(final Object event) {
         try {
             final Object level =
-                    MethodHandleCache.method(event.getClass(), "getLevel").invoke(event);
-            final String levelName = String.valueOf(
-                    MethodHandleCache.method(level.getClass(), "name").invoke(level));
-            final Object messageObject =
-                    MethodHandleCache.method(event.getClass(), "getMessage").invoke(event);
-            final String message = messageObject == null ? "" : String.valueOf(messageObject);
-            final long timestamp = (Long)
-                    MethodHandleCache.method(event.getClass(), "getTimeMillis").invoke(event);
+                    MethodHandleCache.method(event.getClass(), METHOD_GET_LEVEL).invoke(event);
+            final String levelName = String.valueOf(MethodHandleCache.method(level.getClass(), METHOD_LEVEL_NAME)
+                    .invoke(level));
+            final Object messageObject = MethodHandleCache.method(event.getClass(), METHOD_GET_MESSAGE)
+                    .invoke(event);
+            final String message = extractFormattedMessage(messageObject);
+            final long timestamp = (Long) MethodHandleCache.method(event.getClass(), METHOD_GET_TIME_MILLIS)
+                    .invoke(event);
             return new LogEntry(toSdkLevel(levelName), message, timestamp * 1_000_000L);
         } catch (ReflectiveOperationException | LinkageError failure) {
             return new LogEntry(LogLevel.INFO, String.valueOf(event), System.nanoTime());
+        }
+    }
+
+    private void forwardHostErrorIfApplicable(final Object event, final LogEntry entry) {
+        if (closed.get()
+                || (entry.level() != LogLevel.ERROR && entry.level() != LogLevel.FATAL)
+                || forwardingHostError.get()
+                || KERNEL_LOG_WRITER_THREAD_NAME.equals(Thread.currentThread().getName())) {
+            return;
+        }
+        final String loggerName = extractLoggerName(event);
+        if (TURBOISM_LOGGER_NAME.equals(loggerName)
+                || (loggerName != null && loggerName.startsWith(TURBOISM_LOGGER_PREFIX))) {
+            return;
+        }
+        final Throwable thrown = extractThrown(event);
+        final String message = entry.message();
+        final String diagnosticMessage = !message.isBlank() ? message : (thrown != null ? String.valueOf(thrown) : "");
+        if (diagnosticMessage.isBlank()) {
+            return;
+        }
+        forwardingHostError.set(Boolean.TRUE);
+        try {
+            RuntimeDiagnostics.error(HOST_ERROR_COMPONENT, diagnosticMessage, thrown);
+        } finally {
+            forwardingHostError.set(Boolean.FALSE);
+        }
+    }
+
+    private static String extractFormattedMessage(final Object messageObject) {
+        if (messageObject == null) {
+            return "";
+        }
+        try {
+            final Object formatted = MethodHandleCache.method(messageObject.getClass(), METHOD_GET_FORMATTED_MESSAGE)
+                    .invoke(messageObject);
+            return formatted == null ? "" : String.valueOf(formatted);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return String.valueOf(messageObject);
+        }
+    }
+
+    private static String extractLoggerName(final Object event) {
+        try {
+            final Object loggerName = MethodHandleCache.method(event.getClass(), METHOD_GET_LOGGER_NAME)
+                    .invoke(event);
+            return loggerName == null ? null : String.valueOf(loggerName);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return null;
+        }
+    }
+
+    private static Throwable extractThrown(final Object event) {
+        try {
+            final Object thrown = MethodHandleCache.method(event.getClass(), METHOD_GET_THROWN)
+                    .invoke(event);
+            return thrown instanceof Throwable failure ? failure : null;
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return null;
         }
     }
 

@@ -68,6 +68,7 @@ final class PaletteFilterState {
     volatile String lastKeyword = "";
     volatile String lastFiltered = "";
     volatile DocumentListener sourceDocumentListener;
+    volatile boolean mirroringToSource;
 
     PaletteFilterState(final PaletteFilterHostOperations.PaletteKind kind) {
         this.kind = Objects.requireNonNull(kind, "kind");
@@ -84,12 +85,20 @@ final class PaletteLogFilter {
 
     // LF separators prevent duplicate line breaks when Swing serializes log documents.
     private static final String DOCUMENT_LINE_SEPARATOR = "\n";
+    private static final char CARRIAGE_RETURN = '\r';
+    private static final char LINE_FEED = '\n';
+    private static final int TAIL_CARET_MARGIN_CHARS = 80;
 
     private PaletteLogFilter() {}
 
     static final String FILTERED_TEXT_PANE_KEY = LogPaletteHostStructure.FILTERED_TEXT_PANE_KEY;
 
     static final String WRAPPER_MARKER_KEY = LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY;
+
+    /** Reports whether keyword or level filtering currently restricts visible log lines. */
+    static boolean isFilterActive(final PaletteFilterState state) {
+        return !state.filterText.isEmpty() || !state.showInfo || !state.showWarn || !state.showError;
+    }
 
     /** Publishes the current log filter to the framework service (pre-render interception). */
     static void publishLogFilter(final PaletteFilterHostOperations host, final PaletteFilterState state) {
@@ -211,9 +220,8 @@ final class PaletteLogFilter {
     }
 
     /**
-     * Installs a filtered Document on the native log text pane. The pane itself
-     * (and its viewport/scrollbars) stay untouched; only the data written into
-     * the document is filtered (pre-render filtering).
+     * Attaches the source-document listener and keeps Cubism's shared document active while
+     * unfiltered so the docked log palette and double-click popup window stay synchronized.
      */
     static void installFilteredDocument(final PaletteFilterState state) {
         if (state.sourceDoc == null || state.sourceTextPane == null) {
@@ -223,25 +231,27 @@ final class PaletteLogFilter {
             state.sourceDocumentListener = new DocumentListener() {
                 @Override
                 public void insertUpdate(final DocumentEvent event) {
-                    scheduleLogRefresh(state);
+                    if (!state.mirroringToSource && isFilterActive(state)) {
+                        scheduleLogRefresh(state);
+                    }
                 }
 
                 @Override
                 public void removeUpdate(final DocumentEvent event) {
-                    scheduleLogRefresh(state);
+                    if (!state.mirroringToSource && isFilterActive(state)) {
+                        scheduleLogRefresh(state);
+                    }
                 }
 
                 @Override
                 public void changedUpdate(final DocumentEvent event) {
-                    scheduleLogRefresh(state);
+                    if (!state.mirroringToSource && isFilterActive(state)) {
+                        scheduleLogRefresh(state);
+                    }
                 }
             };
             state.sourceDoc.addDocumentListener(state.sourceDocumentListener);
         }
-        if (state.filteredDoc == null) {
-            state.filteredDoc = new javax.swing.text.DefaultStyledDocument();
-        }
-        state.sourceTextPane.setDocument(state.filteredDoc);
         state.lastRawText = "";
         refreshFilteredLogText(state);
     }
@@ -266,7 +276,7 @@ final class PaletteLogFilter {
         if (length <= 0) {
             return true;
         }
-        return pane.getCaretPosition() >= length - 80;
+        return pane.getCaretPosition() >= length - TAIL_CARET_MARGIN_CHARS;
     }
 
     static void refreshFilteredLogText(final PaletteFilterState state) {
@@ -274,15 +284,26 @@ final class PaletteLogFilter {
         if (pane == null || state.sourceDoc == null) {
             return;
         }
-        final String raw;
-        try {
-            raw = state.sourceDoc.getText(0, state.sourceDoc.getLength());
-        } catch (javax.swing.text.BadLocationException impossible) {
-            throw new AssertionError(impossible);
+        if (!isFilterActive(state)) {
+            if (pane.getDocument() != state.sourceDoc) {
+                final boolean tail = isAtTail(pane);
+                pane.setDocument(state.sourceDoc);
+                if (tail) {
+                    pane.setCaretPosition(state.sourceDoc.getLength());
+                }
+            }
+            state.filteredDoc = null;
+            state.lastRawText = "";
+            state.lastKeyword = "";
+            state.lastFiltered = "";
+            return;
         }
+        final String raw = readAllText(state.sourceDoc);
         final String filteredText =
                 filterLogText(raw, state.filterText, state.showInfo, state.showWarn, state.showError);
-        if (state.lastRawText.equals(raw)
+        if (state.filteredDoc != null
+                && pane.getDocument() == state.filteredDoc
+                && state.lastRawText.equals(raw)
                 && state.lastKeyword.equals(state.filterText)
                 && state.lastFiltered.equals(filteredText)) {
             return;
@@ -291,18 +312,122 @@ final class PaletteLogFilter {
         state.lastKeyword = state.filterText;
         state.lastFiltered = filteredText;
         final boolean tail = isAtTail(pane);
-        final javax.swing.text.StyleContext context = new javax.swing.text.StyleContext();
-        state.filteredDoc = new javax.swing.text.DefaultStyledDocument(context);
-        state.filteredDoc.putProperty(
-                javax.swing.text.DefaultEditorKit.EndOfLineStringProperty, DOCUMENT_LINE_SEPARATOR);
+        final MirroredFilteredDocument filtered = state.filteredDoc instanceof MirroredFilteredDocument existing
+                ? existing
+                : new MirroredFilteredDocument(state);
+        filtered.putProperty(javax.swing.text.DefaultEditorKit.EndOfLineStringProperty, DOCUMENT_LINE_SEPARATOR);
+        filtered.replaceAllInternal(filteredText);
+        state.filteredDoc = filtered;
+        if (pane.getDocument() != filtered) {
+            pane.setDocument(filtered);
+        }
+        if (tail) {
+            pane.setCaretPosition(filtered.getLength());
+        }
+    }
+
+    private static String readAllText(final javax.swing.text.Document document) {
         try {
-            state.filteredDoc.insertString(0, filteredText, null);
+            return document.getText(0, document.getLength());
         } catch (javax.swing.text.BadLocationException impossible) {
             throw new AssertionError(impossible);
         }
-        pane.setDocument(state.filteredDoc);
-        if (tail) {
-            pane.setCaretPosition(state.filteredDoc.getLength());
+    }
+
+    private static String stripLeadingLineSeparator(final String value) {
+        int start = 0;
+        if (start < value.length() && value.charAt(start) == CARRIAGE_RETURN) {
+            start++;
+        }
+        if (start < value.length() && value.charAt(start) == LINE_FEED) {
+            start++;
+        }
+        return start == 0 ? value : value.substring(start);
+    }
+
+    /**
+     * Filtered view document that mirrors external Cubism appends and clears back to the shared
+     * source document so the double-click popup window never falls behind.
+     */
+    private static final class MirroredFilteredDocument extends javax.swing.text.DefaultStyledDocument {
+        private final PaletteFilterState state;
+        private boolean internalUpdate;
+
+        private MirroredFilteredDocument(final PaletteFilterState state) {
+            super(new javax.swing.text.StyleContext());
+            this.state = state;
+        }
+
+        private void replaceAllInternal(final String text) {
+            internalUpdate = true;
+            try {
+                if (getLength() > 0) {
+                    super.remove(0, getLength());
+                }
+                if (!text.isEmpty()) {
+                    super.insertString(0, text, null);
+                }
+            } catch (javax.swing.text.BadLocationException impossible) {
+                throw new AssertionError(impossible);
+            } finally {
+                internalUpdate = false;
+            }
+        }
+
+        @Override
+        public void insertString(final int offs, final String str, final javax.swing.text.AttributeSet attributes)
+                throws javax.swing.text.BadLocationException {
+            if (internalUpdate) {
+                super.insertString(offs, str, attributes);
+                return;
+            }
+            if (str == null || str.isEmpty()) {
+                return;
+            }
+            final String chunk = stripLeadingLineSeparator(str);
+            final javax.swing.text.Document source = state.sourceDoc;
+            if (source != null) {
+                state.mirroringToSource = true;
+                try {
+                    final String mirrored = source.getLength() > 0 ? DOCUMENT_LINE_SEPARATOR + chunk : chunk;
+                    source.insertString(source.getLength(), mirrored, attributes);
+                } finally {
+                    state.mirroringToSource = false;
+                }
+            }
+            final String filteredChunk =
+                    filterLogText(chunk, state.filterText, state.showInfo, state.showWarn, state.showError);
+            if (!filteredChunk.isEmpty()) {
+                final String visible = getLength() > 0 ? DOCUMENT_LINE_SEPARATOR + filteredChunk : filteredChunk;
+                super.insertString(getLength(), visible, attributes);
+            }
+            syncCachedSnapshot(source);
+        }
+
+        @Override
+        public void remove(final int offs, final int len) throws javax.swing.text.BadLocationException {
+            if (internalUpdate) {
+                super.remove(offs, len);
+                return;
+            }
+            final boolean fullClear = offs == 0 && len == getLength();
+            super.remove(offs, len);
+            final javax.swing.text.Document source = state.sourceDoc;
+            if (fullClear && source != null && source.getLength() > 0) {
+                state.mirroringToSource = true;
+                try {
+                    source.remove(0, source.getLength());
+                } finally {
+                    state.mirroringToSource = false;
+                }
+            }
+            syncCachedSnapshot(source);
+        }
+
+        private void syncCachedSnapshot(final javax.swing.text.Document source) {
+            state.lastRawText = source == null ? "" : readAllText(source);
+            state.lastKeyword = state.filterText;
+            state.lastFiltered = readAllText(this);
         }
     }
 
