@@ -87,8 +87,7 @@ public final class MeshEditAccelerationTransformer implements ClassFileTransform
             return null;
         }
         try {
-            if (MeshEditAsmSupport.isAlreadyInstrumented(
-                    MeshEditAsmSupport.newClassReader(classfileBuffer))) {
+            if (MeshEditAsmSupport.isAlreadyInstrumented(MeshEditAsmSupport.newClassReader(classfileBuffer))) {
                 return null;
             }
             final byte[] patched = geometryTarget

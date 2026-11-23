@@ -62,8 +62,7 @@ final class DeclarativeHooks {
                     VerifiedWarpDeformEditAccelerationInstaller::new),
             DeclarativeHook.of(
                     OptimizationCatalog.ATLAS_INTERACTIVE_RENDER, VerifiedAtlasInteractiveRenderInstaller::new),
-            DeclarativeHook.of(
-                    OptimizationCatalog.MEMORY_LEAK_MITIGATION, VerifiedMemoryLeakMitigationInstaller::new));
+            DeclarativeHook.of(OptimizationCatalog.MEMORY_LEAK_MITIGATION, VerifiedMemoryLeakMitigationInstaller::new));
 
     private DeclarativeHooks() {}
 

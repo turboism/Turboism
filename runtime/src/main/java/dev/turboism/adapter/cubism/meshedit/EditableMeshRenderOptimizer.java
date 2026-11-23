@@ -242,7 +242,8 @@ public final class EditableMeshRenderOptimizer {
             return;
         }
         try {
-            final EntityRenderState state = ENTITY_RENDER_STATE.computeIfAbsent(entity, ignored -> new EntityRenderState());
+            final EntityRenderState state =
+                    ENTITY_RENDER_STATE.computeIfAbsent(entity, ignored -> new EntityRenderState());
             final MeshAccess ma = MESH_ACCESS.get(mesh.getClass());
             final List<?> points = (List<?>) ma.getPoints.invoke(mesh);
             final List<?> edges = (List<?>) ma.getEdges.invoke(mesh);
@@ -296,7 +297,8 @@ public final class EditableMeshRenderOptimizer {
             final long pointDigest = samplePointDigest(points);
             final long drawDigest = snapshotDigest(drawSetting);
             final long selDigest = selectionDigest(selection);
-            final Object editMode = pack != null ? PACK_ACCESS.get(pack.getClass()).resolveEditMode(pack) : null;
+            final Object editMode =
+                    pack != null ? PACK_ACCESS.get(pack.getClass()).resolveEditMode(pack) : null;
             final boolean match = state.selectionMesh.get() == mesh
                     && state.selectionPosVer == posVer
                     && state.selectionPointCount == points.size()
@@ -336,10 +338,12 @@ public final class EditableMeshRenderOptimizer {
             return;
         }
         try {
-            final EntityRenderState state = ENTITY_RENDER_STATE.computeIfAbsent(entity, ignored -> new EntityRenderState());
+            final EntityRenderState state =
+                    ENTITY_RENDER_STATE.computeIfAbsent(entity, ignored -> new EntityRenderState());
             final MeshAccess ma = MESH_ACCESS.get(mesh.getClass());
             final List<?> points = (List<?>) ma.getPoints.invoke(mesh);
-            final Object editMode = pack != null ? PACK_ACCESS.get(pack.getClass()).resolveEditMode(pack) : null;
+            final Object editMode =
+                    pack != null ? PACK_ACCESS.get(pack.getClass()).resolveEditMode(pack) : null;
             state.selectionMesh = new WeakReference<>(mesh);
             state.selectionPosVer = (int) ma.posVersion.invoke(mesh);
             state.selectionPointCount = points.size();
@@ -347,8 +351,9 @@ public final class EditableMeshRenderOptimizer {
             state.selectionDrawDigest = snapshotDigest(drawSetting);
             state.selectionDigest = selectionDigest(selection);
             state.selectionEditMode = new WeakReference<>(editMode);
-            state.selectionWasMeshEditor =
-                    editMode != null && "com.live2d.cubism.doc.modeling.CModelingEditMode_MeshEditor".equals(editMode.getClass().getName());
+            state.selectionWasMeshEditor = editMode != null
+                    && "com.live2d.cubism.doc.modeling.CModelingEditMode_MeshEditor"
+                            .equals(editMode.getClass().getName());
             state.selectionEmpty = selectedCountOf(selection) < 1;
             state.selectionValid = true;
         } catch (final Throwable failure) {
@@ -372,8 +377,7 @@ public final class EditableMeshRenderOptimizer {
         }
     }
 
-    private static BitSet markVertex(
-            final boolean[] dense, final BitSet sparse, final int limit, final int index) {
+    private static BitSet markVertex(final boolean[] dense, final BitSet sparse, final int limit, final int index) {
         if (index >= 0 && index < limit) {
             dense[index] = true;
             return sparse;
@@ -385,8 +389,7 @@ public final class EditableMeshRenderOptimizer {
         return resolved;
     }
 
-    private static boolean isMarked(
-            final boolean[] dense, final BitSet sparse, final int limit, final int index) {
+    private static boolean isMarked(final boolean[] dense, final BitSet sparse, final int limit, final int index) {
         if (index >= 0 && index < limit) {
             return dense[index];
         }
@@ -612,8 +615,8 @@ public final class EditableMeshRenderOptimizer {
         static EdgeAccess resolve(final Class<?> type) {
             try {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-                final Class<?> edgeTypeClass =
-                        Class.forName("com.live2d.graphics3d.editableMesh.MEdge$EdgeType", false, type.getClassLoader());
+                final Class<?> edgeTypeClass = Class.forName(
+                        "com.live2d.graphics3d.editableMesh.MEdge$EdgeType", false, type.getClassLoader());
                 return new EdgeAccess(
                         lookup.findVirtual(type, "getIndex1", MethodType.methodType(int.class)),
                         lookup.findVirtual(type, "getIndex2", MethodType.methodType(int.class)),
@@ -650,13 +653,16 @@ public final class EditableMeshRenderOptimizer {
                 if (ft == int.class) {
                     hash = MeshArrayFingerprint.mix(hash ^ field.getInt(instance));
                 } else if (ft == float.class) {
-                    hash = MeshArrayFingerprint.mix(hash ^ (Float.floatToRawIntBits(field.getFloat(instance)) & 0xffffffffL));
+                    hash = MeshArrayFingerprint.mix(
+                            hash ^ (Float.floatToRawIntBits(field.getFloat(instance)) & 0xffffffffL));
                 } else if (ft == boolean.class) {
                     hash = MeshArrayFingerprint.mix(hash ^ (field.getBoolean(instance) ? 1L : 0L));
                 } else {
                     final Object val = field.get(instance);
-                    if (val != null && "com.live2d.type.CColor".equals(val.getClass().getName())) {
-                        hash = MeshArrayFingerprint.mix(hash ^ COLOR_ACCESS.get(val.getClass()).rgbaDigest(val));
+                    if (val != null
+                            && "com.live2d.type.CColor".equals(val.getClass().getName())) {
+                        hash = MeshArrayFingerprint.mix(
+                                hash ^ COLOR_ACCESS.get(val.getClass()).rgbaDigest(val));
                     } else {
                         hash = MeshArrayFingerprint.mix(hash ^ System.identityHashCode(val));
                     }
@@ -730,7 +736,8 @@ public final class EditableMeshRenderOptimizer {
         static SelectionAccess resolve(final Class<?> type) {
             try {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-                final Class<?> psClass = Class.forName("com.live2d.doc.selection.PointSelector", false, type.getClassLoader());
+                final Class<?> psClass =
+                        Class.forName("com.live2d.doc.selection.PointSelector", false, type.getClassLoader());
                 return new SelectionAccess(
                         lookup.findVirtual(type, "getPointSelector", MethodType.methodType(psClass)),
                         lookup.findVirtual(psClass, "getSelectedCount", MethodType.methodType(int.class)),
@@ -744,7 +751,9 @@ public final class EditableMeshRenderOptimizer {
             MethodHandle mh = entryGetRef;
             if (mh == null) {
                 final Class<?> ipr = Class.forName(
-                        "com.live2d.doc.selection.IPointRef", false, weightEntry.getClass().getClassLoader());
+                        "com.live2d.doc.selection.IPointRef",
+                        false,
+                        weightEntry.getClass().getClassLoader());
                 mh = MethodHandles.publicLookup().findVirtual(weightEntry.getClass(), "a", MethodType.methodType(ipr));
                 entryGetRef = mh;
             }

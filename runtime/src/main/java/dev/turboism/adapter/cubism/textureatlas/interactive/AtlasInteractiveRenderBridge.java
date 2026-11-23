@@ -46,8 +46,7 @@ public final class AtlasInteractiveRenderBridge implements AutoCloseable {
     public static final String OVERLAY_RENDER_PROPERTY = "turboism.atlas-interactive.overlay-render";
 
     /** Slot property for eliding redundant 500 ms trailing canvas repaints ({@code Predicate<Object>}). */
-    public static final String ELIDE_TRAILING_REPAINT_PROPERTY =
-            "turboism.atlas-interactive.elide-trailing-repaint";
+    public static final String ELIDE_TRAILING_REPAINT_PROPERTY = "turboism.atlas-interactive.elide-trailing-repaint";
 
     /** Slot property for viewport-clipping background atlas draws ({@code BiPredicate<Object, Object>}). */
     public static final String CLIP_BG_PROPERTY = "turboism.atlas-interactive.clip-bg";
@@ -59,8 +58,7 @@ public final class AtlasInteractiveRenderBridge implements AutoCloseable {
     public static final String EXIT_DRAG_SYNC_PROPERTY = "turboism.atlas-interactive.exit-drag-sync";
 
     /** Slot property querying whether active drag suppresses transform round-trips ({@code Predicate<Object>}). */
-    public static final String SKIP_DRAG_TRANSFORM_PROPERTY =
-            "turboism.atlas-interactive.skip-drag-transform";
+    public static final String SKIP_DRAG_TRANSFORM_PROPERTY = "turboism.atlas-interactive.skip-drag-transform";
 
     /** Slot property querying whether active drag suppresses deferred icon refreshes ({@code Predicate<Object>}). */
     public static final String SKIP_DRAG_ICON_PROPERTY = "turboism.atlas-interactive.skip-drag-icon";
@@ -96,8 +94,9 @@ public final class AtlasInteractiveRenderBridge implements AutoCloseable {
     private static final int WHEEL_SETTLE_DELAY_MS = 140;
     private static final double ZOOM_HALF_DIVISOR = 2.0d;
     private static final double MIN_ZOOM_SCALE = 1.0e-6d;
-    private static final int AXIS_ALIGNED_TRANSFORM_MASK =
-            AffineTransform.TYPE_GENERAL_TRANSFORM | AffineTransform.TYPE_GENERAL_ROTATION | AffineTransform.TYPE_QUADRANT_ROTATION;
+    private static final int AXIS_ALIGNED_TRANSFORM_MASK = AffineTransform.TYPE_GENERAL_TRANSFORM
+            | AffineTransform.TYPE_GENERAL_ROTATION
+            | AffineTransform.TYPE_QUADRANT_ROTATION;
 
     private static final String INSTALLED_TWICE_MESSAGE = "atlas interactive render bridge already installed";
     private static final String SLOTS_OCCUPIED_MESSAGE = "atlas interactive render bridge slots occupied";
@@ -108,8 +107,7 @@ public final class AtlasInteractiveRenderBridge implements AutoCloseable {
     private final Object statsLock = new Object();
     private final Object cameraLock = new Object();
     private final ThreadLocal<Deque<DragFrame>> dragStack = ThreadLocal.withInitial(ArrayDeque::new);
-    private final Map<Object, PendingCameraSync> pendingCameras =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<Object, PendingCameraSync> pendingCameras = Collections.synchronizedMap(new WeakHashMap<>());
 
     private final Predicate<Object[]> overlayRenderCallback = this::renderOverlay;
     private final Predicate<Object> elideTrailingRepaintCallback = this::shouldElideTrailingRepaint;
@@ -276,8 +274,7 @@ public final class AtlasInteractiveRenderBridge implements AutoCloseable {
             }
             final Color fill = host.fillColor(args[0]);
             final Color stroke = host.strokeColor(args[0]);
-            final boolean wheelActive =
-                    (System.nanoTime() - lastWheelZoomNanos) <= ACTIVE_WHEEL_ZOOM_WINDOW_NANOS;
+            final boolean wheelActive = (System.nanoTime() - lastWheelZoomNanos) <= ACTIVE_WHEEL_ZOOM_WINDOW_NANOS;
             synchronized (statsLock) {
                 overlayCalls++;
             }
@@ -309,9 +306,7 @@ public final class AtlasInteractiveRenderBridge implements AutoCloseable {
     }
 
     private boolean clipBackgroundDraw(final Object graphicsObj, final Object imageObj) {
-        if (!isEnabled()
-                || !(graphicsObj instanceof Graphics2D g2d)
-                || !(imageObj instanceof BufferedImage img)) {
+        if (!isEnabled() || !(graphicsObj instanceof Graphics2D g2d) || !(imageObj instanceof BufferedImage img)) {
             return false;
         }
         try {

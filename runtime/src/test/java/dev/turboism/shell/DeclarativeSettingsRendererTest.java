@@ -1297,7 +1297,9 @@ class DeclarativeSettingsRendererTest {
                     assertEquals(expectedUri, openedUri.get(), "clicking reference link must open Comment_4556 URL");
 
                     for (final JCheckBox box : sectionBoxes) {
-                        assertTrue(box.isSelected(), "promoted hotpath toggle must start enabled by default: " + box.getName());
+                        assertTrue(
+                                box.isSelected(),
+                                "promoted hotpath toggle must start enabled by default: " + box.getName());
                         box.doClick();
                     }
                     assertTrue(rendered.save().getAsBoolean());

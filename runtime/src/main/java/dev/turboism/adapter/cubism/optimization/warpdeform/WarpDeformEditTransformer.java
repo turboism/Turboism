@@ -7,7 +7,6 @@ import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +79,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     private static final String MH_CORNER_TRIANGLE_DESC = "(Ljava/lang/Object;[FIIFFLjava/lang/Object;)Z";
     private static final String MH_LINES_DESC = "(Ljava/lang/Object;[FIILjava/lang/Object;Z)Z";
     private static final String MH_SELECTED_UPLOAD_DESC = "(Ljava/lang/Object;Ljava/lang/Object;Z)Z";
-    private static final String MH_SOFT_SELECTION_DESC = "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;[FII)Z";
+    private static final String MH_SOFT_SELECTION_DESC =
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;[FII)Z";
 
     private final ClassLoader loader;
     private final Path artifact;
@@ -129,7 +129,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
             final Map<String, byte[]> references,
             final WarpDeformEditTarget target) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
         this.target = Objects.requireNonNull(target, "target");
         Objects.requireNonNull(references, "references");
 
@@ -164,8 +165,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                 WarpDeformEditTarget.DRAW_SELECTED_POINT_METHOD,
                                 WarpDeformEditTarget.DRAW_SELECTED_POINT_DESCRIPTOR),
                         new MethodSpec(
-                                WarpDeformEditTarget.DRAW_SOFT_SELECTION_METHOD,
-                                resolvedSoftAnchor.descriptor()));
+                                WarpDeformEditTarget.DRAW_SOFT_SELECTION_METHOD, resolvedSoftAnchor.descriptor()));
                 if (countBufferUploadsInSelectedPoint(refBytes) != EXPECTED_SELECTED_BUFFER_UPLOADS) {
                     throw new IllegalArgumentException("drawSelectedPoint buffer upload count mismatch");
                 }
@@ -283,7 +283,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                             final MethodVisitor out =
                                     super.visitMethod(access, methodName, desc, signature, exceptions);
                             for (final MethodSpec spec : expectedMethods) {
-                                if (spec.name().equals(methodName) && spec.descriptor().equals(desc)) {
+                                if (spec.name().equals(methodName)
+                                        && spec.descriptor().equals(desc)) {
                                     matched[0]++;
                                     return adaptMethod(name, methodName, desc, out);
                                 }
@@ -340,39 +341,43 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         }
         if (WarpDeformEditTarget.WARP_DRAW_OWNER.equals(owner)) {
             return switch (methodName) {
-                case WarpDeformEditTarget.DRAW_CORNER_TRIANGLE_METHOD -> new EntryVoidBoolGateAdapter(
-                        out,
-                        WarpDeformEditBridge.DRAW_CORNER_TRIANGLE_PROPERTY,
-                        MH_CORNER_TRIANGLE_DESC,
-                        new int[] {0, 1, 2, 3, 4, 5, 6},
-                        new int[] {
-                            Opcodes.ALOAD,
-                            Opcodes.ALOAD,
-                            Opcodes.ILOAD,
-                            Opcodes.ILOAD,
-                            Opcodes.FLOAD,
-                            Opcodes.FLOAD,
-                            Opcodes.ALOAD
-                        });
-                case WarpDeformEditTarget.DRAW_MAJOR_LINES_METHOD -> new EntryVoidBoolGateAdapter(
-                        out,
-                        WarpDeformEditBridge.DRAW_MAJOR_LINES_PROPERTY,
-                        MH_LINES_DESC,
-                        new int[] {0, 1, 2, 3, 4, 5},
-                        new int[] {
-                            Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.ILOAD, Opcodes.ALOAD, Opcodes.ILOAD
-                        });
-                case WarpDeformEditTarget.DRAW_DETAIL_LINES_METHOD -> new EntryVoidBoolGateAdapter(
-                        out,
-                        WarpDeformEditBridge.DRAW_DETAIL_LINES_PROPERTY,
-                        MH_LINES_DESC,
-                        new int[] {0, 1, 2, 3, 4, 5},
-                        new int[] {
-                            Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.ILOAD, Opcodes.ALOAD, Opcodes.ILOAD
-                        });
+                case WarpDeformEditTarget.DRAW_CORNER_TRIANGLE_METHOD ->
+                    new EntryVoidBoolGateAdapter(
+                            out,
+                            WarpDeformEditBridge.DRAW_CORNER_TRIANGLE_PROPERTY,
+                            MH_CORNER_TRIANGLE_DESC,
+                            new int[] {0, 1, 2, 3, 4, 5, 6},
+                            new int[] {
+                                Opcodes.ALOAD,
+                                Opcodes.ALOAD,
+                                Opcodes.ILOAD,
+                                Opcodes.ILOAD,
+                                Opcodes.FLOAD,
+                                Opcodes.FLOAD,
+                                Opcodes.ALOAD
+                            });
+                case WarpDeformEditTarget.DRAW_MAJOR_LINES_METHOD ->
+                    new EntryVoidBoolGateAdapter(
+                            out,
+                            WarpDeformEditBridge.DRAW_MAJOR_LINES_PROPERTY,
+                            MH_LINES_DESC,
+                            new int[] {0, 1, 2, 3, 4, 5},
+                            new int[] {
+                                Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.ILOAD, Opcodes.ALOAD, Opcodes.ILOAD
+                            });
+                case WarpDeformEditTarget.DRAW_DETAIL_LINES_METHOD ->
+                    new EntryVoidBoolGateAdapter(
+                            out,
+                            WarpDeformEditBridge.DRAW_DETAIL_LINES_PROPERTY,
+                            MH_LINES_DESC,
+                            new int[] {0, 1, 2, 3, 4, 5},
+                            new int[] {
+                                Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.ILOAD, Opcodes.ALOAD, Opcodes.ILOAD
+                            });
                 case WarpDeformEditTarget.DRAW_SELECTED_POINT_METHOD -> new DrawSelectedPointAdapter(out);
-                case WarpDeformEditTarget.DRAW_SOFT_SELECTION_METHOD -> new DrawSoftSelectionAdapter(
-                        out, softSelectionAnchor.selectionSlot(), softSelectionAnchor.colorSlot());
+                case WarpDeformEditTarget.DRAW_SOFT_SELECTION_METHOD ->
+                    new DrawSoftSelectionAdapter(
+                            out, softSelectionAnchor.selectionSlot(), softSelectionAnchor.colorSlot());
                 default -> out;
             };
         }
@@ -392,25 +397,31 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
 
     private static List<MethodSpec> fixedMethodsFor(final String owner) {
         return switch (owner) {
-            case WarpDeformEditTarget.WARP_FORM_OWNER -> List.of(
-                    new MethodSpec(WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.REINIT_DESCRIPTOR),
-                    new MethodSpec(
-                            WarpDeformEditTarget.FORM_IS_INSIDE_METHOD, WarpDeformEditTarget.FORM_IS_INSIDE_DESCRIPTOR));
-            case WarpDeformEditTarget.WARP_DEFORMER_OWNER -> List.of(new MethodSpec(
-                    WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_METHOD,
-                    WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_DESCRIPTOR));
-            case WarpDeformEditTarget.SIMPLE_GRID_OWNER -> List.of(new MethodSpec(
-                    WarpDeformEditTarget.GET01_EX_QUAD_METHOD, WarpDeformEditTarget.GET01_EX_QUAD_DESCRIPTOR));
-            case WarpDeformEditTarget.GRID_TRANSFORM_OWNER -> List.of(
-                    new MethodSpec(
-                            WarpDeformEditTarget.INVERSE_TRANSFORM_3_3_QUAD_METHOD,
-                            WarpDeformEditTarget.INVERSE_TRANSFORM_3_3_QUAD_DESCRIPTOR),
-                    new MethodSpec(
-                            WarpDeformEditTarget.GRID_TRANSFORM_IS_INSIDE_METHOD,
-                            WarpDeformEditTarget.GRID_TRANSFORM_IS_INSIDE_DESCRIPTOR));
-            case WarpDeformEditTarget.BEZIER_GRID_OWNER -> List.of(new MethodSpec(
-                    WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_METHOD,
-                    WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_DESCRIPTOR));
+            case WarpDeformEditTarget.WARP_FORM_OWNER ->
+                List.of(
+                        new MethodSpec(WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.REINIT_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.FORM_IS_INSIDE_METHOD,
+                                WarpDeformEditTarget.FORM_IS_INSIDE_DESCRIPTOR));
+            case WarpDeformEditTarget.WARP_DEFORMER_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_METHOD,
+                        WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_DESCRIPTOR));
+            case WarpDeformEditTarget.SIMPLE_GRID_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.GET01_EX_QUAD_METHOD, WarpDeformEditTarget.GET01_EX_QUAD_DESCRIPTOR));
+            case WarpDeformEditTarget.GRID_TRANSFORM_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.INVERSE_TRANSFORM_3_3_QUAD_METHOD,
+                                WarpDeformEditTarget.INVERSE_TRANSFORM_3_3_QUAD_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.GRID_TRANSFORM_IS_INSIDE_METHOD,
+                                WarpDeformEditTarget.GRID_TRANSFORM_IS_INSIDE_DESCRIPTOR));
+            case WarpDeformEditTarget.BEZIER_GRID_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_METHOD,
+                        WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_DESCRIPTOR));
             default -> throw new IllegalArgumentException("unsupported fixed owner: " + owner);
         };
     }
@@ -431,7 +442,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                         && WarpDeformEditTarget.ACTION_DEFORM_LIST_TO_FLOATS_DESCRIPTOR.equals(desc)) {
                                     found[0] = new MethodSpec(name, desc);
                                 } else if (WarpDeformEditTarget.ACTION_LEGACY_TRANSFORM_FLOATS_METHOD.equals(name)
-                                        && WarpDeformEditTarget.ACTION_LEGACY_TRANSFORM_FLOATS_DESCRIPTOR.equals(desc)) {
+                                        && WarpDeformEditTarget.ACTION_LEGACY_TRANSFORM_FLOATS_DESCRIPTOR.equals(
+                                                desc)) {
                                     found[0] = new MethodSpec(name, desc);
                                 } else if (WarpDeformEditTarget.ACTION_OFFSET_FLOATS_METHOD.equals(name)
                                         && WarpDeformEditTarget.ACTION_OFFSET_FLOATS_DESCRIPTOR.equals(desc)) {
@@ -458,7 +470,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                         final String desc,
                                         final String sig,
                                         final String[] ex) {
-                                    if (!method.name().equals(name) || !method.descriptor().equals(desc)) {
+                                    if (!method.name().equals(name)
+                                            || !method.descriptor().equals(desc)) {
                                         return null;
                                     }
                                     return new MethodVisitor(Opcodes.ASM9) {
@@ -530,7 +543,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                         final String desc,
                                         final String sig,
                                         final String[] ex) {
-                                    if (!method.name().equals(name) || !method.descriptor().equals(desc)) {
+                                    if (!method.name().equals(name)
+                                            || !method.descriptor().equals(desc)) {
                                         return null;
                                     }
                                     return new MethodVisitor(Opcodes.ASM9) {
@@ -602,7 +616,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                     final String sig,
                                     final String[] ex) {
                                 if (!WarpDeformEditTarget.DRAW_SOFT_SELECTION_METHOD.equals(name)
-                                        || !desc.startsWith(WarpDeformEditTarget.DRAW_SOFT_SELECTION_DESCRIPTOR_PREFIX)) {
+                                        || !desc.startsWith(
+                                                WarpDeformEditTarget.DRAW_SOFT_SELECTION_DESCRIPTOR_PREFIX)) {
                                     return null;
                                 }
                                 methodDesc[0] = desc;
@@ -719,9 +734,11 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     }
 
     private static void emitActiveSlotCheck(final MethodVisitor out, final Label fallback) {
-        out.visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM_OWNER, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESCRIPTOR, false);
+        out.visitMethodInsn(
+                Opcodes.INVOKESTATIC, SYSTEM_OWNER, GET_PROPERTIES_METHOD, GET_PROPERTIES_DESCRIPTOR, false);
         out.visitLdcInsn(WarpDeformEditBridge.ACTIVE_PROPERTY);
-        out.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROPERTIES_OWNER, PROPERTIES_GET_METHOD, PROPERTIES_GET_DESCRIPTOR, false);
+        out.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, PROPERTIES_OWNER, PROPERTIES_GET_METHOD, PROPERTIES_GET_DESCRIPTOR, false);
         out.visitInsn(Opcodes.DUP);
         out.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_BOOLEAN_OWNER);
         final Label castOk = new Label();
@@ -730,7 +747,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         out.visitJumpInsn(Opcodes.GOTO, fallback);
         out.visitLabel(castOk);
         out.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_BOOLEAN_OWNER);
-        out.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ATOMIC_BOOLEAN_OWNER, ATOMIC_GET_METHOD, ATOMIC_GET_DESCRIPTOR, false);
+        out.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, ATOMIC_BOOLEAN_OWNER, ATOMIC_GET_METHOD, ATOMIC_GET_DESCRIPTOR, false);
         out.visitJumpInsn(Opcodes.IFEQ, fallback);
     }
 
@@ -778,7 +796,11 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 super.visitInsn(Opcodes.ICONST_0);
                 super.visitVarInsn(Opcodes.ILOAD, LEN_LOCAL);
                 super.visitMethodInsn(
-                        Opcodes.INVOKESTATIC, SYSTEM_OWNER, SYSTEM_ARRAYCOPY_METHOD, SYSTEM_ARRAYCOPY_DESCRIPTOR, false);
+                        Opcodes.INVOKESTATIC,
+                        SYSTEM_OWNER,
+                        SYSTEM_ARRAYCOPY_METHOD,
+                        SYSTEM_ARRAYCOPY_DESCRIPTOR,
+                        false);
                 super.visitVarInsn(Opcodes.ALOAD, DST_LOCAL);
                 super.visitJumpInsn(Opcodes.GOTO, done);
                 super.visitLabel(fallback);
@@ -1088,7 +1110,11 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 super.visitVarInsn(Opcodes.ALOAD, RENDERER_LOCAL);
                 super.visitInsn(pendingIsPositions ? Opcodes.ICONST_1 : Opcodes.ICONST_0);
                 super.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, MH_SELECTED_UPLOAD_DESC, false);
+                        Opcodes.INVOKEVIRTUAL,
+                        METHOD_HANDLE_OWNER,
+                        INVOKE_EXACT_METHOD,
+                        MH_SELECTED_UPLOAD_DESC,
+                        false);
                 super.visitJumpInsn(Opcodes.IFEQ, done);
                 super.visitJumpInsn(Opcodes.GOTO, doUpload);
                 super.visitLabel(notHandle);
@@ -1163,7 +1189,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 final Label fallback = new Label();
                 mv.visitTryCatchBlock(tryStart, tryEnd, handler, THROWABLE_OWNER);
                 mv.visitLabel(tryStart);
-                SlotBridgeEmitter.emitMethodHandleConsult(mv, WarpDeformEditBridge.DRAW_SOFT_SELECTION_PROPERTY, notHandle);
+                SlotBridgeEmitter.emitMethodHandleConsult(
+                        mv, WarpDeformEditBridge.DRAW_SOFT_SELECTION_PROPERTY, notHandle);
                 mv.visitVarInsn(Opcodes.ALOAD, 0);
                 mv.visitVarInsn(Opcodes.ALOAD, selectionSlot);
                 mv.visitVarInsn(Opcodes.ALOAD, colorSlot);
@@ -1373,10 +1400,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
             emitActiveSlotCheck(mv, fallback);
             mv.visitVarInsn(Opcodes.ALOAD, 0);
             mv.visitFieldInsn(
-                    Opcodes.GETFIELD,
-                    anchors.offsetOwner(),
-                    anchors.offsetFieldName(),
-                    anchors.offsetFieldDesc());
+                    Opcodes.GETFIELD, anchors.offsetOwner(), anchors.offsetFieldName(), anchors.offsetFieldDesc());
             mv.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
                     anchors.offsetGetterOwner(),

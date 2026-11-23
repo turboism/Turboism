@@ -55,8 +55,7 @@ public final class EditableMeshTopologyOptimizer {
     private static final MeshArrayFingerprint.WeakIdentityCache<MeshIndex> MESH_INDICES =
             new MeshArrayFingerprint.WeakIdentityCache<>();
 
-    private static final ThreadLocal<CrossQueryScratch> CROSS_SCRATCH =
-            ThreadLocal.withInitial(CrossQueryScratch::new);
+    private static final ThreadLocal<CrossQueryScratch> CROSS_SCRATCH = ThreadLocal.withInitial(CrossQueryScratch::new);
 
     private static final ClassValue<MeshHandles> MESH_HANDLES = new ClassValue<>() {
         @Override
@@ -595,8 +594,8 @@ public final class EditableMeshTopologyOptimizer {
             final float p1y = (float) vh.getY.invokeExact(p1);
             final float p2x = index.pointX[i2];
             final float p2y = index.pointY[i2];
-            final int[] candidates = index.queryCrossCandidates(
-                    p1x, p1y, p2x, p2y, checkCollinear, CROSS_SCRATCH.get());
+            final int[] candidates =
+                    index.queryCrossCandidates(p1x, p1y, p2x, p2y, checkCollinear, CROSS_SCRATCH.get());
             if (candidates == null) {
                 return EMPTY_SLOT;
             }
@@ -621,8 +620,7 @@ public final class EditableMeshTopologyOptimizer {
                 final float e2y = index.pointY[ev];
                 boolean hit = false;
                 if (checkCollinear) {
-                    hit = isCollinearOverlap(
-                            p1x, p1y, p2x, p2y, e1x, e1y, e2x, e2y, minRequiredDeg);
+                    hit = isCollinearOverlap(p1x, p1y, p2x, p2y, e1x, e1y, e2x, e2y, minRequiredDeg);
                 }
                 if (!hit) {
                     hit = segmentsIntersect(p1x, p1y, p2x, p2y, e1x, e1y, e2x, e2y);
@@ -728,8 +726,7 @@ public final class EditableMeshTopologyOptimizer {
     }
 
     private static MeshIndex ensureIndex(
-            final Object mesh, final boolean needCoordinates, final boolean needSpatialGrid)
-            throws Throwable {
+            final Object mesh, final boolean needCoordinates, final boolean needSpatialGrid) throws Throwable {
         final MeshHandles mh = MESH_HANDLES.get(mesh.getClass());
         final List<?> points = (List<?>) mh.getPoints.invokeExact(mesh);
         final List<?> edges = (List<?>) mh.getEdges.invokeExact(mesh);
@@ -855,8 +852,7 @@ public final class EditableMeshTopologyOptimizer {
     }
 
     private static Object getOrCreateTriPoint(
-            final TriangleHandles th, final Object[] cache, final List<?> points, final int index)
-            throws Throwable {
+            final TriangleHandles th, final Object[] cache, final List<?> points, final int index) throws Throwable {
         Object existing = cache[index];
         if (existing == null) {
             existing = th.triPointCtor.invokeExact(points.get(index), index);
@@ -1036,8 +1032,8 @@ public final class EditableMeshTopologyOptimizer {
                 }
             }
 
-            final MeshIndex index = new MeshIndex(
-                    edgeVer, eCount, pCount, firstPt, lastPt, eObjs, eU, eV, eAuto, eTri, eUser);
+            final MeshIndex index =
+                    new MeshIndex(edgeVer, eCount, pCount, firstPt, lastPt, eObjs, eU, eV, eAuto, eTri, eUser);
             index.nonAutoCount = nonAuto;
             index.buildUidTable(uids);
             index.rebuildEdgeTables();
@@ -1048,9 +1044,7 @@ public final class EditableMeshTopologyOptimizer {
         }
 
         boolean matchesTopology(final int currentEdgeVer, final List<?> edges, final List<?> points) {
-            if (currentEdgeVer < this.edgeVer
-                    || this.edgeCount != edges.size()
-                    || this.pointCount != points.size()) {
+            if (currentEdgeVer < this.edgeVer || this.edgeCount != edges.size() || this.pointCount != points.size()) {
                 return false;
             }
             if (this.edgeCount > 0) {
@@ -1066,13 +1060,14 @@ public final class EditableMeshTopologyOptimizer {
                     return false;
                 }
             }
-            // GEditableMesh2.addEdge bumps _edge_edit_version before validation; adopt unchanged topology versions in O(1).
+            // GEditableMesh2.addEdge bumps _edge_edit_version before validation; adopt unchanged topology versions in
+            // O(1).
             this.edgeVer = currentEdgeVer;
             return true;
         }
 
-        void ensureCoordinatesAndGrid(
-                final List<?> points, final int posVer, final boolean needSpatialGrid) throws Throwable {
+        void ensureCoordinatesAndGrid(final List<?> points, final int posVer, final boolean needSpatialGrid)
+                throws Throwable {
             boolean coordsChanged = !coordinatesLoaded || coordPosVer != posVer;
             long currentDigest = coordPointDigest;
             if (!coordsChanged) {
@@ -1233,16 +1228,15 @@ public final class EditableMeshTopologyOptimizer {
             final int k = nonAutoGridCount++;
             nonAutoOriginalIndices[k] = edgeIdx;
 
-            final double segMargin = Math.max(
-                    GRID_MIN_MARGIN, Math.hypot(vx - ux, vy - uy) * GRID_MARGIN_RATIO + UTIL_EPSILON * 2.0);
+            final double segMargin =
+                    Math.max(GRID_MIN_MARGIN, Math.hypot(vx - ux, vy - uy) * GRID_MARGIN_RATIO + UTIL_EPSILON * 2.0);
             final int c0 = clampCell((int) Math.floor((eMinX - segMargin - gMinX) * invCellW), gridW);
             final int c1 = clampCell((int) Math.floor((eMaxX + segMargin - gMinX) * invCellW), gridW);
             final int r0 = clampCell((int) Math.floor((eMinY - segMargin - gMinY) * invCellH), gridH);
             final int r1 = clampCell((int) Math.floor((eMaxY + segMargin - gMinY) * invCellH), gridH);
             if ((c1 - c0 + 1) * (r1 - r0 + 1) > MAX_CELLS_PER_EDGE) {
                 if (gridOverflowLen == gridOverflow.length) {
-                    gridOverflow = Arrays.copyOf(
-                            gridOverflow, Math.max(INITIAL_CELL_CAP, gridOverflow.length << 1));
+                    gridOverflow = Arrays.copyOf(gridOverflow, Math.max(INITIAL_CELL_CAP, gridOverflow.length << 1));
                 }
                 gridOverflow[gridOverflowLen++] = k;
                 return true;
@@ -1903,8 +1897,8 @@ public final class EditableMeshTopologyOptimizer {
         static EdgeHandles resolve(final Class<?> type) {
             try {
                 final MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-                final Class<?> edgeTypeClass =
-                        Class.forName("com.live2d.graphics3d.editableMesh.MEdge$EdgeType", false, type.getClassLoader());
+                final Class<?> edgeTypeClass = Class.forName(
+                        "com.live2d.graphics3d.editableMesh.MEdge$EdgeType", false, type.getClassLoader());
                 final Object autoVal = Enum.valueOf((Class<Enum>) edgeTypeClass.asSubclass(Enum.class), EDGE_TYPE_AUTO);
                 final Object userVal = Enum.valueOf((Class<Enum>) edgeTypeClass.asSubclass(Enum.class), EDGE_TYPE_USER);
                 return new EdgeHandles(

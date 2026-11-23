@@ -21,8 +21,7 @@ class VerifiedMemoryLeakMitigationInstallerTest {
     private static final Path MISSING_ARTIFACT = Path.of("missing-cubism-host.jar");
     private static final String ARTIFACTS_DIR_NAME = "cubism-host-artifacts";
     private static final List<Path> FALLBACK_ARTIFACT_ROOTS = List.of(
-            Path.of(System.getProperty("user.home"), ARTIFACTS_DIR_NAME),
-            ReviewedCubismArtifactTestPaths.root());
+            Path.of(System.getProperty("user.home"), ARTIFACTS_DIR_NAME), ReviewedCubismArtifactTestPaths.root());
 
     @TempDir
     Path home;

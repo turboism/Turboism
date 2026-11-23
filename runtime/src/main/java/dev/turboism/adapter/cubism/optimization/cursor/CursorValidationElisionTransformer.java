@@ -334,11 +334,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                 super.visitTypeInsn(Opcodes.CHECKCAST, PREDICATE);
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitMethodInsn(
-                        Opcodes.INVOKEINTERFACE,
-                        PREDICATE,
-                        PREDICATE_TEST_METHOD,
-                        PREDICATE_TEST_DESCRIPTOR,
-                        true);
+                        Opcodes.INVOKEINTERFACE, PREDICATE, PREDICATE_TEST_METHOD, PREDICATE_TEST_DESCRIPTOR, true);
                 super.visitJumpInsn(Opcodes.IFEQ, proceed);
                 super.visitInsn(Opcodes.ACONST_NULL);
                 super.visitInsn(Opcodes.ARETURN);

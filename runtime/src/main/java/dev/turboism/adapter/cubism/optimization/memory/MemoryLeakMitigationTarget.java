@@ -91,14 +91,12 @@ public record MemoryLeakMitigationTarget(
     public static final String EDITABLE_MESH_SEL_OWNER =
             "com/live2d/cubism/view/context/drawImpl/EditableMeshSelectionEntity";
     public static final String MESH_EDITOR_VC_OWNER = "com/live2d/cubism/view/context/CEViewContext_MeshEditor";
-    public static final String MESH_EDITOR_EM_OWNER =
-            "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor";
+    public static final String MESH_EDITOR_EM_OWNER = "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor";
     public static final String G_MESH_RENDERER_OWNER = "com/live2d/graphics3d/component/GMeshRenderer";
     public static final String G_LINE_RENDERER_OWNER = "com/live2d/graphics3d/component/GLineRenderer";
     public static final String G_POINT_RENDERER_OWNER = "com/live2d/graphics3d/component/GPointRenderer";
     public static final String G_GROUP_RENDERER_OWNER = "com/live2d/graphics3d/component/GGroupRenderer";
-    public static final String G_SIMPLE_LINES_ENTITY_OWNER =
-            "com/live2d/graphics3d/geometry/GSimpleLinesEntity";
+    public static final String G_SIMPLE_LINES_ENTITY_OWNER = "com/live2d/graphics3d/geometry/GSimpleLinesEntity";
 
     public static final String G_TEXTURE_OWNER = "com/live2d/graphics3d/texture/GTexture";
     public static final String G_TEXTURE_2D_OWNER = "com/live2d/graphics3d/texture/GTexture2D";
@@ -197,8 +195,8 @@ public record MemoryLeakMitigationTarget(
     private static Map<HostArtifactDigest, MemoryLeakMitigationTarget> buildByDigest() {
         final Map<HostArtifactDigest, MemoryLeakMitigationTarget> targets = new java.util.LinkedHashMap<>();
         for (final HostArtifactDigest artifact : ReviewedHostArtifacts.all()) {
-            final Optional<String> version = ReviewedHostArtifacts.cubismVersionOf(artifact)
-                    .filter(SUPPORTED_VERSIONS::contains);
+            final Optional<String> version =
+                    ReviewedHostArtifacts.cubismVersionOf(artifact).filter(SUPPORTED_VERSIONS::contains);
             if (version.isPresent()) {
                 targets.put(artifact, createTarget(artifact, version.get()));
             }

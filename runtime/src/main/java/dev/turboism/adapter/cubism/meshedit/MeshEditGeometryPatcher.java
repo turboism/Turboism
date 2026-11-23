@@ -14,46 +14,37 @@ import org.objectweb.asm.Opcodes;
  */
 final class MeshEditGeometryPatcher {
 
-    static final String PITD_COMPANION_INTERNAL =
-            "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD$a";
-    static final String PIT_COMPANION_INTERNAL =
-            "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle$a";
+    static final String PITD_COMPANION_INTERNAL = "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD$a";
+    static final String PIT_COMPANION_INTERNAL = "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle$a";
     static final String MESH_UTILS_INTERNAL = "com/live2d/graphics3d/mesh/MeshUtils";
-    static final String MESH_GEN_TRANSFORMER_INTERNAL =
-            "com/live2d/cubism/doc/model/extension/meshGenerator/a/a";
+    static final String MESH_GEN_TRANSFORMER_INTERNAL = "com/live2d/cubism/doc/model/extension/meshGenerator/a/a";
     static final String DRAW_EDITABLE_MESH_INTERNAL =
             "com/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh";
     static final String DRAW_ARTMESH_SELECTION_INTERNAL =
             "com/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_ArtMesh_Selection";
 
-    private static final String PIT_ACCEL_INTERNAL =
-            "dev/turboism/adapter/cubism/meshedit/PointInTriangleAccelerator";
+    private static final String PIT_ACCEL_INTERNAL = "dev/turboism/adapter/cubism/meshedit/PointInTriangleAccelerator";
     private static final String RENDER_OPT_INTERNAL =
             "dev/turboism/adapter/cubism/meshedit/EditableMeshRenderOptimizer";
     private static final String SELECTION_OPT_INTERNAL =
             "dev/turboism/adapter/cubism/meshedit/EditableMeshSelectionOptimizer";
 
     private static final String NULL_SENTINEL_FIELD = "NULL_SENTINEL";
-    private static final String PITD_INTERNAL =
-            "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD";
-    private static final String PIT_INTERNAL =
-            "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle";
+    private static final String PITD_INTERNAL = "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD";
+    private static final String PIT_INTERNAL = "com/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle";
 
     private static final String FIND_PIT_BRIDGE_DESC = "(Ljava/lang/Object;[F[IIZ)Ljava/lang/Object;";
     private static final String FIND_STRICT_BRIDGE_DESC = "([F[IILjava/lang/Object;[I)I";
     private static final String TRANSFORM_BATCH_BRIDGE_DESC = "([F[F[II[F[F)[F";
 
     private static final String PITD_FIND_METHOD_NAME = "a";
-    private static final String PITD_FIND_METHOD_DESC =
-            "(Lcom/live2d/graphics3d/type/GVector2;[F[IIZ)"
-                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD;";
+    private static final String PITD_FIND_METHOD_DESC = "(Lcom/live2d/graphics3d/type/GVector2;[F[IIZ)"
+            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD;";
     private static final String PIT_FIND_METHOD_NAME = "a";
-    private static final String PIT_FIND_METHOD_DESC =
-            "(Lcom/live2d/graphics3d/type/GVector2;[F[IIZ)"
-                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle;";
+    private static final String PIT_FIND_METHOD_DESC = "(Lcom/live2d/graphics3d/type/GVector2;[F[IIZ)"
+            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/PointInTriangle;";
     private static final String MESH_UTILS_FIND_NAME = "a";
-    private static final String MESH_UTILS_FIND_DESC =
-            "([F[IILcom/live2d/graphics3d/type/GVector2;[I)Z";
+    private static final String MESH_UTILS_FIND_DESC = "([F[IILcom/live2d/graphics3d/type/GVector2;[I)Z";
     private static final String MESH_GEN_TRANSFORM_NAME = "transform";
     private static final String MESH_GEN_TRANSFORM_DESC = "([F[F)[F";
 
@@ -69,27 +60,24 @@ final class MeshEditGeometryPatcher {
             "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$a;";
     private static final String EDITABLE_MESH_DRAW_SETTING_DESC =
             "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$c;";
-    private static final String POINTS_ENTITY_DESC =
-            "Lcom/live2d/graphics3d/geometry/GSimplePointsEntity;";
+    private static final String POINTS_ENTITY_DESC = "Lcom/live2d/graphics3d/geometry/GSimplePointsEntity;";
     private static final String FIELD_BASE_SETTING = "baseSetting";
     private static final String FIELD_POINT_HIGHLIGHT = "eArtMeshPointHighlight";
     private static final String FIELD_SELECTED_POINT = "eArtMeshSelectedPoint";
 
     private static final String UPDATE_EXE_NAME = "update_exe";
-    private static final String UPDATE_EXE_DESC =
-            "(Lcom/live2d/cubism/view/context/actionManager/N;"
-                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
-                    + "Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
-                    + "Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;"
-                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$c;I)V";
+    private static final String UPDATE_EXE_DESC = "(Lcom/live2d/cubism/view/context/actionManager/N;"
+            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
+            + "Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
+            + "Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;"
+            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$c;I)V";
     private static final String UPDATE_DISABLED_NAME = "updateAsDisabled";
     private static final String UPDATE_DISABLED_DESC = "()V";
     private static final String DRAW_MESH_LINES_NAME = "drawMeshLines";
     private static final String DRAW_MESH_POINTS_NAME = "drawMeshPoints";
     private static final String DRAW_ISOLATED_POINTS_NAME = "drawMeshIsolatedHighlightPoints";
-    private static final String DRAW_POINTS_METHOD_DESC =
-            "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
-                    + "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$c;)V";
+    private static final String DRAW_POINTS_METHOD_DESC = "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;"
+            + "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$c;)V";
     private static final String DRAW_SELECTED_POINT_NAME = "drawSelectedPoint";
     private static final String DRAW_SELECTED_POINT_DESC =
             "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
@@ -97,8 +85,7 @@ final class MeshEditGeometryPatcher {
                     + "Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;"
                     + "Lcom/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_EditableMesh$c;)V";
 
-    private static final String POINTS_ENTITY_INTERNAL =
-            "com/live2d/graphics3d/geometry/GSimplePointsEntity";
+    private static final String POINTS_ENTITY_INTERNAL = "com/live2d/graphics3d/geometry/GSimplePointsEntity";
     private static final String SET_ENABLED_NAME = "setEnabled";
     private static final String SET_ENABLED_DESC = "(Z)V";
     private static final String COLLECTION_INTERNAL = "java/util/Collection";
@@ -128,8 +115,7 @@ final class MeshEditGeometryPatcher {
     private static final String INVALIDATE_RENDER_DESC = "(Ljava/lang/Object;)V";
 
     private static final String DRAW_SOFT_SELECTION_NAME = "drawSoftSelection";
-    private static final String DRAW_SOFT_SELECTION_DESC =
-            "(Lcom/live2d/cubism/view/context/actionManager/b;)V";
+    private static final String DRAW_SOFT_SELECTION_DESC = "(Lcom/live2d/cubism/view/context/actionManager/b;)V";
     private static final String ART_MESH_SOURCE_INTERNAL =
             "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource";
     private static final String GET_SELECTION_NAME = "getSelection";
@@ -177,21 +163,11 @@ final class MeshEditGeometryPatcher {
     static byte[] patch(final String internalName, final byte[] bytes, final ClassLoader loader) {
         if (PITD_COMPANION_INTERNAL.equals(internalName)) {
             return patchPointInTriangleCompanion(
-                    bytes,
-                    loader,
-                    PITD_FIND_METHOD_NAME,
-                    PITD_FIND_METHOD_DESC,
-                    "findDouble",
-                    PITD_INTERNAL);
+                    bytes, loader, PITD_FIND_METHOD_NAME, PITD_FIND_METHOD_DESC, "findDouble", PITD_INTERNAL);
         }
         if (PIT_COMPANION_INTERNAL.equals(internalName)) {
             return patchPointInTriangleCompanion(
-                    bytes,
-                    loader,
-                    PIT_FIND_METHOD_NAME,
-                    PIT_FIND_METHOD_DESC,
-                    "findFloat",
-                    PIT_INTERNAL);
+                    bytes, loader, PIT_FIND_METHOD_NAME, PIT_FIND_METHOD_DESC, "findFloat", PIT_INTERNAL);
         }
         if (MESH_UTILS_INTERNAL.equals(internalName)) {
             return patchMeshUtils(bytes, loader);
@@ -306,9 +282,7 @@ final class MeshEditGeometryPatcher {
                             final String signature,
                             final String[] exceptions) {
                         final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                        if (!MESH_UTILS_FIND_NAME.equals(name)
-                                || !MESH_UTILS_FIND_DESC.equals(desc)
-                                || mv == null) {
+                        if (!MESH_UTILS_FIND_NAME.equals(name) || !MESH_UTILS_FIND_DESC.equals(desc) || mv == null) {
                             return mv;
                         }
                         return new MethodVisitor(MeshEditAsmSupport.ASM_API, mv) {
@@ -374,8 +348,7 @@ final class MeshEditGeometryPatcher {
                 },
                 ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         MeshEditAsmSupport.requireShape(
-                state[0] && state[1] && state[2] && state[3] && state[4],
-                "Incompatible meshGenerator.a.a structure");
+                state[0] && state[1] && state[2] && state[3] && state[4], "Incompatible meshGenerator.a.a structure");
 
         final ClassWriter writer = MeshEditAsmSupport.newClassWriter(reader, loader);
         reader.accept(
@@ -400,10 +373,16 @@ final class MeshEditGeometryPatcher {
                                 final Label fallbackLabel = new Label();
                                 super.visitVarInsn(Opcodes.ALOAD, 0);
                                 super.visitFieldInsn(
-                                        Opcodes.GETFIELD, MESH_GEN_TRANSFORMER_INTERNAL, FIELD_SRC_POS, FLOAT_ARRAY_DESC);
+                                        Opcodes.GETFIELD,
+                                        MESH_GEN_TRANSFORMER_INTERNAL,
+                                        FIELD_SRC_POS,
+                                        FLOAT_ARRAY_DESC);
                                 super.visitVarInsn(Opcodes.ALOAD, 0);
                                 super.visitFieldInsn(
-                                        Opcodes.GETFIELD, MESH_GEN_TRANSFORMER_INTERNAL, FIELD_DST_POS, FLOAT_ARRAY_DESC);
+                                        Opcodes.GETFIELD,
+                                        MESH_GEN_TRANSFORMER_INTERNAL,
+                                        FIELD_DST_POS,
+                                        FLOAT_ARRAY_DESC);
                                 super.visitVarInsn(Opcodes.ALOAD, 0);
                                 super.visitFieldInsn(
                                         Opcodes.GETFIELD, MESH_GEN_TRANSFORMER_INTERNAL, FIELD_INDICES, INT_ARRAY_DESC);
@@ -791,11 +770,7 @@ final class MeshEditGeometryPatcher {
 
         @Override
         public void visitMethodInsn(
-                final int opcode,
-                final String owner,
-                final String name,
-                final String desc,
-                final boolean isInterface) {
+                final int opcode, final String owner, final String name, final String desc, final boolean isInterface) {
             super.visitMethodInsn(opcode, owner, name, desc, isInterface);
             if (opcode != Opcodes.INVOKESPECIAL || !DRAW_EDITABLE_MESH_INTERNAL.equals(owner)) {
                 return;
@@ -805,7 +780,10 @@ final class MeshEditGeometryPatcher {
                 super.visitVarInsn(Opcodes.ALOAD, PARAM_UPDATE_MESH);
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitFieldInsn(
-                        Opcodes.GETFIELD, DRAW_EDITABLE_MESH_INTERNAL, FIELD_BASE_SETTING, EDITABLE_MESH_BASE_SETTING_DESC);
+                        Opcodes.GETFIELD,
+                        DRAW_EDITABLE_MESH_INTERNAL,
+                        FIELD_BASE_SETTING,
+                        EDITABLE_MESH_BASE_SETTING_DESC);
                 super.visitVarInsn(Opcodes.ALOAD, PARAM_UPDATE_SETTING);
                 super.visitMethodInsn(
                         Opcodes.INVOKESTATIC, RENDER_OPT_INTERNAL, OVERLAY_RECORD_NAME, OVERLAY_RECORD_DESC, false);
@@ -864,8 +842,7 @@ final class MeshEditGeometryPatcher {
         private int astoreCount;
         private int ifeqCount;
 
-        private PointExtractPatcher(
-                final MethodVisitor mv, final PointExtractSurvey survey, final boolean connected) {
+        private PointExtractPatcher(final MethodVisitor mv, final PointExtractSurvey survey, final boolean connected) {
             super(MeshEditAsmSupport.ASM_API, mv);
             this.survey = survey;
             this.connected = connected;
@@ -949,11 +926,7 @@ final class MeshEditGeometryPatcher {
 
         @Override
         public void visitMethodInsn(
-                final int opcode,
-                final String owner,
-                final String name,
-                final String desc,
-                final boolean isInterface) {
+                final int opcode, final String owner, final String name, final String desc, final boolean isInterface) {
             super.visitMethodInsn(opcode, owner, name, desc, isInterface);
             if (GRAPHICS_MESH_INTERNAL.equals(owner) && SET_COLORS_NAME.equals(name)) {
                 super.visitVarInsn(Opcodes.ALOAD, survey.selVar);

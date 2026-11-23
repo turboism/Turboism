@@ -52,8 +52,7 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     public static final String WARP_DRAW_OWNER = "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw";
 
     /** Internal name of {@code WarpDeformerSelection}. */
-    public static final String WARP_SELECTION_OWNER =
-            "com/live2d/cubism/doc/model/deformer/warp/WarpDeformerSelection";
+    public static final String WARP_SELECTION_OWNER = "com/live2d/cubism/doc/model/deformer/warp/WarpDeformerSelection";
 
     /** Internal name of {@code WarpPointRef}. */
     public static final String WARP_POINT_REF_OWNER = "com/live2d/cubism/doc/model/deformer/warp/WarpPointRef";

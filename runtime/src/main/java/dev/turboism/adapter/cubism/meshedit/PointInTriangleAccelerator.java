@@ -263,8 +263,8 @@ public final class PointInTriangleAccelerator {
                     return null;
                 }
             } else {
-                final int bestTri = findNearestWeightTriangleDouble(
-                        px, py, srcPositions, indices, step, triCount, weights);
+                final int bestTri =
+                        findNearestWeightTriangleDouble(px, py, srcPositions, indices, step, triCount, weights);
                 if (bestTri == Integer.MIN_VALUE) {
                     return null;
                 }
@@ -287,9 +287,8 @@ public final class PointInTriangleAccelerator {
             if (d0 + 1 >= dstPositions.length || d1 + 1 >= dstPositions.length || d2 + 1 >= dstPositions.length) {
                 return null;
             }
-            final float x = (float) (dstPositions[d0] * weights[0]
-                    + dstPositions[d1] * weights[1]
-                    + dstPositions[d2] * weights[2]);
+            final float x = (float)
+                    (dstPositions[d0] * weights[0] + dstPositions[d1] * weights[1] + dstPositions[d2] * weights[2]);
             final float y = (float) (dstPositions[d0 + 1] * weights[0]
                     + dstPositions[d1 + 1] * weights[1]
                     + dstPositions[d2 + 1] * weights[2]);
@@ -353,8 +352,7 @@ public final class PointInTriangleAccelerator {
             return NULL_SENTINEL;
         }
         final int base = best * TRI_INDICES_STRIDE;
-        return ctor.invoke(
-                indices[base], weights[0], indices[base + 1], weights[1], indices[base + 2], weights[2]);
+        return ctor.invoke(indices[base], weights[0], indices[base + 1], weights[1], indices[base + 2], weights[2]);
     }
 
     private static Object findFloatCoords(
@@ -411,8 +409,7 @@ public final class PointInTriangleAccelerator {
             return NULL_SENTINEL;
         }
         final int base = best * TRI_INDICES_STRIDE;
-        return ctor.invoke(
-                indices[base], weights[0], indices[base + 1], weights[1], indices[base + 2], weights[2]);
+        return ctor.invoke(indices[base], weights[0], indices[base + 1], weights[1], indices[base + 2], weights[2]);
     }
 
     private static int findNearestWeightTriangleDouble(
@@ -586,8 +583,7 @@ public final class PointInTriangleAccelerator {
             }
         }
         if (grid.overflowTris.length > 0) {
-            final int overHit =
-                    scanOverList(px, py, positions, indices, step, grid.overflowTris, firstHit, strict);
+            final int overHit = scanOverList(px, py, positions, indices, step, grid.overflowTris, firstHit, strict);
             if (overHit == Integer.MIN_VALUE) {
                 return Integer.MIN_VALUE;
             }
@@ -797,7 +793,8 @@ public final class PointInTriangleAccelerator {
             if (tMaxY > maxY) maxY = tMaxY;
         }
         if (validCount == 0) {
-            return new TriangleGrid(0.0, 0.0, 0.0, 0.0, 1, 1, 1.0, 1.0, new int[1][], collectAllIds(indices, step, positions));
+            return new TriangleGrid(
+                    0.0, 0.0, 0.0, 0.0, 1, 1, 1.0, 1.0, new int[1][], collectAllIds(indices, step, positions));
         }
 
         final double spanX = Math.max(maxX - minX, MIN_CELL_SPAN);
@@ -845,10 +842,14 @@ public final class PointInTriangleAccelerator {
                 overflowCount++;
                 continue;
             }
-            final int minCx = clampCell((int) Math.floor((Math.min(ax, Math.min(bx, cx)) - padX - gMinX) * invCellW), gridW);
-            final int maxCx = clampCell((int) Math.floor((Math.max(ax, Math.max(bx, cx)) + padX - gMinX) * invCellW), gridW);
-            final int minCy = clampCell((int) Math.floor((Math.min(ay, Math.min(by, cy)) - padY - gMinY) * invCellH), gridH);
-            final int maxCy = clampCell((int) Math.floor((Math.max(ay, Math.max(by, cy)) + padY - gMinY) * invCellH), gridH);
+            final int minCx =
+                    clampCell((int) Math.floor((Math.min(ax, Math.min(bx, cx)) - padX - gMinX) * invCellW), gridW);
+            final int maxCx =
+                    clampCell((int) Math.floor((Math.max(ax, Math.max(bx, cx)) + padX - gMinX) * invCellW), gridW);
+            final int minCy =
+                    clampCell((int) Math.floor((Math.min(ay, Math.min(by, cy)) - padY - gMinY) * invCellH), gridH);
+            final int maxCy =
+                    clampCell((int) Math.floor((Math.max(ay, Math.max(by, cy)) + padY - gMinY) * invCellH), gridH);
             final int cellSpan = (maxCx - minCx + 1) * (maxCy - minCy + 1);
             if (cellSpan > MAX_CELLS_PER_TRIANGLE) {
                 overflowCount++;
@@ -898,10 +899,14 @@ public final class PointInTriangleAccelerator {
                 overflow[overflowPos++] = t;
                 continue;
             }
-            final int minCx = clampCell((int) Math.floor((Math.min(ax, Math.min(bx, cx)) - padX - gMinX) * invCellW), gridW);
-            final int maxCx = clampCell((int) Math.floor((Math.max(ax, Math.max(bx, cx)) + padX - gMinX) * invCellW), gridW);
-            final int minCy = clampCell((int) Math.floor((Math.min(ay, Math.min(by, cy)) - padY - gMinY) * invCellH), gridH);
-            final int maxCy = clampCell((int) Math.floor((Math.max(ay, Math.max(by, cy)) + padY - gMinY) * invCellH), gridH);
+            final int minCx =
+                    clampCell((int) Math.floor((Math.min(ax, Math.min(bx, cx)) - padX - gMinX) * invCellW), gridW);
+            final int maxCx =
+                    clampCell((int) Math.floor((Math.max(ax, Math.max(bx, cx)) + padX - gMinX) * invCellW), gridW);
+            final int minCy =
+                    clampCell((int) Math.floor((Math.min(ay, Math.min(by, cy)) - padY - gMinY) * invCellH), gridH);
+            final int maxCy =
+                    clampCell((int) Math.floor((Math.max(ay, Math.max(by, cy)) + padY - gMinY) * invCellH), gridH);
             final int cellSpan = (maxCx - minCx + 1) * (maxCy - minCy + 1);
             if (cellSpan > MAX_CELLS_PER_TRIANGLE) {
                 overflow[overflowPos++] = t;
@@ -998,11 +1003,7 @@ public final class PointInTriangleAccelerator {
     }
 
     private record GridCacheEntry(
-            WeakReference<float[]> posRef,
-            WeakReference<int[]> idxRef,
-            int step,
-            long digest,
-            TriangleGrid grid) {
+            WeakReference<float[]> posRef, WeakReference<int[]> idxRef, int step, long digest, TriangleGrid grid) {
 
         GridCacheEntry(
                 final float[] positions,

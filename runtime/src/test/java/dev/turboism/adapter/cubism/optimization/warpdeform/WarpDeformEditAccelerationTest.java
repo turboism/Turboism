@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -41,8 +40,7 @@ class WarpDeformEditAccelerationTest {
 
     private static final String CLASS_EXTENSION = ".class";
     private static final String TEST_JAR_PROPERTY = "turboism.test.cubismEditorJar";
-    private static final Path LOCAL_ARTIFACTS_ROOT =
-            Path.of(System.getProperty("user.home"), "cubism-host-artifacts");
+    private static final Path LOCAL_ARTIFACTS_ROOT = Path.of(System.getProperty("user.home"), "cubism-host-artifacts");
     private static final Path LOCAL_REF_5305 = Path.of(
             System.getProperty("user.home"),
             ".local",
@@ -84,21 +82,15 @@ class WarpDeformEditAccelerationTest {
         final float ax = 10, ay = 20, bx = 110, by = 120;
         final float dx = (bx - ax) / 3f, dy = (by - ay) / 3f;
         final int packed = WarpDeformMath.computeCellDivisions(
-                ax, ay, ax + dx, ay, ax, ay + dy,
-                bx, ay, bx - dx, ay, bx, ay + dy,
-                ax, by, ax + dx, by, ax, by - dy,
-                bx, by, bx - dx, by, bx, by - dy,
-                5, 8, 128);
+                ax, ay, ax + dx, ay, ax, ay + dy, bx, ay, bx - dx, ay, bx, ay + dy, ax, by, ax + dx, by, ax, by - dy,
+                bx, by, bx - dx, by, bx, by - dy, 5, 8, 128);
         final int divX = packed >>> 16;
         final int divY = packed & 0xFFFF;
         assertEquals(8, divX);
         assertEquals(8, divY);
         final float[] lattice = WarpDeformMath.buildPatchCornerLattice(
-                ax, ay, ax + dx, ay, ax, ay + dy,
-                bx, ay, bx - dx, ay, bx, ay + dy,
-                ax, by, ax + dx, by, ax, by - dy,
-                bx, by, bx - dx, by, bx, by - dy,
-                divX, divY);
+                ax, ay, ax + dx, ay, ax, ay + dy, bx, ay, bx - dx, ay, bx, ay + dy, ax, by, ax + dx, by, ax, by - dy,
+                bx, by, bx - dx, by, bx, by - dy, divX, divY);
         final float[] out = new float[2];
         WarpDeformMath.evaluatePatchLatticePoint(lattice, divX, divY, 0.35f, 0.65f, out, 0);
         assertEquals(ax + (bx - ax) * 0.35f, out[0], 1e-3f);
@@ -261,9 +253,10 @@ class WarpDeformEditAccelerationTest {
         return new Object[] {formCtor.newInstance(src, null, coordType), formCtor.newInstance(src, null, coordType)};
     }
 
-    private static void verifyFormReinitParityAndReuse(
-            final ClassLoader origLoader, final ClassLoader rewLoader) throws Exception {
-        final Class<?> rewFormCls = Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, rewLoader);
+    private static void verifyFormReinitParityAndReuse(final ClassLoader origLoader, final ClassLoader rewLoader)
+            throws Exception {
+        final Class<?> rewFormCls =
+                Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, rewLoader);
         final Object[] forms = createInitializedForms(rewLoader, rewFormCls);
         final Object a = forms[0];
         final Object b = forms[1];
@@ -274,7 +267,9 @@ class WarpDeformEditAccelerationTest {
                 Class.forName("com.live2d.core.ICopyable", false, rewLoader),
                 Class.forName("com.live2d.core.a", false, rewLoader));
         final Method deepCopy = rewFormCls.getMethod("deepCopy", Class.forName("com.live2d.core.a", false, rewLoader));
-        final Object copyParam = Class.forName("com.live2d.core.a", true, rewLoader).getConstructor().newInstance();
+        final Object copyParam = Class.forName("com.live2d.core.a", true, rewLoader)
+                .getConstructor()
+                .newInstance();
 
         final float[] srcArr1 = {0, 0, 10, 0, 0, 10, 10, 10};
         final float[] srcArr2 = {1, 2, 12, 3, -1, 14, 15, 16};
@@ -309,7 +304,8 @@ class WarpDeformEditAccelerationTest {
     }
 
     private static void verifyFormReinitFallbackAfterClose(final ClassLoader rewLoader) throws Exception {
-        final Class<?> rewFormCls = Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, rewLoader);
+        final Class<?> rewFormCls =
+                Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, rewLoader);
         final Object[] forms = createInitializedForms(rewLoader, rewFormCls);
         final Object a = forms[0];
         final Object b = forms[1];
@@ -319,7 +315,9 @@ class WarpDeformEditAccelerationTest {
                 "reinit",
                 Class.forName("com.live2d.core.ICopyable", false, rewLoader),
                 Class.forName("com.live2d.core.a", false, rewLoader));
-        final Object copyParam = Class.forName("com.live2d.core.a", true, rewLoader).getConstructor().newInstance();
+        final Object copyParam = Class.forName("com.live2d.core.a", true, rewLoader)
+                .getConstructor()
+                .newInstance();
 
         setPositions.invoke(a, new float[] {5, 6, 7, 8});
         final float[] oldB = new float[4];
@@ -329,8 +327,8 @@ class WarpDeformEditAccelerationTest {
         assertArrayEquals(new float[] {5, 6, 7, 8}, (float[]) getPositions.invoke(b), 0.0f);
     }
 
-    private static void verifySimpleGridAndTransformParity(
-            final ClassLoader origLoader, final ClassLoader rewLoader) throws Exception {
+    private static void verifySimpleGridAndTransformParity(final ClassLoader origLoader, final ClassLoader rewLoader)
+            throws Exception {
         final float[] quadPts = {
             0, 0, 50, 5, 100, 0,
             -5, 50, 52, 55, 105, 50,
@@ -385,7 +383,10 @@ class WarpDeformEditAccelerationTest {
     }
 
     private static void verifyWarpDrawParityAndDirtyGating(
-            final DrawResult origRes, final ClassLoader rewLoader, final float[] gridPos, final WarpDeformEditBridge bridge)
+            final DrawResult origRes,
+            final ClassLoader rewLoader,
+            final float[] gridPos,
+            final WarpDeformEditBridge bridge)
             throws Exception {
         final DrawResult rewFirst = exerciseWarpDraw(rewLoader, gridPos, true);
 
@@ -487,7 +488,8 @@ class WarpDeformEditAccelerationTest {
             throws Exception {
         final Class<?> sgCls = Class.forName(WarpDeformEditTarget.SIMPLE_GRID_OWNER.replace('/', '.'), true, loader);
         final Class<?> vCls = Class.forName(WarpDeformEditTarget.GVECTOR2_OWNER.replace('/', '.'), true, loader);
-        final Object sg = sgCls.getConstructor(int.class, int.class, float[].class).newInstance(col, row, pts);
+        final Object sg =
+                sgCls.getConstructor(int.class, int.class, float[].class).newInstance(col, row, pts);
         final Object target = targetXY == null
                 ? null
                 : vCls.getConstructor(float.class, float.class).newInstance(targetXY[0], targetXY[1]);
@@ -501,17 +503,21 @@ class WarpDeformEditAccelerationTest {
         final Class<?> sgCls = Class.forName(WarpDeformEditTarget.SIMPLE_GRID_OWNER.replace('/', '.'), true, loader);
         final Class<?> gtCls = Class.forName(WarpDeformEditTarget.GRID_TRANSFORM_OWNER.replace('/', '.'), true, loader);
         final Class<?> rectCls = Class.forName(WarpDeformEditTarget.GRECTF_OWNER.replace('/', '.'), true, loader);
-        final Class<?> icGrid = Class.forName(
-                "com.live2d.cubism.doc.model.deformer.warp.grid.ICGrid", true, loader);
+        final Class<?> icGrid = Class.forName("com.live2d.cubism.doc.model.deformer.warp.grid.ICGrid", true, loader);
         final Class<?> vCls = Class.forName(WarpDeformEditTarget.GVECTOR2_OWNER.replace('/', '.'), true, loader);
-        final Object sg = sgCls.getConstructor(int.class, int.class, float[].class).newInstance(col, row, pts);
+        final Object sg =
+                sgCls.getConstructor(int.class, int.class, float[].class).newInstance(col, row, pts);
         final Object rect = rectCls.getConstructor(float.class, float.class, float.class, float.class)
                 .newInstance(0f, 0f, 100f, 200f);
-        final Object gt = gtCls.getConstructor(rectCls, icGrid, int.class, int.class).newInstance(rect, sg, col, row);
+        final Object gt =
+                gtCls.getConstructor(rectCls, icGrid, int.class, int.class).newInstance(rect, sg, col, row);
         final Object src = vCls.getConstructor(float.class, float.class).newInstance(x, y);
         final Object dst = vCls.getConstructor().newInstance();
         gtCls.getMethod("inverseTransform_3_3_Quad", vCls, vCls).invoke(gt, src, dst);
-        return new float[] {(float) vCls.getMethod("getX").invoke(dst), (float) vCls.getMethod("getY").invoke(dst)};
+        return new float[] {
+            (float) vCls.getMethod("getX").invoke(dst),
+            (float) vCls.getMethod("getY").invoke(dst)
+        };
     }
 
     private static boolean invokeGridIsInside(
@@ -526,13 +532,14 @@ class WarpDeformEditAccelerationTest {
         final Class<?> sgCls = Class.forName(WarpDeformEditTarget.SIMPLE_GRID_OWNER.replace('/', '.'), true, loader);
         final Class<?> gtCls = Class.forName(WarpDeformEditTarget.GRID_TRANSFORM_OWNER.replace('/', '.'), true, loader);
         final Class<?> rectCls = Class.forName(WarpDeformEditTarget.GRECTF_OWNER.replace('/', '.'), true, loader);
-        final Class<?> icGrid = Class.forName(
-                "com.live2d.cubism.doc.model.deformer.warp.grid.ICGrid", true, loader);
+        final Class<?> icGrid = Class.forName("com.live2d.cubism.doc.model.deformer.warp.grid.ICGrid", true, loader);
         final Class<?> vCls = Class.forName(WarpDeformEditTarget.GVECTOR2_OWNER.replace('/', '.'), true, loader);
-        final Object sg = sgCls.getConstructor(int.class, int.class, float[].class).newInstance(col, row, pts);
+        final Object sg =
+                sgCls.getConstructor(int.class, int.class, float[].class).newInstance(col, row, pts);
         final Object rect = rectCls.getConstructor(float.class, float.class, float.class, float.class)
                 .newInstance(0f, 0f, 100f, 100f);
-        final Object gt = gtCls.getConstructor(rectCls, icGrid, int.class, int.class).newInstance(rect, sg, col, row);
+        final Object gt =
+                gtCls.getConstructor(rectCls, icGrid, int.class, int.class).newInstance(rect, sg, col, row);
         final Object pt = vCls.getConstructor(float.class, float.class).newInstance(x, y);
         return (boolean) gtCls.getMethod("isInside", vCls, boolean.class).invoke(gt, pt, isDst);
     }
@@ -583,10 +590,12 @@ class WarpDeformEditAccelerationTest {
                 final Object cs = vCtor.newInstance(ax - 3f, ay + 26f);
                 final Object cw = vCtor.newInstance(ax - 32f, ay + 5f);
                 final Object ce = vCtor.newInstance(ax + 32f, ay - 4f);
-                refs[ix][iy] = bpCls.getConstructor(vCls, vCls, vCls, vCls, vCls).newInstance(anchor, cn, cs, cw, ce);
+                refs[ix][iy] =
+                        bpCls.getConstructor(vCls, vCls, vCls, vCls, vCls).newInstance(anchor, cn, cs, cw, ce);
             }
         }
-        return (float[]) bgCls.getMethod("createPointsOnBezier", int.class, int.class).invoke(bg, col, row);
+        return (float[])
+                bgCls.getMethod("createPointsOnBezier", int.class, int.class).invoke(bg, col, row);
     }
 
     private record DrawResult(
@@ -649,7 +658,8 @@ class WarpDeformEditAccelerationTest {
             throws Exception {
         final Class<?> drawCls = draw.getClass();
         final Class<?> cColorCls = Class.forName(WarpDeformEditTarget.CCOLOR_OWNER.replace('/', '.'), true, loader);
-        final Object color = cColorCls.getConstructor(float.class, float.class, float.class, float.class)
+        final Object color = cColorCls
+                .getConstructor(float.class, float.class, float.class, float.class)
                 .newInstance(0.2f, 0.6f, 0.9f, 0.8f);
 
         final Method cornerM = drawCls.getDeclaredMethod(
@@ -707,15 +717,24 @@ class WarpDeformEditAccelerationTest {
 
         final Field lineNormalField = drawCls.getDeclaredField("eWarpGridLineNormal");
         lineNormalField.setAccessible(true);
-        final Object lineNormalRenderer = lineNormalField.get(draw).getClass().getMethod("getLineRenderer").invoke(lineNormalField.get(draw));
+        final Object lineNormalRenderer = lineNormalField
+                .get(draw)
+                .getClass()
+                .getMethod("getLineRenderer")
+                .invoke(lineNormalField.get(draw));
 
         final Field lineDetailField = drawCls.getDeclaredField("eWarpGridLineSelected");
         lineDetailField.setAccessible(true);
-        final Object lineDetailRenderer = lineDetailField.get(draw).getClass().getMethod("getLineRenderer").invoke(lineDetailField.get(draw));
+        final Object lineDetailRenderer = lineDetailField
+                .get(draw)
+                .getClass()
+                .getMethod("getLineRenderer")
+                .invoke(lineDetailField.get(draw));
 
         final Field selectedField = drawCls.getDeclaredField("eWarpGridSelectedPoint");
         selectedField.setAccessible(true);
-        final Object selectedRenderer = selectedField.get(draw).getClass().getMethod("getPointRenderer").invoke(selectedField.get(draw));
+        final Object selectedRenderer =
+                selectedField.get(draw).getClass().getMethod("getPointRenderer").invoke(selectedField.get(draw));
 
         return new DrawResult(
                 draw,
@@ -827,7 +846,8 @@ class WarpDeformEditAccelerationTest {
         if (dir != null && Files.isDirectory(dir)) {
             try (var entries = Files.walk(dir, 2)) {
                 for (final Path entry : entries.filter(p -> Files.isRegularFile(p)
-                        && p.getFileName().toString().endsWith(".jar")).toList()) {
+                                && p.getFileName().toString().endsWith(".jar"))
+                        .toList()) {
                     if (!entry.equals(artifact)) {
                         final String fileName = entry.getFileName().toString();
                         hasJogl |= fileName.startsWith("jogl");
@@ -840,7 +860,8 @@ class WarpDeformEditAccelerationTest {
         if ((!hasJogl || !hasJdom) && Files.isDirectory(LOCAL_REF_5305.getParent())) {
             try (var entries = Files.walk(LOCAL_REF_5305.getParent(), 2)) {
                 for (final Path entry : entries.filter(p -> Files.isRegularFile(p)
-                        && p.getFileName().toString().endsWith(".jar")).toList()) {
+                                && p.getFileName().toString().endsWith(".jar"))
+                        .toList()) {
                     final String fileName = entry.getFileName().toString();
                     if (!fileName.startsWith("Live2D")) {
                         urls.add(entry.toUri().toURL());

@@ -96,12 +96,10 @@ final class VerifiedAtlasInteractiveRenderInstaller implements VerifiedHookInsta
         return List.of(
                 new WeaveTarget(
                         editLayerOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
-                new WeaveTarget(
-                        canvasOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
+                new WeaveTarget(canvasOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
                 new WeaveTarget(
                         unitPanelOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
-                new WeaveTarget(
-                        cameraOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
+                new WeaveTarget(cameraOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
                 new WeaveTarget(
                         scrollDragOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
                 new WeaveTarget(
@@ -109,8 +107,9 @@ final class VerifiedAtlasInteractiveRenderInstaller implements VerifiedHookInsta
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
-        final int sites =
-                targets.get(0).transformer(AtlasInteractiveRenderTransformer.class).sites();
+        final int sites = targets.get(0)
+                .transformer(AtlasInteractiveRenderTransformer.class)
+                .sites();
         return sites == AtlasInteractiveRenderTarget.EXPECTED_SITES ? null : SITES_PREFIX + sites;
     }
 
