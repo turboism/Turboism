@@ -197,13 +197,13 @@ Var PluginState_32
 Var PluginState_33
 Var PluginState_34
 
-LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.68.7"
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.68.8"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting a user-installed agent to the authenticated Turboism MCP server."
-LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_SIMPCHINESE} "Turboism ACP 智能体 0.68.7"
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_SIMPCHINESE} "Turboism ACP 智能体 0.68.8"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_SIMPCHINESE} "将用户安装的 ACP v1 Agent 连接到已认证的 Turboism MCP 服务器的 Agent/设置窗口。"
-LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_JAPANESE} "Turboism ACP エージェント 0.68.7"
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_JAPANESE} "Turboism ACP エージェント 0.68.8"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_JAPANESE} "ユーザーがインストールした ACP v1 エージェントを認証済み Turboism MCP サーバーに接続するエージェント/設定ウィンドウ。"
-LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_KOREAN} "Turboism ACP 에이전트 0.68.7"
+LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_KOREAN} "Turboism ACP 에이전트 0.68.8"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_KOREAN} "사용자가 설치한 ACP v1 에이전트를 인증된 Turboism MCP 서버에 연결하는 에이전트/설정 창."
 LangString PLUGIN_NAME_dev_turboism_plugin_artmesh_mirror ${LANG_ENGLISH} "ArtMesh Mirror 0.68.4"
 LangString PLUGIN_DESC_dev_turboism_plugin_artmesh_mirror ${LANG_ENGLISH} "Independent ArtMesh mirror editing with a freely movable and rotatable axis."
