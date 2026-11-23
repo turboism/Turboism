@@ -143,6 +143,8 @@ dev.turboism.bootstrap.SortingInfoCacheHookContributor
 @verified-extended-interpolation-sibling-elision
 # Warp deformer reinit buffer reuse, inverse-quad/Bezier fast paths, overlay dirty-gating, and deform-brush float loops.
 @verified-warp-deform-edit-acceleration
+# Canvas drag coalescing, drag-scoped inspector/deformer-tree deferral, and same-cursor elision.
+dev.turboism.bootstrap.EditDragResponsivenessHookContributor
 # Cached atlas overlay sprites, viewport clipping, drag UI coalescing, and wheel/tab elisions.
 @verified-atlas-interactive-render
 # Memory, OpenGL buffer/texture, undo, image cache, and UI lifecycle leak mitigations.

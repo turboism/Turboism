@@ -1,0 +1,10 @@
+{
+  "default": [
+    "com/live2d/ui/m$b",
+    "com/live2d/ui/CWidget",
+    "com/live2d/cubism/view/palette/inspector/CEPaletteCtrl_Inspector$ViewCtrlInspector",
+    "com/live2d/cubism/view/palette/inspector/d",
+    "com/live2d/cubism/view/palette/inspector/editPalette/ParameterControllable_wrapperForInspector$DeformerSelectorUiFactory",
+    "com/live2d/cubism/view/palette/deformer/CEPaletteCtrl_Deformer$ViewCtrlDeformer"
+  ]
+}

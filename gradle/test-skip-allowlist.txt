@@ -31,6 +31,7 @@ dev.turboism.bootstrap.VerifiedReinitPairElisionInstallerTest.* # exact referenc
 dev.turboism.bootstrap.VerifiedTextureUploadPreparationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedUniformLocationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpDeformEditAccelerationInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedEditDragResponsivenessInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpPositionProjectionInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedMemoryLeakMitigationInstallerTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design
 # Registered per the lane-C contract (commit 16809b349): the Robot screen tier needs
@@ -46,6 +47,7 @@ dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskBridgeArtifactTest.* #
 dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.scenehandler.InputAndRenderWeavesArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
+dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
 dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.hittest.MeshHitTestArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.

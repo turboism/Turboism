@@ -153,4 +153,10 @@ final class NativeOptimizationPolicy {
         dev.turboism.adapter.cubism.optimization.inspector.InspectorPropertyBypassBridge.setConfiguredDefault(enabled);
         return enabled;
     }
+
+    static boolean warpDeformEditAccelerationEnabled(final HookEnvironment environment) {
+        final boolean enabled = requested(environment, OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION);
+        dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessBridge.setConfiguredDefault(enabled);
+        return enabled;
+    }
 }

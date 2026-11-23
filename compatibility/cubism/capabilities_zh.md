@@ -300,6 +300,7 @@ Cubism Editor 本身缺少相应功能的已确认宿主边界，均经官方更
 
 | 来源 | 符号 | 版本 |
 |---|---|---|
+| target-classes/`edit-drag-responsiveness.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`incremental-update.json` | `TargetClassTable` | 5.0.00–5.3.05 |

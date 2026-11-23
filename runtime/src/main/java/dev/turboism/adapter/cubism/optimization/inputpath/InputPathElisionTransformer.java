@@ -94,6 +94,62 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
         return sites;
     }
 
+    /**
+     * Derives the rewritten {@code setCursor} instruction shape from official {@code CWidget} bytes
+     * so downstream transforms can verify composition against an attested baseline.
+     *
+     * @param reference official {@link ClassReader#EXPAND_FRAMES} bytes of {@link InputPathElisionTarget#OWNER}
+     * @return rewritten {@code setCursor} instruction shape, or {@code null} when the input does not match
+     */
+    public static List<String> composedCursorShape(final byte[] reference) {
+        if (reference == null) {
+            return null;
+        }
+        try {
+            final List<String> cursorShape = ReviewedMethodShape.read(
+                    reference,
+                    InputPathElisionTarget.OWNER,
+                    InputPathElisionTarget.CURSOR_METHOD,
+                    InputPathElisionTarget.CURSOR_DESCRIPTOR);
+            if (cursorShape == null) {
+                return null;
+            }
+            final ClassReader reader = new ClassReader(reference);
+            final ClassWriter writer = HostClassWriters.newFrameWriter(reader, null);
+            final boolean[] applied = {false};
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor visitor =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            if (InputPathElisionTarget.CURSOR_METHOD.equals(method)
+                                    && InputPathElisionTarget.CURSOR_DESCRIPTOR.equals(descriptor)) {
+                                return new EntryVisitor(
+                                        visitor, applied, 0, InputPathElisionBridge.CURSOR_PROPERTY, BIPREDICATE, true);
+                            }
+                            return visitor;
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
+            if (!applied[0]) {
+                return null;
+            }
+            return ReviewedMethodShape.read(
+                    writer.toByteArray(),
+                    InputPathElisionTarget.OWNER,
+                    InputPathElisionTarget.CURSOR_METHOD,
+                    InputPathElisionTarget.CURSOR_DESCRIPTOR);
+        } catch (final Exception | LinkageError rejected) {
+            return null;
+        }
+    }
+
     @Override
     public byte[] transform(
             final Module module,

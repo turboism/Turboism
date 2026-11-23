@@ -569,13 +569,13 @@ public final class OptimizationCatalog {
             "settings.optimization.triangulation-spatial-index.tooltip",
             List.of());
 
-    /** Speeds up edit-mode warp deformer transforms, overlays, bezier grids, and deform brush loops. */
+    /** Speeds up edit-mode warp deformer transforms, overlays, bezier grids, deform brush loops, and drag responsiveness. */
     public static final Optimization WARP_DEFORM_EDIT_ACCELERATION = new Optimization(
             "warpDeformEditAcceleration",
             "warp-deform-edit-acceleration",
             Optimization.Access.PERSISTED_LAUNCHER,
             List.of("turboism.optimization.warpDeformEditAcceleration"),
-            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION"),
+            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION", "TURBOISM_EDIT_DRAG_RESPONSIVENESS"),
             Set.of("cubism.deformer.warp-deform-edit-acceleration"),
             Optional.of(new Optimization.Placement("rendering", 85)),
             "settings.optimization.warp-deform-edit-acceleration",
