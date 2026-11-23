@@ -24,6 +24,8 @@ import dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationTa
 import dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.runtime.exec.RuntimeThreads;
+import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -31,6 +33,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
@@ -43,6 +46,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
@@ -56,6 +62,13 @@ class WarpDeformEditAccelerationTest {
 
     private static final String CLASS_EXTENSION = ".class";
     private static final String TEST_JAR_PROPERTY = "turboism.test.cubismEditorJar";
+    private static final long BOOTSTRAP_CHILD_TIMEOUT_SECONDS = 15L;
+    private static final String JAVA_HOME_PROPERTY = "java.home";
+    private static final String JAVA_BIN_DIR = "bin";
+    private static final String JAVA_EXECUTABLE = "java";
+    private static final String BOOTCLASSPATH_ARG_PREFIX = "-Xbootclasspath/a:";
+    private static final String CLASSPATH_FLAG = "-classpath";
+    private static final String JAVA_CLASS_PATH_PROPERTY = "java.class.path";
     private static final Path LOCAL_ARTIFACTS_ROOT = Path.of(System.getProperty("user.home"), "cubism-host-artifacts");
     private static final Path LOCAL_REF_5305 = Path.of(
             System.getProperty("user.home"),
@@ -125,6 +138,43 @@ class WarpDeformEditAccelerationTest {
         cache.clear();
         assertNull(cache.get(a));
         assertNull(cache.get(b));
+    }
+
+    @Test
+    void subtreeParallelExecutorHandlesNullAndBootstrapClassLoaders() throws Exception {
+        final ClassLoader fallbackLoader = RuntimeThreads.contextClassLoader(SubtreeParallelExecutor.class);
+        try (SubtreeParallelExecutor defaultExec = new SubtreeParallelExecutor();
+                SubtreeParallelExecutor nullExec = new SubtreeParallelExecutor(null);
+                URLClassLoader customLoader = new URLClassLoader(new URL[0], fallbackLoader);
+                SubtreeParallelExecutor customExec = new SubtreeParallelExecutor(customLoader)) {
+            BootstrapSubtreeExecutorChild.runAndVerify(defaultExec, fallbackLoader);
+            BootstrapSubtreeExecutorChild.runAndVerify(nullExec, fallbackLoader);
+            BootstrapSubtreeExecutorChild.runAndVerify(customExec, customLoader);
+        }
+
+        final String runtimeClasses = Path.of(SubtreeParallelExecutor.class
+                        .getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI())
+                .toString();
+        final String testClasses = Path.of(BootstrapSubtreeExecutorChild.class
+                        .getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI())
+                .toString();
+        final Process child = new ProcessBuilder(
+                        Path.of(System.getProperty(JAVA_HOME_PROPERTY), JAVA_BIN_DIR, JAVA_EXECUTABLE).toString(),
+                        BOOTCLASSPATH_ARG_PREFIX + runtimeClasses + File.pathSeparator + testClasses,
+                        CLASSPATH_FLAG,
+                        System.getProperty(JAVA_CLASS_PATH_PROPERTY),
+                        BootstrapSubtreeExecutorChild.class.getName())
+                .redirectErrorStream(true)
+                .start();
+        assertTrue(child.waitFor(BOOTSTRAP_CHILD_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        final String output = new String(child.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, child.exitValue(), output);
     }
 
     @Test
@@ -2031,6 +2081,56 @@ class WarpDeformEditAccelerationTest {
                 super.close();
             } finally {
                 hostJar.close();
+            }
+        }
+    }
+
+    /** Child-JVM fixture running SubtreeParallelExecutor from the bootstrap loader. */
+    public static final class BootstrapSubtreeExecutorChild {
+
+        private static final int BATCH_ITEMS = 64;
+        private static final String WORKER_PREFIX = "turboism-deform-worker-";
+
+        private BootstrapSubtreeExecutorChild() {}
+
+        /** Verifies no-arg and explicit host-loader construction when bootstrap-loaded. */
+        public static void main(final String[] ignored) throws Exception {
+            if (SubtreeParallelExecutor.class.getClassLoader() != null) {
+                throw new AssertionError("SubtreeParallelExecutor did not load on bootstrap");
+            }
+            final ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
+            try (SubtreeParallelExecutor exec = new SubtreeParallelExecutor()) {
+                runAndVerify(exec, systemLoader);
+            }
+            try (URLClassLoader hostLoader = new URLClassLoader(new URL[0], systemLoader);
+                    SubtreeParallelExecutor exec = new SubtreeParallelExecutor(hostLoader)) {
+                runAndVerify(exec, hostLoader);
+            }
+        }
+
+        static void runAndVerify(
+                final SubtreeParallelExecutor exec, final ClassLoader expectedWorkerLoader) {
+            final AtomicIntegerArray hits = new AtomicIntegerArray(BATCH_ITEMS);
+            final AtomicReference<Throwable> mismatch = new AtomicReference<>();
+            exec.executeBatch(BATCH_ITEMS, SubtreeParallelExecutor.MIN_PARALLEL_MESHES, index -> {
+                final Thread current = Thread.currentThread();
+                if (current.getName().startsWith(WORKER_PREFIX)
+                        && (current.getContextClassLoader() == null
+                                || current.getContextClassLoader() != expectedWorkerLoader)) {
+                    mismatch.compareAndSet(
+                            null,
+                            new AssertionError(
+                                    "worker inherited wrong context loader: " + current.getContextClassLoader()));
+                }
+                hits.incrementAndGet(index);
+            });
+            if (mismatch.get() != null) {
+                throw new AssertionError("worker verification failed", mismatch.get());
+            }
+            for (int i = 0; i < BATCH_ITEMS; i++) {
+                if (hits.get(i) != 1) {
+                    throw new AssertionError("missing execution for index " + i);
+                }
             }
         }
     }

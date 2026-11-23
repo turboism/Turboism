@@ -274,6 +274,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final WeakIdentityCache<Object, LineOverlayState> lineCache = new WeakIdentityCache<>();
     private final WeakIdentityCache<Object, FloatArraySnapshot> selectedBufferCache = new WeakIdentityCache<>();
     private final WeakIdentityCache<Object, WeightMapOverlayState> weightMapCache = new WeakIdentityCache<>();
+    private final ClassLoader hostLoader;
     private final SubtreeParallelExecutor parallelExecutor;
     private final EditSubtreeCoordinator editSubtreeCoordinator;
     private final EditOverlayElisionCoordinator editOverlayCoordinator;
@@ -317,7 +318,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when any required host class, field, or method is missing
      */
     public WarpDeformEditBridge(final ClassLoader loader) throws ReflectiveOperationException {
-        Objects.requireNonNull(loader, "loader");
+        this.hostLoader = Objects.requireNonNull(loader, "loader");
 
         warpFormClass = HostHandles.load(loader, WarpDeformEditTarget.WARP_FORM_OWNER);
         warpDeformerClass = HostHandles.load(loader, WarpDeformEditTarget.WARP_DEFORMER_OWNER);
@@ -597,7 +598,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             throw new ReflectiveOperationException("Failed reading host static constants", failure);
         }
 
-        final SubtreeParallelExecutor executor = new SubtreeParallelExecutor();
+        final SubtreeParallelExecutor executor = new SubtreeParallelExecutor(loader);
         try {
             final EditSubtreeHandles subtreeHandles = EditSubtreeHandles.resolve(loader);
             parallelExecutor = executor;
@@ -1768,8 +1769,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private MethodHandle meshRendererSetSortingLayerHandle() throws ReflectiveOperationException {
         MethodHandle handle = meshRendererSetSortingLayer;
         if (handle == null) {
-            final Class<?> rendererClass =
-                    HostHandles.load(warpFormClass.getClassLoader(), WarpDeformEditTarget.GMESH_RENDERER_OWNER);
+            final Class<?> rendererClass = HostHandles.load(hostLoader, WarpDeformEditTarget.GMESH_RENDERER_OWNER);
             handle = HostHandles.virtual(
                     rendererClass,
                     "setSortingLayer",
@@ -1783,8 +1783,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private MethodHandle meshRendererSetOrderInLayerHandle() throws ReflectiveOperationException {
         MethodHandle handle = meshRendererSetOrderInLayer;
         if (handle == null) {
-            final Class<?> rendererClass =
-                    HostHandles.load(warpFormClass.getClassLoader(), WarpDeformEditTarget.GMESH_RENDERER_OWNER);
+            final Class<?> rendererClass = HostHandles.load(hostLoader, WarpDeformEditTarget.GMESH_RENDERER_OWNER);
             handle = HostHandles.virtual(
                     rendererClass,
                     "setOrderInLayer",

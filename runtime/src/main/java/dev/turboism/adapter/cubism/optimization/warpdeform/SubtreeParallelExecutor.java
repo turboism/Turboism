@@ -26,15 +26,24 @@ final class SubtreeParallelExecutor implements AutoCloseable {
     private final int workerCount;
     private final ThreadPoolExecutor pool;
 
-    /** Creates a bounded daemon pool sized to host processor count up to eight workers. */
+    /** Creates a bounded daemon pool resolving context classes through the runtime loader fallback. */
     SubtreeParallelExecutor() {
+        this(null);
+    }
+
+    /** Creates a bounded daemon pool sized to host processor count up to eight workers. */
+    SubtreeParallelExecutor(final ClassLoader contextLoader) {
         final int cpus = Math.max(SINGLE_WORKER, Runtime.getRuntime().availableProcessors());
         this.workerCount = Math.min(cpus, MAX_WORKERS);
         if (this.workerCount <= SINGLE_WORKER) {
             this.pool = null;
         } else {
+            // Agent classes run on the bootstrap loader (null defining loader); resolve host/system fallback.
+            final ClassLoader effectiveLoader = contextLoader != null
+                    ? contextLoader
+                    : RuntimeThreads.contextClassLoader(SubtreeParallelExecutor.class);
             final ThreadFactory factory =
-                    RuntimeThreads.daemonThreads(WORKER_THREAD_PREFIX, SubtreeParallelExecutor.class.getClassLoader());
+                    RuntimeThreads.daemonThreads(WORKER_THREAD_PREFIX, effectiveLoader);
             this.pool = RuntimeThreads.fixedLane(workerCount, workerCount * QUEUE_MULTIPLIER, factory);
         }
     }
