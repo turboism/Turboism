@@ -11,14 +11,11 @@ import java.awt.PointerInfo;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.AWTEventListener;
-import java.awt.event.ComponentEvent;
-import java.awt.event.HierarchyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
@@ -54,15 +51,11 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
             | AWTEvent.MOUSE_MOTION_EVENT_MASK
             | AWTEvent.MOUSE_WHEEL_EVENT_MASK
             | AWTEvent.WINDOW_EVENT_MASK
-            | AWTEvent.WINDOW_STATE_EVENT_MASK
-            | AWTEvent.COMPONENT_EVENT_MASK
-            | AWTEvent.HIERARCHY_EVENT_MASK;
+            | AWTEvent.WINDOW_STATE_EVENT_MASK;
 
     private final BooleanSupplier dragActiveSupplier;
     private final boolean assumeListenerForTest;
     private final AtomicBoolean active = new AtomicBoolean();
-    private final Object boundsLock = new Object();
-    private final Map<Component, ContainerSnapshot> validatedBounds = new WeakHashMap<>();
     private final Predicate<Object> validateConsult = this::shouldUpdateCursorOnValidate;
     private final Predicate<Object> outsideConsult = this::isPointerOutsideContainer;
     private final Runnable dirtyCallback = this::markDirty;
@@ -119,9 +112,6 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
             cursorDirty = true;
             explicitCursorDirty = true;
             pointerDirty = true;
-            synchronized (boundsLock) {
-                validatedBounds.clear();
-            }
             active.set(true);
         }
         ensureEventListenerInstalled();
@@ -149,9 +139,6 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
                 properties.remove(DIRTY_PROPERTY, dirtyCallback);
                 properties.remove(STATS_PROPERTY, statistics);
             }
-        }
-        synchronized (boundsLock) {
-            validatedBounds.clear();
         }
     }
 
@@ -212,14 +199,6 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
             pointerDirty = true;
             return;
         }
-        if (event instanceof ComponentEvent || event instanceof HierarchyEvent) {
-            // Active canvas drags hold button capture; label/layout updates alone cannot switch tool cursors.
-            if (!isDragActiveSafely()) {
-                cursorDirty = true;
-            }
-            pointerDirty = true;
-            return;
-        }
         cursorDirty = true;
         explicitCursorDirty = true;
         pointerDirty = true;
@@ -249,8 +228,8 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
 
     private void markDirty() {
         dirtyMarks++;
+        // Native setCursor/show/hide already update cursor directly; defer validate flush until drag ends.
         cursorDirty = true;
-        explicitCursorDirty = true;
         pointerDirty = true;
     }
 
@@ -264,7 +243,7 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
         }
     }
 
-    private boolean shouldUpdateCursorOnValidate(final Object containerObj) {
+    private boolean shouldUpdateCursorOnValidate(final Object unusedContainer) {
         validateCalls++;
         if (!active.get()) {
             validatePassed++;
@@ -276,30 +255,18 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
                 validatePassed++;
                 return true;
             }
-            final Component validated = containerObj instanceof Component comp ? comp : null;
             if (explicitCursorDirty) {
                 explicitCursorDirty = false;
                 cursorDirty = false;
-                recordContainerSnapshot(validated);
                 validatePassed++;
                 return true;
             }
             if (isDragActiveSafely()) {
-                if (validated == null || didContainerStateChange(validated)) {
-                    cursorDirty = false;
-                    validatePassed++;
-                    return true;
-                }
                 validateElided++;
                 return false;
             }
             if (cursorDirty) {
                 cursorDirty = false;
-                recordContainerSnapshot(validated);
-                validatePassed++;
-                return true;
-            }
-            if (validated != null && didContainerStateChange(validated)) {
                 validatePassed++;
                 return true;
             }
@@ -310,46 +277,6 @@ public final class CursorValidationElisionBridge implements AutoCloseable {
             observerFailures++;
             validatePassed++;
             return true;
-        }
-    }
-
-    private void recordContainerSnapshot(final Component component) {
-        if (component == null) {
-            return;
-        }
-        final ContainerSnapshot current = captureSnapshot(component);
-        synchronized (boundsLock) {
-            validatedBounds.put(component, current);
-        }
-    }
-
-    private boolean didContainerStateChange(final Component component) {
-        final ContainerSnapshot current = captureSnapshot(component);
-        synchronized (boundsLock) {
-            final ContainerSnapshot prior = validatedBounds.put(component, current);
-            return prior == null || !prior.matches(current);
-        }
-    }
-
-    private static ContainerSnapshot captureSnapshot(final Component component) {
-        return new ContainerSnapshot(
-                component.getX(),
-                component.getY(),
-                component.getWidth(),
-                component.getHeight(),
-                component.isVisible(),
-                System.identityHashCode(component.getCursor()));
-    }
-
-    private record ContainerSnapshot(int x, int y, int width, int height, boolean visible, int cursorIdentityHash) {
-
-        boolean matches(final ContainerSnapshot other) {
-            return x == other.x
-                    && y == other.y
-                    && width == other.width
-                    && height == other.height
-                    && visible == other.visible
-                    && cursorIdentityHash == other.cursorIdentityHash;
         }
     }
 

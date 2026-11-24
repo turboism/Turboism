@@ -6,9 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.awt.Cursor;
 import java.awt.Panel;
-import java.awt.event.ComponentEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.net.URI;
@@ -235,42 +233,64 @@ final class CursorValidationElisionTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void activeDragElidesRedundantValidateUnlessBoundsOrCursorMutate() {
+    void activeDragElidesSiblingAndResizedContainerValidatesUntilDragEnds() {
         final AtomicBoolean dragging = new AtomicBoolean(false);
         try (CursorValidationElisionBridge bridge = new CursorValidationElisionBridge(dragging::get, true)) {
             bridge.install();
             final Predicate<Object> validate =
                     (Predicate<Object>) System.getProperties().get(CursorValidationElisionBridge.VALIDATE_PROPERTY);
             final Runnable dirty = (Runnable) System.getProperties().get(CursorValidationElisionBridge.DIRTY_PROPERTY);
-            final JPanel container = new JPanel();
-            container.setBounds(0, 0, 800, 600);
-            container.setVisible(true);
+            final JPanel canvas = new JPanel();
+            canvas.setBounds(0, 0, 800, 600);
+            canvas.setVisible(true);
 
-            // Initial press/validate clears startup dirtiness and records container bounds.
-            assertTrue(validate.test(container));
+            // Initial validate consumes startup dirtiness; repeated clean validate elides.
+            assertTrue(validate.test(canvas));
+            assertFalse(validate.test(canvas));
+
             dragging.set(true);
-
-            // MOUSE_DRAGGED and child layout invalidations during active canvas drag keep cursor clean.
             bridge.onAwtEventForTest(new MouseEvent(
-                    container, MouseEvent.MOUSE_DRAGGED, 10L, InputEvent.BUTTON1_DOWN_MASK, 120, 140, 1, false));
-            bridge.onAwtEventForTest(new ComponentEvent(container, ComponentEvent.COMPONENT_RESIZED));
-            assertFalse(validate.test(container), "unchanged container during active drag elides native cursor work");
+                    canvas,
+                    MouseEvent.MOUSE_PRESSED,
+                    5L,
+                    InputEvent.BUTTON1_DOWN_MASK,
+                    100,
+                    120,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
+            assertTrue(validate.test(canvas), "initial press passes once before active drag settles");
 
-            // Resizing the validated container itself forces cursor validation.
-            container.setBounds(0, 0, 820, 600);
-            assertTrue(validate.test(container), "container bounds change invalidates cached validation");
-            assertFalse(validate.test(container), "subsequent unchanged drag validate elides again");
-
-            // Explicit Component.setCursor / show / hide marks dirty and passes through.
-            container.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+            // MOUSE_DRAGGED, newly-seen sibling panels, resized inspector panels, and dirty callbacks elide during
+            // drag.
+            bridge.onAwtEventForTest(new MouseEvent(
+                    canvas, MouseEvent.MOUSE_DRAGGED, 10L, InputEvent.BUTTON1_DOWN_MASK, 120, 140, 1, false));
+            final JPanel newlyValidatedSibling = new JPanel();
+            newlyValidatedSibling.setBounds(810, 0, 220, 36);
+            assertFalse(validate.test(newlyValidatedSibling), "newly-seen sibling panel during drag must elide");
+            newlyValidatedSibling.setBounds(810, 0, 260, 44);
+            assertFalse(validate.test(newlyValidatedSibling), "resized inspector panel during drag must elide");
             dirty.run();
-            assertTrue(validate.test(container), "explicit setCursor mutation invalidates cleanly");
+            assertFalse(
+                    validate.test(newlyValidatedSibling),
+                    "dirty callback during active drag does not re-trigger validate");
 
-            // MOUSE_RELEASED marks explicit dirty so post-drag validation updates cursor cleanly.
+            // Ending drag flushes pending dirtiness, and non-drag dirty marks pass once then elide.
             dragging.set(false);
-            bridge.onAwtEventForTest(new MouseEvent(
-                    container, MouseEvent.MOUSE_RELEASED, 20L, 0, 120, 140, 1, false, MouseEvent.BUTTON1));
-            assertTrue(validate.test(container));
+            assertTrue(validate.test(canvas), "deferred dirtiness flushes cleanly once drag ends");
+            assertFalse(validate.test(newlyValidatedSibling), "clean sibling validate elides outside drag");
+
+            dirty.run();
+            assertTrue(validate.test(canvas), "non-drag cursor/visibility mutation updates once");
+            assertFalse(validate.test(newlyValidatedSibling));
+
+            // Explicit MOUSE_RELEASED forces immediate post-drag cursor validation even across drag state reset.
+            dragging.set(true);
+            bridge.onAwtEventForTest(
+                    new MouseEvent(canvas, MouseEvent.MOUSE_RELEASED, 20L, 0, 120, 140, 1, false, MouseEvent.BUTTON1));
+            dragging.set(false);
+            assertTrue(validate.test(canvas));
+            assertFalse(validate.test(newlyValidatedSibling));
         }
     }
 }
