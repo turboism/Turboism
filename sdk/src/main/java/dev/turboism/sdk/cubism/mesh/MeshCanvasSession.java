@@ -67,9 +67,8 @@ public interface MeshCanvasSession extends AutoCloseable {
     /**
      * Adds the given mesh-space layout to the active mesh as one transactional edit.
      *
-     * <p>The whole layout lands in the host's own Undo group, so exactly one Undo entry reverts it,
-     * and the added vertices become the native selection afterwards. This is the only authoring
-     * verb of the session: it never opens, saves or discards a document.</p>
+     * <p>One host Undo entry reverts the edit. The runtime selects the added vertices and may omit
+     * edges to preserve the existing mesh surface. This operation only edits the active mesh.</p>
      *
      * @param vertices mesh-space vertices, in the order the edge pairs index them
      * @param edgePairs undirected edge index pairs, flat {@code [u0, v0, u1, v1, ...]}

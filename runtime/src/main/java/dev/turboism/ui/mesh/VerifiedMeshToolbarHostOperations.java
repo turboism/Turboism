@@ -307,10 +307,8 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         resolver.invoke(ABSTRACT_BUTTON_SET_DISABLED_ICON, button, hostIcon(disabled));
         resolver.invoke(ABSTRACT_BUTTON_SET_DISABLED_SELECTED_ICON, button, hostIcon(disabledSelected));
         swingButton.setRolloverEnabled(true);
-        // The host container owns the only background; a per-button fill would paint a second
-        // box on top of the themed surface.
+        // FlatLaf needs the native content area to paint the selection highlight.
         swingButton.setOpaque(false);
-        swingButton.setContentAreaFilled(false);
         swingButton.setBorderPainted(false);
         swingButton.setFocusPainted(false);
         resolver.invoke(WIDGET_SET_NAME, button, nativeId);
