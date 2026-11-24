@@ -24,6 +24,15 @@ import java.util.List;
  * exist on every reviewed generation is contained instead of aborting the edit.
  */
 final class NativeMeshMirrorGeometryOps {
+    private static final boolean CHECK_LAYOUT_EDGE_CROSSINGS = true;
+    private static final String HOST_POSITIONS = "getGlPositions";
+    private static final String HOST_TRIANGLES = "getGlIndices$default";
+    private static final String HOST_REMOVE_EDGE = "removeEdge";
+    private static final int HOST_TRIANGLE_DEFAULTS = 3;
+    private static final int HOST_TRIANGLE_PARAMETER_COUNT = 5;
+    private static final String LAYOUT_COVERAGE_CHANGED = "geometric layout changes the existing mesh coverage";
+    private static final String LAYOUT_UNDO_UNAVAILABLE = "geometric layout requires a mesh undo group";
+
     // ------------------------------------------------------------------
     // Point and edge creation.
     // ------------------------------------------------------------------
@@ -98,6 +107,7 @@ final class NativeMeshMirrorGeometryOps {
         Object undoOwner = null;
         boolean started = false;
         try {
+            final MeshTriangleCoverage originalCoverage = triangleCoverage(editableMesh);
             Object actionPack = NativeMeshMirrorBridge.activeMeshActionPack();
             if (actionPack == null && completePack != null) {
                 actionPack = resolveActionPackFromCompletePack(completePack, editMode);
@@ -112,19 +122,12 @@ final class NativeMeshMirrorGeometryOps {
             }
             if (!started && editMode != null) {
                 final Object group = NativeMeshMirrorBridge.beginUndoGroup(editMode, label);
-                if (group != null) {
-                    undoOwner = editMode;
-                    started = true;
-                    snapshotMeshOnEditMode(editMode, editableMesh, label, group);
-                }
+                if (group == null) throw new IllegalStateException(LAYOUT_UNDO_UNAVAILABLE);
+                undoOwner = editMode;
+                started = true;
+                snapshotMeshOnEditMode(editMode, editableMesh, label, group);
             }
             final int count = pointsXY.length / 2;
-            removeCrossingInnerEdges(editableMesh, pointsXY, edgePairs);
-            try {
-                call(editableMesh, "clearAutoTriangulation", NO_PARAMS);
-            } catch (Throwable ignored) {
-                FatalErrors.rethrowIfFatal(ignored);
-            }
             final List<Integer> addedIds = new ArrayList<>(count);
             for (int index = 0; index < count; index++) {
                 final int id = addPoint(editableMesh, pointsXY[index * 2], pointsXY[index * 2 + 1]);
@@ -133,6 +136,7 @@ final class NativeMeshMirrorGeometryOps {
                 }
                 addedIds.add(id);
             }
+            final List<MeshEdgeRef> addedEdges = new ArrayList<>();
             for (int index = 0; index + 1 < edgePairs.length; index += 2) {
                 final int u = edgePairs[index];
                 final int v = edgePairs[index + 1];
@@ -142,13 +146,15 @@ final class NativeMeshMirrorGeometryOps {
                     if (startId != endId) {
                         final MeshEdgeRef edge =
                                 new MeshEdgeRef(startId, endId, dev.turboism.sdk.cubism.mesh.MeshEdgeKind.INNER);
-                        if (canAddEdge(editableMesh, edge)) {
-                            addEdge(editableMesh, edge);
+                        if (canAddEdge(editableMesh, edge)
+                                && addEdge(editableMesh, edge, CHECK_LAYOUT_EDGE_CROSSINGS)) {
+                            addedEdges.add(edge);
                         }
                     }
                 }
             }
             refreshTriangulationAndCaches(editMode, editableMesh);
+            preserveTriangleCoverage(editableMesh, originalCoverage, addedEdges);
             if (started && undoOwner != null) {
                 NativeMeshMirrorBridge.commitUndoGroup(undoOwner);
                 started = false;
@@ -230,95 +236,42 @@ final class NativeMeshMirrorGeometryOps {
         }
     }
 
-    private static void removeCrossingInnerEdges(
-            final Object editableMesh, final float[] pointsXY, final int[] edgePairs) {
-        try {
-            final Object rawPositions = call(editableMesh, "getGlPositions", NO_PARAMS);
-            if (!(rawPositions instanceof float[] existingXY) || existingXY.length < 4) return;
-            final int pointCount = existingXY.length / 2;
-            final int newPointCount = pointsXY.length / 2;
-            final List<int[]> toRemove = new ArrayList<>();
-            for (Object edge : edges(editableMesh)) {
-                final Object type = call(edge, "getType", NO_PARAMS);
-                if (type instanceof Enum<?> e && "LOCKED".equals(e.name())) {
-                    continue;
-                }
-                final Object first = call(edge, "getIndex1", NO_PARAMS);
-                final Object second = call(edge, "getIndex2", NO_PARAMS);
-                if (!(first instanceof Number s) || !(second instanceof Number t)) continue;
-                final int i1 = s.intValue();
-                final int i2 = t.intValue();
-                if (i1 < 0 || i1 >= pointCount || i2 < 0 || i2 >= pointCount) continue;
-                final float p1x = existingXY[i1 * 2];
-                final float p1y = existingXY[i1 * 2 + 1];
-                final float p2x = existingXY[i2 * 2];
-                final float p2y = existingXY[i2 * 2 + 1];
-                boolean crosses = false;
-                for (int k = 0; k + 1 < edgePairs.length; k += 2) {
-                    final int u = edgePairs[k];
-                    final int v = edgePairs[k + 1];
-                    if (u < 0 || u >= newPointCount || v < 0 || v >= newPointCount) continue;
-                    final float q1x = pointsXY[u * 2];
-                    final float q1y = pointsXY[u * 2 + 1];
-                    final float q2x = pointsXY[v * 2];
-                    final float q2y = pointsXY[v * 2 + 1];
-                    if (segmentsIntersect(p1x, p1y, p2x, p2y, q1x, q1y, q2x, q2y)) {
-                        crosses = true;
-                        break;
-                    }
-                }
-                if (crosses) {
-                    toRemove.add(new int[] {i1, i2});
-                }
+    /** Keeps the points when the host cannot triangulate their new edges within the existing surface. */
+    private static void preserveTriangleCoverage(
+            final Object mesh, final MeshTriangleCoverage original, final List<MeshEdgeRef> addedEdges)
+            throws ReflectiveOperationException {
+        if (original == null || original.isEmpty() || original.matches(triangleCoverage(mesh))) return;
+        if (!addedEdges.isEmpty()) {
+            for (MeshEdgeRef edge : addedEdges) {
+                invoke(mesh, HOST_REMOVE_EDGE, edge.startPointId(), edge.endPointId());
             }
-            if (!toRemove.isEmpty()) {
-                final Method removeEdge = declaredMethod(editableMesh.getClass(), "removeEdge", int.class, int.class);
-                if (removeEdge != null) {
-                    for (int[] pair : toRemove) {
-                        try {
-                            removeEdge.invoke(editableMesh, pair[0], pair[1]);
-                        } catch (ReflectiveOperationException | RuntimeException ignored) {
-                        }
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
+            if (original.matches(triangleCoverage(mesh))) return;
         }
+        throw new IllegalStateException(LAYOUT_COVERAGE_CHANGED);
     }
 
-    static boolean segmentsIntersect(
-            final float ax,
-            final float ay,
-            final float bx,
-            final float by,
-            final float cx,
-            final float cy,
-            final float dx,
-            final float dy) {
-        final float d1 = cross(cx, cy, dx, dy, ax, ay);
-        final float d2 = cross(cx, cy, dx, dy, bx, by);
-        final float d3 = cross(ax, ay, bx, by, cx, cy);
-        final float d4 = cross(ax, ay, bx, by, dx, dy);
-        return ((d1 > 0.0f && d2 < 0.0f) || (d1 < 0.0f && d2 > 0.0f))
-                && ((d3 > 0.0f && d4 < 0.0f) || (d3 < 0.0f && d4 > 0.0f));
+    private static MeshTriangleCoverage triangleCoverage(final Object mesh) throws ReflectiveOperationException {
+        final int[] triangles = meshTriangles(mesh);
+        if (triangles == null) return null;
+        final float[] positions = (float[]) call(mesh, HOST_POSITIONS, NO_PARAMS);
+        return MeshTriangleCoverage.of(positions, triangles);
     }
 
-    private static float cross(
-            final float ax, final float ay, final float bx, final float by, final float cx, final float cy) {
-        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    private static int[] meshTriangles(final Object mesh) throws ReflectiveOperationException {
+        for (Method method :
+                MethodHandleCache.overloads(mesh.getClass(), HOST_TRIANGLES, HOST_TRIANGLE_PARAMETER_COUNT)) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                return (int[]) method.invoke(null, mesh, null, false, HOST_TRIANGLE_DEFAULTS, null);
+            }
+        }
+        return null;
     }
 
     private static void refreshTriangulationAndCaches(final Object editMode, final Object editableMesh) {
         try {
             call(editableMesh, "setUpdated", NO_PARAMS);
-            call(editableMesh, "getGlPositions", NO_PARAMS);
-            for (Method method : MethodHandleCache.overloads(editableMesh.getClass(), "getGlIndices$default", 5)) {
-                if (Modifier.isStatic(method.getModifiers())) {
-                    method.invoke(null, editableMesh, null, false, 3, null);
-                    break;
-                }
-            }
+            call(editableMesh, HOST_POSITIONS, NO_PARAMS);
+            meshTriangles(editableMesh);
             call(editableMesh, "getLockedEdges", NO_PARAMS);
             call(editableMesh, "getNormalEdges", NO_PARAMS);
             call(editableMesh, "getUserTriangulationEdges", NO_PARAMS);
@@ -386,12 +339,20 @@ final class NativeMeshMirrorGeometryOps {
     }
 
     static void addEdge(final Object mesh, final MeshEdgeRef edge) throws ReflectiveOperationException {
+        addEdge(mesh, edge, false);
+    }
+
+    private static boolean addEdge(final Object mesh, final MeshEdgeRef edge, final boolean checkCrossings)
+            throws ReflectiveOperationException {
         final Method method = addEdgeMethod(mesh, edge);
         if (method == null) throw new NoSuchMethodException("mesh edge addition");
         final Object type = edgeType(method, edge);
         final int before = edgeCount(mesh);
-        method.invoke(mesh, edge.startPointId(), edge.endPointId(), type, false, false);
-        if (edgeCount(mesh) != before + 1) throw new IllegalStateException("host added no edge");
+        final Object result = method.invoke(mesh, edge.startPointId(), edge.endPointId(), type, false, checkCrossings);
+        final int after = edgeCount(mesh);
+        if (checkCrossings && result == null && after == before) return false;
+        if (after != before + 1) throw new IllegalStateException("host added no edge");
+        return true;
     }
 
     private static Method addEdgeMethod(final Object mesh, final MeshEdgeRef edge) {
