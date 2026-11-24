@@ -1,9 +1,10 @@
 package dev.turboism.plugin.turbomesh.domain.regions;
 
 import dev.turboism.plugin.turbomesh.domain.features.MeshFeatureAnalyzer;
+import java.util.ArrayDeque;
 
 /**
- * Cropped texture raster with the alpha silhouette and perceptual colour planes.
+ * Cropped texture raster with alpha silhouette, optional bleed domain, and perceptual colour planes.
  *
  * <p>Transparent border pixels inherit the colour of the nearest opaque pixel. Without that
  * substitution the black transparent area would dominate every colour comparison along the
@@ -14,6 +15,15 @@ final class RegionRaster {
     /** Alpha value from which a pixel counts as solid material. */
     static final int ALPHA_SOLID = 128;
 
+    /** Alpha value from which an anti-aliased edge pixel counts as visible artwork. */
+    static final int ALPHA_VISIBLE = 16;
+
+    /** Minimum transparent core radius preserved inside interior alpha holes during bleed expansion. */
+    static final double MIN_HOLE_CORE_PX = 2.0;
+
+    /** Minimum image edge size above which bleed leaves the outer 1-pixel frame untouched. */
+    private static final int SAFE_FRAME_MIN_EXTENT = 3;
+
     /** Alpha value from which a pixel counts as a colour source for the border fill. */
     static final int ALPHA_OPAQUE = 250;
 
@@ -21,16 +31,16 @@ final class RegionRaster {
     static final int CROP_MARGIN_PX = 4;
 
     /** Percentile of the 4-neighbour CIELAB steps that fixes the automatic contrast. */
-    static final double AUTO_CONTRAST_PERCENTILE = 0.75;
+    static final double AUTO_CONTRAST_PERCENTILE = 0.65;
 
     /** Gain that turns the background step into a region merge threshold. */
-    static final double AUTO_CONTRAST_GAIN = 2.0;
+    static final double AUTO_CONTRAST_GAIN = 1.6;
 
-    /** Lowest automatic contrast; it keeps dark, low-contrast layers separated. */
-    static final double AUTO_CONTRAST_FLOOR = 3.5;
+    /** Lowest automatic contrast; keeps dark, low-contrast layers separated. */
+    static final double AUTO_CONTRAST_FLOOR = 3.0;
 
-    /** Highest automatic contrast; it keeps a shaded layer from shredding its soft ramps. */
-    static final double AUTO_CONTRAST_CEILING = 12.0;
+    /** Highest automatic contrast; keeps a shaded layer from shredding its soft ramps. */
+    static final double AUTO_CONTRAST_CEILING = 8.5;
 
     /** Bin width of the CIELAB step histogram, in CIELAB units. */
     private static final double AUTO_CONTRAST_BIN = 0.25;
@@ -47,6 +57,7 @@ final class RegionRaster {
     private final int originY;
     private final double silhouetteSpan;
     private final boolean[] mask;
+    private final boolean[] domainMask;
     private final float[] rgb;
     private final float[] lab;
 
@@ -57,6 +68,7 @@ final class RegionRaster {
             final int originY,
             final double silhouetteSpan,
             final boolean[] mask,
+            final boolean[] domainMask,
             final float[] rgb,
             final float[] lab) {
         this.width = width;
@@ -65,17 +77,92 @@ final class RegionRaster {
         this.originY = originY;
         this.silhouetteSpan = silhouetteSpan;
         this.mask = mask;
+        this.domainMask = domainMask;
         this.rgb = rgb;
         this.lab = lab;
     }
 
     /**
-     * Crops an ARGB image to the solid alpha area plus a small margin.
+     * Measures the longest bounding-box extent of solid pixels without cropping the raster.
+     *
+     * @param argb non-premultiplied ARGB pixels, row-major
+     * @param width image width in pixels
+     * @param height image height in pixels
+     * @return longest solid bounding-box span in pixels
+     * @throws IllegalArgumentException when the image holds no pixel above {@link #ALPHA_SOLID}
+     */
+    static double silhouetteSpan(final int[] argb, final int width, final int height) {
+        final int[] bounds = solidBounds(argb, width, height);
+        return Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]);
+    }
+
+    /**
+     * Crops an ARGB image to the solid alpha area without bleed expansion.
      *
      * @param argb non-premultiplied ARGB pixels, row-major
      * @throws IllegalArgumentException when the image holds no pixel above {@link #ALPHA_SOLID}
      */
     static RegionRaster cropped(final int[] argb, final int width, final int height) {
+        return cropped(argb, width, height, 0.0);
+    }
+
+    /**
+     * Crops an ARGB image to the solid alpha area plus bleed and safety margin.
+     *
+     * @param argb non-premultiplied ARGB pixels, row-major
+     * @param width image width in pixels
+     * @param height image height in pixels
+     * @param bleedMarginPx transparent bleed expansion outside visible artwork, in pixels
+     * @return cropped raster holding painted and bleed-expanded masks
+     * @throws IllegalArgumentException when the image holds no pixel above {@link #ALPHA_SOLID}
+     */
+    static RegionRaster cropped(final int[] argb, final int width, final int height, final double bleedMarginPx) {
+        final int[] bounds = solidBounds(argb, width, height);
+        final int minX = bounds[0];
+        final int minY = bounds[1];
+        final int maxX = bounds[2];
+        final int maxY = bounds[3];
+        final double effectiveBleed = Math.max(0.0, bleedMarginPx);
+        final int pad = (int) Math.ceil(effectiveBleed) + CROP_MARGIN_PX;
+        final int originX = Math.max(0, minX - pad);
+        final int originY = Math.max(0, minY - pad);
+        final int cropWidth = Math.min(width - 1, maxX + pad) - originX + 1;
+        final int cropHeight = Math.min(height - 1, maxY + pad) - originY + 1;
+        final int[] croppedPixels = new int[cropWidth * cropHeight];
+        for (int y = 0; y < cropHeight; y++) {
+            System.arraycopy(argb, (originY + y) * width + originX, croppedPixels, y * cropWidth, cropWidth);
+        }
+        final boolean[] solidMask = new boolean[cropWidth * cropHeight];
+        final boolean[] visibleMask = new boolean[cropWidth * cropHeight];
+        for (int i = 0; i < solidMask.length; i++) {
+            final int a = alpha(croppedPixels[i]);
+            solidMask[i] = a >= ALPHA_SOLID;
+            visibleMask[i] = a >= ALPHA_VISIBLE;
+        }
+        final boolean[] domainMask = effectiveBleed <= 0.0
+                ? solidMask.clone()
+                : buildBleedDomain(visibleMask, cropWidth, cropHeight, originX, originY, width, height, effectiveBleed);
+        final float[] rgb = filledColour(croppedPixels, cropWidth, cropHeight);
+        final float[] lab = new float[rgb.length];
+        for (int i = 0; i < solidMask.length; i++) {
+            final float[] value = MeshFeatureAnalyzer.srgbToLab(rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2]);
+            lab[3 * i] = value[0];
+            lab[3 * i + 1] = value[1];
+            lab[3 * i + 2] = value[2];
+        }
+        return new RegionRaster(
+                cropWidth,
+                cropHeight,
+                originX,
+                originY,
+                Math.max(maxX - minX, maxY - minY),
+                solidMask,
+                domainMask,
+                rgb,
+                lab);
+    }
+
+    private static int[] solidBounds(final int[] argb, final int width, final int height) {
         if (argb.length != width * height) {
             throw new IllegalArgumentException(
                     "argb must hold " + (width * height) + " pixels but held " + argb.length);
@@ -97,28 +184,144 @@ final class RegionRaster {
         if (maxX < minX) {
             throw new IllegalArgumentException("image has no pixel with alpha >= " + ALPHA_SOLID);
         }
-        final int originX = Math.max(0, minX - CROP_MARGIN_PX);
-        final int originY = Math.max(0, minY - CROP_MARGIN_PX);
-        final int cropWidth = Math.min(width - 1, maxX + CROP_MARGIN_PX) - originX + 1;
-        final int cropHeight = Math.min(height - 1, maxY + CROP_MARGIN_PX) - originY + 1;
-        final int[] croppedPixels = new int[cropWidth * cropHeight];
+        return new int[] {minX, minY, maxX, maxY};
+    }
+
+    /**
+     * Expands the visible silhouette into transparent bleed while keeping interior alpha holes open.
+     *
+     * <p>Exterior transparent pixels dilate up to {@code bleedMarginPx}. Interior holes cap their
+     * inward bleed below their maximum inscribed radius so small holes never collapse shut. The
+     * outer 1-pixel frame of the source image stays unexpanded so pixel-corner UVs stay in bounds.</p>
+     */
+    private static boolean[] buildBleedDomain(
+            final boolean[] visibleMask,
+            final int cropWidth,
+            final int cropHeight,
+            final int originX,
+            final int originY,
+            final int imageWidth,
+            final int imageHeight,
+            final double bleedMarginPx) {
+        final int cells = cropWidth * cropHeight;
+        final double[] distance = EuclideanDistanceTransform.distanceFromMask(visibleMask, cropWidth, cropHeight);
+        final boolean[] exterior = new boolean[cells];
+        final ArrayDeque<Integer> queue = new ArrayDeque<>();
+        for (int x = 0; x < cropWidth; x++) {
+            seedExterior(visibleMask, exterior, queue, x, 0, cropWidth);
+            seedExterior(visibleMask, exterior, queue, x, cropHeight - 1, cropWidth);
+        }
         for (int y = 0; y < cropHeight; y++) {
-            System.arraycopy(argb, (originY + y) * width + originX, croppedPixels, y * cropWidth, cropWidth);
+            seedExterior(visibleMask, exterior, queue, 0, y, cropWidth);
+            seedExterior(visibleMask, exterior, queue, cropWidth - 1, y, cropWidth);
         }
-        final boolean[] mask = new boolean[cropWidth * cropHeight];
-        for (int i = 0; i < mask.length; i++) {
-            mask[i] = alpha(croppedPixels[i]) >= ALPHA_SOLID;
+        floodExterior(visibleMask, exterior, queue, cropWidth, cropHeight);
+
+        final int[] holeIds = new int[cells];
+        int holeCount = 0;
+        for (int start = 0; start < cells; start++) {
+            if (visibleMask[start] || exterior[start] || holeIds[start] != 0) {
+                continue;
+            }
+            holeCount++;
+            holeIds[start] = holeCount;
+            queue.add(start);
+            while (!queue.isEmpty()) {
+                final int cell = queue.poll();
+                final int x = cell % cropWidth;
+                final int y = cell / cropWidth;
+                if (x > 0) visitHole(visibleMask, exterior, holeIds, queue, cell - 1, holeCount);
+                if (x + 1 < cropWidth) visitHole(visibleMask, exterior, holeIds, queue, cell + 1, holeCount);
+                if (y > 0) visitHole(visibleMask, exterior, holeIds, queue, cell - cropWidth, holeCount);
+                if (y + 1 < cropHeight) visitHole(visibleMask, exterior, holeIds, queue, cell + cropWidth, holeCount);
+            }
         }
-        final float[] rgb = filledColour(croppedPixels, cropWidth, cropHeight);
-        final float[] lab = new float[rgb.length];
-        for (int i = 0; i < mask.length; i++) {
-            final float[] value = MeshFeatureAnalyzer.srgbToLab(rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2]);
-            lab[3 * i] = value[0];
-            lab[3 * i + 1] = value[1];
-            lab[3 * i + 2] = value[2];
+        final double[] holePeak = new double[holeCount + 1];
+        for (int i = 0; i < cells; i++) {
+            final int id = holeIds[i];
+            if (id > 0) {
+                holePeak[id] = Math.max(holePeak[id], distance[i]);
+            }
         }
-        return new RegionRaster(
-                cropWidth, cropHeight, originX, originY, Math.max(maxX - minX, maxY - minY), mask, rgb, lab);
+
+        final boolean[] domain = visibleMask.clone();
+        final boolean clampFrameX = imageWidth >= SAFE_FRAME_MIN_EXTENT;
+        final boolean clampFrameY = imageHeight >= SAFE_FRAME_MIN_EXTENT;
+        for (int y = 0; y < cropHeight; y++) {
+            final int srcY = originY + y;
+            final boolean onFrameY = clampFrameY && (srcY == 0 || srcY == imageHeight - 1);
+            for (int x = 0; x < cropWidth; x++) {
+                final int cell = y * cropWidth + x;
+                if (visibleMask[cell]) {
+                    continue;
+                }
+                final int srcX = originX + x;
+                final boolean onFrameX = clampFrameX && (srcX == 0 || srcX == imageWidth - 1);
+                if (onFrameX || onFrameY) {
+                    continue;
+                }
+                if (exterior[cell]) {
+                    domain[cell] = distance[cell] <= bleedMarginPx;
+                } else {
+                    final double holeBleed =
+                            Math.min(bleedMarginPx, Math.max(0.0, holePeak[holeIds[cell]] - MIN_HOLE_CORE_PX));
+                    domain[cell] = distance[cell] <= holeBleed;
+                }
+            }
+        }
+        return domain;
+    }
+
+    private static void seedExterior(
+            final boolean[] visibleMask,
+            final boolean[] exterior,
+            final ArrayDeque<Integer> queue,
+            final int x,
+            final int y,
+            final int width) {
+        final int cell = y * width + x;
+        if (!visibleMask[cell] && !exterior[cell]) {
+            exterior[cell] = true;
+            queue.add(cell);
+        }
+    }
+
+    private static void floodExterior(
+            final boolean[] visibleMask,
+            final boolean[] exterior,
+            final ArrayDeque<Integer> queue,
+            final int width,
+            final int height) {
+        while (!queue.isEmpty()) {
+            final int cell = queue.poll();
+            final int x = cell % width;
+            final int y = cell / width;
+            if (x > 0) visitExterior(visibleMask, exterior, queue, cell - 1);
+            if (x + 1 < width) visitExterior(visibleMask, exterior, queue, cell + 1);
+            if (y > 0) visitExterior(visibleMask, exterior, queue, cell - width);
+            if (y + 1 < height) visitExterior(visibleMask, exterior, queue, cell + width);
+        }
+    }
+
+    private static void visitExterior(
+            final boolean[] visibleMask, final boolean[] exterior, final ArrayDeque<Integer> queue, final int cell) {
+        if (!visibleMask[cell] && !exterior[cell]) {
+            exterior[cell] = true;
+            queue.add(cell);
+        }
+    }
+
+    private static void visitHole(
+            final boolean[] visibleMask,
+            final boolean[] exterior,
+            final int[] holeIds,
+            final ArrayDeque<Integer> queue,
+            final int cell,
+            final int id) {
+        if (!visibleMask[cell] && !exterior[cell] && holeIds[cell] == 0) {
+            holeIds[cell] = id;
+            queue.add(cell);
+        }
     }
 
     int width() {
@@ -142,8 +345,14 @@ final class RegionRaster {
         return silhouetteSpan;
     }
 
+    /** Painted solid pixels above {@link #ALPHA_SOLID}. */
     boolean[] mask() {
         return mask;
+    }
+
+    /** Bleed-expanded domain mask including visible anti-aliased fringes and bleed margin. */
+    boolean[] domainMask() {
+        return domainMask;
     }
 
     float[] rgb() {
@@ -165,7 +374,7 @@ final class RegionRaster {
     }
 
     /**
-     * Automatic contrast: the 75th percentile of the 4-neighbour CIELAB step, doubled.
+     * Automatic contrast: the 65th percentile of the 4-neighbour CIELAB step, scaled.
      *
      * <p>A fixed threshold cannot serve a dark, low-contrast layer and a shaded one at the same
      * time. The percentile of the local step follows the artwork: a soft airbrush ramp stays near

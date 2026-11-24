@@ -63,12 +63,19 @@ class TurboMeshAlgorithmTest {
         assertEquals(RegionAlgorithm.ID, algorithm.id());
         assertEquals(
                 Set.of(
-                        "minRegionRatio", "autoMinRegionRatio",
-                        "contrast", "autoContrast",
-                        "level", "trackCount",
-                        "maxSpacing", "autoMaxSpacing",
-                        "simplifyTolerance", "autoSimplifyTolerance",
-                        "minSpacing", "autoMinSpacing"),
+                        "minRegionRatio",
+                        "autoMinRegionRatio",
+                        "contrast",
+                        "autoContrast",
+                        "level",
+                        "bleedMargin",
+                        "autoBleedMargin",
+                        "maxSpacing",
+                        "autoMaxSpacing",
+                        "simplifyTolerance",
+                        "autoSimplifyTolerance",
+                        "minSpacing",
+                        "autoMinSpacing"),
                 parameterIds(algorithm));
         assertPresetValuesAreCanonical(algorithm);
         assertEquals(
@@ -87,12 +94,15 @@ class TurboMeshAlgorithmTest {
 
         final AlgorithmPreset hardSurface = presets.get("turbo-mesh.algorithm.region.preset.hard-surface");
         assertEquals("false", hardSurface.values().get("autoMaxSpacing"));
-        assertEquals("32", hardSurface.values().get("maxSpacing"));
-        assertEquals("3", hardSurface.values().get("trackCount"));
+        assertEquals("30", hardSurface.values().get("maxSpacing"));
+        assertEquals("false", hardSurface.values().get("autoBleedMargin"));
+        assertEquals("5", hardSurface.values().get("bleedMargin"));
 
         final AlgorithmPreset sparse = presets.get("turbo-mesh.algorithm.region.preset.sparse");
         assertEquals("true", sparse.values().get("autoMaxSpacing"));
         assertFalse(sparse.values().containsKey("maxSpacing"), "an automatic value carries no number");
+        assertEquals("true", sparse.values().get("autoBleedMargin"));
+        assertFalse(sparse.values().containsKey("bleedMargin"), "an automatic value carries no number");
     }
 
     @Test
@@ -101,7 +111,7 @@ class TurboMeshAlgorithmTest {
 
         assertEquals(AdaptiveAlgorithm.ID, algorithm.id());
         assertEquals(
-                Set.of("density", "maxBoundarySpacing", "interiorSpacing", "minSpacing", "maxPoints"),
+                Set.of("density", "maxBoundarySpacing", "interiorSpacing", "minSpacing", "bleedMargin", "maxPoints"),
                 parameterIds(algorithm));
         assertPresetValuesAreCanonical(algorithm);
         assertEquals(4, algorithm.presets().size(), "one preset per density");
@@ -167,6 +177,72 @@ class TurboMeshAlgorithmTest {
         final AutoMeshResult.Success success = assertInstanceOf(AutoMeshResult.Success.class, result);
         assertFalse(success.geometry().triangleIndices().isEmpty(), "the plan must contain triangles");
         assertNoDegenerateTriangle(success.geometry());
+    }
+
+    @Test
+    void adaptivePresetsProduceDistinctMeshesAndScaleDensity() throws IOException, AutoMeshComputeException {
+        final TexturePixels texture = sampleTexture();
+        final AutoMeshAlgorithm algorithm = AdaptiveAlgorithm.create(LOCALIZATION);
+        final Map<String, Integer> vertexCounts = new HashMap<>();
+        final Map<String, List<Point2>> uvsByPreset = new HashMap<>();
+        for (final AlgorithmPreset preset : algorithm.presets()) {
+            final AutoMeshResult result =
+                    algorithm.compute().compute(request(Optional.of(texture), preset.values()), activeToken());
+            final AutoMeshResult.Success success = assertInstanceOf(AutoMeshResult.Success.class, result);
+            assertNoDegenerateTriangle(success.geometry());
+            vertexCounts.put(preset.name(), success.geometry().uvs().size());
+            uvsByPreset.put(preset.name(), success.geometry().uvs());
+        }
+        final int stripCount = vertexCounts.get("turbo-mesh.algorithm.adaptive.preset.soft-strip");
+        final int rigidCount = vertexCounts.get("turbo-mesh.algorithm.adaptive.preset.rigid-geometry");
+        assertTrue(
+                stripCount > rigidCount,
+                "soft-strip (" + stripCount + ") must place more vertices than rigid (" + rigidCount + ")");
+        assertTrue(
+                uvsByPreset.values().stream().distinct().count()
+                        == algorithm.presets().size(),
+                "every adaptive preset must yield a distinct mesh");
+    }
+
+    @Test
+    void regionAlgorithmBleedCoversVisibleEdgeWithinUvBounds() throws IOException, AutoMeshComputeException {
+        final TexturePixels texture = sampleTexture();
+        final AutoMeshAlgorithm algorithm = RegionAlgorithm.create(LOCALIZATION);
+        final AutoMeshResult noBleed = algorithm
+                .compute()
+                .compute(
+                        request(Optional.of(texture), Map.of("autoBleedMargin", "false", "bleedMargin", "0")),
+                        activeToken());
+        final AutoMeshResult withBleed = algorithm
+                .compute()
+                .compute(
+                        request(Optional.of(texture), Map.of("autoBleedMargin", "false", "bleedMargin", "6")),
+                        activeToken());
+        final AutoMeshResult.Success plainSuccess = assertInstanceOf(AutoMeshResult.Success.class, noBleed);
+        final AutoMeshResult.Success bleedSuccess = assertInstanceOf(AutoMeshResult.Success.class, withBleed);
+        for (final Point2 uv : bleedSuccess.geometry().uvs()) {
+            assertTrue(
+                    uv.x() >= -UV_TOLERANCE && uv.x() <= 1.0 + UV_TOLERANCE,
+                    "bleed uv x " + uv.x() + " must stay inside [0, 1]");
+            assertTrue(
+                    uv.y() >= -UV_TOLERANCE && uv.y() <= 1.0 + UV_TOLERANCE,
+                    "bleed uv y " + uv.y() + " must stay inside [0, 1]");
+        }
+        final double plainWidth = uvSpanX(plainSuccess.geometry().uvs());
+        final double bleedWidth = uvSpanX(bleedSuccess.geometry().uvs());
+        assertTrue(
+                bleedWidth > plainWidth,
+                "bleed mesh horizontal span (" + bleedWidth + ") must exceed zero-bleed span (" + plainWidth + ")");
+    }
+
+    private static double uvSpanX(final List<Point2> uvs) {
+        double min = Double.POSITIVE_INFINITY;
+        double max = Double.NEGATIVE_INFINITY;
+        for (final Point2 uv : uvs) {
+            min = Math.min(min, uv.x());
+            max = Math.max(max, uv.x());
+        }
+        return max - min;
     }
 
     private static Set<String> parameterIds(final AutoMeshAlgorithm algorithm) {

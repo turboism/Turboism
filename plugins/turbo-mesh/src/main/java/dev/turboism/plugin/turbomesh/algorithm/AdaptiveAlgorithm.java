@@ -48,6 +48,7 @@ public final class AdaptiveAlgorithm {
     static final String PARAMETER_MAX_BOUNDARY_SPACING = "maxBoundarySpacing";
     static final String PARAMETER_INTERIOR_SPACING = "interiorSpacing";
     static final String PARAMETER_MIN_SPACING = "minSpacing";
+    static final String PARAMETER_BLEED_MARGIN = "bleedMargin";
     static final String PARAMETER_MAX_POINTS = "maxPoints";
 
     /** Bounds and steps of the numeric controls; they mirror the planner's own limits. */
@@ -56,14 +57,32 @@ public final class AdaptiveAlgorithm {
     private static final double BOUNDARY_SPACING_MAX = 0.5;
     private static final double BOUNDARY_SPACING_STEP = 0.005;
     private static final int BOUNDARY_SPACING_DECIMALS = 3;
+    private static final double DEFAULT_MAX_BOUNDARY_SPACING = 0.06;
     private static final double INTERIOR_SPACING_MIN = 0.005;
     private static final double INTERIOR_SPACING_MAX = 1.0;
     private static final double INTERIOR_SPACING_STEP = 0.005;
     private static final int INTERIOR_SPACING_DECIMALS = 3;
+    private static final double DEFAULT_INTERIOR_SPACING = 0.10;
     private static final double MIN_SPACING_MIN = 0.001;
     private static final double MIN_SPACING_MAX = 0.1;
     private static final double MIN_SPACING_STEP = 0.001;
     private static final int MIN_SPACING_DECIMALS = 3;
+    private static final double DEFAULT_MIN_SPACING = 0.005;
+    private static final double BLEED_MARGIN_MIN = 0.0;
+    private static final double BLEED_MARGIN_MAX = 64.0;
+    private static final double BLEED_MARGIN_STEP = 0.5;
+    private static final int BLEED_MARGIN_DECIMALS = 1;
+    private static final double DEFAULT_BLEED_MARGIN = PlacementSettings.DEFAULT_BLEED_MARGIN_PX;
+    private static final double RIGID_BLEED_MARGIN = 5.0;
+    private static final double STRIP_BOUNDARY_SPACING = 0.045;
+    private static final double STRIP_INTERIOR_SPACING = 0.075;
+    private static final double STRIP_MIN_SPACING = 0.004;
+    private static final double SHEET_BOUNDARY_SPACING = 0.065;
+    private static final double SHEET_INTERIOR_SPACING = 0.095;
+    private static final double SHEET_MIN_SPACING = 0.006;
+    private static final double RIGID_BOUNDARY_SPACING = 0.09;
+    private static final double RIGID_INTERIOR_SPACING = 0.18;
+    private static final double RIGID_MIN_SPACING = 0.008;
     private static final int MAX_POINTS_MIN = 64;
     private static final int MAX_POINTS_MAX = 65536;
     private static final int MAX_POINTS_STEP = 64;
@@ -147,7 +166,7 @@ public final class AdaptiveAlgorithm {
                         BOUNDARY_SPACING_MAX,
                         BOUNDARY_SPACING_STEP,
                         BOUNDARY_SPACING_DECIMALS,
-                        defaults.maxBoundarySpacingUv()),
+                        DEFAULT_MAX_BOUNDARY_SPACING),
                 new AlgorithmParameterDescriptor.DoubleParameter(
                         PARAMETER_INTERIOR_SPACING,
                         localization.text(labelKey(PARAMETER_INTERIOR_SPACING)),
@@ -156,7 +175,7 @@ public final class AdaptiveAlgorithm {
                         INTERIOR_SPACING_MAX,
                         INTERIOR_SPACING_STEP,
                         INTERIOR_SPACING_DECIMALS,
-                        defaults.interiorSpacingUv()),
+                        DEFAULT_INTERIOR_SPACING),
                 new AlgorithmParameterDescriptor.DoubleParameter(
                         PARAMETER_MIN_SPACING,
                         localization.text(labelKey(PARAMETER_MIN_SPACING)),
@@ -165,7 +184,16 @@ public final class AdaptiveAlgorithm {
                         MIN_SPACING_MAX,
                         MIN_SPACING_STEP,
                         MIN_SPACING_DECIMALS,
-                        defaults.minSpacingUv()),
+                        DEFAULT_MIN_SPACING),
+                new AlgorithmParameterDescriptor.DoubleParameter(
+                        PARAMETER_BLEED_MARGIN,
+                        localization.text(labelKey(PARAMETER_BLEED_MARGIN)),
+                        localization.text(descriptionKey(PARAMETER_BLEED_MARGIN)),
+                        BLEED_MARGIN_MIN,
+                        BLEED_MARGIN_MAX,
+                        BLEED_MARGIN_STEP,
+                        BLEED_MARGIN_DECIMALS,
+                        DEFAULT_BLEED_MARGIN),
                 new AlgorithmParameterDescriptor.IntParameter(
                         PARAMETER_MAX_POINTS,
                         localization.text(labelKey(PARAMETER_MAX_POINTS)),
@@ -177,16 +205,51 @@ public final class AdaptiveAlgorithm {
     }
 
     /**
-     * Presets the native selector offers: one per density preset.
-     *
-     * <p>A preset carries only the density selection, because the weights behind each density are
-     * reviewed as a set inside {@link FeatureOptions} and must not be mixed across presets.</p>
+     * Presets the native selector offers: one per density preset with tailored spacing and bleed.
      */
     private static List<AlgorithmPreset> presets(final PluginLocalization localization) {
         final List<AlgorithmPreset> presets = new ArrayList<>(DensityPreset.values().length);
         for (final DensityPreset preset : DensityPreset.values()) {
             final LinkedHashMap<String, String> values = new LinkedHashMap<>();
             values.put(PARAMETER_DENSITY, preset.name());
+            switch (preset) {
+                case AUTO_BLEND -> {
+                    values.put(
+                            PARAMETER_MAX_BOUNDARY_SPACING,
+                            AlgorithmParameters.canonicalDecimal(DEFAULT_MAX_BOUNDARY_SPACING));
+                    values.put(
+                            PARAMETER_INTERIOR_SPACING, AlgorithmParameters.canonicalDecimal(DEFAULT_INTERIOR_SPACING));
+                    values.put(PARAMETER_MIN_SPACING, AlgorithmParameters.canonicalDecimal(DEFAULT_MIN_SPACING));
+                    values.put(PARAMETER_BLEED_MARGIN, AlgorithmParameters.canonicalDecimal(DEFAULT_BLEED_MARGIN));
+                }
+                case SOFT_STRIP -> {
+                    values.put(
+                            PARAMETER_MAX_BOUNDARY_SPACING,
+                            AlgorithmParameters.canonicalDecimal(STRIP_BOUNDARY_SPACING));
+                    values.put(
+                            PARAMETER_INTERIOR_SPACING, AlgorithmParameters.canonicalDecimal(STRIP_INTERIOR_SPACING));
+                    values.put(PARAMETER_MIN_SPACING, AlgorithmParameters.canonicalDecimal(STRIP_MIN_SPACING));
+                    values.put(PARAMETER_BLEED_MARGIN, AlgorithmParameters.canonicalDecimal(DEFAULT_BLEED_MARGIN));
+                }
+                case SOFT_SHEET -> {
+                    values.put(
+                            PARAMETER_MAX_BOUNDARY_SPACING,
+                            AlgorithmParameters.canonicalDecimal(SHEET_BOUNDARY_SPACING));
+                    values.put(
+                            PARAMETER_INTERIOR_SPACING, AlgorithmParameters.canonicalDecimal(SHEET_INTERIOR_SPACING));
+                    values.put(PARAMETER_MIN_SPACING, AlgorithmParameters.canonicalDecimal(SHEET_MIN_SPACING));
+                    values.put(PARAMETER_BLEED_MARGIN, AlgorithmParameters.canonicalDecimal(DEFAULT_BLEED_MARGIN));
+                }
+                case RIGID_GEOMETRY -> {
+                    values.put(
+                            PARAMETER_MAX_BOUNDARY_SPACING,
+                            AlgorithmParameters.canonicalDecimal(RIGID_BOUNDARY_SPACING));
+                    values.put(
+                            PARAMETER_INTERIOR_SPACING, AlgorithmParameters.canonicalDecimal(RIGID_INTERIOR_SPACING));
+                    values.put(PARAMETER_MIN_SPACING, AlgorithmParameters.canonicalDecimal(RIGID_MIN_SPACING));
+                    values.put(PARAMETER_BLEED_MARGIN, AlgorithmParameters.canonicalDecimal(RIGID_BLEED_MARGIN));
+                }
+            }
             presets.add(new AlgorithmPreset(localization.text(presetKey(preset)), values));
         }
         return presets;
@@ -198,11 +261,12 @@ public final class AdaptiveAlgorithm {
 
     private static PlacementSettings toSettings(final AlgorithmParameters values) {
         return PlacementSettings.defaults()
-                .withDensity(
+                .withDensityAndBleed(
                         values.decimal(PARAMETER_MAX_BOUNDARY_SPACING),
                         values.decimal(PARAMETER_INTERIOR_SPACING),
                         values.decimal(PARAMETER_MIN_SPACING),
-                        values.integer(PARAMETER_MAX_POINTS));
+                        values.integer(PARAMETER_MAX_POINTS),
+                        values.decimal(PARAMETER_BLEED_MARGIN));
     }
 
     /** Compute function of the adaptive algorithm; it only reads the request. */

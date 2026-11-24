@@ -64,7 +64,8 @@ public final class RegionAlgorithm {
     static final String PARAMETER_CONTRAST = "contrast";
     static final String PARAMETER_AUTO_CONTRAST = "autoContrast";
     static final String PARAMETER_LEVEL = "level";
-    static final String PARAMETER_TRACK_COUNT = "trackCount";
+    static final String PARAMETER_BLEED_MARGIN = "bleedMargin";
+    static final String PARAMETER_AUTO_BLEED_MARGIN = "autoBleedMargin";
     static final String PARAMETER_MAX_SPACING = "maxSpacing";
     static final String PARAMETER_AUTO_MAX_SPACING = "autoMaxSpacing";
     static final String PARAMETER_SIMPLIFY_TOLERANCE = "simplifyTolerance";
@@ -84,8 +85,10 @@ public final class RegionAlgorithm {
     private static final int CONTRAST_DECIMALS = 1;
     private static final int LEVEL_MIN = 1;
     private static final int LEVEL_MAX = RegionPlacementParams.LEVEL_COUNT;
-    private static final int TRACK_COUNT_MIN = 1;
-    private static final int TRACK_COUNT_MAX = RegionPlacementParams.MAX_TRACK_COUNT;
+    private static final double BLEED_MARGIN_MIN = 0.0;
+    private static final double BLEED_MARGIN_MAX = 64.0;
+    private static final double BLEED_MARGIN_STEP = 0.5;
+    private static final int BLEED_MARGIN_DECIMALS = 1;
     private static final int UNIT_STEP = 1;
     private static final double SPACING_MIN = 2.0;
     private static final double SPACING_MAX = 512.0;
@@ -177,14 +180,20 @@ public final class RegionAlgorithm {
                         LEVEL_MAX,
                         UNIT_STEP,
                         RegionPlacementParams.DEFAULT_LEVEL),
-                new AlgorithmParameterDescriptor.IntParameter(
-                        PARAMETER_TRACK_COUNT,
-                        localization.text(labelKey(PARAMETER_TRACK_COUNT)),
-                        localization.text(descriptionKey(PARAMETER_TRACK_COUNT)),
-                        TRACK_COUNT_MIN,
-                        TRACK_COUNT_MAX,
-                        UNIT_STEP,
-                        RegionPlacementParams.DEFAULT_TRACK_COUNT),
+                new AlgorithmParameterDescriptor.DoubleParameter(
+                        PARAMETER_BLEED_MARGIN,
+                        localization.text(labelKey(PARAMETER_BLEED_MARGIN)),
+                        localization.text(descriptionKey(PARAMETER_BLEED_MARGIN)),
+                        BLEED_MARGIN_MIN,
+                        BLEED_MARGIN_MAX,
+                        BLEED_MARGIN_STEP,
+                        BLEED_MARGIN_DECIMALS,
+                        RegionPlacementParams.DEFAULT_BLEED_MARGIN_PX),
+                new AlgorithmParameterDescriptor.BoolParameter(
+                        PARAMETER_AUTO_BLEED_MARGIN,
+                        localization.text(labelKey(PARAMETER_AUTO_BLEED_MARGIN)),
+                        localization.text(descriptionKey(PARAMETER_AUTO_BLEED_MARGIN)),
+                        true),
                 new AlgorithmParameterDescriptor.DoubleParameter(
                         PARAMETER_MAX_SPACING,
                         localization.text(labelKey(PARAMETER_MAX_SPACING)),
@@ -248,7 +257,7 @@ public final class RegionAlgorithm {
         putOptional(values, PARAMETER_MIN_REGION_RATIO, PARAMETER_AUTO_MIN_REGION_RATIO, params.minRegionRatio());
         putOptional(values, PARAMETER_CONTRAST, PARAMETER_AUTO_CONTRAST, params.contrast());
         values.put(PARAMETER_LEVEL, Integer.toString(params.level()));
-        values.put(PARAMETER_TRACK_COUNT, Integer.toString(params.trackCount()));
+        putOptional(values, PARAMETER_BLEED_MARGIN, PARAMETER_AUTO_BLEED_MARGIN, params.bleedMargin());
         putOptional(values, PARAMETER_MAX_SPACING, PARAMETER_AUTO_MAX_SPACING, params.maxSpacing());
         putOptional(
                 values, PARAMETER_SIMPLIFY_TOLERANCE, PARAMETER_AUTO_SIMPLIFY_TOLERANCE, params.simplifyTolerance());
@@ -269,7 +278,7 @@ public final class RegionAlgorithm {
                 optional(values, PARAMETER_MIN_REGION_RATIO, PARAMETER_AUTO_MIN_REGION_RATIO),
                 optional(values, PARAMETER_CONTRAST, PARAMETER_AUTO_CONTRAST),
                 values.integer(PARAMETER_LEVEL),
-                values.integer(PARAMETER_TRACK_COUNT),
+                optional(values, PARAMETER_BLEED_MARGIN, PARAMETER_AUTO_BLEED_MARGIN),
                 optional(values, PARAMETER_MAX_SPACING, PARAMETER_AUTO_MAX_SPACING),
                 optional(values, PARAMETER_SIMPLIFY_TOLERANCE, PARAMETER_AUTO_SIMPLIFY_TOLERANCE),
                 optional(values, PARAMETER_MIN_SPACING, PARAMETER_AUTO_MIN_SPACING));

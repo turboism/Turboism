@@ -16,8 +16,10 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSpinner;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +75,63 @@ class AutoMeshParameterDialogTest {
         assertTrue(
                 contentSize[0].width >= longLabel.getPreferredSize().width,
                 "the content must reserve the label column: " + contentSize[0]);
+    }
+
+    @Test
+    void companionAutoFlagDisablesAndEnablesItsPairedControl() throws Exception {
+        final AutoMeshAlgorithmCatalog catalog = new AutoMeshAlgorithmCatalog();
+        final AutoMeshSelectionState selection = new AutoMeshSelectionState(catalog);
+        final AutoMeshAlgorithm algorithm = new AutoMeshAlgorithm(
+                "plugin.auto",
+                "Auto plan",
+                "Declares a value with an auto toggle.",
+                List.of(
+                        new AlgorithmParameterDescriptor.IntParameter("segments", "Segments", "", 1, 9, 1, 3),
+                        new AlgorithmParameterDescriptor.BoolParameter("autoSegments", "Auto segments", "", true)),
+                List.of(),
+                false,
+                (AutoMeshRequest request, CancellationToken cancellation) -> AutoMeshResult.Cancelled.INSTANCE);
+        catalog.register(algorithm, "plugin", 1L, () -> true);
+        selection.selectAlgorithm(algorithm.id());
+        final AutoMeshSelectorController controller = new AutoMeshSelectorController(
+                new AutoMeshSelectorSource() {
+                    @Override
+                    public List<AutoMeshAlgorithm> algorithms() {
+                        return catalog.algorithms();
+                    }
+
+                    @Override
+                    public AutoMeshSelectionState selection() {
+                        return selection;
+                    }
+                },
+                Locale.ENGLISH);
+
+        SwingUtilities.invokeAndWait(() -> {
+            final JPanel preview = AutoMeshParameterDialog.buildPreviewPanel(controller, Locale.ENGLISH);
+            final JSpinner spinner = findComponent(preview, JSpinner.class);
+            final JCheckBox checkBox = findComponent(preview, JCheckBox.class);
+            assertNotNull(spinner);
+            assertNotNull(checkBox);
+            assertEquals(false, spinner.isEnabled(), "auto=true must disable its paired control");
+            checkBox.doClick();
+            assertEquals(true, spinner.isEnabled(), "auto=false must enable its paired control");
+        });
+    }
+
+    private static <T extends Component> T findComponent(final Container container, final Class<T> type) {
+        for (final Component child : container.getComponents()) {
+            if (type.isInstance(child)) {
+                return type.cast(child);
+            }
+            if (child instanceof Container nested) {
+                final T found = findComponent(nested, type);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private static void collectLabels(final Container container, final List<JLabel> labels) {

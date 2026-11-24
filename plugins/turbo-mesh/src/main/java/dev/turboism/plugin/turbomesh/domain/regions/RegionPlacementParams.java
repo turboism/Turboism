@@ -3,18 +3,15 @@ package dev.turboism.plugin.turbomesh.domain.regions;
 /**
  * Placement knobs for {@link RegionPlacementPlanner}.
  *
- * <p>Optional values accept {@code null} and then inherit the silhouette-scaled defaults that the
- * offline prototype derived from the longest bounding-box extent. This type carries no resolved
- * pixels, so callers can reuse one instance for images of different sizes.</p>
- *
- * <p>{@code trackCount} stays for parameter compatibility; the planner no longer adds direction
- * tracks, because every synthetic guide cut across the drawn strands.</p>
+ * <p>Optional values accept {@code null} and then inherit silhouette-scaled defaults derived from
+ * the longest solid bounding-box extent. This type carries no resolved pixels, so callers can
+ * reuse one instance for images of different sizes.</p>
  */
 public record RegionPlacementParams(
         Double minRegionRatio,
         Double contrast,
         int level,
-        int trackCount,
+        Double bleedMargin,
         Double maxSpacing,
         Double simplifyTolerance,
         Double minSpacing) {
@@ -31,14 +28,11 @@ public record RegionPlacementParams(
      */
     public static final double DEFAULT_CONTRAST = 7.5;
 
-    /** Coarsest region level, which the prototype used as its default. */
-    public static final int DEFAULT_LEVEL = 1;
+    /** Medium region level used as default so primary texture divisions stay visible. */
+    public static final int DEFAULT_LEVEL = 2;
 
-    /** Default of the retained direction track knob, which adds no geometry any more. */
-    public static final int DEFAULT_TRACK_COUNT = 3;
-
-    /** Upper bound of the direction track count. */
-    public static final int MAX_TRACK_COUNT = 8;
+    /** Default transparent bleed margin expanded outside the visible silhouette, in pixels. */
+    public static final double DEFAULT_BLEED_MARGIN_PX = 6.0;
 
     /** Number of nested region levels produced by the segmenter. */
     public static final int LEVEL_COUNT = 3;
@@ -58,27 +52,41 @@ public record RegionPlacementParams(
     /** Auto near-point merge distance floor in pixels. */
     static final double AUTO_MIN_SPACING_FLOOR_PX = 1.5;
 
+    /** Auto bleed margin as a fraction of the silhouette span. */
+    static final double AUTO_BLEED_SPAN_RATIO = 0.012;
+
+    /** Minimum automatic bleed margin in pixels. */
+    static final double AUTO_BLEED_FLOOR_PX = 4.0;
+
+    /** Maximum automatic bleed margin in pixels. */
+    static final double AUTO_BLEED_CEILING_PX = 10.0;
+
+    /** Reference silhouette span in pixels for scaling automatic minimum region share. */
+    static final double AUTO_MIN_REGION_REF_SPAN_PX = 512.0;
+
+    /** Lower bound of automatic minimum region share. */
+    static final double AUTO_MIN_REGION_FLOOR = 0.0025;
+
+    /** Upper bound of automatic minimum region share. */
+    static final double AUTO_MIN_REGION_CEILING = 0.015;
+
     /**
-     * Sparse preset: the prototype run whose output the notes record as hair-sparse.
-     *
-     * <p>Every pixel-scaled value stays automatic, so the preset follows the silhouette span and the
-     * artwork gradient of the layer it runs on.</p>
+     * Sparse preset: coarse mesh with automatic silhouette scaling.
      */
     public static final RegionPlacementParams SPARSE =
-            new RegionPlacementParams(DEFAULT_MIN_REGION_RATIO, null, 1, DEFAULT_TRACK_COUNT, null, null, null);
+            new RegionPlacementParams(0.008, null, 1, null, null, null, null);
 
     /**
-     * Detailed preset: the prototype run recorded as hair-detailed.
-     *
-     * <p>Its fixed spacing stays below the automatic sparse spacing of the medium and larger layers
-     * it targets, so the detailed run is never coarser than the sparse one there.</p>
+     * Detailed preset: preserves fine texture divisions and dense curvature sampling.
      */
     public static final RegionPlacementParams DETAILED =
-            new RegionPlacementParams(DEFAULT_MIN_REGION_RATIO, null, 2, DEFAULT_TRACK_COUNT, 26.0, 1.2, 4.0);
+            new RegionPlacementParams(0.003, null, 3, null, 24.0, 1.0, 3.5);
 
-    /** Hard-surface preset: the prototype run recorded as usb-sparse. */
+    /**
+     * Hard-surface preset: clean geometric outline with moderate region separation.
+     */
     public static final RegionPlacementParams HARD_SURFACE =
-            new RegionPlacementParams(0.015, 8.0, 1, DEFAULT_TRACK_COUNT, 32.0, 1.2, 4.0);
+            new RegionPlacementParams(0.010, 6.5, 2, 5.0, 30.0, 1.0, 3.5);
 
     /**
      * Rejects values the planner cannot honour.
@@ -91,10 +99,7 @@ public record RegionPlacementParams(
         if (level < 1 || level > LEVEL_COUNT) {
             throw new IllegalArgumentException("level must be within 1.." + LEVEL_COUNT + " but was " + level);
         }
-        if (trackCount < 1 || trackCount > MAX_TRACK_COUNT) {
-            throw new IllegalArgumentException(
-                    "trackCount must be within 1.." + MAX_TRACK_COUNT + " but was " + trackCount);
-        }
+        requireNonNegative("bleedMargin", bleedMargin);
         requirePositive("maxSpacing", maxSpacing);
         requirePositive("simplifyTolerance", simplifyTolerance);
         requirePositive("minSpacing", minSpacing);
@@ -109,11 +114,21 @@ public record RegionPlacementParams(
         if (!(silhouetteSpan > 0.0) || !Double.isFinite(silhouetteSpan)) {
             throw new IllegalArgumentException("silhouetteSpan must be positive and finite but was " + silhouetteSpan);
         }
+        final double resolvedMinRatio = minRegionRatio == null
+                ? Math.max(
+                        AUTO_MIN_REGION_FLOOR,
+                        Math.min(
+                                AUTO_MIN_REGION_CEILING,
+                                DEFAULT_MIN_REGION_RATIO * (AUTO_MIN_REGION_REF_SPAN_PX / silhouetteSpan)))
+                : minRegionRatio;
+        final double resolvedBleed = bleedMargin == null
+                ? Math.max(AUTO_BLEED_FLOOR_PX, Math.min(AUTO_BLEED_CEILING_PX, AUTO_BLEED_SPAN_RATIO * silhouetteSpan))
+                : bleedMargin;
         return new Resolved(
-                minRegionRatio == null ? DEFAULT_MIN_REGION_RATIO : minRegionRatio,
+                resolvedMinRatio,
                 contrast == null ? DEFAULT_CONTRAST : contrast,
                 level,
-                trackCount,
+                resolvedBleed,
                 maxSpacing == null ? AUTO_SPACING_SPAN_RATIO * silhouetteSpan : maxSpacing,
                 simplifyTolerance == null
                         ? Math.max(AUTO_TOLERANCE_FLOOR_PX, AUTO_TOLERANCE_SPAN_RATIO * silhouetteSpan)
@@ -128,7 +143,7 @@ public record RegionPlacementParams(
             double minRegionRatio,
             double contrast,
             int level,
-            int trackCount,
+            double bleedMargin,
             double maxSpacing,
             double simplifyTolerance,
             double minSpacing) {}
@@ -139,6 +154,15 @@ public record RegionPlacementParams(
         }
         if (!Double.isFinite(value) || value <= 0.0) {
             throw new IllegalArgumentException(name + " must be positive and finite but was " + value);
+        }
+    }
+
+    private static void requireNonNegative(final String name, final Double value) {
+        if (value == null) {
+            return;
+        }
+        if (!Double.isFinite(value) || value < 0.0) {
+            throw new IllegalArgumentException(name + " must be non-negative and finite but was " + value);
         }
     }
 

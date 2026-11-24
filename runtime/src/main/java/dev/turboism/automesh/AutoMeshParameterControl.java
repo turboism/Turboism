@@ -3,6 +3,7 @@ package dev.turboism.automesh;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Container;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,6 +46,20 @@ final class AutoMeshParameterControl {
     /** @return the widget the dialog adds to its row */
     Component component() {
         return component;
+    }
+
+    /** Updates enablement on the widget and any composite child controls. */
+    void setEnabled(final boolean enabled) {
+        setEnabledRecursive(component, enabled);
+    }
+
+    private static void setEnabledRecursive(final Component target, final boolean enabled) {
+        target.setEnabled(enabled);
+        if (target instanceof Container container) {
+            for (final Component child : container.getComponents()) {
+                setEnabledRecursive(child, enabled);
+            }
+        }
     }
 
     /**

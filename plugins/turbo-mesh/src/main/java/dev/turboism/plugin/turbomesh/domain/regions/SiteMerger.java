@@ -51,8 +51,18 @@ final class SiteMerger {
                 if (!active[a] || !active[b]) {
                     continue;
                 }
-                final double newX = (xs[a] * mass[a] + xs[b] * mass[b]) / (mass[a] + mass[b]);
-                final double newY = (ys[a] * mass[a] + ys[b] * mass[b]) / (mass[a] + mass[b]);
+                final double newX;
+                final double newY;
+                if (boundary[a] && !boundary[b]) {
+                    newX = xs[a];
+                    newY = ys[a];
+                } else if (!boundary[a] && boundary[b]) {
+                    newX = xs[b];
+                    newY = ys[b];
+                } else {
+                    newX = (xs[a] * mass[a] + xs[b] * mass[b]) / (mass[a] + mass[b]);
+                    newY = (ys[a] * mass[a] + ys[b] * mass[b]) / (mass[a] + mass[b]);
+                }
                 final List<int[]> candidateEdges = new ArrayList<>(edges.size());
                 final List<ConstraintRole> candidateRoles = new ArrayList<>(edges.size());
                 replacedEdges(edges, roles, a, b, candidateEdges, candidateRoles);

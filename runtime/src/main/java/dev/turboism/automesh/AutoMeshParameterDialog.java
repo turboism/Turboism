@@ -229,6 +229,7 @@ public final class AutoMeshParameterDialog {
             content.add(buildRows(), BorderLayout.CENTER);
             content.add(buildFooter(), BorderLayout.SOUTH);
             refreshPresets();
+            syncCompanionControls();
         }
 
         private JPanel content() {
@@ -490,6 +491,7 @@ public final class AutoMeshParameterDialog {
         private void apply(final String parameterId, final String value) {
             if (model.set(parameterId, value)) {
                 showStatus(null);
+                syncCompanionControls();
                 updatePresetButtons();
                 return;
             }
@@ -506,6 +508,16 @@ public final class AutoMeshParameterDialog {
             statusLabel.setVisible(message != null);
         }
 
+        private void syncCompanionControls() {
+            final Map<String, String> values = model.values();
+            controls.forEach((parameterId, control) -> {
+                final String companionId = AutoMeshSelectorRow.companionAutoId(parameterId);
+                if (companionId != null && values.containsKey(companionId)) {
+                    control.setEnabled(!Boolean.parseBoolean(values.get(companionId)));
+                }
+            });
+        }
+
         private void refresh() {
             for (final AutoMeshParameterModel.Row row : model.rows()) {
                 final AutoMeshParameterControl control = controls.get(row.parameterId());
@@ -514,6 +526,7 @@ public final class AutoMeshParameterDialog {
                 }
             }
             showStatus(null);
+            syncCompanionControls();
             updatePresetButtons();
         }
     }

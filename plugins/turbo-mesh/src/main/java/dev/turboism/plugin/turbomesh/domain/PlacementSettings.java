@@ -54,7 +54,11 @@ public record PlacementSettings(
         double edgeColorDistance,
         double edgeMinLengthUv,
         double edgeDpToleranceUv,
-        int edgeStitchCells) {
+        int edgeStitchCells,
+        double bleedMarginPx) {
+
+    /** Default transparent bleed margin expanded outside the silhouette, in pixels. */
+    public static final double DEFAULT_BLEED_MARGIN_PX = 6.0;
 
     /** Default ridge contrast (0..1 luminance units). */
     public static final double DEFAULT_EDGE_MIN_CONTRAST = 0.12;
@@ -66,6 +70,48 @@ public record PlacementSettings(
     public static final double DEFAULT_EDGE_DP_TOLERANCE_UV = 0.0035;
     /** Default gap radius (mask cells) for end-to-end stitching of fragmented chains. */
     public static final int DEFAULT_EDGE_STITCH_CELLS = 6;
+
+    /** Legacy 18-argument constructor preserving default bleed margin. */
+    public PlacementSettings(
+            final double maxBoundarySpacingUv,
+            final double interiorSpacingUv,
+            final double minSpacingUv,
+            final double interiorMarginUv,
+            final double sagittaUv,
+            final double collinearTurnRadians,
+            final double tipTurnRadians,
+            final double splitAspect,
+            final int minRegionCells,
+            final int maxDepth,
+            final int rasterMaxDim,
+            final int maxPoints,
+            final long seed,
+            final double edgeMinContrast,
+            final double edgeColorDistance,
+            final double edgeMinLengthUv,
+            final double edgeDpToleranceUv,
+            final int edgeStitchCells) {
+        this(
+                maxBoundarySpacingUv,
+                interiorSpacingUv,
+                minSpacingUv,
+                interiorMarginUv,
+                sagittaUv,
+                collinearTurnRadians,
+                tipTurnRadians,
+                splitAspect,
+                minRegionCells,
+                maxDepth,
+                rasterMaxDim,
+                maxPoints,
+                seed,
+                edgeMinContrast,
+                edgeColorDistance,
+                edgeMinLengthUv,
+                edgeDpToleranceUv,
+                edgeStitchCells,
+                DEFAULT_BLEED_MARGIN_PX);
+    }
 
     public PlacementSettings {
         if (!(maxBoundarySpacingUv > 0.0) || !(interiorSpacingUv > 0.0)) {
@@ -93,6 +139,9 @@ public record PlacementSettings(
                 || edgeStitchCells < 0) {
             throw new IllegalArgumentException("edge settings must be finite and non-negative");
         }
+        if (!Double.isFinite(bleedMarginPx) || bleedMarginPx < 0.0) {
+            throw new IllegalArgumentException("bleedMarginPx must be finite and non-negative");
+        }
     }
 
     /** Sensible defaults for a sparse, curvature-driven re-placement. */
@@ -115,7 +164,8 @@ public record PlacementSettings(
                 DEFAULT_EDGE_COLOR_DISTANCE,
                 DEFAULT_EDGE_MIN_LENGTH_UV,
                 DEFAULT_EDGE_DP_TOLERANCE_UV,
-                DEFAULT_EDGE_STITCH_CELLS);
+                DEFAULT_EDGE_STITCH_CELLS,
+                DEFAULT_BLEED_MARGIN_PX);
     }
 
     /**
@@ -135,6 +185,25 @@ public record PlacementSettings(
             final double interiorSpacingUv,
             final double minSpacingUv,
             final int maxPoints) {
+        return withDensityAndBleed(maxBoundarySpacingUv, interiorSpacingUv, minSpacingUv, maxPoints, bleedMarginPx);
+    }
+
+    /**
+     * Copy of these settings with density and bleed margin knobs replaced.
+     *
+     * @param maxBoundarySpacingUv maximum arc length between two boundary samples
+     * @param interiorSpacingUv interior fill pitch
+     * @param minSpacingUv hard lower bound between two placed points
+     * @param maxPoints absolute output vertex cap
+     * @param bleedMarginPx transparent bleed expansion outside the silhouette, in pixels
+     * @return the adjusted settings
+     */
+    public PlacementSettings withDensityAndBleed(
+            final double maxBoundarySpacingUv,
+            final double interiorSpacingUv,
+            final double minSpacingUv,
+            final int maxPoints,
+            final double bleedMarginPx) {
         return new PlacementSettings(
                 maxBoundarySpacingUv,
                 interiorSpacingUv,
@@ -153,7 +222,8 @@ public record PlacementSettings(
                 edgeColorDistance,
                 edgeMinLengthUv,
                 edgeDpToleranceUv,
-                edgeStitchCells);
+                edgeStitchCells,
+                bleedMarginPx);
     }
 
     static int intProperty(final String name, final int fallback, final int min, final int max) {
@@ -185,6 +255,7 @@ public record PlacementSettings(
                 doubleProperty("turboMesh.edgeColorDistance", base.edgeColorDistance(), 0.01, 1.8),
                 doubleProperty("turboMesh.edgeMinLengthUv", base.edgeMinLengthUv(), 0.0, 0.5),
                 doubleProperty("turboMesh.edgeDpToleranceUv", base.edgeDpToleranceUv(), 0.0, 0.1),
-                intProperty("turboMesh.edgeStitchCells", base.edgeStitchCells(), 0, 64));
+                intProperty("turboMesh.edgeStitchCells", base.edgeStitchCells(), 0, 64),
+                doubleProperty("turboMesh.bleedMarginPx", base.bleedMarginPx(), 0.0, 64.0));
     }
 }

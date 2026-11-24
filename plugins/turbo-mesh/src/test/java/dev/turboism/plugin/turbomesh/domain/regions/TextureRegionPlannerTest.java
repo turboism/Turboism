@@ -133,7 +133,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(HAIR);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
-        verify(plan, 196);
+        verify(plan, 350);
         report("hair-sparse", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "hair-sparse");
     }
@@ -143,7 +143,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(HAIR);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.DETAILED);
-        verify(plan, 488);
+        verify(plan, 907);
         report("hair-detailed", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "hair-detailed");
     }
@@ -153,7 +153,7 @@ class TextureRegionPlannerTest {
         final Sample sample = load(USB);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
                 sample.argb(), sample.width(), sample.height(), RegionPlacementParams.HARD_SURFACE);
-        verify(plan, 182);
+        verify(plan, 268);
         assertAlphaHoles(plan, 2);
         report("usb-sparse", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "usb-sparse");
@@ -166,11 +166,114 @@ class TextureRegionPlannerTest {
                 sample.argb(),
                 sample.width(),
                 sample.height(),
-                new RegionPlacementParams(0.01, null, 1, 3, null, null, null));
-        verify(plan, 210);
+                new RegionPlacementParams(0.01, null, 1, null, null, null, null));
+        verify(plan, 332);
         assertAlphaHoles(plan, 2);
         report("usb-detailed", plan);
         RegionDumpWriter.dumpIfRequested(plan, sample, "usb-detailed");
+    }
+
+    @Test
+    void bleedMarginExpandsMeshBeyondPaintedSilhouetteAndPreservesHoles() throws IOException {
+        final Sample hair = load(HAIR);
+        final RegionPlacementParams withBleed = new RegionPlacementParams(null, null, 2, 6.0, null, null, null);
+        final RegionPlacementPlan hairPlan =
+                RegionPlacementPlanner.plan(hair.argb(), hair.width(), hair.height(), withBleed);
+        verify(hairPlan, null);
+        final boolean[] visibleHair = visibleMaskOf(hair, RegionRaster.ALPHA_VISIBLE);
+        final boolean[] coveredHair = PixelCoverage.coveredPixels(
+                hairPlan.vertices(), hairPlan.triangleIndices(), hair.width(), hair.height());
+        long visibleCount = 0L;
+        long coveredVisible = 0L;
+        for (int i = 0; i < visibleHair.length; i++) {
+            if (visibleHair[i]) {
+                visibleCount++;
+                if (coveredHair[i]) {
+                    coveredVisible++;
+                }
+            }
+        }
+        assertTrue(visibleCount > 0L);
+        assertTrue(
+                (double) coveredVisible / visibleCount >= 0.995,
+                "bleed-expanded triangles must cover anti-aliased edge pixels: " + coveredVisible + "/" + visibleCount);
+
+        double maxOutsideDist = 0.0;
+        final int[] argb = hair.argb();
+        for (final int[] ring : hairPlan.domainRings()) {
+            for (final int idx : ring) {
+                final Point2 v = hairPlan.vertices().get(idx);
+                final int px = Math.max(0, Math.min(hair.width() - 1, (int) Math.round(v.x())));
+                final int py = Math.max(0, Math.min(hair.height() - 1, (int) Math.round(v.y())));
+                if (((argb[py * hair.width() + px] >>> 24) & 0xFF) < RegionRaster.ALPHA_VISIBLE) {
+                    maxOutsideDist = Math.max(
+                            maxOutsideDist, nearestVisibleDist(argb, hair.width(), hair.height(), v.x(), v.y()));
+                }
+            }
+        }
+        assertTrue(maxOutsideDist >= 3.5, "bleed ring must extend into transparent margin, got " + maxOutsideDist);
+
+        final Sample usb = load(USB);
+        final RegionPlacementPlan usbPlan =
+                RegionPlacementPlanner.plan(usb.argb(), usb.width(), usb.height(), withBleed);
+        assertAlphaHoles(usbPlan, 2);
+    }
+
+    @Test
+    void textureRegionsSeparateSameColourCreasesAndContrastBlocks() {
+        final int width = 200;
+        final int height = 200;
+        final int[] argb = new int[width * height];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (x < 20 || x >= 180 || y < 20 || y >= 180) {
+                    continue;
+                }
+                if (x >= 99 && x <= 100) {
+                    // 2px dark line-art crease dividing two identical-colour lobes
+                    argb[y * width + x] = 0xFF282018;
+                } else {
+                    argb[y * width + x] = 0xFFD0C0A8;
+                }
+            }
+        }
+        final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
+                argb, width, height, new RegionPlacementParams(null, null, 2, 0.0, null, null, null));
+        assertTrue(
+                plan.regions().regionCount() >= 2,
+                "crease must separate identical fills into >= 2 regions, got "
+                        + plan.regions().regionCount());
+        final long separatorEdges = plan.constraints().stream()
+                .filter(c -> c.role() == ConstraintRole.TEXTURE_LINE)
+                .count();
+        assertTrue(separatorEdges > 0, "separated regions must publish TEXTURE_LINE constraint edges");
+    }
+
+    private static boolean[] visibleMaskOf(final Sample sample, final int threshold) {
+        final int[] argb = sample.argb();
+        final boolean[] mask = new boolean[argb.length];
+        for (int i = 0; i < argb.length; i++) {
+            mask[i] = ((argb[i] >>> 24) & 0xFF) >= threshold;
+        }
+        return mask;
+    }
+
+    private static double nearestVisibleDist(
+            final int[] argb, final int width, final int height, final double vx, final double vy) {
+        double best = Double.POSITIVE_INFINITY;
+        final int r = 12;
+        final int x0 = Math.max(0, (int) Math.floor(vx) - r);
+        final int x1 = Math.min(width - 1, (int) Math.ceil(vx) + r);
+        final int y0 = Math.max(0, (int) Math.floor(vy) - r);
+        final int y1 = Math.min(height - 1, (int) Math.ceil(vy) + r);
+        for (int y = y0; y <= y1; y++) {
+            for (int x = x0; x <= x1; x++) {
+                if (((argb[y * width + x] >>> 24) & 0xFF) >= RegionRaster.ALPHA_VISIBLE) {
+                    best = Math.min(best, Math.hypot(vx - x, vy - y));
+                }
+            }
+        }
+        return best;
     }
 
     @Test
@@ -196,7 +299,11 @@ class TextureRegionPlannerTest {
                 300,
                 (x, y) -> x >= RECTANGLE_LEFT && x < RECTANGLE_RIGHT && y >= RECTANGLE_TOP && y < RECTANGLE_BOTTOM);
         final RegionPlacementPlan plan = RegionPlacementPlanner.plan(
-                sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
+                sample.argb(),
+                sample.width(),
+                sample.height(),
+                new RegionPlacementParams(
+                        RegionPlacementParams.DEFAULT_MIN_REGION_RATIO, null, 1, 0.0, null, null, null));
         verify(plan, null);
         final List<Point> vertices = points(plan);
         assertEquals(1, plan.domainRings().size(), "a rectangle must publish one domain ring");
@@ -264,7 +371,11 @@ class TextureRegionPlannerTest {
         final RegionPlacementPlan plan;
         try {
             plan = RegionPlacementPlanner.plan(
-                    sample.argb(), sample.width(), sample.height(), RegionPlacementParams.SPARSE);
+                    sample.argb(),
+                    sample.width(),
+                    sample.height(),
+                    new RegionPlacementParams(
+                            RegionPlacementParams.DEFAULT_MIN_REGION_RATIO, null, 1, 0.0, null, null, null));
         } catch (IllegalStateException rejected) {
             assertTrue(
                     rejected.getMessage() != null

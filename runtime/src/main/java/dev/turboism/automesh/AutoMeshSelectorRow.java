@@ -184,8 +184,8 @@ public final class AutoMeshSelectorRow {
     private static final int PARAMETER_LABEL_RIGHT_MARGIN = 5;
     private static final int PARAMETER_LABEL_MIN_WIDTH = 90;
     private static final int PARAMETER_LABEL_MAX_WIDTH = 150;
-    private static final int PARAMETER_SLIDER_DECIMALS = 2;
     private static final float PARAMETER_SLIDE_WEIGHT = 5.0f;
+    private static final String AUTO_PREFIX = "auto";
 
     /**
      * Delay before one inline edit stream is written to the preset store.
@@ -350,6 +350,7 @@ public final class AutoMeshSelectorRow {
         private final Timer commitTimer = new Timer(PARAMETER_COMMIT_DELAY_MILLIS, event -> guard(this::placeNow));
         private AutoMeshParameterModel model;
         private boolean writing;
+        private boolean dirtyParameters;
 
         private Inline(final Object container, final Object mount) throws ReflectiveOperationException {
             this.container = container;
@@ -539,6 +540,10 @@ public final class AutoMeshSelectorRow {
         }
 
         private void selectAlgorithm(final int index) {
+            if (writing) {
+                return;
+            }
+            commitParameters();
             controller.selectAlgorithm(index);
             refresh();
             placeNow();
@@ -551,6 +556,10 @@ public final class AutoMeshSelectorRow {
          * returns to the entry the selection still names, which keeps the shown preset honest.</p>
          */
         private void selectPreset(final int index) {
+            if (writing) {
+                return;
+            }
+            discardPendingParameters();
             if (controller.selectPreset(index)) {
                 refresh();
                 placeNow();
@@ -575,6 +584,7 @@ public final class AutoMeshSelectorRow {
                         + singleLine(String.valueOf(rejected.getMessage())));
                 return;
             }
+            discardPendingParameters();
             refresh();
         }
 
@@ -593,6 +603,7 @@ public final class AutoMeshSelectorRow {
                         "auto mesh selector: preset was refused: " + singleLine(String.valueOf(rejected.getMessage())));
                 return;
             }
+            discardPendingParameters();
             refresh();
         }
 
@@ -612,6 +623,7 @@ public final class AutoMeshSelectorRow {
                         + singleLine(String.valueOf(rejected.getMessage())));
                 return;
             }
+            discardPendingParameters();
             refresh();
         }
 
@@ -620,6 +632,7 @@ public final class AutoMeshSelectorRow {
             if (active.isEmpty()) {
                 return;
             }
+            discardPendingParameters();
             if (controller.deletePreset(active.get())) {
                 refresh();
                 placeNow();
@@ -627,6 +640,7 @@ public final class AutoMeshSelectorRow {
         }
 
         private void restorePresets() {
+            discardPendingParameters();
             controller.restoreDefaultPresets();
             refresh();
             placeNow();
@@ -643,8 +657,10 @@ public final class AutoMeshSelectorRow {
          * visible group pair in step after any change, including a preset the user just deleted.</p>
          */
         private void refresh() {
+            final boolean previousWriting = writing;
+            writing = true;
             try {
-                commitParameters();
+                discardPendingParameters();
                 fillCombo(presetCombo, controller.presetEntries());
                 syncPresetState();
                 rebuildParameterRows();
@@ -652,13 +668,21 @@ public final class AutoMeshSelectorRow {
             } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 diagnostic("auto mesh selector: inline group refresh failed with " + describe(failure));
+            } finally {
+                writing = previousWriting;
             }
         }
 
         private void syncPresetState() {
-            final int index = controller.selectedPresetIndex();
-            tryInvoke(presetCombo, SET_SELECTED_INDEX, COUNT_PARAMETER, index);
-            tryInvoke(deleteButton, SET_ENABLED, FLAG_PARAMETER, index > NO_PRESET_SELECTION);
+            final boolean previousWriting = writing;
+            writing = true;
+            try {
+                final int index = controller.selectedPresetIndex();
+                tryInvoke(presetCombo, SET_SELECTED_INDEX, COUNT_PARAMETER, index);
+                tryInvoke(deleteButton, SET_ENABLED, FLAG_PARAMETER, index > NO_PRESET_SELECTION);
+            } finally {
+                writing = previousWriting;
+            }
         }
 
         private void refreshVisibility() {
@@ -699,6 +723,7 @@ public final class AutoMeshSelectorRow {
             for (int index = 0; index < rows.size(); index++) {
                 appendParameterRow(rows.get(index), labels.get(index), width);
             }
+            syncCompanionControls();
         }
 
         /**
@@ -777,7 +802,9 @@ public final class AutoMeshSelectorRow {
                 }
             }));
             parameterRows.add(new InlineRow(
-                    parameterId, value -> invoke(control, SET_VALUE, COUNT_PARAMETER, Integer.parseInt(value))));
+                    parameterId,
+                    control,
+                    value -> invoke(control, SET_VALUE, COUNT_PARAMETER, Integer.parseInt(value))));
             return control;
         }
 
@@ -787,7 +814,7 @@ public final class AutoMeshSelectorRow {
             final Object control = instantiate(type(SLIDABLE_FLOAT_TYPE), NO_PARAMETERS);
             invoke(control, SET_MIN, FLOAT_PARAMETER, (float) descriptor.min());
             invoke(control, SET_MAX, FLOAT_PARAMETER, (float) descriptor.max());
-            invoke(control, SET_KETA, COUNT_PARAMETER, PARAMETER_SLIDER_DECIMALS);
+            invoke(control, SET_KETA, COUNT_PARAMETER, Math.max(0, descriptor.decimals()));
             invoke(control, SET_SLIDE_WEIGHT, FLOAT_PARAMETER, PARAMETER_SLIDE_WEIGHT);
             invoke(control, SET_VALUE, FLOAT_PARAMETER, Float.parseFloat(row.value()));
             final String parameterId = row.parameterId();
@@ -800,7 +827,9 @@ public final class AutoMeshSelectorRow {
                 }
             }));
             parameterRows.add(new InlineRow(
-                    parameterId, value -> invoke(control, SET_VALUE, FLOAT_PARAMETER, Float.parseFloat(value))));
+                    parameterId,
+                    control,
+                    value -> invoke(control, SET_VALUE, FLOAT_PARAMETER, Float.parseFloat(value))));
             return control;
         }
 
@@ -814,6 +843,7 @@ public final class AutoMeshSelectorRow {
             }));
             parameterRows.add(new InlineRow(
                     parameterId,
+                    control,
                     value -> invoke(control, SET_CHECKED, BOXED_BOOLEAN_PARAMETER, Boolean.valueOf(value))));
             return control;
         }
@@ -838,6 +868,7 @@ public final class AutoMeshSelectorRow {
             }));
             parameterRows.add(new InlineRow(
                     parameterId,
+                    control,
                     value -> invoke(control, SET_SELECTED_INDEX, COUNT_PARAMETER, Math.max(0, values.indexOf(value)))));
             return control;
         }
@@ -849,7 +880,8 @@ public final class AutoMeshSelectorRow {
                 final Object text = tryInvoke(control, GET_TEXT, NO_PARAMETERS);
                 applyParameter(parameterId, text instanceof String value ? value : "");
             }));
-            parameterRows.add(new InlineRow(parameterId, value -> invoke(control, SET_TEXT, TEXT_PARAMETER, value)));
+            parameterRows.add(
+                    new InlineRow(parameterId, control, value -> invoke(control, SET_TEXT, TEXT_PARAMETER, value)));
             return control;
         }
 
@@ -874,17 +906,42 @@ public final class AutoMeshSelectorRow {
                 return;
             }
             controller.storeParametersTransient(model.algorithm(), model.values());
+            dirtyParameters = true;
+            syncCompanionControls();
             syncPresetState();
             commitTimer.restart();
         }
 
-        /** Writes the pending edit stream to the preset store. */
-        private void commitParameters() {
-            commitTimer.stop();
+        /** Updates companion controls whose enablement tracks a paired {@code auto*} flag. */
+        private void syncCompanionControls() {
             if (model == null) {
                 return;
             }
+            final java.util.Map<String, String> values = model.values();
+            for (final InlineRow row : parameterRows) {
+                final String companionId = companionAutoId(row.parameterId());
+                if (companionId != null && values.containsKey(companionId)) {
+                    tryInvoke(
+                            row.control(), SET_ENABLED, FLAG_PARAMETER, !Boolean.parseBoolean(values.get(companionId)));
+                }
+            }
+        }
+
+        /** Discards any uncommitted inline edit stream without touching stored presets. */
+        private void discardPendingParameters() {
+            commitTimer.stop();
+            dirtyParameters = false;
+        }
+
+        /** Writes the pending edit stream to the preset store when dirty. */
+        private void commitParameters() {
+            commitTimer.stop();
+            if (!dirtyParameters || model == null) {
+                dirtyParameters = false;
+                return;
+            }
             controller.storeParameters(model.algorithm(), model.values());
+            dirtyParameters = false;
         }
 
         /**
@@ -995,8 +1052,16 @@ public final class AutoMeshSelectorRow {
         }
     }
 
-    /** One built parameter row: the declared parameter it edits and the writer that shows a value. */
-    private record InlineRow(String parameterId, ParameterWriter writer) {}
+    /** Derives the companion {@code auto*} parameter id for {@code parameterId}, or {@code null}. */
+    static String companionAutoId(final String parameterId) {
+        if (parameterId == null || parameterId.isEmpty() || parameterId.startsWith(AUTO_PREFIX)) {
+            return null;
+        }
+        return AUTO_PREFIX + Character.toUpperCase(parameterId.charAt(0)) + parameterId.substring(1);
+    }
+
+    /** One built parameter row: the declared parameter it edits, its widget, and the value writer. */
+    private record InlineRow(String parameterId, Object control, ParameterWriter writer) {}
 
     /** The preset menu of one group; every member is {@code null} when the host refuses a menu. */
     private record PresetMenu(Object menu, Object renameItem, Object restoreItem) {}
@@ -1131,13 +1196,17 @@ public final class AutoMeshSelectorRow {
         tryInvoke(parametersButton, SET_ENABLED, FLAG_PARAMETER, controller.parametersAvailable());
         invoke(row, UNARY_PLUS, widgetParameter, parametersButton);
 
+        final boolean[] syncing = {false};
         final Runnable syncPresets = () -> {
+            syncing[0] = true;
             try {
                 fillCombo(presetCombo, controller.presetEntries());
                 tryInvoke(presetCombo, SET_SELECTED_INDEX, COUNT_PARAMETER, controller.selectedPresetIndex());
                 tryInvoke(parametersButton, SET_ENABLED, FLAG_PARAMETER, controller.parametersAvailable());
             } catch (ReflectiveOperationException failure) {
                 diagnostic("auto mesh selector: preset list refresh failed with " + describe(failure));
+            } finally {
+                syncing[0] = false;
             }
         };
 
@@ -1148,7 +1217,7 @@ public final class AutoMeshSelectorRow {
                 SET_ON_SELECTED,
                 callbackParameter,
                 proxy(function1, unit, (proxy, method, arguments) -> {
-                    if (INVOKE_METHOD.equals(method.getName())) {
+                    if (INVOKE_METHOD.equals(method.getName()) && !syncing[0]) {
                         guard(() -> {
                             controller.selectAlgorithm(selectedIndex(algorithmCombo));
                             placement.run();
@@ -1158,7 +1227,7 @@ public final class AutoMeshSelectorRow {
                     return unit;
                 }));
         invoke(presetCombo, SET_ON_SELECTED, callbackParameter, proxy(function1, unit, (proxy, method, arguments) -> {
-            if (INVOKE_METHOD.equals(method.getName())) {
+            if (INVOKE_METHOD.equals(method.getName()) && !syncing[0]) {
                 guard(() -> {
                     if (controller.selectPreset(selectedIndex(presetCombo))) {
                         placement.run();

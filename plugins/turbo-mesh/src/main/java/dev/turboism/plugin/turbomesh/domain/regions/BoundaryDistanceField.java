@@ -159,7 +159,7 @@ final class BoundaryDistanceField {
             for (int y = 0; y < height; y++) {
                 column[y] = seed[y * width + x];
             }
-            transform1D(column, height, transformed, argmin, envelopeIndex, envelopeLimit);
+            EuclideanDistanceTransform.transform1D(column, height, transformed, argmin, envelopeIndex, envelopeLimit);
             for (int y = 0; y < height; y++) {
                 squared[y * width + x] = transformed[y];
                 nearestRow[y * width + x] = argmin[y];
@@ -183,7 +183,7 @@ final class BoundaryDistanceField {
         for (int y = 0; y < height; y++) {
             final int start = y * width;
             System.arraycopy(squared, start, row, 0, width);
-            transform1D(row, width, transformed, argmin, envelopeIndex, envelopeLimit);
+            EuclideanDistanceTransform.transform1D(row, width, transformed, argmin, envelopeIndex, envelopeLimit);
             for (int x = 0; x < width; x++) {
                 final int seedColumn = argmin[x];
                 final int cell = start + x;
@@ -191,52 +191,5 @@ final class BoundaryDistanceField {
                 spacing[cell] = seedSpacing[nearestRow[start + seedColumn] * width + seedColumn];
             }
         }
-    }
-
-    /**
-     * Lower envelope of the parabolas {@code (q - v)² + f(v)}.
-     *
-     * <p>Each parabola contributes one contiguous interval, so a stack of intersection points
-     * describes the whole envelope in linear time. That linear pass is what makes the transform
-     * usable per pixel of a full texture layer.</p>
-     */
-    private static void transform1D(
-            final double[] values,
-            final int count,
-            final double[] out,
-            final int[] argmin,
-            final int[] envelopeIndex,
-            final double[] envelopeLimit) {
-        int top = 0;
-        envelopeIndex[0] = 0;
-        envelopeLimit[0] = Double.NEGATIVE_INFINITY;
-        envelopeLimit[1] = Double.POSITIVE_INFINITY;
-        for (int q = 1; q < count; q++) {
-            double crossing = intersection(values, q, envelopeIndex[top]);
-            while (crossing <= envelopeLimit[top]) {
-                top--;
-                crossing = intersection(values, q, envelopeIndex[top]);
-            }
-            top++;
-            envelopeIndex[top] = q;
-            envelopeLimit[top] = crossing;
-            envelopeLimit[top + 1] = Double.POSITIVE_INFINITY;
-        }
-        int cursor = 0;
-        for (int q = 0; q < count; q++) {
-            while (envelopeLimit[cursor + 1] < q) {
-                cursor++;
-            }
-            final int source = envelopeIndex[cursor];
-            final double offset = q - source;
-            out[q] = offset * offset + values[source];
-            argmin[q] = source;
-        }
-    }
-
-    private static double intersection(final double[] values, final int q, final int source) {
-        final double numerator = (values[q] + (double) q * q) - (values[source] + (double) source * source);
-        final double denominator = 2.0 * (q - source);
-        return numerator / denominator;
     }
 }

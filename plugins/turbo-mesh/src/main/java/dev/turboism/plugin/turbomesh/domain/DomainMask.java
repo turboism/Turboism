@@ -1,6 +1,7 @@
 package dev.turboism.plugin.turbomesh.domain;
 
 import dev.turboism.sdk.cubism.model.Point2;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -15,6 +16,7 @@ import java.util.List;
 public final class DomainMask {
 
     public static final double PAD_UV = 0.0015;
+    private static final int PAINTED_ALPHA_FLOOR = 128;
 
     private final double u0;
     private final double v0;
@@ -163,6 +165,118 @@ public final class DomainMask {
         // Morphological closing (bridges hairline gaps/alpha feathering) + tiny island suppression
         final boolean[] cleanedSolid = closeAndFilter(solid, width, height, 1, 12);
         return new DomainMask(u0, v0, cell, width, height, cleanedSolid, luminance, edge, rgb);
+    }
+
+    /**
+     * Builds a mask whose solid occupancy follows {@code rings} while preserving texture channels.
+     *
+     * <p>Gradient magnitudes outside solid artwork pixels stay zero so transparent bleed cells
+     * never inject spurious texture ridges along the dilated outline.</p>
+     */
+    public static DomainMask fromPixelsWithRings(
+            final int[] argb,
+            final int imageWidth,
+            final int imageHeight,
+            final double[] uvToPixel,
+            final double u0,
+            final double v0,
+            final double u1,
+            final double v1,
+            final int maxDim,
+            final List<List<Point2>> rings) {
+        if (argb == null || argb.length < (long) imageWidth * imageHeight) {
+            throw new IllegalArgumentException("pixel raster is smaller than the image");
+        }
+        if (!(u1 > u0) || !(v1 > v0)) {
+            throw new IllegalArgumentException("uv rect is degenerate");
+        }
+        if (uvToPixel != null && uvToPixel.length != 6) {
+            throw new IllegalArgumentException("uv-to-pixel affine must have 6 elements");
+        }
+        final double cell = Math.max(u1 - u0, v1 - v0) / maxDim;
+        final int width = Math.max(2, (int) Math.ceil((u1 - u0) / cell));
+        final int height = Math.max(2, (int) Math.ceil((v1 - v0) / cell));
+        final boolean[] painted = new boolean[width * height];
+        final float[] luminance = new float[width * height];
+        final int[] rgb = new int[width * height];
+        final double[] p = new double[2];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                final double u = u0 + (x + 0.5) * cell;
+                final double v = v0 + (y + 0.5) * cell;
+                mapUv(uvToPixel, imageWidth, imageHeight, u, v, p);
+                final int px = clampPixel((int) p[0], imageWidth);
+                final int py = clampPixel((int) p[1], imageHeight);
+                final int argbPx = argb[py * imageWidth + px];
+                painted[y * width + x] = (argbPx >>> 24) >= PAINTED_ALPHA_FLOOR;
+                luminance[y * width + x] = (0.2126f * ((argbPx >>> 16) & 0xFF)
+                                + 0.7152f * ((argbPx >>> 8) & 0xFF)
+                                + 0.0722f * (argbPx & 0xFF))
+                        / 255f;
+                rgb[y * width + x] = argbPx & 0xFFFFFF;
+            }
+        }
+        final float[] edge = new float[width * height];
+        for (int y = 1; y + 1 < height; y++) {
+            for (int x = 1; x + 1 < width; x++) {
+                final int c = y * width + x;
+                if (!painted[c] || !painted[c - 1] || !painted[c + 1] || !painted[c - width] || !painted[c + width]) {
+                    continue;
+                }
+                final float gx = luminance[c + 1] - luminance[c - 1];
+                final float gy = luminance[c + width] - luminance[c - width];
+                edge[c] = (float) Math.sqrt(gx * gx + gy * gy);
+            }
+        }
+        final boolean[] solid = rasterizeRings(rings, u0, v0, cell, width, height);
+        return new DomainMask(u0, v0, cell, width, height, solid, luminance, edge, rgb);
+    }
+
+    private static boolean[] rasterizeRings(
+            final List<List<Point2>> rings,
+            final double u0,
+            final double v0,
+            final double cell,
+            final int width,
+            final int height) {
+        final boolean[] solid = new boolean[width * height];
+        int totalEdges = 0;
+        for (final List<Point2> ring : rings) {
+            totalEdges += ring.size();
+        }
+        if (totalEdges == 0) {
+            return solid;
+        }
+        final double[] crossings = new double[totalEdges];
+        for (int y = 0; y < height; y++) {
+            final double scanV = v0 + (y + 0.5) * cell;
+            int found = 0;
+            for (final List<Point2> ring : rings) {
+                final int n = ring.size();
+                for (int i = 0; i < n; i++) {
+                    final Point2 a = ring.get(i);
+                    final Point2 b = ring.get((i + 1) % n);
+                    final double y0 = a.y();
+                    final double y1 = b.y();
+                    if ((y0 > scanV) == (y1 > scanV)) {
+                        continue;
+                    }
+                    crossings[found++] = a.x() + (scanV - y0) * (b.x() - a.x()) / (y1 - y0);
+                }
+            }
+            if (found < 2) {
+                continue;
+            }
+            Arrays.sort(crossings, 0, found);
+            for (int i = 0; i + 1 < found; i += 2) {
+                final int from = Math.max(0, (int) Math.ceil((crossings[i] - u0) / cell - 0.5));
+                final int to = Math.min(width - 1, (int) Math.floor((crossings[i + 1] - u0) / cell - 0.5));
+                for (int x = from; x <= to; x++) {
+                    solid[y * width + x] = true;
+                }
+            }
+        }
+        return solid;
     }
 
     /**

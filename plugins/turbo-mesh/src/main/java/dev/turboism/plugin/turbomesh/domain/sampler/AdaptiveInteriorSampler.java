@@ -19,6 +19,8 @@ import java.util.List;
  */
 public final class AdaptiveInteriorSampler {
 
+    private static final double PAIR_SEPARATION_RATIO = 0.5;
+
     private AdaptiveInteriorSampler() {}
 
     /**
@@ -164,7 +166,7 @@ public final class AdaptiveInteriorSampler {
                         }
                         final double du = (double) (lx - nx) * step * cellUv;
                         final double dv = (double) (ly - ny) * step * cellUv;
-                        final double need = Math.max(r, latticeR[ni]);
+                        final double need = PAIR_SEPARATION_RATIO * (r + latticeR[ni]);
                         double metric;
                         if (influence > 0.0) {
                             final double along = Math.abs(du * cos + dv * sin);
