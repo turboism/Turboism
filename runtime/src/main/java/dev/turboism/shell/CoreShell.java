@@ -207,26 +207,42 @@ public final class CoreShell implements ShellHandle {
         logger.info("Turboism main toolbar icon mode selected: " + (settings.useTextIcon() ? "text" : "installer"));
         applyAutoBackupPreference(services.cubismJvmSettings().startupReduceAutoBackup());
         logger.info("Turboism core enabled");
-        scheduleStartupGuide();
+        scheduleStartupCards();
     }
 
     /**
-     * Opens the one-time guide after the host finished its own startup work. A fresh install and an
-     * upgrade both read an absent or true preference, so both see the guide exactly once; the
-     * dismissal is persisted before the next start reads it.
+     * Opens one-time startup cards after the host finishes startup. Shows the onboarding guide first
+     * when pending, followed by post-update release notes after user dismissal if also pending.
      */
-    private void scheduleStartupGuide() {
-        if (!guideShouldShow()) return;
+    private void scheduleStartupCards() {
+        final boolean showGuide = guideShouldShow();
+        final java.util.Optional<dev.turboism.internal.core.UpdateNotesService.ReleaseNotes> pendingNotes =
+                pendingReleaseNotes();
+        if (!showGuide && pendingNotes.isEmpty()) return;
         try {
             context.disposableScope()
                     .register(context.uiScheduler()
                             .runOnUiThreadLater(
-                                    () -> {
-                                        if (!closed) windows.showGuide(this::markGuideSeen);
-                                    },
-                                    GUIDE_STARTUP_DELAY));
+                                    () -> openStartupCards(showGuide, pendingNotes.orElse(null)), GUIDE_STARTUP_DELAY));
         } catch (RuntimeException rejected) {
-            logger.warn("Startup guide could not be scheduled");
+            logger.warn("Startup card could not be scheduled");
+        }
+    }
+
+    private void openStartupCards(
+            final boolean showGuide, final dev.turboism.internal.core.UpdateNotesService.ReleaseNotes notes) {
+        if (closed) return;
+        if (showGuide) {
+            windows.showGuide(() -> {
+                markGuideSeen();
+                if (!closed && notes != null) {
+                    windows.showUpdateNotes(notes, () -> markReleaseNotesSeen(notes.version()));
+                }
+            });
+            return;
+        }
+        if (notes != null) {
+            windows.showUpdateNotes(notes, () -> markReleaseNotesSeen(notes.version()));
         }
     }
 
@@ -244,6 +260,23 @@ public final class CoreShell implements ShellHandle {
             services.guide().markGuideSeen();
         } catch (RuntimeException failure) {
             logger.warn("Startup guide dismissal could not be persisted");
+        }
+    }
+
+    private java.util.Optional<dev.turboism.internal.core.UpdateNotesService.ReleaseNotes> pendingReleaseNotes() {
+        try {
+            return services.updateNotes().pendingReleaseNotes();
+        } catch (RuntimeException unavailable) {
+            logger.warn("Release notes service is unavailable");
+            return java.util.Optional.empty();
+        }
+    }
+
+    private void markReleaseNotesSeen(final String version) {
+        try {
+            services.updateNotes().markReleaseNotesSeen(version);
+        } catch (RuntimeException failure) {
+            logger.warn("Release notes acknowledgment could not be persisted");
         }
     }
 

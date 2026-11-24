@@ -290,6 +290,63 @@ class CoreShellTest {
     }
 
     @Test
+    void startupUpdateNotesOpensOnceAndRecordsOnlyTheUserDismissal() throws Exception {
+        Assumptions.assumeFalse(
+                GraphicsEnvironment.isHeadless(), "showing release notes requires a visible AWT display");
+        final java.util.List<String> marked = new java.util.ArrayList<>();
+        final dev.turboism.internal.core.UpdateNotesService updateNotes =
+                new dev.turboism.internal.core.UpdateNotesService() {
+                    @Override
+                    public java.util.Optional<ReleaseNotes> pendingReleaseNotes() {
+                        return marked.contains("0.70.3")
+                                ? java.util.Optional.empty()
+                                : java.util.Optional.of(new ReleaseNotes(
+                                        "0.70.3",
+                                        java.util.Optional.of("0.70.2"),
+                                        java.util.Map.of("en", "### Added\n\n- Release item")));
+                    }
+
+                    @Override
+                    public void markReleaseNotesSeen(final String version) {
+                        marked.add(version);
+                    }
+                };
+        final CoreShell first = plugin(GuidePreferences.unavailable(), updateNotes);
+        final RecordingPluginContext firstContext = new RecordingPluginContext();
+        firstContext.useInlineUiScheduler();
+        first.start(firstContext);
+        assertNull(first.coreWindows().updateNotesWindowForTesting(), "notes wait for the startup delay");
+        firstContext.stepDelayedUiWork();
+        SwingUtilities.invokeAndWait(() -> {});
+        final UpdateNotesWindow firstWindow = first.coreWindows().updateNotesWindowForTesting();
+        assertNotNull(firstWindow, "pending release notes must open");
+        assertTrue(firstWindow.isShowing());
+        assertTrue(marked.isEmpty(), "opening release notes records no acknowledgment");
+        first.close();
+        assertTrue(marked.isEmpty(), "shell teardown must not record acknowledgment");
+
+        final CoreShell second = plugin(GuidePreferences.unavailable(), updateNotes);
+        final RecordingPluginContext secondContext = new RecordingPluginContext();
+        secondContext.useInlineUiScheduler();
+        second.start(secondContext);
+        secondContext.stepDelayedUiWork();
+        SwingUtilities.invokeAndWait(() -> {});
+        final UpdateNotesWindow secondWindow = second.coreWindows().updateNotesWindowForTesting();
+        assertNotNull(secondWindow);
+        SwingUtilities.invokeAndWait(secondWindow::close);
+        assertEquals(List.of("0.70.3"), marked);
+
+        final CoreShell third = plugin(GuidePreferences.unavailable(), updateNotes);
+        final RecordingPluginContext thirdContext = new RecordingPluginContext();
+        thirdContext.useInlineUiScheduler();
+        third.start(thirdContext);
+        assertFalse(thirdContext.hasDelayedUiWork(), "acknowledged release notes schedule no startup popup");
+        assertNull(third.coreWindows().updateNotesWindowForTesting());
+        third.close();
+        second.close();
+    }
+
+    @Test
     void disposableScopeClosesActionAndToolbarContribution() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         CoreShell plugin = plugin();
@@ -893,6 +950,11 @@ class CoreShellTest {
     }
 
     private static CoreShell plugin(final GuidePreferences guide) {
+        return plugin(guide, dev.turboism.internal.core.UpdateNotesService.unavailable());
+    }
+
+    private static CoreShell plugin(
+            final GuidePreferences guide, final dev.turboism.internal.core.UpdateNotesService updateNotes) {
         return new CoreShell(new ShellServices(
                 settings(),
                 CubismJvmSettingsService.unavailable(),
@@ -903,7 +965,8 @@ class CoreShellTest {
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
                 CoreUpdateService.unavailable(),
                 dev.turboism.internal.core.KeybindingService.unavailable(),
-                guide));
+                guide,
+                updateNotes));
     }
 
     private static CoreShell plugin(final CoreUpdateService updates) {

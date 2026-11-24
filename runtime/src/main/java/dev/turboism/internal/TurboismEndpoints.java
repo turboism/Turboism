@@ -14,6 +14,7 @@ public final class TurboismEndpoints {
 
     public static final String GITHUB_REPOSITORY = "turboism/Turboism";
     public static final String GITHUB_REPO_URL = "https://github.com/" + GITHUB_REPOSITORY;
+    public static final String GITHUB_RELEASES_URL = GITHUB_REPO_URL + "/releases";
     public static final String GITHUB_BLOB_MAIN_PREFIX = GITHUB_REPO_URL + "/blob/main/";
     public static final String GITHUB_ISSUES_URL = GITHUB_REPO_URL + "/issues";
     public static final String GITHUB_LICENSE_URL = GITHUB_BLOB_MAIN_PREFIX + "LICENSE";

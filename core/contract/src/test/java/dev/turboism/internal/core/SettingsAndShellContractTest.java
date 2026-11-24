@@ -102,6 +102,8 @@ class SettingsAndShellContractTest {
         assertEquals(
                 CubismJvmSettingsService.CubismJvm.GRAALVM,
                 services.cubismJvmSettings().read());
+        assertTrue(services.updateNotes().pendingReleaseNotes().isEmpty());
+        services.updateNotes().markReleaseNotesSeen("0.70.3");
         assertThrows(NullPointerException.class, () -> new ShellServices(null, plugins));
         assertThrows(NullPointerException.class, () -> new ShellServices(RuntimeSettingsService.unavailable(), null));
     }

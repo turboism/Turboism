@@ -60,6 +60,24 @@ class CardPageViewTest {
         assertNull(findLink(created[0]), "a page without links renders no control");
     }
 
+    @Test
+    void markdownEscapesRawHtmlFormatsInlineTokensAndFiltersUnsafeLinks() {
+        final String html = CardPageView.markdownHtml(
+                "Added <script>",
+                "Updated **bold** and `raw_*code*`",
+                List.of("See [docs](https://docs.turboism.dev) and [local](sdk/review.md)"),
+                List.of("Item `a & b` with **emphasis**"));
+
+        assertFalse(html.contains("<script>"));
+        assertTrue(html.contains("&lt;script&gt;"));
+        assertTrue(html.contains("<strong>bold</strong>"));
+        assertTrue(html.contains("<code>raw_*code*</code>"), "asterisks inside backticks stay literal");
+        assertTrue(html.contains("<a href=\"https://docs.turboism.dev\">docs</a>"));
+        assertFalse(html.contains("href=\"sdk/review.md\""), "relative paths never become active hyperlinks");
+        assertTrue(html.contains("local"));
+        assertTrue(html.contains("<code>a &amp; b</code>"));
+    }
+
     private static JButton findLink(final Container container) {
         for (final Component child : container.getComponents()) {
             if (child instanceof JButton button && !button.getText().isBlank()) return button;

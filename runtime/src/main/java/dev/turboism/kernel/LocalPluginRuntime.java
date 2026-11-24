@@ -47,6 +47,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final dev.turboism.internal.core.OptimizationSettingsService optimizationSettings;
     private final dev.turboism.internal.core.CoreUpdateService updateService;
     private final dev.turboism.internal.core.GuidePreferences guidePreferences;
+    private final dev.turboism.internal.core.UpdateNotesService updateNotesService;
     private final KernelLog log;
     private final PluginLifecyclePolicy lifecyclePolicy;
     private final PluginLifecycleLane lifecycleLane;
@@ -378,6 +379,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.updateService = resources.updateService();
         this.guidePreferences =
                 new dev.turboism.config.RuntimeGuidePreferences(home, message -> log.warn("config", message));
+        this.updateNotesService = new dev.turboism.update.RuntimeUpdateNotesService(
+                home, this.guidePreferences, message -> log.warn("update", message));
         this.lifecyclePolicy = resources.lifecyclePolicy();
         this.lifecycleLane = resources.lifecycleLane();
         this.retention = resources.retention();
@@ -477,7 +480,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                                 log,
                                 updateService,
                                 keybindingService,
-                                guidePreferences),
+                                guidePreferences,
+                                updateNotesService),
                         lifecyclePolicy,
                         lifecycleLane,
                         retention,

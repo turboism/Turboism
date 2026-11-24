@@ -212,6 +212,13 @@ tasks.named<ProcessResources>("processResources") {
     from(rootProject.file("packaging/managed-graal.json")) {
         into("META-INF/turboism")
     }
+    from(rootProject.file("distribution/release-notes")) {
+        include("*.json")
+        into("META-INF/turboism/release-notes")
+    }
+    from(rootProject.file("docs/en/CHANGELOG.md")) {
+        into("META-INF/turboism/release-notes")
+    }
 }
 
 tasks.named("compileJava") {
