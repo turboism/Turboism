@@ -45,6 +45,7 @@ public final class NativeShaderUniformBridge {
     private static final int REENTRANT_POOL_LIMIT = 4;
     private static final Map.Entry<?, ?>[] EMPTY_ENTRIES = new Map.Entry<?, ?>[0];
     private static final ThreadLocal<EntryPool> ENTRY_POOL = ThreadLocal.withInitial(EntryPool::new);
+    private static final ThreadLocal<ContextStamp> CONTEXT_SCRATCH = ThreadLocal.withInitial(ContextStamp::new);
 
     private static final String METHOD_GL_GET_UNIFORM_LOCATION = "glGetUniformLocation";
     private static final String METHOD_GET_CONTEXT = "getContext";
@@ -175,12 +176,15 @@ public final class NativeShaderUniformBridge {
         if (!enabled || program <= 0 || name == null) return original(gl, program, name);
         final ContextStamp stamp = verifyContextStamp(gl, program, shader);
         if (stamp == null) return original(gl, program, name);
+        final Object context = stamp.context;
+        final long handle = stamp.handle;
+        stamp.clear();
         State state;
         synchronized (CACHE) {
             state = CACHE.get(shader);
-            if (state == null || !state.same(stamp.context(), stamp.handle(), program)) {
+            if (state == null || !state.same(context, handle, program)) {
                 if (CACHE.size() >= MAX_SHADERS) CACHE.clear();
-                state = new State(stamp.context(), stamp.handle(), program);
+                state = new State(context, handle, program);
                 CACHE.put(shader, state);
             }
             Integer location = state.locations.get(name);
@@ -232,11 +236,12 @@ public final class NativeShaderUniformBridge {
         if (stamp == null) {
             return true;
         }
+        final Object context = stamp.context;
+        final long handle = stamp.handle;
+        stamp.clear();
         synchronized (CACHE) {
             final State state = CACHE.get(shader);
-            if (state != null
-                    && state.same(stamp.context(), stamp.handle(), program)
-                    && state.matchesMatrix(kind, location, values)) {
+            if (state != null && state.same(context, handle, program) && state.matchesMatrix(kind, location, values)) {
                 MATRIX_HITS.incrementAndGet();
                 return false;
             }
@@ -275,13 +280,16 @@ public final class NativeShaderUniformBridge {
         if (stamp == null) {
             return;
         }
+        final Object context = stamp.context;
+        final long handle = stamp.handle;
+        stamp.clear();
         synchronized (CACHE) {
             State state = CACHE.get(shader);
-            if (state == null || !state.same(stamp.context(), stamp.handle(), program)) {
+            if (state == null || !state.same(context, handle, program)) {
                 if (CACHE.size() >= MAX_SHADERS) {
                     CACHE.clear();
                 }
-                state = new State(stamp.context(), stamp.handle(), program);
+                state = new State(context, handle, program);
                 CACHE.put(shader, state);
             }
             state.storeMatrix(kind, location, values);
@@ -320,7 +328,7 @@ public final class NativeShaderUniformBridge {
                     && (int) shaderApi.getProgramId().invokeExact(shader) == program
                     && (Object) shaderApi.getUniformMap().invokeExact(shader) instanceof Map<?, ?> uniforms
                     && !uniforms.isEmpty();
-            return eligible ? new ContextStamp(context, handle) : null;
+            return eligible ? CONTEXT_SCRATCH.get().assign(context, handle) : null;
         } catch (IllegalStateException rejected) {
             return null;
         } catch (Throwable failure) {
@@ -482,7 +490,21 @@ public final class NativeShaderUniformBridge {
         }
     }
 
-    private record ContextStamp(Object context, long handle) {}
+    private static final class ContextStamp {
+        Object context;
+        long handle;
+
+        ContextStamp assign(final Object context, final long handle) {
+            this.context = context;
+            this.handle = handle;
+            return this;
+        }
+
+        void clear() {
+            this.context = null;
+            this.handle = 0L;
+        }
+    }
 
     private static final class State {
         final WeakReference<Object> context;

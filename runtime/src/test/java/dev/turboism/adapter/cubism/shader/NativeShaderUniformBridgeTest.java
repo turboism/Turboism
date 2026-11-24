@@ -278,6 +278,36 @@ final class NativeShaderUniformBridgeTest {
                 gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionCopy));
     }
 
+    @Test
+    void steadyStateLookupAndMatrixCacheCheckAllocateZeroBytes() {
+        final Gl gl = new Gl();
+        final Shader shader = new Shader();
+        Context.current = gl.context;
+        final float[] projection = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
+        assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+        NativeShaderUniformBridge.recordCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection);
+
+        final var allocMx = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+        for (int i = 0; i < 2000; i++) {
+            assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+            assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                    gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
+        }
+
+        final long tid = Thread.currentThread().getId();
+        allocMx.getThreadAllocatedBytes(tid);
+        final long before = allocMx.getThreadAllocatedBytes(tid);
+        for (int i = 0; i < 1000; i++) {
+            assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+            assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                    gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
+        }
+        final long after = allocMx.getThreadAllocatedBytes(tid);
+        assertEquals(0L, after - before, "steady-state lookup and camera matrix checks must allocate zero bytes");
+    }
+
     private static int countEntries(final Map.Entry<?, ?>[] entries) {
         int count = 0;
         while (count < entries.length && entries[count] != null) {
