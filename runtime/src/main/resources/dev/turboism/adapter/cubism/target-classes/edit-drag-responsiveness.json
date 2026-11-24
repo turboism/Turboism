@@ -5,6 +5,7 @@
     "com/live2d/cubism/view/palette/inspector/CEPaletteCtrl_Inspector$ViewCtrlInspector",
     "com/live2d/cubism/view/palette/inspector/d",
     "com/live2d/cubism/view/palette/inspector/editPalette/ParameterControllable_wrapperForInspector$DeformerSelectorUiFactory",
-    "com/live2d/cubism/view/palette/deformer/CEPaletteCtrl_Deformer$ViewCtrlDeformer"
+    "com/live2d/cubism/view/palette/deformer/CEPaletteCtrl_Deformer$ViewCtrlDeformer",
+    "com/live2d/graphics3d/view/glWrapper/GLJPanelWrapper$c"
   ]
 }

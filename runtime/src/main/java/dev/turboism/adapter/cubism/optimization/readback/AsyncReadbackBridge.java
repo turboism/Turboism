@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.readback;
 
+import dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessBridge;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
@@ -13,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BooleanSupplier;
 
 /**
  * Pipelined pixel-pack-buffer readback for the rewritten JOGL {@code postGL}.
@@ -54,11 +56,18 @@ public final class AsyncReadbackBridge {
     private static final LongAdder failures = new LongAdder();
     private static final LongAdder verified = new LongAdder();
     private static final LongAdder mismatched = new LongAdder();
+    private static final LongAdder dragBypassed = new LongAdder();
 
+    private static volatile BooleanSupplier activeCanvasDragSupplier =
+            EditDragResponsivenessBridge::isAnyCanvasDragging;
     private static volatile WeakReference<Object> boundGl;
     private static volatile State state = new State();
 
     private AsyncReadbackBridge() {}
+
+    static void setActiveCanvasDragSupplierForTest(final BooleanSupplier supplier) {
+        activeCanvasDragSupplier = supplier == null ? EditDragResponsivenessBridge::isAnyCanvasDragging : supplier;
+    }
 
     /**
      * Replacement for the GLSL-path {@code GL.glReadPixels(int, int, int, int, int, int, Buffer)}.
@@ -81,6 +90,13 @@ public final class AsyncReadbackBridge {
             nativeRead(gl, x, y, width, height, format, type, destination);
             return;
         }
+        if (isCanvasDragging()) {
+            // Active drags require immediate frame N pixels so pipelined PBOs never add 1-frame cursor lag.
+            invalidatePipelinedState();
+            dragBypassed.increment();
+            nativeRead(gl, x, y, width, height, format, type, destination);
+            return;
+        }
         try {
             pipelined(gl, x, y, width, height, format, type, destination);
         } catch (final Throwable problem) {
@@ -95,6 +111,21 @@ public final class AsyncReadbackBridge {
             }
             nativeRead(gl, x, y, width, height, format, type, destination);
         }
+    }
+
+    private static boolean isCanvasDragging() {
+        try {
+            return activeCanvasDragSupplier.getAsBoolean();
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    private static void invalidatePipelinedState() {
+        final State current = state;
+        current.primed = false;
+        current.verifyPending = false;
     }
 
     private static void pipelined(
@@ -299,6 +330,7 @@ public final class AsyncReadbackBridge {
         failures.reset();
         verified.reset();
         mismatched.reset();
+        dragBypassed.reset();
     }
 
     /** Work counters for diagnostics; no host object is retained. */
@@ -314,6 +346,7 @@ public final class AsyncReadbackBridge {
         values.put("failures", failures.sum());
         values.put("verified", verified.sum());
         values.put("mismatched", mismatched.sum());
+        values.put("dragBypassed", dragBypassed.sum());
         return values;
     }
 

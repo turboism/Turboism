@@ -26,8 +26,9 @@ import org.objectweb.asm.Opcodes;
  */
 public final class CursorValidationElisionTransformer implements ClassFileTransformer {
 
-    private static final String BOOLEAN_SUPPLIER = "java/util/function/BooleanSupplier";
     private static final String PREDICATE = "java/util/function/Predicate";
+    private static final String PREDICATE_TEST_METHOD = "test";
+    private static final String PREDICATE_TEST_DESCRIPTOR = "(Ljava/lang/Object;)Z";
     private static final String RUNNABLE = "java/lang/Runnable";
     private static final String ACCESS_PREFIX = "access:";
     private static final int EXPECTED_CONTAINER_SITES = 2;
@@ -147,11 +148,11 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
             failure = "Container method shape mismatch";
             return null;
         }
-        final ClassReader reader = new ClassReader(bytes);
+        final ClassReader reader = HostClassWriters.newClassReader(bytes);
         final ClassWriter writer = HostClassWriters.newFrameWriter(reader, ClassLoader.getPlatformClassLoader());
         final int[] localSites = {0};
         reader.accept(
-                new ClassVisitor(Opcodes.ASM9, writer) {
+                HostClassWriters.preservingClassVersion(bytes, new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
                     public MethodVisitor visitMethod(
                             final int access,
@@ -171,7 +172,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                         }
                         return mv;
                     }
-                },
+                }),
                 ClassReader.EXPAND_FRAMES);
         if (localSites[0] != EXPECTED_CONTAINER_SITES) {
             failure = "Container site count mismatch: " + localSites[0];
@@ -207,11 +208,11 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
             failure = "Component method shape mismatch";
             return null;
         }
-        final ClassReader reader = new ClassReader(bytes);
+        final ClassReader reader = HostClassWriters.newClassReader(bytes);
         final ClassWriter writer = HostClassWriters.newFrameWriter(reader, ClassLoader.getPlatformClassLoader());
         final int[] localSites = {0};
         reader.accept(
-                new ClassVisitor(Opcodes.ASM9, writer) {
+                HostClassWriters.preservingClassVersion(bytes, new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
                     public MethodVisitor visitMethod(
                             final int access,
@@ -234,7 +235,7 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                         localSites[0]++;
                         return wrapDirtyNotifier(mv);
                     }
-                },
+                }),
                 ClassReader.EXPAND_FRAMES);
         if (localSites[0] != EXPECTED_COMPONENT_SITES) {
             failure = "Component site count mismatch: " + localSites[0];
@@ -259,15 +260,19 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
                         && CursorValidationElisionTarget.UPDATE_CURSOR_METHOD.equals(name)
                         && CursorValidationElisionTarget.UPDATE_CURSOR_DESCRIPTOR.equals(descriptor)) {
                     localSites[0]++;
+                    // Container receiver stays on stack so Predicate receives target container directly.
                     SlotBridgeEmitter.emitGetSlot(mv, CursorValidationElisionBridge.VALIDATE_PROPERTY);
                     super.visitInsn(Opcodes.DUP);
-                    super.visitTypeInsn(Opcodes.INSTANCEOF, BOOLEAN_SUPPLIER);
+                    super.visitTypeInsn(Opcodes.INSTANCEOF, PREDICATE);
                     final Label fallback = new Label();
                     final Label callOriginal = new Label();
                     final Label finished = new Label();
                     super.visitJumpInsn(Opcodes.IFEQ, fallback);
-                    super.visitTypeInsn(Opcodes.CHECKCAST, BOOLEAN_SUPPLIER);
-                    super.visitMethodInsn(Opcodes.INVOKEINTERFACE, BOOLEAN_SUPPLIER, "getAsBoolean", "()Z", true);
+                    super.visitTypeInsn(Opcodes.CHECKCAST, PREDICATE);
+                    super.visitInsn(Opcodes.SWAP);
+                    super.visitInsn(Opcodes.DUP_X1);
+                    super.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, PREDICATE, PREDICATE_TEST_METHOD, PREDICATE_TEST_DESCRIPTOR, true);
                     super.visitJumpInsn(Opcodes.IFNE, callOriginal);
                     super.visitInsn(Opcodes.POP);
                     super.visitJumpInsn(Opcodes.GOTO, finished);
@@ -288,8 +293,6 @@ public final class CursorValidationElisionTransformer implements ClassFileTransf
             private static final String MOUSE_INFO_OWNER = "java/awt/MouseInfo";
             private static final String GET_POINTER_INFO_METHOD = "getPointerInfo";
             private static final String GET_POINTER_INFO_DESCRIPTOR = "()Ljava/awt/PointerInfo;";
-            private static final String PREDICATE_TEST_METHOD = "test";
-            private static final String PREDICATE_TEST_DESCRIPTOR = "(Ljava/lang/Object;)Z";
             private boolean injected;
 
             @Override

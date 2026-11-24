@@ -6,7 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.Cursor;
 import java.awt.Panel;
+import java.awt.event.ComponentEvent;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -14,7 +18,9 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import javax.swing.JPanel;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -205,12 +211,66 @@ final class CursorValidationElisionTest {
         componentWriter.visitEnd();
 
         final byte[] containerBytes = writer.toByteArray();
+        containerBytes[7] = 69;
         final byte[] componentBytes = componentWriter.toByteArray();
+        componentBytes[7] = 69;
         final CursorValidationElisionTransformer transformer =
                 new CursorValidationElisionTransformer(containerBytes, componentBytes);
         final byte[] rewritten = transformer.transform(
                 null, null, CursorValidationElisionTarget.CONTAINER_OWNER, null, null, containerBytes);
         assertNotNull(rewritten, () -> "JDK 25 MouseInfo shape should be admitted: " + transformer.failure());
         assertEquals(2, transformer.sites());
+        assertEquals(69, ((rewritten[6] & 0xFF) << 8) | (rewritten[7] & 0xFF));
+        final byte[] rewrittenComponent = transformer.transform(
+                null, null, CursorValidationElisionTarget.COMPONENT_OWNER, null, null, componentBytes);
+        assertNotNull(rewrittenComponent, () -> "JDK 25 Component shape should be admitted: " + transformer.failure());
+        assertEquals(69, ((rewrittenComponent[6] & 0xFF) << 8) | (rewrittenComponent[7] & 0xFF));
+
+        final byte[] unsupportedMajor = containerBytes.clone();
+        unsupportedMajor[7] = 70;
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new CursorValidationElisionTransformer(unsupportedMajor, componentBytes));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void activeDragElidesRedundantValidateUnlessBoundsOrCursorMutate() {
+        final AtomicBoolean dragging = new AtomicBoolean(false);
+        try (CursorValidationElisionBridge bridge = new CursorValidationElisionBridge(dragging::get, true)) {
+            bridge.install();
+            final Predicate<Object> validate =
+                    (Predicate<Object>) System.getProperties().get(CursorValidationElisionBridge.VALIDATE_PROPERTY);
+            final Runnable dirty = (Runnable) System.getProperties().get(CursorValidationElisionBridge.DIRTY_PROPERTY);
+            final JPanel container = new JPanel();
+            container.setBounds(0, 0, 800, 600);
+            container.setVisible(true);
+
+            // Initial press/validate clears startup dirtiness and records container bounds.
+            assertTrue(validate.test(container));
+            dragging.set(true);
+
+            // MOUSE_DRAGGED and child layout invalidations during active canvas drag keep cursor clean.
+            bridge.onAwtEventForTest(new MouseEvent(
+                    container, MouseEvent.MOUSE_DRAGGED, 10L, InputEvent.BUTTON1_DOWN_MASK, 120, 140, 1, false));
+            bridge.onAwtEventForTest(new ComponentEvent(container, ComponentEvent.COMPONENT_RESIZED));
+            assertFalse(validate.test(container), "unchanged container during active drag elides native cursor work");
+
+            // Resizing the validated container itself forces cursor validation.
+            container.setBounds(0, 0, 820, 600);
+            assertTrue(validate.test(container), "container bounds change invalidates cached validation");
+            assertFalse(validate.test(container), "subsequent unchanged drag validate elides again");
+
+            // Explicit Component.setCursor / show / hide marks dirty and passes through.
+            container.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+            dirty.run();
+            assertTrue(validate.test(container), "explicit setCursor mutation invalidates cleanly");
+
+            // MOUSE_RELEASED marks explicit dirty so post-drag validation updates cursor cleanly.
+            dragging.set(false);
+            bridge.onAwtEventForTest(new MouseEvent(
+                    container, MouseEvent.MOUSE_RELEASED, 20L, 0, 120, 140, 1, false, MouseEvent.BUTTON1));
+            assertTrue(validate.test(container));
+        }
     }
 }

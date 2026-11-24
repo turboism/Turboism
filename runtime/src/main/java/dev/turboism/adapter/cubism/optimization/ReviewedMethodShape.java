@@ -81,7 +81,7 @@ public final class ReviewedMethodShape {
     public static boolean declaresMethod(
             final byte[] bytes, final String owner, final String methodName, final String descriptor) {
         Objects.requireNonNull(bytes, "bytes");
-        final ClassReader reader = new ClassReader(bytes);
+        final ClassReader reader = HostClassWriters.newClassReader(bytes);
         if (!owner.equals(reader.getClassName())) {
             return false;
         }
@@ -106,7 +106,7 @@ public final class ReviewedMethodShape {
     }
 
     private static List<String> parse(byte[] bytes, String owner, String methodName, String descriptor) {
-        ClassReader reader = new ClassReader(bytes);
+        ClassReader reader = HostClassWriters.newClassReader(bytes);
         if (!owner.equals(reader.getClassName())) return null;
         List<List<String>> results = new ArrayList<>();
         int[] count = {0};

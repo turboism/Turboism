@@ -68,6 +68,8 @@ final class EditDragResponsivenessTest {
             EditDragResponsivenessBridge.DEFER_DEFORMER_SELECTOR_PROPERTY,
             EditDragResponsivenessBridge.DEFER_DEFORMER_PALETTE_PROPERTY,
             EditDragResponsivenessBridge.CURSOR_PROPERTY,
+            EditDragResponsivenessBridge.PRE_RENDER_DRAG_PROPERTY,
+            EditDragResponsivenessBridge.REPAINT_ELIDE_PROPERTY,
             EditDragResponsivenessBridge.STATS_PROPERTY
         }) {
             assertNull(System.getProperties().get(key), key);
@@ -259,6 +261,113 @@ final class EditDragResponsivenessTest {
         assertFalse(bridge.shouldElideCursor(widget, null));
     }
 
+    @Test
+    void preRenderDragPullAppliesQueuedDragOnceElidesRepaintAndDeduplicatesEdtDelivery() {
+        final Object canvasListener = new Object();
+        final Object canvasWidget = new Object();
+        final JPanel canvas = new JPanel();
+        host.canvasListener = canvasListener;
+        host.canvasWidget = canvasWidget;
+        host.openDragSession = true;
+
+        final MouseEvent press = new MouseEvent(
+                canvas,
+                MouseEvent.MOUSE_PRESSED,
+                10L,
+                InputEvent.BUTTON1_DOWN_MASK,
+                10,
+                10,
+                1,
+                false,
+                MouseEvent.BUTTON1);
+        final MouseEvent drag1 = new MouseEvent(
+                canvas, MouseEvent.MOUSE_DRAGGED, 11L, InputEvent.BUTTON1_DOWN_MASK, 20, 20, 1, false, 0);
+        final MouseEvent drag2 = new MouseEvent(
+                canvas, MouseEvent.MOUSE_DRAGGED, 12L, InputEvent.BUTTON1_DOWN_MASK, 40, 45, 1, false, 0);
+        final MouseEvent drag3 = new MouseEvent(
+                canvas, MouseEvent.MOUSE_DRAGGED, 13L, InputEvent.BUTTON1_DOWN_MASK, 60, 65, 1, false, 0);
+
+        bridge.onMousePressed(canvasListener, press);
+        assertTrue(EditDragResponsivenessBridge.isAnyCanvasDragging());
+        assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag1));
+
+        // Frame render runs while drag2 is queued behind an InvocationEvent; pre-render pulls drag2 inline.
+        queue.postEvent(new InvocationEvent(canvas, () -> {}));
+        queue.postEvent(drag2);
+        host.repaintDuringMouseDragged = () -> assertTrue(bridge.shouldElideCanvasRepaint(canvasWidget));
+
+        assertTrue(bridge.pumpLatestDragBeforeRender(canvasWidget));
+        assertEquals(List.of(drag2), host.draggedDispatched);
+        assertEquals(1L, bridge.snapshot().get("preRenderDragPumped"));
+        assertEquals(1L, bridge.snapshot().get("repaintElided"));
+
+        // Outside the pre-render pump, normal canvas repaints are never elided.
+        assertFalse(bridge.shouldElideCanvasRepaint(canvasWidget));
+
+        // When EDT later delivers the exact pumped drag2, it is deduplicated with no double-paint.
+        assertEquals(InvocationEvent.INVOCATION_DEFAULT, queue.getNextEvent().getID());
+        assertEquals(drag2, queue.getNextEvent());
+        assertTrue(bridge.shouldCoalesceDrag(canvasListener, drag2));
+        assertEquals(1L, bridge.snapshot().get("preRenderDragDeduplicated"));
+
+        // If a newer drag3 supersedes drag2Next on the queue, EDT processes drag3 normally.
+        final MouseEvent drag2Next = new MouseEvent(
+                canvas, MouseEvent.MOUSE_DRAGGED, 13L, InputEvent.BUTTON1_DOWN_MASK, 50, 55, 1, false, 0);
+        queue.postEvent(drag2Next);
+        assertTrue(bridge.pumpLatestDragBeforeRender(canvasWidget));
+        assertTrue(queue.getNextEvent() == drag2Next);
+        assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag3));
+
+        final MouseEvent release =
+                new MouseEvent(canvas, MouseEvent.MOUSE_RELEASED, 14L, 0, 60, 65, 1, false, MouseEvent.BUTTON1);
+        bridge.onMouseReleasedBegin(canvasListener, release);
+        assertFalse(EditDragResponsivenessBridge.isAnyCanvasDragging());
+        bridge.onMouseReleasedEnd(canvasListener, release);
+    }
+
+    @Test
+    void preRenderDragPullStopsOnBoundaryEventsAndPreventsReentrancy() {
+        final Object canvasListener = new Object();
+        final Object canvasWidget = new Object();
+        final JPanel canvas = new JPanel();
+        host.canvasListener = canvasListener;
+        host.canvasWidget = canvasWidget;
+        host.openDragSession = true;
+
+        final MouseEvent press = new MouseEvent(
+                canvas,
+                MouseEvent.MOUSE_PRESSED,
+                20L,
+                InputEvent.BUTTON1_DOWN_MASK,
+                10,
+                10,
+                1,
+                false,
+                MouseEvent.BUTTON1);
+        final MouseEvent drag1 = new MouseEvent(
+                canvas, MouseEvent.MOUSE_DRAGGED, 21L, InputEvent.BUTTON1_DOWN_MASK, 15, 15, 1, false, 0);
+        final MouseEvent drag2 = new MouseEvent(
+                canvas, MouseEvent.MOUSE_DRAGGED, 22L, InputEvent.BUTTON1_DOWN_MASK, 35, 35, 1, false, 0);
+        final MouseEvent release =
+                new MouseEvent(canvas, MouseEvent.MOUSE_RELEASED, 23L, 0, 35, 35, 1, false, MouseEvent.BUTTON1);
+
+        bridge.onMousePressed(canvasListener, press);
+        assertFalse(bridge.shouldCoalesceDrag(canvasListener, drag1));
+
+        // Queued MOUSE_RELEASED blocks pre-render drag pump so release/undo order stays intact.
+        queue.postEvent(drag2);
+        queue.postEvent(release);
+        assertFalse(bridge.pumpLatestDragBeforeRender(canvasWidget));
+        assertTrue(host.draggedDispatched.isEmpty());
+        drainQueue(queue);
+
+        // Recursive render triggered inside mouseDragged must never re-enter pre-render pump.
+        queue.postEvent(drag2);
+        host.onMouseDraggedHook = () -> assertFalse(bridge.pumpLatestDragBeforeRender(canvasWidget));
+        assertTrue(bridge.pumpLatestDragBeforeRender(canvasWidget));
+        assertEquals(1, host.draggedDispatched.size());
+    }
+
     private static MouseEvent dragEvent(
             final Component source, final int x, final int y, final int modifiersEx, final int button) {
         return new MouseEvent(
@@ -311,9 +420,13 @@ final class EditDragResponsivenessTest {
     private static final class RecordingHostBindings implements EditDragResponsivenessBridge.HostBindings {
 
         Object canvasListener;
+        Object canvasWidget;
         boolean openDragSession;
         Component widgetComponent;
         Cursor cursorToReturn;
+        Runnable onMouseDraggedHook;
+        Runnable repaintDuringMouseDragged;
+        final List<MouseEvent> draggedDispatched = new ArrayList<>();
         final List<String> inspectorCtrlUpdates = new ArrayList<>();
         final List<String> inspectorPanelUpdates = new ArrayList<>();
         final List<String> selectorUpdates = new ArrayList<>();
@@ -325,8 +438,24 @@ final class EditDragResponsivenessTest {
         }
 
         @Override
+        public Object widgetOfListener(final Object listener) {
+            return canvasWidget;
+        }
+
+        @Override
         public boolean hasOpenDragSession(final Object listener) {
             return openDragSession;
+        }
+
+        @Override
+        public void dispatchMouseDragged(final Object listener, final MouseEvent event) {
+            draggedDispatched.add(event);
+            if (onMouseDraggedHook != null) {
+                onMouseDraggedHook.run();
+            }
+            if (repaintDuringMouseDragged != null) {
+                repaintDuringMouseDragged.run();
+            }
         }
 
         @Override

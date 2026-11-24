@@ -28,10 +28,10 @@ public record EditDragResponsivenessTarget(HostArtifactDigest digest, String ver
     public static final String TARGET_TABLE_NAME = "edit-drag-responsiveness";
 
     /** Expected count of transformed host classes per verified install. */
-    public static final int EXPECTED_MATCHES = 6;
+    public static final int EXPECTED_MATCHES = 7;
 
     /** Expected count of restored host owners on close. */
-    public static final int EXPECTED_OWNERS = 6;
+    public static final int EXPECTED_OWNERS = 7;
 
     /** Swing mouse listener adapter dispatching drag sessions on Cubism widgets. */
     public static final String MOUSE_LISTENER_OWNER = "com/live2d/ui/m$b";
@@ -42,8 +42,27 @@ public record EditDragResponsivenessTarget(HostArtifactDigest digest, String ver
     /** Canvas OpenGL widget wrapper class distinguishing canvas drags from control drags. */
     public static final String CANVAS_WIDGET_OWNER = "com/live2d/graphics3d/view/glWrapper/GLJPanelWrapper";
 
-    /** Base widget class forwarding cursor assignments to Swing. */
+    /** OpenGL event listener inner class driving canvas display frames. */
+    public static final String CANVAS_DISPLAY_OWNER = "com/live2d/graphics3d/view/glWrapper/GLJPanelWrapper$c";
+
+    /** Method name on {@link #CANVAS_DISPLAY_OWNER} rendering a canvas GL frame. */
+    public static final String DISPLAY_METHOD = "display";
+
+    /** Method descriptor of {@link #DISPLAY_METHOD}. */
+    public static final String DISPLAY_DESCRIPTOR = "(Lcom/jogamp/opengl/GLAutoDrawable;)V";
+
+    /** Field name storing the enclosing wrapper on {@link #CANVAS_DISPLAY_OWNER}. */
+    public static final String DISPLAY_CANVAS_FIELD = "a";
+
+    /** Field descriptor of {@link #DISPLAY_CANVAS_FIELD}. */
+    public static final String DISPLAY_CANVAS_FIELD_DESCRIPTOR =
+            "Lcom/live2d/graphics3d/view/glWrapper/GLJPanelWrapper;";
+
+    /** Base widget class forwarding cursor assignments and repaints to Swing. */
     public static final String WIDGET_OWNER = "com/live2d/ui/CWidget";
+
+    /** Method name on {@link #WIDGET_OWNER} scheduling a Swing repaint. */
+    public static final String REPAINT_METHOD = "repaint";
 
     /** Cubism cursor wrapper unwrapping the native AWT cursor. */
     public static final String CURSOR_OWNER = "com/live2d/type/CCursor";

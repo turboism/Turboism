@@ -240,4 +240,43 @@ public class CanvasCompositeElisionTransformerTest {
                 () -> new CanvasCompositeElisionTransformer(
                         loader, flatlaf, paintManager(false), flatPanel(false, true)));
     }
+
+    @Test
+    void transformsRealJrtPaintManagerCleanly() throws Exception {
+        final byte[] realPaintManager =
+                Files.readAllBytes(java.nio.file.FileSystems.getFileSystem(java.net.URI.create("jrt:/"))
+                        .getPath("/modules/java.desktop/javax/swing/RepaintManager$PaintManager.class"));
+        final Path flatlaf = Files.createTempFile("flatlaf", ".jar");
+        final Loader loader = new Loader(flatlaf);
+        final CanvasCompositeElisionTransformer transformer =
+                new CanvasCompositeElisionTransformer(loader, flatlaf, realPaintManager, flatPanel(false, false));
+        final byte[] rewritten = transformer.transform(null, null, PAINT, null, null, realPaintManager);
+        assertNotNull(rewritten, transformer.failure());
+        assertNull(transformer.failure());
+        assertEquals(1, transformer.matches());
+        assertEquals(1, transformer.sites());
+
+        final int java25Major = 69;
+        final int unsupportedMajor = 70;
+        final byte[] jdk25PaintManager = realPaintManager.clone();
+        jdk25PaintManager[6] = 0;
+        jdk25PaintManager[7] = (byte) java25Major;
+        final CanvasCompositeElisionTransformer jdk25Transformer =
+                new CanvasCompositeElisionTransformer(loader, flatlaf, jdk25PaintManager, flatPanel(false, false));
+        final byte[] jdk25Rewritten = jdk25Transformer.transform(null, null, PAINT, null, null, jdk25PaintManager);
+        assertNotNull(jdk25Rewritten, jdk25Transformer.failure());
+        assertNull(jdk25Transformer.failure());
+        assertEquals(1, jdk25Transformer.matches());
+        assertEquals(1, jdk25Transformer.sites());
+        final int outputMajor = ((jdk25Rewritten[6] & 0xFF) << 8) | (jdk25Rewritten[7] & 0xFF);
+        assertEquals(java25Major, outputMajor);
+
+        final byte[] unsupportedPaintManager = realPaintManager.clone();
+        unsupportedPaintManager[6] = 0;
+        unsupportedPaintManager[7] = (byte) unsupportedMajor;
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CanvasCompositeElisionTransformer(
+                        loader, flatlaf, unsupportedPaintManager, flatPanel(false, false)));
+    }
 }

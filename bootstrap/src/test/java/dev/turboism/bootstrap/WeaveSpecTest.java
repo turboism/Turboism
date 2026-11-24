@@ -105,7 +105,7 @@ class WeaveSpecTest {
                 VerifiedAtlasInteractiveRenderInstaller.EXPECTED_MATCHES,
                 VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
         assertEquals(
-                6,
+                7,
                 VerifiedEditDragResponsivenessInstaller.EXPECTED_MATCHES,
                 VerifiedEditDragResponsivenessInstaller.HOOK_ID);
     }
@@ -193,7 +193,7 @@ class WeaveSpecTest {
                 VerifiedAtlasInteractiveRenderInstaller.EXPECTED_OWNERS,
                 VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
         assertEquals(
-                6,
+                7,
                 VerifiedEditDragResponsivenessInstaller.EXPECTED_OWNERS,
                 VerifiedEditDragResponsivenessInstaller.HOOK_ID);
     }
