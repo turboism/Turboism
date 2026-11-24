@@ -29,6 +29,13 @@ import org.objectweb.asm.Opcodes;
 public final class WarpDeformEditTransformer implements ClassFileTransformer {
 
     private static final int EXPECTED_SELECTED_BUFFER_UPLOADS = 2;
+    private static final int EXPECTED_WARP_SOURCE_COPY_OF_SITES = 1;
+    private static final int EXPECTED_ROT_TRANSFORM_SCRATCH_SITES = 6;
+    private static final int EXPECTED_ROT_HELPER_SCRATCH_SITES = 3;
+    private static final int EXPECTED_SELECTION_MESH_UPDATE_SITES = 1;
+    private static final int LOCAL_SAFETY_MARGIN = 4;
+    private static final int[] ROT_TRANSFORM_SCRATCH_SLOTS = {0, 1, 2, 2, 3, 4};
+    private static final int[] ROT_HELPER_SCRATCH_SLOTS = {5, 6, 7};
 
     private static final String SYSTEM_OWNER = "java/lang/System";
     private static final String GET_PROPERTIES_METHOD = "getProperties";
@@ -97,6 +104,12 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     private final SoftSelectionAnchor softSelectionAnchor;
     private final ActionTransformAnchors actionAnchors;
     private final String resolvedOverlayMethodName;
+    private final String selectionViewOwner;
+    private final String resolvedSelectionDrawMethodName;
+    private final int selectionDrawNextFreeLocal;
+    private final int warpSourceReinitNextFreeLocal;
+    private final int rotTransformNextFreeLocal;
+    private final int rotHelperNextFreeLocal;
     private volatile String failure;
 
     private record MethodSpec(String name, String descriptor) {}
@@ -147,6 +160,15 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         ActionTransformAnchors resolvedActionAnchors = new ActionTransformAnchors(
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         String detectedOverlayMethod = WarpDeformEditTarget.OVERLAY_HELPER_METHOD;
+        final String expectedSelectionOwner =
+                WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER.equals(target.overlayOwner())
+                        ? WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER
+                        : WarpDeformEditTarget.OVERLAY_VIEW_OWNER;
+        String detectedSelectionMethod = null;
+        int selectionFreeLocal = 8;
+        int warpSourceFreeLocal = 4;
+        int rotTransformFreeLocal = 16;
+        int rotHelperFreeLocal = 14;
 
         for (final String owner : target.targetClasses()) {
             final byte[] refBytes = references.get(owner);
@@ -188,16 +210,64 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 ownerMethods = List.of(
                         new MethodSpec(WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.coreUpdateDescriptor()),
                         new MethodSpec(WarpDeformEditTarget.UPDATE_MODEL_METHOD, target.artMeshAppearanceDescriptor()));
-            } else if (target.overlayOwner().equals(owner)) {
-                detectedOverlayMethod = WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER.equals(owner)
-                        ? detectLegacyOverlayMethod(refBytes)
-                        : WarpDeformEditTarget.OVERLAY_HELPER_METHOD;
-                if (detectedOverlayMethod == null) {
-                    throw new IllegalArgumentException("legacy overlay loop method absent in " + owner);
+            } else if (target.overlayOwner().equals(owner) || expectedSelectionOwner.equals(owner)) {
+                final java.util.ArrayList<MethodSpec> viewMethods = new java.util.ArrayList<>();
+                if (target.overlayOwner().equals(owner)) {
+                    detectedOverlayMethod = WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER.equals(owner)
+                            ? detectLegacyOverlayMethod(refBytes)
+                            : WarpDeformEditTarget.OVERLAY_HELPER_METHOD;
+                    if (detectedOverlayMethod == null) {
+                        throw new IllegalArgumentException("legacy overlay loop method absent in " + owner);
+                    }
+                    viewMethods.add(new MethodSpec(detectedOverlayMethod, target.overlayMethodDescriptor()));
                 }
-                ownerMethods = List.of(new MethodSpec(detectedOverlayMethod, target.overlayMethodDescriptor()));
+                if (expectedSelectionOwner.equals(owner)) {
+                    final int[] selScan = inspectSelectionDrawMethod(refBytes);
+                    detectedSelectionMethod = selScan[0] >= 0 ? String.valueOf((char) selScan[0]) : null;
+                    if (detectedSelectionMethod == null) {
+                        throw new IllegalArgumentException("updateSelectionDraw method absent in " + owner);
+                    }
+                    if (selScan[1] != EXPECTED_SELECTION_MESH_UPDATE_SITES) {
+                        throw new IllegalArgumentException(
+                                "DrawEntity_ArtMesh_Selection.update site mismatch in " + owner + ": " + selScan[1]);
+                    }
+                    selectionFreeLocal = selScan[2];
+                    viewMethods.add(
+                            new MethodSpec(detectedSelectionMethod, WarpDeformEditTarget.SELECTION_DRAW_DESCRIPTOR));
+                }
+                ownerMethods = List.copyOf(viewMethods);
             } else {
                 ownerMethods = fixedMethodsFor(owner);
+                if (WarpDeformEditTarget.WARP_SOURCE_OWNER.equals(owner)) {
+                    final int[] scan = inspectCopyOfAndMaxLocal(
+                            refBytes,
+                            WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD,
+                            WarpDeformEditTarget.WARP_SOURCE_REINIT_DESCRIPTOR);
+                    if (scan[0] != EXPECTED_WARP_SOURCE_COPY_OF_SITES) {
+                        throw new IllegalArgumentException(
+                                "CWarpDeformerSource.reinitInstance Arrays.copyOf count mismatch: " + scan[0]);
+                    }
+                    warpSourceFreeLocal = scan[1];
+                } else if (WarpDeformEditTarget.ROT_FORM_OWNER.equals(owner)) {
+                    final int[] scan = inspectFloat2AllocsAndMaxLocal(
+                            refBytes,
+                            WarpDeformEditTarget.ROT_TRANSFORM_EXE_METHOD,
+                            WarpDeformEditTarget.ROT_TRANSFORM_EXE_DESCRIPTOR);
+                    if (scan[0] != EXPECTED_ROT_TRANSFORM_SCRATCH_SITES) {
+                        throw new IllegalArgumentException(
+                                "CRotationDeformerForm.transform_exe float[2] count mismatch: " + scan[0]);
+                    }
+                    rotTransformFreeLocal = scan[1];
+                } else if (WarpDeformEditTarget.ROT_HELPER_OWNER.equals(owner)) {
+                    final int[] scan = inspectFloat2AllocsAndMaxLocal(
+                            refBytes,
+                            WarpDeformEditTarget.ROT_HELPER_METHOD,
+                            WarpDeformEditTarget.ROT_HELPER_DESCRIPTOR);
+                    if (scan[0] != EXPECTED_ROT_HELPER_SCRATCH_SITES) {
+                        throw new IllegalArgumentException("CRotationDeformer$a.a float[2] count mismatch: " + scan[0]);
+                    }
+                    rotHelperFreeLocal = scan[1];
+                }
             }
             specs.put(owner, ownerMethods);
             for (final MethodSpec spec : ownerMethods) {
@@ -214,6 +284,12 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         this.softSelectionAnchor = Objects.requireNonNull(resolvedSoftAnchor);
         this.actionAnchors = resolvedActionAnchors;
         this.resolvedOverlayMethodName = detectedOverlayMethod;
+        this.selectionViewOwner = expectedSelectionOwner;
+        this.resolvedSelectionDrawMethodName = Objects.requireNonNull(detectedSelectionMethod, "selectionDrawMethod");
+        this.selectionDrawNextFreeLocal = selectionFreeLocal;
+        this.warpSourceReinitNextFreeLocal = warpSourceFreeLocal;
+        this.rotTransformNextFreeLocal = rotTransformFreeLocal;
+        this.rotHelperNextFreeLocal = rotHelperFreeLocal;
     }
 
     /**
@@ -421,6 +497,25 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 return EditSubtreeMethodWeavers.artMeshAppearanceAdapter(out);
             }
         }
+        if (WarpDeformEditTarget.WARP_SOURCE_OWNER.equals(owner)
+                && WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD.equals(methodName)) {
+            return EditSubtreeMethodWeavers.warpSourceReinitAdapter(out, warpSourceReinitNextFreeLocal);
+        }
+        if (WarpDeformEditTarget.ROT_FORM_OWNER.equals(owner)
+                && WarpDeformEditTarget.ROT_TRANSFORM_EXE_METHOD.equals(methodName)) {
+            return EditSubtreeMethodWeavers.rotationScratchAdapter(
+                    out, ROT_TRANSFORM_SCRATCH_SLOTS, rotTransformNextFreeLocal);
+        }
+        if (WarpDeformEditTarget.ROT_HELPER_OWNER.equals(owner)
+                && WarpDeformEditTarget.ROT_HELPER_METHOD.equals(methodName)) {
+            return EditSubtreeMethodWeavers.rotationScratchAdapter(
+                    out, ROT_HELPER_SCRATCH_SLOTS, rotHelperNextFreeLocal);
+        }
+        if (selectionViewOwner.equals(owner)
+                && resolvedSelectionDrawMethodName.equals(methodName)
+                && WarpDeformEditTarget.SELECTION_DRAW_DESCRIPTOR.equals(desc)) {
+            return EditSubtreeMethodWeavers.selectionDrawAdapter(out, selectionDrawNextFreeLocal);
+        }
         if (target.overlayOwner().equals(owner)
                 && resolvedOverlayMethodName.equals(methodName)
                 && target.overlayMethodDescriptor().equals(desc)) {
@@ -439,10 +534,21 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                         new MethodSpec(
                                 WarpDeformEditTarget.FORM_IS_INSIDE_METHOD,
                                 WarpDeformEditTarget.FORM_IS_INSIDE_DESCRIPTOR));
+            case WarpDeformEditTarget.WARP_SOURCE_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD,
+                        WarpDeformEditTarget.WARP_SOURCE_REINIT_DESCRIPTOR));
             case WarpDeformEditTarget.WARP_DEFORMER_OWNER ->
                 List.of(new MethodSpec(
                         WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_METHOD,
                         WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_DESCRIPTOR));
+            case WarpDeformEditTarget.ROT_FORM_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.ROT_TRANSFORM_EXE_METHOD,
+                        WarpDeformEditTarget.ROT_TRANSFORM_EXE_DESCRIPTOR));
+            case WarpDeformEditTarget.ROT_HELPER_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.ROT_HELPER_METHOD, WarpDeformEditTarget.ROT_HELPER_DESCRIPTOR));
             case WarpDeformEditTarget.SIMPLE_GRID_OWNER ->
                 List.of(new MethodSpec(
                         WarpDeformEditTarget.GET01_EX_QUAD_METHOD, WarpDeformEditTarget.GET01_EX_QUAD_DESCRIPTOR));
@@ -460,6 +566,223 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                         WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_DESCRIPTOR));
             default -> throw new IllegalArgumentException("unsupported fixed owner: " + owner);
         };
+    }
+
+    private static int[] inspectCopyOfAndMaxLocal(
+            final byte[] bytes, final String methodName, final String methodDesc) {
+        final int[] res = {0, LOCAL_SAFETY_MARGIN};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String desc,
+                                    final String sig,
+                                    final String[] ex) {
+                                if (!methodName.equals(name) || !methodDesc.equals(desc)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    private int maxLocal = 2;
+
+                                    @Override
+                                    public void visitVarInsn(final int opcode, final int varIndex) {
+                                        maxLocal = Math.max(maxLocal, varIndex + 2);
+                                    }
+
+                                    @Override
+                                    public void visitIincInsn(final int varIndex, final int increment) {
+                                        maxLocal = Math.max(maxLocal, varIndex + 2);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int op,
+                                            final String owner,
+                                            final String mName,
+                                            final String mDesc,
+                                            final boolean itf) {
+                                        if (op == Opcodes.INVOKESTATIC
+                                                && ARRAYS_OWNER.equals(owner)
+                                                && ARRAYS_COPY_OF_METHOD.equals(mName)
+                                                && ARRAYS_COPY_OF_DESCRIPTOR.equals(mDesc)) {
+                                            res[0]++;
+                                        }
+                                    }
+
+                                    @Override
+                                    public void visitEnd() {
+                                        res[1] = maxLocal + LOCAL_SAFETY_MARGIN;
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return res;
+    }
+
+    private static int[] inspectFloat2AllocsAndMaxLocal(
+            final byte[] bytes, final String methodName, final String methodDesc) {
+        final int[] res = {0, LOCAL_SAFETY_MARGIN};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String desc,
+                                    final String sig,
+                                    final String[] ex) {
+                                if (!methodName.equals(name) || !methodDesc.equals(desc)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    private int maxLocal = 5;
+                                    private boolean prevIconst2;
+
+                                    @Override
+                                    public void visitInsn(final int opcode) {
+                                        prevIconst2 = opcode == Opcodes.ICONST_2;
+                                    }
+
+                                    @Override
+                                    public void visitIntInsn(final int opcode, final int operand) {
+                                        if (prevIconst2 && opcode == Opcodes.NEWARRAY && operand == Opcodes.T_FLOAT) {
+                                            res[0]++;
+                                        }
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitVarInsn(final int opcode, final int varIndex) {
+                                        prevIconst2 = false;
+                                        maxLocal = Math.max(maxLocal, varIndex + 2);
+                                    }
+
+                                    @Override
+                                    public void visitIincInsn(final int varIndex, final int increment) {
+                                        prevIconst2 = false;
+                                        maxLocal = Math.max(maxLocal, varIndex + 2);
+                                    }
+
+                                    @Override
+                                    public void visitFieldInsn(
+                                            final int op, final String o, final String n, final String d) {
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int op,
+                                            final String o,
+                                            final String n,
+                                            final String d,
+                                            final boolean itf) {
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitJumpInsn(final int op, final Label label) {
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitLabel(final Label label) {
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitTypeInsn(final int op, final String type) {
+                                        prevIconst2 = false;
+                                    }
+
+                                    @Override
+                                    public void visitEnd() {
+                                        res[1] = maxLocal + LOCAL_SAFETY_MARGIN;
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return res;
+    }
+
+    private static int[] inspectSelectionDrawMethod(final byte[] bytes) {
+        final int[] res = {-1, 0, LOCAL_SAFETY_MARGIN};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String desc,
+                                    final String sig,
+                                    final String[] ex) {
+                                if (!WarpDeformEditTarget.SELECTION_DRAW_DESCRIPTOR.equals(desc)
+                                        || name.length() != 1) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    private boolean sawKey;
+                                    private int updateCalls;
+                                    private int maxLocal = 1;
+
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        if (WarpDeformEditTarget.SELECTION_DRAW_KEY.equals(value)) {
+                                            sawKey = true;
+                                        }
+                                    }
+
+                                    @Override
+                                    public void visitVarInsn(final int opcode, final int varIndex) {
+                                        maxLocal = Math.max(maxLocal, varIndex + 2);
+                                    }
+
+                                    @Override
+                                    public void visitIincInsn(final int varIndex, final int increment) {
+                                        maxLocal = Math.max(maxLocal, varIndex + 2);
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int op,
+                                            final String owner,
+                                            final String mName,
+                                            final String mDesc,
+                                            final boolean itf) {
+                                        if (op == Opcodes.INVOKEVIRTUAL
+                                                && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(
+                                                        owner)
+                                                && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_METHOD.equals(mName)
+                                                && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_DESCRIPTOR.equals(
+                                                        mDesc)) {
+                                            updateCalls++;
+                                        }
+                                    }
+
+                                    @Override
+                                    public void visitEnd() {
+                                        if (sawKey) {
+                                            res[0] = name.charAt(0);
+                                            res[1] = updateCalls;
+                                            res[2] = maxLocal + LOCAL_SAFETY_MARGIN;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return res;
     }
 
     private static String detectLegacyOverlayMethod(final byte[] bytes) {

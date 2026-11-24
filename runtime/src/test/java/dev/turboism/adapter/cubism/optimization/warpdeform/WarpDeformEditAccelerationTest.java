@@ -26,6 +26,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import java.io.File;
+import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -40,6 +41,7 @@ import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -52,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 
@@ -179,10 +182,12 @@ class WarpDeformEditAccelerationTest {
     }
 
     @Test
-    void transformsAndDefinesBytecodeAcrossAllAvailableReviewedCubismJars() throws Exception {
+    void transformsAndDefinesBytecodeAcrossAllAvailableReviewedCubismJars(@TempDir final Path tempDir)
+            throws Exception {
         final List<Path> jars = availableReviewedJars();
         assumeTrue(!jars.isEmpty(), "no reviewed Cubism Editor JARs found for matrix verification");
 
+        final List<String> strictManifestLines = new ArrayList<>();
         for (final Path jar : jars) {
             final HostArtifactDigest digest = HostArtifactDigest.cached(jar);
             final WarpDeformEditTarget target = WarpDeformEditTarget.of(digest)
@@ -193,6 +198,7 @@ class WarpDeformEditAccelerationTest {
 
             final URL[] urls = hostUrls(jar);
             final Map<String, byte[]> rewrittenMap = new LinkedHashMap<>();
+            final Path patchRoot = tempDir.resolve(target.version());
             try (RewrittenHostClassLoader transformLoader =
                     new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader())) {
                 final WarpDeformEditTransformer transformer =
@@ -220,6 +226,10 @@ class WarpDeformEditAccelerationTest {
                             cleanTransformer.matchesFor(internalName),
                             target.version() + " match count mismatch in " + internalName);
                     rewrittenMap.put(internalName.replace('/', '.'), rewritten);
+                    final Path patchFile = patchRoot.resolve(internalName + CLASS_EXTENSION);
+                    Files.createDirectories(patchFile.getParent());
+                    Files.write(patchFile, rewritten);
+                    strictManifestLines.add(target.version() + "\t" + jar + "\t" + patchRoot + "\t" + internalName);
                 }
                 assertEquals(cleanTransformer.expectedTotalSites(), cleanTransformer.sites(), target.version());
             }
@@ -238,6 +248,9 @@ class WarpDeformEditAccelerationTest {
                 }
             }
         }
+        final Path manifest = tempDir.resolve("strict-verify-manifest.txt");
+        Files.write(manifest, strictManifestLines);
+        runStrictVerifyAllSubprocess(manifest, strictManifestLines.size());
     }
 
     @Test
@@ -289,6 +302,8 @@ class WarpDeformEditAccelerationTest {
                 bridge.install();
 
                 verifyFormReinitParityAndReuse(origLoader, rewLoader);
+                verifyWarpSourceReinitPosReuseAndNoUndoAliasing(origLoader, rewLoader, bridge);
+                verifyRotationTransformScratchParity(origLoader, rewLoader, bridge);
                 verifySimpleGridAndTransformParity(origLoader, rewLoader);
                 verifyBezierPointsParity(origLoader, rewLoader);
                 verifyWarpDrawParityAndDirtyGating(origRes, rewLoader, gridPos, bridge);
@@ -437,6 +452,8 @@ class WarpDeformEditAccelerationTest {
                 runSyntheticSubtreeDifferentialParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runSelectorScopedAndEditingTransitionParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runOverlayElisionParityOnComposedLoader(rewLoader, warpEditBridge);
+                runDeepDagAndMorphTargetParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
+                runSelectionDrawDirtyGatingParityOnComposedLoader(rewLoader, warpEditTarget, warpEditBridge);
             }
         } finally {
             if (prevSkipProp == null) {
@@ -1549,6 +1566,591 @@ class WarpDeformEditAccelerationTest {
                 () -> "dirty geometry must invalidate overlay elision, stats=" + bridge.snapshot());
     }
 
+    private static void runDeepDagAndMorphTargetParity(
+            final ClassLoader origLoader,
+            final ClassLoader rewLoader,
+            final WarpDeformEditTarget target,
+            final WarpDeformEditBridge bridge)
+            throws Exception {
+        final Object[] origDag = buildDeepDag24WithMorphTarget(origLoader, target);
+        final Object[] rewDag = buildDeepDag24WithMorphTarget(rewLoader, target);
+
+        final SyntheticModelHarness origHarness = (SyntheticModelHarness) origDag[0];
+        final SyntheticModelHarness rewHarness = (SyntheticModelHarness) rewDag[0];
+        final Object origMorphParam = origDag[1];
+        final Object rewMorphParam = rewDag[1];
+        final Object origMorphSrc = origDag[2];
+        final Object rewMorphSrc = rewDag[2];
+        final Object origMorphDef = origDag[3];
+        final Object rewMorphDef = rewDag[3];
+
+        origHarness.invokeUpdate();
+        rewHarness.invokeUpdate();
+        assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-baseline");
+
+        final long beforeFast = bridge.snapshot().get("fastModelUpdates");
+        final long beforeFallback = bridge.snapshot().get("fallbackModelUpdates");
+        final long beforeLevels = bridge.snapshot().get("parallelDeformerLevels");
+        final long beforeRotScratch = bridge.snapshot().get("rotScratchReused");
+
+        final float[] baseGrid = rewHarness.baseRootGridPositions.get(0);
+        for (int tick = 1; tick <= 3; tick++) {
+            final float[] dragged = baseGrid.clone();
+            for (int p = 0; p < dragged.length; p += 2) {
+                dragged[p] += 3.25f * tick;
+                dragged[p + 1] -= 1.75f * tick;
+            }
+            dragWarpDeformer(origHarness.rootWarp, dragged);
+            dragWarpDeformer(rewHarness.rootWarp, dragged);
+            origHarness.invokeUpdate();
+            rewHarness.invokeUpdate();
+            assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-drag-" + tick);
+        }
+
+        final Map<String, Long> dragStats = bridge.snapshot();
+        assertEquals(beforeFast + 3L, dragStats.get("fastModelUpdates"), () -> "stats=" + dragStats);
+        assertEquals(beforeFallback, dragStats.get("fallbackModelUpdates"), () -> "stats=" + dragStats);
+        // Single-dispatch DAG scheduler emits strictly 1 barrier per frame instead of 24 depth barriers.
+        assertEquals(beforeLevels + 3L, dragStats.get("parallelDeformerLevels"), () -> "stats=" + dragStats);
+        assertTrue(dragStats.get("rotScratchReused") > beforeRotScratch, () -> "stats=" + dragStats);
+
+        // Drive MorphTarget + BlendWeightConstraint across ParamX & ParamC -> exact raw float parity on 5.3.02 &
+        // 5.3.05.
+        origMorphParam.getClass().getMethod("setValue", float.class).invoke(origMorphParam, 18.0f);
+        rewMorphParam.getClass().getMethod("setValue", float.class).invoke(rewMorphParam, 18.0f);
+        origHarness.param.getClass().getMethod("setValue", float.class).invoke(origHarness.param, 12.0f);
+        rewHarness.param.getClass().getMethod("setValue", float.class).invoke(rewHarness.param, 12.0f);
+        origHarness.invokeUpdate();
+        rewHarness.invokeUpdate();
+        assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-morph-target-param");
+
+        // Trigger CWarpDeformerSource.reinitInstance (undo simulation) and verify buffer reuse + exact parity.
+        final long beforeReinitReused = bridge.snapshot().get("warpReinitPosReused");
+        origMorphSrc
+                .getClass()
+                .getMethod(
+                        "reinitInstance",
+                        Class.forName("com.live2d.cubism.doc.model.ACParameterControllable", false, origLoader))
+                .invoke(origMorphSrc, origMorphDef);
+        rewMorphSrc
+                .getClass()
+                .getMethod(
+                        "reinitInstance",
+                        Class.forName("com.live2d.cubism.doc.model.ACParameterControllable", false, rewLoader))
+                .invoke(rewMorphSrc, rewMorphDef);
+        assertTrue(bridge.snapshot().get("warpReinitPosReused") > beforeReinitReused);
+        origHarness.invokeUpdate();
+        rewHarness.invokeUpdate();
+        assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-warp-reinit-undo");
+
+        // Fast drag resumes cleanly on depth-24 DAG after reinitInstance.
+        final float[] resumedGrid = baseGrid.clone();
+        resumedGrid[0] += 11.5f;
+        dragWarpDeformer(origHarness.rootWarp, resumedGrid);
+        dragWarpDeformer(rewHarness.rootWarp, resumedGrid);
+        origHarness.invokeUpdate();
+        rewHarness.invokeUpdate();
+        assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-post-reinit-resume");
+        assertEquals(beforeFast + 4L, bridge.snapshot().get("fastModelUpdates"));
+    }
+
+    private static Object[] buildDeepDag24WithMorphTarget(final ClassLoader loader, final WarpDeformEditTarget target)
+            throws Exception {
+        final Class<?> modelSrcCls = Class.forName("com.live2d.cubism.doc.model.CModelSource", true, loader);
+        final Class<?> modelCls = Class.forName("com.live2d.cubism.doc.model.CModel", true, loader);
+        final Class<?> paramSrcCls = Class.forName("com.live2d.cubism.doc.model.param.CParameterSource", true, loader);
+        final Class<?> paramGuidCls = Class.forName("com.live2d.type.CParameterGuid", true, loader);
+        final Class<?> paramIdCls = Class.forName("com.live2d.cubism.doc.model.id.CParameterId", true, loader);
+        final Class<?> defGuidCls = Class.forName("com.live2d.type.CDeformerGuid", true, loader);
+        final Class<?> defIdCls = Class.forName("com.live2d.cubism.doc.model.id.CDeformerId", true, loader);
+        final Class<?> drawGuidCls = Class.forName("com.live2d.type.CDrawableGuid", true, loader);
+        final Class<?> drawIdCls = Class.forName("com.live2d.cubism.doc.model.id.CDrawableId", true, loader);
+        final Class<?> formGuidCls = Class.forName("com.live2d.type.CFormGuid", true, loader);
+        final Class<?> coordCls = Class.forName("com.live2d.doc.CoordType", true, loader);
+        final Class<?> warpSrcCls =
+                Class.forName(WarpDeformEditTarget.WARP_SOURCE_OWNER.replace('/', '.'), true, loader);
+        final Class<?> warpFormCls =
+                Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, loader);
+        final Class<?> rotSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformerSource", true, loader);
+        final Class<?> rotDefCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformer", true, loader);
+        final Class<?> rotFormCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformerForm", true, loader);
+        final Class<?> meshSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource", true, loader);
+        final Class<?> meshFormCls =
+                Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshForm", true, loader);
+        final Class<?> morphCls =
+                Class.forName("com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget", true, loader);
+        final Class<?> acFormCls = Class.forName("com.live2d.cubism.doc.model.ACForm", true, loader);
+        final Class<?> renderTypeCls = Class.forName("com.live2d.graphics3d.rendering.RenderType", true, loader);
+        final Class<?> acDefSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.ACDeformerSource", true, loader);
+        final Class<?> acDrawSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.drawable.ACDrawableSource", true, loader);
+        final Class<?> acCtrlSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", true, loader);
+
+        final Object coordLocal = coordCls.getMethod("b").invoke(null);
+        final Object coordCanvas = coordCls.getMethod("c").invoke(null);
+        final Object modelSource = modelSrcCls.getConstructor().newInstance();
+        final Object rootPart = modelSrcCls.getMethod("getRootPart").invoke(modelSource);
+        final Object defSet = modelSrcCls.getMethod("getDeformerSourceSet").invoke(modelSource);
+        final Object drawSet = modelSrcCls.getMethod("getDrawableSourceSet").invoke(modelSource);
+        final Object paramSet = modelSrcCls.getMethod("getParameterSourceSet").invoke(modelSource);
+
+        final Object paramXGuid =
+                paramGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("dagPX".getBytes()));
+        final Object paramXSrc = paramSrcCls.getConstructor().newInstance();
+        paramSrcCls.getMethod("setGuid", paramGuidCls).invoke(paramXSrc, paramXGuid);
+        paramSrcCls
+                .getMethod("setId", paramIdCls)
+                .invoke(paramXSrc, paramIdCls.getConstructor(String.class).newInstance("DagPX"));
+        paramSrcCls.getMethod("setMinValue", float.class).invoke(paramXSrc, -30.0f);
+        paramSrcCls.getMethod("setMaxValue", float.class).invoke(paramXSrc, 30.0f);
+        paramSrcCls.getMethod("setDefaultValue", float.class).invoke(paramXSrc, 0.0f);
+        paramSet.getClass().getMethod("add", paramSrcCls, int.class).invoke(paramSet, paramXSrc, -1);
+
+        final Object paramCGuid =
+                paramGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("dagPC".getBytes()));
+        final Object paramCSrc = paramSrcCls.getConstructor().newInstance();
+        paramSrcCls.getMethod("setGuid", paramGuidCls).invoke(paramCSrc, paramCGuid);
+        paramSrcCls
+                .getMethod("setId", paramIdCls)
+                .invoke(paramCSrc, paramIdCls.getConstructor(String.class).newInstance("DagPC"));
+        paramSrcCls.getMethod("setMinValue", float.class).invoke(paramCSrc, 0.0f);
+        paramSrcCls.getMethod("setMaxValue", float.class).invoke(paramCSrc, 30.0f);
+        paramSrcCls.getMethod("setDefaultValue", float.class).invoke(paramCSrc, 10.0f);
+        paramSet.getClass().getMethod("add", paramSrcCls, int.class).invoke(paramSet, paramCSrc, -1);
+
+        final Method addDef = defSet.getClass().getMethod("add", acDefSrcCls, int.class);
+        final Method addDraw = drawSet.getClass().getMethod("add", acDrawSrcCls, int.class);
+        final Method addPartChild = rootPart.getClass().getMethod("addChild", acCtrlSrcCls, int.class);
+
+        final float[] baseGrid = {
+            -120f, -120f, 0f, -120f, 120f, -120f,
+            -120f, 0f, 0f, 0f, 120f, 0f,
+            -120f, 120f, 0f, 120f, 120f, 120f
+        };
+
+        final Object rootGuid =
+                defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("dagRoot".getBytes()));
+        final Object rootSrc = createWarpDeformerSource(
+                modelSrcCls,
+                modelSource,
+                warpSrcCls,
+                warpFormCls,
+                defGuidCls,
+                defIdCls,
+                formGuidCls,
+                coordCls,
+                rootGuid,
+                "DagRoot",
+                null,
+                coordLocal,
+                baseGrid);
+        addDef.invoke(defSet, rootSrc, -1);
+        addPartChild.invoke(rootPart, rootSrc, -1);
+
+        // Configure ParamX + KeyFormMorphTarget + Constraint on a child warp deformer at depth 1.
+        final Object morphGuid =
+                defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("dagMorph".getBytes()));
+        final Object morphSrc = createWarpDeformerSource(
+                modelSrcCls,
+                modelSource,
+                warpSrcCls,
+                warpFormCls,
+                defGuidCls,
+                defIdCls,
+                formGuidCls,
+                coordCls,
+                morphGuid,
+                "DagMorph",
+                rootGuid,
+                coordLocal,
+                baseGrid);
+        final Object morphFormA = warpFormCls
+                .getConstructor(
+                        warpSrcCls,
+                        Class.forName(WarpDeformEditTarget.WARP_DEFORMER_OWNER.replace('/', '.'), false, loader),
+                        coordCls)
+                .newInstance(morphSrc, null, coordLocal);
+        warpFormCls
+                .getMethod("setGuid", formGuidCls)
+                .invoke(
+                        morphFormA,
+                        formGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("mfA".getBytes())));
+        final float[] shifted = baseGrid.clone();
+        shifted[0] += 18.0f;
+        shifted[5] -= 9.0f;
+        warpFormCls.getMethod("setPositions", float[].class).invoke(morphFormA, shifted);
+        @SuppressWarnings("unchecked")
+        final List<Object> mKfs =
+                (List<Object>) warpSrcCls.getMethod("getKeyforms").invoke(morphSrc);
+        mKfs.add(morphFormA);
+        final Object morphObj = morphCls.getConstructor(acFormCls, paramGuidCls, float.class)
+                .newInstance(morphFormA, paramCGuid, 20.0f);
+        final Object morphSet = warpSrcCls.getMethod("getKeyformMorphTargetSet").invoke(morphSrc);
+        morphSet.getClass().getMethod("add", morphCls).invoke(morphSet, morphObj);
+        final Object constraintSet =
+                morphSet.getClass().getMethod("getBlendWeightConstraintSet").invoke(morphSet);
+        constraintSet
+                .getClass()
+                .getMethod("tryAdd", paramGuidCls, paramGuidCls, float.class, float.class)
+                .invoke(constraintSet, paramCGuid, paramXGuid, 0.0f, 0.5f);
+        constraintSet
+                .getClass()
+                .getMethod("tryAdd", paramGuidCls, paramGuidCls, float.class, float.class)
+                .invoke(constraintSet, paramCGuid, paramXGuid, 30.0f, 1.0f);
+        final Object morphKfGrid = warpSrcCls.getMethod("getKeyformGridSource").invoke(morphSrc);
+        morphKfGrid.getClass().getMethod("addKey", float.class, paramGuidCls).invoke(morphKfGrid, 0.0f, paramXGuid);
+        morphKfGrid.getClass().getMethod("addKey", float.class, paramGuidCls).invoke(morphKfGrid, 30.0f, paramXGuid);
+        addDef.invoke(defSet, morphSrc, -1);
+        addPartChild.invoke(rootPart, morphSrc, -1);
+
+        // Build a 24-deep alternating Warp/Rotation chain + side branch of 6 deformers (total 30 deformers, 36
+        // ArtMeshes).
+        Object parentGuid = morphGuid;
+        Object branch2Guid = null;
+        for (int depth = 2; depth <= 23; depth++) {
+            final Object dGuid = defGuidCls
+                    .getConstructor(UUID.class)
+                    .newInstance(UUID.nameUUIDFromBytes(("chain-" + depth).getBytes()));
+            if ((depth & 1) == 0) {
+                final Object ws = createWarpDeformerSource(
+                        modelSrcCls,
+                        modelSource,
+                        warpSrcCls,
+                        warpFormCls,
+                        defGuidCls,
+                        defIdCls,
+                        formGuidCls,
+                        coordCls,
+                        dGuid,
+                        "ChainW_" + depth,
+                        parentGuid,
+                        coordLocal,
+                        baseGrid);
+                addDef.invoke(defSet, ws, -1);
+                addPartChild.invoke(rootPart, ws, -1);
+            } else {
+                final Object rs = rotSrcCls.getConstructor(modelSrcCls).newInstance(modelSource);
+                rotSrcCls.getMethod("setGuid", defGuidCls).invoke(rs, dGuid);
+                rotSrcCls
+                        .getMethod("setId", defIdCls)
+                        .invoke(rs, defIdCls.getConstructor(String.class).newInstance("ChainR_" + depth));
+                rotSrcCls.getMethod("setTargetDeformerGuid", defGuidCls).invoke(rs, parentGuid);
+                final Object rf = rotFormCls
+                        .getConstructor(rotSrcCls, rotDefCls, coordCls)
+                        .newInstance(rs, null, coordLocal);
+                final Object rfGuid = formGuidCls
+                        .getConstructor(UUID.class)
+                        .newInstance(UUID.nameUUIDFromBytes(("cr-" + depth).getBytes()));
+                rotFormCls.getMethod("setGuid", formGuidCls).invoke(rf, rfGuid);
+                rotFormCls.getMethod("setOriginX", float.class).invoke(rf, 4.0f);
+                rotFormCls.getMethod("setAngle", float.class).invoke(rf, 1.5f);
+                @SuppressWarnings("unchecked")
+                final List<Object> rKfs =
+                        (List<Object>) rotSrcCls.getMethod("getKeyforms").invoke(rs);
+                rKfs.add(rf);
+                final Object rKfGrid =
+                        rotSrcCls.getMethod("getKeyformGridSource").invoke(rs);
+                rKfGrid.getClass().getMethod("setInitialKeyform", formGuidCls).invoke(rKfGrid, rfGuid);
+                addDef.invoke(defSet, rs, -1);
+                addPartChild.invoke(rootPart, rs, -1);
+            }
+            if (depth == 2) {
+                branch2Guid = dGuid;
+            }
+            parentGuid = dGuid;
+        }
+        Object sideParent = branch2Guid;
+        for (int s = 0; s < 6; s++) {
+            final Object sGuid =
+                    defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes(("side-" + s).getBytes()));
+            final Object ws = createWarpDeformerSource(
+                    modelSrcCls,
+                    modelSource,
+                    warpSrcCls,
+                    warpFormCls,
+                    defGuidCls,
+                    defIdCls,
+                    formGuidCls,
+                    coordCls,
+                    sGuid,
+                    "SideW_" + s,
+                    sideParent,
+                    coordLocal,
+                    baseGrid);
+            addDef.invoke(defSet, ws, -1);
+            addPartChild.invoke(rootPart, ws, -1);
+            sideParent = sGuid;
+        }
+
+        final List<Object> meshSources = new ArrayList<>();
+        for (int m = 0; m < 36; m++) {
+            final Object attachGuid = (m & 1) == 0 ? parentGuid : sideParent;
+            final String mName = "DagMesh_" + m;
+            final Object mGuid =
+                    drawGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes(mName.getBytes()));
+            final Object ms = createArtMeshSource(
+                    modelSrcCls,
+                    modelSource,
+                    meshSrcCls,
+                    meshFormCls,
+                    defGuidCls,
+                    drawGuidCls,
+                    drawIdCls,
+                    formGuidCls,
+                    coordCls,
+                    mGuid,
+                    mName,
+                    attachGuid,
+                    coordCanvas,
+                    new float[] {-10f + m, -10f, 10f + m, -10f, 10f + m, 10f, -10f + m, 10f});
+            addDraw.invoke(drawSet, ms, -1);
+            addPartChild.invoke(rootPart, ms, -1);
+            meshSources.add(ms);
+        }
+
+        rootPart.getClass().getMethod("setVisibleAndLockInHierarchy").invoke(rootPart);
+        modelSrcCls.getMethod("setModelEditing", boolean.class).invoke(modelSource, true);
+        final Object renderNormal = Enum.valueOf((Class) renderTypeCls, "NORMAL");
+        final Object model =
+                modelSrcCls.getMethod("createModelInstance", renderTypeCls).invoke(modelSource, renderNormal);
+        final Object rootWarp = modelCls.getMethod("getDeformer", defGuidCls).invoke(model, rootGuid);
+        final Object morphDef = modelCls.getMethod("getDeformer", defGuidCls).invoke(model, morphGuid);
+        @SuppressWarnings("unchecked")
+        final List<Object> allMeshes =
+                (List<Object>) modelCls.getMethod("getAllArtMeshes").invoke(model);
+
+        final Object paramSetInst = modelCls.getMethod("getParameterSet").invoke(model);
+        @SuppressWarnings("unchecked")
+        final List<Object> params = (List<Object>)
+                paramSetInst.getClass().getMethod("getParameters").invoke(paramSetInst);
+        final Object paramX = params.get(0);
+        final Object paramC = params.get(1);
+
+        final Class<?> updaterCls = Class.forName(target.updaterOwner().replace('/', '.'), true, loader);
+        final Object updater = updaterCls.getField("a").get(null);
+        final Class<?> updCtxCls = resolveUpdaterContextClass(loader, target);
+        final Class<?> docCls = Class.forName("com.live2d.cubism.doc.modeling.CModelingDocument", false, loader);
+        final Class<?> viewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext", false, loader);
+        final Class<?> paramCtxCls = resolveContextParamClass(updaterCls, modelCls, updCtxCls, docCls, viewCls);
+        final boolean conflictFlag =
+                hasUpdateModelConflictFlag(updaterCls, modelCls, updCtxCls, docCls, viewCls, paramCtxCls);
+        final Method updateModelMethod = conflictFlag
+                ? updaterCls.getMethod("a", modelCls, updCtxCls, docCls, viewCls, paramCtxCls, boolean.class)
+                : updaterCls.getMethod("a", modelCls, updCtxCls, docCls, viewCls, paramCtxCls);
+        final Object updCtx = updCtxCls.getConstructor(viewCls).newInstance((Object) null);
+
+        final SyntheticModelHarness harness = new SyntheticModelHarness(
+                loader,
+                modelSource,
+                model,
+                rootSrc,
+                rootWarp,
+                morphSrc,
+                morphDef,
+                paramXSrc,
+                paramX,
+                updater,
+                updateModelMethod,
+                updCtx,
+                allMeshes,
+                List.of(),
+                allMeshes,
+                List.of(baseGrid),
+                conflictFlag);
+        return new Object[] {harness, paramC, morphSrc, morphDef};
+    }
+
+    private static void runSelectionDrawDirtyGatingParityOnComposedLoader(
+            final ClassLoader rewLoader, final WarpDeformEditTarget target, final WarpDeformEditBridge bridge)
+            throws Exception {
+        final SyntheticModelHarness rew = buildSyntheticHierarchy(rewLoader, target);
+        final Object[] ctx = createEditViewContext(rew.loader, rew.modelSource, rew.model);
+        final Object doc = ctx[0];
+        final Object view = ctx[1];
+        final Object selector = ctx[2];
+        final Object packAction = ctx[5];
+
+        final Class<?> absViewCls = Class.forName("com.live2d.cubism.view.context.CEViewContext", false, rewLoader);
+        final Class<?> modelingViewCls =
+                Class.forName("com.live2d.cubism.view.context.CEViewContext_ModelingView", false, rewLoader);
+        final Class<?> packCls = Class.forName("com.live2d.cubism.pack.CECompletePack", false, rewLoader);
+        final Class<?> sceneExCls = Class.forName("com.live2d.cubism.view.context.CESceneGraphEx", true, rewLoader);
+        final Class<?> actionNCls = Class.forName("com.live2d.cubism.view.context.actionManager.N", false, rewLoader);
+        final Class<?> lazyCls = Class.forName("kotlin.Lazy", true, rewLoader);
+        final Class<?> acCtrlSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", false, rewLoader);
+
+        final Object sceneGraph = sceneExCls.getConstructor().newInstance();
+        final Object devSetting = modelingViewCls
+                .getMethod("getDevelopSetting")
+                .getReturnType()
+                .getConstructor()
+                .newInstance();
+        final Object appSetting = modelingViewCls
+                .getMethod("getAppearanceSetting")
+                .getReturnType()
+                .getConstructor()
+                .newInstance();
+        setDeclaredField(appSetting.getClass(), appSetting, "a", true);
+        setDeclaredField(absViewCls, view, "developSetting", devSetting);
+        setDeclaredField(absViewCls, view, "appearanceSetting", appSetting);
+        setDeclaredField(absViewCls, view, "sceneGraph", sceneGraph);
+        setDeclaredField(absViewCls, view, "_lastActionPack", packAction);
+        setDeclaredField(absViewCls, view, "_optionOfIOption", new HashMap<>());
+        setDeclaredField(absViewCls, view, "isDrawableVisible", true);
+        setDeclaredField(absViewCls, view, "isDrawableLocked", false);
+        setDeclaredField(absViewCls, view, "cameraManager", null);
+        final Field docEditModeF =
+                findFieldOwner(doc.getClass(), "_curEditMode").getDeclaredField("_curEditMode");
+        docEditModeF.setAccessible(true);
+        docEditModeF.set(doc, ctx[3]);
+
+        final Object completePack = doc.getClass().getMethod("getCompletePack").invoke(doc);
+        setDeclaredField(absViewCls, view, "completePack", completePack);
+        final Class<?> unsafeCls = Class.forName("sun.misc.Unsafe");
+        final Field theUnsafe = unsafeCls.getDeclaredField("theUnsafe");
+        theUnsafe.setAccessible(true);
+        final Object unsafe = theUnsafe.get(null);
+        final Class<?> ctrlCls = Class.forName("com.live2d.cubism.CEAppCtrl", true, rewLoader);
+        final Object appCtrl =
+                unsafeCls.getMethod("allocateInstance", Class.class).invoke(unsafe, ctrlCls);
+        setDeclaredField(ctrlCls, appCtrl, "_currentViewContext", view);
+        invokeOnEdtWithLoader(rewLoader, () -> {
+            final Class<?> toolModeCls = Class.forName(
+                    "com.live2d.cubism.view.palette.tool.toolMode.deformBrush.ToolMode_DeformBrush", false, rewLoader);
+            setDeclaredField(
+                    ctrlCls,
+                    appCtrl,
+                    "_toolMode",
+                    unsafeCls.getMethod("allocateInstance", Class.class).invoke(unsafe, toolModeCls));
+        });
+        setDeclaredField(packCls, completePack, "ctrl", appCtrl);
+        setDeclaredField(actionNCls, packAction, "b", completePack);
+
+        // Bind drawables list, Set, and HashSet Lazy fields on actionPack so K.E() executes cleanly across 5.3.x.
+        final List<Object> twoMeshes = List.of(rew.subtreeAMeshes.get(0), rew.subtreeBMeshes.get(0));
+        final Object lazyDrawables = java.lang.reflect.Proxy.newProxyInstance(
+                rewLoader,
+                new Class<?>[] {lazyCls},
+                (proxy, m, args) -> "isInitialized".equals(m.getName()) ? Boolean.TRUE : twoMeshes);
+        final Object lazyEmptySet = java.lang.reflect.Proxy.newProxyInstance(
+                rewLoader,
+                new Class<?>[] {lazyCls},
+                (proxy, m, args) -> "isInitialized".equals(m.getName()) ? Boolean.TRUE : Set.of());
+        final Object lazyEmptyHashSet = java.lang.reflect.Proxy.newProxyInstance(
+                rewLoader,
+                new Class<?>[] {lazyCls},
+                (proxy, m, args) -> "isInitialized".equals(m.getName()) ? Boolean.TRUE : new java.util.HashSet<>());
+        final Class<?> actionBaseCls =
+                Class.forName("com.live2d.cubism.view.context.actionManager.b", false, rewLoader);
+        setDeclaredField(actionBaseCls, packAction, "h", lazyEmptySet);
+        setDeclaredField(actionBaseCls, packAction, "i", lazyEmptySet);
+        setDeclaredField(actionBaseCls, packAction, "C", lazyEmptyHashSet);
+        setDeclaredField(actionBaseCls, packAction, "E", lazyDrawables);
+        setDeclaredField(actionNCls, packAction, "c", view);
+
+        final Class<?> kCls = Class.forName(WarpDeformEditTarget.OVERLAY_VIEW_OWNER.replace('/', '.'), true, rewLoader);
+        final Object viewHolder =
+                unsafeCls.getMethod("allocateInstance", Class.class).invoke(unsafe, kCls);
+        setDeclaredField(kCls, viewHolder, "b", view);
+        setDeclaredField(kCls, viewHolder, "x", "selectionRoot");
+        final Method updateSelM = kCls.getDeclaredMethod("E");
+        updateSelM.setAccessible(true);
+
+        // Select first mesh and establish native selectionDraw baseline (Pass 1).
+        final Object mesh0Src =
+                rew.subtreeAMeshes.get(0).getClass().getMethod("getSource").invoke(rew.subtreeAMeshes.get(0));
+        selector.getClass().getMethod("addSelected", acCtrlSrcCls, int.class).invoke(selector, mesh0Src, 0);
+        rew.invokeUpdate(doc, view);
+
+        final long updatesBefore1 = bridge.snapshot().get("selectionDrawUpdates");
+        invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        assertTrue(
+                bridge.snapshot().get("selectionDrawUpdates") > updatesBefore1,
+                () -> "Pass 1 must record selectionDrawUpdates, stats=" + bridge.snapshot());
+
+        final Field willRenderF = findFieldOwner(sceneGraph.getClass(), "volatileEntities_willRender")
+                .getDeclaredField("volatileEntities_willRender");
+        willRenderF.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        final Set<Object> willRender = (Set<Object>) willRenderF.get(sceneGraph);
+        final int expectedVolatileCount = willRender.size();
+        assertTrue(expectedVolatileCount >= 1, "Pass 1 must mark selection entity volatile");
+        willRender.clear();
+
+        // Pass 2 unchanged: must elide full K.E() scan while preserving volatile entities.
+        final long elisionsBefore2 = bridge.snapshot().get("selectionDrawElisions");
+        final long updatesAfter1 = bridge.snapshot().get("selectionDrawUpdates");
+        invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        assertTrue(
+                bridge.snapshot().get("selectionDrawElisions") > elisionsBefore2,
+                () -> "Pass 2 unchanged must increment selectionDrawElisions, stats=" + bridge.snapshot());
+        assertEquals(updatesAfter1, bridge.snapshot().get("selectionDrawUpdates"));
+        assertEquals(expectedVolatileCount, willRender.size(), "elided K.E() must restore volatileEntities_willRender");
+
+        // Mutate selection -> Pass 3 must invalidate whole-method elision cleanly AND elide inactive mesh update.
+        final Object mesh1Src =
+                rew.subtreeBMeshes.get(0).getClass().getMethod("getSource").invoke(rew.subtreeBMeshes.get(0));
+        selector.getClass().getMethod("addSelected", acCtrlSrcCls, int.class).invoke(selector, mesh1Src, 0);
+        invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        final long updatesAfter3 = bridge.snapshot().get("selectionDrawUpdates");
+        assertTrue(updatesAfter3 > updatesAfter1, "selection change must invalidate K.E()");
+
+        // Mutate model via drag + unselected mesh1 stays disabled across two frames -> checks both invalidation &
+        // per-mesh elision.
+        selector.getClass().getMethod("clearSelection").invoke(selector);
+        selector.getClass().getMethod("addSelected", acCtrlSrcCls, int.class).invoke(selector, mesh0Src, 0);
+        dragRotationDeformer(rew.midRot, 18.0f, 3.0f);
+        rew.invokeUpdate(doc, view);
+        invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        final long updatesAfter4 = bridge.snapshot().get("selectionDrawUpdates");
+        assertTrue(updatesAfter4 > updatesAfter3, "model update must invalidate K.E()");
+
+        dragRotationDeformer(rew.midRot, 24.0f, 4.0f);
+        rew.invokeUpdate(doc, view);
+        invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        assertTrue(
+                bridge.snapshot().get("selectionMeshElisions") > 0L,
+                () -> "expected DrawEntity_ArtMesh_Selection per-mesh elision on untouched disabled mesh, stats="
+                        + bridge.snapshot());
+    }
+
+    @FunctionalInterface
+    private interface ThrowingAction {
+        void run() throws Exception;
+    }
+
+    private static void invokeOnEdtWithLoader(final ClassLoader loader, final ThrowingAction action) throws Exception {
+        final java.util.concurrent.CompletableFuture<Void> done = new java.util.concurrent.CompletableFuture<>();
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            final Thread current = Thread.currentThread();
+            final ClassLoader prev = current.getContextClassLoader();
+            current.setContextClassLoader(loader);
+            try {
+                action.run();
+                done.complete(null);
+            } catch (final Exception failure) {
+                done.completeExceptionally(failure);
+            } finally {
+                current.setContextClassLoader(prev);
+            }
+        });
+        try {
+            done.get(BOOTSTRAP_CHILD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (final java.util.concurrent.ExecutionException wrapped) {
+            if (wrapped.getCause() instanceof Exception ex) {
+                throw ex;
+            }
+            throw new IllegalStateException("EDT selection-draw task failed", wrapped.getCause());
+        }
+    }
+
     private static Object[] createInitializedForms(final ClassLoader loader, final Class<?> rewFormCls)
             throws Exception {
         final Class<?> srcCls = Class.forName(WarpDeformEditTarget.WARP_SOURCE_OWNER.replace('/', '.'), true, loader);
@@ -1632,6 +2234,196 @@ class WarpDeformEditAccelerationTest {
         reinit.invoke(b, a, copyParam);
         assertNotSame(oldB, getPositions.invoke(b), "closed bridge must fall back to Arrays.copyOf");
         assertArrayEquals(new float[] {5, 6, 7, 8}, (float[]) getPositions.invoke(b), 0.0f);
+    }
+
+    private static void verifyWarpSourceReinitPosReuseAndNoUndoAliasing(
+            final ClassLoader origLoader, final ClassLoader rewLoader, final WarpDeformEditBridge bridge)
+            throws Exception {
+        final Object[] origPair = buildSingleWarpDeformerModel(origLoader);
+        final Object[] rewPair = buildSingleWarpDeformerModel(rewLoader);
+        final Object origSrc = origPair[0];
+        final Object origDef = origPair[1];
+        final Object rewSrc = rewPair[0];
+        final Object rewDef = rewPair[1];
+
+        final Method reinitOrig = origSrc.getClass()
+                .getMethod(
+                        "reinitInstance",
+                        Class.forName("com.live2d.cubism.doc.model.ACParameterControllable", false, origLoader));
+        final Method reinitRew = rewSrc.getClass()
+                .getMethod(
+                        "reinitInstance",
+                        Class.forName("com.live2d.cubism.doc.model.ACParameterControllable", false, rewLoader));
+
+        final Object rewInterp =
+                rewDef.getClass().getMethod("getInterpolatedForm").invoke(rewDef);
+        final Method getPosRew = rewInterp.getClass().getMethod("getPositions");
+        final float[] initialBuf = (float[]) getPosRew.invoke(rewInterp);
+        final long beforeReused = bridge.snapshot().get("warpReinitPosReused");
+
+        reinitOrig.invoke(origSrc, origDef);
+        reinitRew.invoke(rewSrc, rewDef);
+
+        final float[] afterBuf = (float[]) getPosRew.invoke(rewInterp);
+        assertSame(initialBuf, afterBuf, "same-length CWarpDeformerSource.reinitInstance must reuse float[] buffer");
+        assertTrue(bridge.snapshot().get("warpReinitPosReused") > beforeReused);
+
+        final Object origInterp =
+                origDef.getClass().getMethod("getInterpolatedForm").invoke(origDef);
+        final float[] origPos =
+                (float[]) origInterp.getClass().getMethod("getPositions").invoke(origInterp);
+        assertRawFloatArraysEqual(origPos, afterBuf, "reinitInstance first pass");
+
+        // Second reinitInstance and undo/default-keyform isolation: mutating default keyform must never alias.
+        final Object rewDefaultKf =
+                rewSrc.getClass().getMethod("getDefaultKeyForm").invoke(rewSrc);
+        final float[] kfPos =
+                (float[]) rewDefaultKf.getClass().getMethod("getPositions").invoke(rewDefaultKf);
+        kfPos[0] = 77.25f;
+        final Object origDefaultKf =
+                origSrc.getClass().getMethod("getDefaultKeyForm").invoke(origSrc);
+        final float[] origKfPos =
+                (float[]) origDefaultKf.getClass().getMethod("getPositions").invoke(origDefaultKf);
+        origKfPos[0] = 77.25f;
+        reinitOrig.invoke(origSrc, origDef);
+        reinitRew.invoke(rewSrc, rewDef);
+        kfPos[0] = -123.5f;
+        assertEquals(77.25f, afterBuf[0], 0.0f, "mutating source keyform must not alias deformer positions");
+
+        // Mismatched destination buffer length must reallocate cleanly without ArrayIndexOutOfBoundsException.
+        rewInterp.getClass().getMethod("setPositions", float[].class).invoke(rewInterp, new float[2]);
+        kfPos[0] = 9.5f;
+        origKfPos[0] = 9.5f;
+        reinitOrig.invoke(origSrc, origDef);
+        reinitRew.invoke(rewSrc, rewDef);
+        final float[] reallocated = (float[]) getPosRew.invoke(rewInterp);
+        final float[] origRealloc =
+                (float[]) origInterp.getClass().getMethod("getPositions").invoke(origInterp);
+        assertEquals(origRealloc.length, reallocated.length);
+        assertRawFloatArraysEqual(origRealloc, reallocated, "reinitInstance mismatched-length fallback");
+    }
+
+    private static Object[] buildSingleWarpDeformerModel(final ClassLoader loader) throws Exception {
+        final Class<?> modelSrcCls = Class.forName("com.live2d.cubism.doc.model.CModelSource", true, loader);
+        final Class<?> modelCls = Class.forName("com.live2d.cubism.doc.model.CModel", true, loader);
+        final Class<?> defGuidCls = Class.forName("com.live2d.type.CDeformerGuid", true, loader);
+        final Class<?> defIdCls = Class.forName("com.live2d.cubism.doc.model.id.CDeformerId", true, loader);
+        final Class<?> formGuidCls = Class.forName("com.live2d.type.CFormGuid", true, loader);
+        final Class<?> coordCls = Class.forName("com.live2d.doc.CoordType", true, loader);
+        final Class<?> warpSrcCls =
+                Class.forName(WarpDeformEditTarget.WARP_SOURCE_OWNER.replace('/', '.'), true, loader);
+        final Class<?> warpFormCls =
+                Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, loader);
+        final Class<?> renderTypeCls = Class.forName("com.live2d.graphics3d.rendering.RenderType", true, loader);
+        final Class<?> acDefSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.ACDeformerSource", true, loader);
+        final Class<?> acCtrlSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", true, loader);
+
+        final Object coordLocal = coordCls.getMethod("b").invoke(null);
+        final Object modelSource = modelSrcCls.getConstructor().newInstance();
+        final Object rootPart = modelSrcCls.getMethod("getRootPart").invoke(modelSource);
+        final Object defSet = modelSrcCls.getMethod("getDeformerSourceSet").invoke(modelSource);
+        final Object guid =
+                defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("reinitW".getBytes()));
+        final float[] grid = {-10f, -10f, 0f, -10f, 10f, -10f, -10f, 0f, 0f, 0f, 10f, 0f, -10f, 10f, 0f, 10f, 10f, 10f};
+        final Object src = createWarpDeformerSource(
+                modelSrcCls,
+                modelSource,
+                warpSrcCls,
+                warpFormCls,
+                defGuidCls,
+                defIdCls,
+                formGuidCls,
+                coordCls,
+                guid,
+                "ReinitW",
+                null,
+                coordLocal,
+                grid);
+        defSet.getClass().getMethod("add", acDefSrcCls, int.class).invoke(defSet, src, -1);
+        rootPart.getClass().getMethod("addChild", acCtrlSrcCls, int.class).invoke(rootPart, src, -1);
+        final Object renderNormal = Enum.valueOf((Class) renderTypeCls, "NORMAL");
+        final Object model =
+                modelSrcCls.getMethod("createModelInstance", renderTypeCls).invoke(modelSource, renderNormal);
+        final Object def = modelCls.getMethod("getDeformer", defGuidCls).invoke(model, guid);
+        return new Object[] {src, def};
+    }
+
+    private static void verifyRotationTransformScratchParity(
+            final ClassLoader origLoader, final ClassLoader rewLoader, final WarpDeformEditBridge bridge)
+            throws Exception {
+        final long beforeRotScratch = bridge.snapshot().get("rotScratchReused");
+        final boolean[][] reflects = {{false, false}, {true, false}, {false, true}, {true, true}};
+        for (final boolean[] ref : reflects) {
+            final float[] origWithParent = invokeRotationTransformSample(origLoader, true, ref[0], ref[1]);
+            final float[] rewWithParent = invokeRotationTransformSample(rewLoader, true, ref[0], ref[1]);
+            assertRawFloatArraysEqual(
+                    origWithParent, rewWithParent, "rot transform with parent reflect=" + ref[0] + "/" + ref[1]);
+
+            final float[] origNoParent = invokeRotationTransformSample(origLoader, false, ref[0], ref[1]);
+            final float[] rewNoParent = invokeRotationTransformSample(rewLoader, false, ref[0], ref[1]);
+            assertRawFloatArraysEqual(
+                    origNoParent, rewNoParent, "rot transform without parent reflect=" + ref[0] + "/" + ref[1]);
+        }
+        assertTrue(
+                bridge.snapshot().get("rotScratchReused") - beforeRotScratch >= 9L,
+                () -> "expected rotScratchReused >= 9, stats=" + bridge.snapshot());
+    }
+
+    private static float[] invokeRotationTransformSample(
+            final ClassLoader loader, final boolean withParent, final boolean reflectX, final boolean reflectY)
+            throws Exception {
+        final Class<?> rotFormCls = Class.forName(WarpDeformEditTarget.ROT_FORM_OWNER.replace('/', '.'), true, loader);
+        final Class<?> rotDefCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformer", true, loader);
+        final Class<?> rotSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformerSource", true, loader);
+        final Class<?> modelSrcCls = Class.forName("com.live2d.cubism.doc.model.CModelSource", true, loader);
+        final Class<?> coordCls = Class.forName("com.live2d.doc.CoordType", true, loader);
+        final Class<?> trCls = Class.forName("com.live2d.doc.selection.d", true, loader);
+        final Class<?> acFormCls = Class.forName("com.live2d.cubism.doc.model.ACForm", true, loader);
+        final Class<?> sgCls = Class.forName(WarpDeformEditTarget.SIMPLE_GRID_OWNER.replace('/', '.'), true, loader);
+        final Class<?> gtCls = Class.forName(WarpDeformEditTarget.GRID_TRANSFORM_OWNER.replace('/', '.'), true, loader);
+        final Class<?> rectCls = Class.forName(WarpDeformEditTarget.GRECTF_OWNER.replace('/', '.'), true, loader);
+        final Class<?> icGrid = Class.forName("com.live2d.cubism.doc.model.deformer.warp.grid.ICGrid", true, loader);
+
+        final Object modelSource = modelSrcCls.getConstructor().newInstance();
+        final Object rotSrc = rotSrcCls.getConstructor(modelSrcCls).newInstance(modelSource);
+        final Object coordLocal = coordCls.getMethod("b").invoke(null);
+        final Object form =
+                rotFormCls.getConstructor(rotSrcCls, rotDefCls, coordCls).newInstance(rotSrc, null, coordLocal);
+        final Object out =
+                rotFormCls.getConstructor(rotSrcCls, rotDefCls, coordCls).newInstance(rotSrc, null, coordLocal);
+        rotFormCls.getMethod("setOriginX", float.class).invoke(form, 14.5f);
+        rotFormCls.getMethod("setOriginY", float.class).invoke(form, -7.25f);
+        rotFormCls.getMethod("setAngle", float.class).invoke(form, 37.5f);
+        rotFormCls.getMethod("setScale", float.class).invoke(form, 1.35f);
+        rotFormCls.getMethod("setReflectX", boolean.class).invoke(form, reflectX);
+        rotFormCls.getMethod("setReflectY", boolean.class).invoke(form, reflectY);
+
+        final float[] pts = {
+            -10f, -15f, 45f, -5f, 110f, 0f, -15f, 45f, 52f, 55f, 120f, 60f, 0f, 105f, 55f, 115f, 130f, 125f
+        };
+        final Object sg =
+                sgCls.getConstructor(int.class, int.class, float[].class).newInstance(2, 2, pts);
+        final Object rect = rectCls.getConstructor(float.class, float.class, float.class, float.class)
+                .newInstance(0f, 0f, 100f, 100f);
+        final Object gridTr =
+                gtCls.getConstructor(rectCls, icGrid, int.class, int.class).newInstance(rect, sg, 2, 2);
+
+        final Object parentTr = withParent ? gridTr : null;
+        final Method exeM = rotFormCls.getDeclaredMethod("transform_exe", trCls, trCls, acFormCls);
+        exeM.setAccessible(true);
+        final Object result = exeM.invoke(form, gridTr, parentTr, out);
+        return new float[] {
+            (float) rotFormCls.getMethod("getOriginX").invoke(result),
+            (float) rotFormCls.getMethod("getOriginY").invoke(result),
+            (float) rotFormCls.getMethod("getAngle").invoke(result),
+            (float) rotFormCls.getMethod("getScale").invoke(result),
+            ((boolean) rotFormCls.getMethod("isReflectX").invoke(result)) ? 1.0f : 0.0f,
+            ((boolean) rotFormCls.getMethod("isReflectY").invoke(result)) ? 1.0f : 0.0f
+        };
     }
 
     private static void verifySimpleGridAndTransformParity(final ClassLoader origLoader, final ClassLoader rewLoader)
@@ -2208,6 +3000,18 @@ class WarpDeformEditAccelerationTest {
         }
 
         @Override
+        public URL findResource(final String name) {
+            final URL found = super.findResource(name);
+            if (found != null) {
+                return found;
+            }
+            if (name != null && name.startsWith("res/image/")) {
+                return super.findResource("res/image_dark/" + name.substring("res/image/".length()));
+            }
+            return null;
+        }
+
+        @Override
         protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
             synchronized (getClassLoadingLock(name)) {
                 Class<?> loaded = findLoadedClass(name);
@@ -2255,7 +3059,9 @@ class WarpDeformEditAccelerationTest {
                     || name.startsWith("dev.turboism.")) {
                 return false;
             }
-            if (name.startsWith("com.jogamp.")
+            if ((name.startsWith("com.jogamp.")
+                            || name.startsWith("com.formdev.flatlaf.")
+                            || name.startsWith("kotlin."))
                     && super.findResource(name.replace('.', '/') + CLASS_EXTENSION) != null) {
                 return true;
             }
@@ -2336,6 +3142,75 @@ class WarpDeformEditAccelerationTest {
             for (int i = 0; i < BATCH_ITEMS; i++) {
                 if (hits.get(i) != 1) {
                     throw new AssertionError("missing execution for index " + i);
+                }
+            }
+        }
+    }
+
+    private static void runStrictVerifyAllSubprocess(final Path manifestFile, final int expectedClasses)
+            throws Exception {
+        final String javaExe = Path.of(System.getProperty(JAVA_HOME_PROPERTY), JAVA_BIN_DIR, JAVA_EXECUTABLE)
+                .toString();
+        final Process process = new ProcessBuilder(
+                        javaExe,
+                        "-Xverify:all",
+                        CLASSPATH_FLAG,
+                        System.getProperty(JAVA_CLASS_PATH_PROPERTY),
+                        StrictWarpDeformVerifyChild.class.getName(),
+                        manifestFile.toString(),
+                        Integer.toString(expectedClasses))
+                .redirectErrorStream(true)
+                .start();
+        final String output;
+        try (InputStream stream = process.getInputStream()) {
+            output = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        assertTrue(process.waitFor(BOOTSTRAP_CHILD_TIMEOUT_SECONDS * 4L, TimeUnit.SECONDS), "-Xverify:all timed out");
+        assertEquals(0, process.exitValue(), "-Xverify:all verification failed:\n" + output);
+    }
+
+    /** Child entrypoint verifying all rewritten host classes across all JARs under {@code -Xverify:all}. */
+    public static final class StrictWarpDeformVerifyChild {
+
+        private StrictWarpDeformVerifyChild() {}
+
+        /** Loads and links every patched class listed in the manifest under strict bytecode verification. */
+        public static void main(final String[] args) throws Exception {
+            final List<String> lines = Files.readAllLines(Path.of(args[0]), StandardCharsets.UTF_8);
+            final int expected = Integer.parseInt(args[1]);
+            final Map<String, Map<String, byte[]>> byTag = new LinkedHashMap<>();
+            final Map<String, Path> jarByTag = new LinkedHashMap<>();
+            int readCount = 0;
+            for (final String line : lines) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                final String[] parts = line.split("\t");
+                final String tag = parts[0];
+                final Path jar = Path.of(parts[1]);
+                final Path patchRoot = Path.of(parts[2]);
+                final String internalName = parts[3];
+                jarByTag.putIfAbsent(tag, jar);
+                byTag.computeIfAbsent(tag, ignored -> new LinkedHashMap<>())
+                        .put(
+                                internalName.replace('/', '.'),
+                                Files.readAllBytes(patchRoot.resolve(internalName + CLASS_EXTENSION)));
+                readCount++;
+            }
+            if (readCount != expected) {
+                throw new AssertionError("expected " + expected + " rows but read " + readCount);
+            }
+            for (final Map.Entry<String, Map<String, byte[]>> entry : byTag.entrySet()) {
+                final Path jar = jarByTag.get(entry.getKey());
+                try (RewrittenHostClassLoader loader = new RewrittenHostClassLoader(
+                        jar, hostUrls(jar), StrictWarpDeformVerifyChild.class.getClassLoader())) {
+                    loader.installOverrides(entry.getValue(), protectionDomain(jar));
+                    for (final String binaryName : entry.getValue().keySet()) {
+                        Class.forName(binaryName, false, loader).getDeclaredMethods();
+                    }
+                    if (!loader.remainingOverrides().isEmpty()) {
+                        throw new AssertionError("unloaded overrides for " + entry.getKey());
+                    }
                 }
             }
         }

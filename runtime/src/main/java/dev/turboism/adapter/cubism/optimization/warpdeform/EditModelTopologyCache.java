@@ -146,6 +146,7 @@ final class EditModelTopologyCache {
                 return false;
             }
         }
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         final Object baseColor = (Object) h.modelGetBaseColor.invokeExact(model);
         final long baseHash = EditSubtreeHandles.packCColorRgba(h, baseColor);
         final int opacityBits = Float.floatToRawIntBits((float) h.modelGetOpacity.invokeExact(model));
@@ -182,18 +183,18 @@ final class EditModelTopologyCache {
             return false;
         }
 
-        final Object partsObj = (Object) h.modelGetAllParts.invokeExact(model);
-        if (!(partsObj instanceof List<?> parts) || parts.size() != lastPartsCount) {
+        final List<?> parts = acc.modelGetAllParts(model);
+        if (parts == null || parts.size() != lastPartsCount) {
             return false;
         }
         for (int i = 0; i < parts.size(); i++) {
-            if (partSignature(parts.get(i), h) != lastPartSignatures[i]) {
+            if (partSignature(parts.get(i), acc) != lastPartSignatures[i]) {
                 return false;
             }
         }
 
-        final Object defObj = (Object) h.modelGetAllDeformers.invokeExact(model);
-        if (!(defObj instanceof List<?> defList) || defList.size() != deformers.length) {
+        final List<?> defList = acc.modelGetAllDeformers(model);
+        if (defList == null || defList.size() != deformers.length) {
             return false;
         }
         for (int i = 0; i < deformers.length; i++) {
@@ -201,10 +202,9 @@ final class EditModelTopologyCache {
             if (d != deformers[i]) {
                 return false;
             }
-            final Object pGuid = (Object) h.deformerGetTargetGuid.invokeExact(d);
-            final Object resolvedParent = pGuid == null || pGuid.equals(h.emptyDeformerGuid)
-                    ? null
-                    : (Object) h.modelGetDeformer.invokeExact(model, pGuid);
+            final Object pGuid = acc.deformerGetTargetGuid(d);
+            final Object resolvedParent =
+                    pGuid == null || pGuid.equals(h.emptyDeformerGuid) ? null : acc.modelGetDeformer(model, pGuid);
             final int expectedParent = deformerParentIdx[i];
             if (expectedParent < 0) {
                 if (resolvedParent != null) {
@@ -215,8 +215,8 @@ final class EditModelTopologyCache {
             }
         }
 
-        final Object allMeshObj = (Object) h.modelGetAllArtMeshes.invokeExact(model);
-        if (!(allMeshObj instanceof List<?> meshList) || meshList.size() != allArtMeshes.length) {
+        final List<?> meshList = acc.modelGetAllArtMeshes(model);
+        if (meshList == null || meshList.size() != allArtMeshes.length) {
             return false;
         }
         int visCursor = 0;
@@ -225,16 +225,15 @@ final class EditModelTopologyCache {
             if (m != allArtMeshes[i]) {
                 return false;
             }
-            final Object src = (Object) h.meshGetSource.invokeExact(m);
-            final boolean vis = !optimizeMesh || (boolean) h.meshSourceIsVisibleHierarchy.invokeExact(src);
+            final Object src = acc.meshGetSource(m);
+            final boolean vis = !optimizeMesh || acc.controllableSourceIsVisibleHierarchy(src);
             if (vis) {
                 if (visCursor >= visibleMeshes.length || visibleMeshes[visCursor] != m) {
                     return false;
                 }
-                final Object pGuid = (Object) h.meshGetTargetGuid.invokeExact(m);
-                final Object resolvedParent = pGuid == null || pGuid.equals(h.emptyDeformerGuid)
-                        ? null
-                        : (Object) h.modelGetDeformer.invokeExact(model, pGuid);
+                final Object pGuid = acc.meshGetTargetGuid(m);
+                final Object resolvedParent =
+                        pGuid == null || pGuid.equals(h.emptyDeformerGuid) ? null : acc.modelGetDeformer(model, pGuid);
                 final int expectedParent = meshParentDeformerIdx[visCursor];
                 if (expectedParent < 0) {
                     if (resolvedParent != null) {
@@ -250,8 +249,8 @@ final class EditModelTopologyCache {
             return false;
         }
 
-        final Object affObj = (Object) h.modelGetAllAffecters.invokeExact(model);
-        if (!(affObj instanceof List<?> affList) || affList.size() != affecters.length) {
+        final List<?> affList = acc.modelGetAllAffecters(model);
+        if (affList == null || affList.size() != affecters.length) {
             return false;
         }
         for (int i = 0; i < affecters.length; i++) {
@@ -259,8 +258,8 @@ final class EditModelTopologyCache {
                 return false;
             }
         }
-        final Object pathObj = (Object) h.modelGetAllArtPaths.invokeExact(model);
-        if (!(pathObj instanceof List<?> pathList)) {
+        final List<?> pathList = acc.modelGetAllArtPaths(model);
+        if (pathList == null) {
             return false;
         }
         if (hasArtPaths != !pathList.isEmpty() || pathList.size() != artPathDeformerIdx.length) {
@@ -268,9 +267,8 @@ final class EditModelTopologyCache {
         }
         for (int i = 0; i < pathList.size(); i++) {
             final Object pGuid = (Object) h.artPathGetTargetGuid.invokeExact(pathList.get(i));
-            final Object parent = pGuid == null || pGuid.equals(h.emptyDeformerGuid)
-                    ? null
-                    : (Object) h.modelGetDeformer.invokeExact(model, pGuid);
+            final Object parent =
+                    pGuid == null || pGuid.equals(h.emptyDeformerGuid) ? null : acc.modelGetDeformer(model, pGuid);
             final int idx = parent == null ? -1 : deformerIndexByRef.getOrDefault(parent, -2);
             if (idx != artPathDeformerIdx[i]) {
                 return false;
@@ -327,7 +325,7 @@ final class EditModelTopologyCache {
         lastPartsCount = parts.size();
         lastPartSignatures = new int[parts.size()];
         for (int i = 0; i < parts.size(); i++) {
-            lastPartSignatures[i] = partSignature(parts.get(i), h);
+            lastPartSignatures[i] = partSignature(parts.get(i), h.acc);
         }
 
         hasAnyConflictPolygon = false;
@@ -582,14 +580,15 @@ final class EditModelTopologyCache {
     void recordDeformerSnapshot(
             final int i, final boolean captureSelectedDeep, final EditSubtreeHandles h, final LongAdder fullArrayHashes)
             throws Throwable {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         final Object d = deformers[i];
         final Object src = deformerSources[i];
-        lastDefSourceUpdateVer[i] = (int) h.sourceGetUpdateVersion.invokeExact(src);
-        lastDefCopiedUpdateVer[i] = (int) h.deformerGetCopiedUpdateVersion.invokeExact(d);
+        lastDefSourceUpdateVer[i] = acc.sourceGetUpdateVersion(src);
+        lastDefCopiedUpdateVer[i] = acc.deformerGetCopiedUpdateVersion(d);
         lastDefKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
-        final Object form = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
+        final Object form = acc.deformerGetInterpolatedForm(d);
         lastDefInterpForm[i] = form;
-        lastDefInterpEditVer[i] = form == null ? -1 : (int) h.formGetEditVersion.invokeExact(form);
+        lastDefInterpEditVer[i] = form == null ? -1 : acc.formGetEditVersion(form);
         if (captureSelectedDeep) {
             selectedDeformerBaselines.put(
                     src, SelectedDeformerBaseline.capture(src, form, isWarp[i], isRotation[i], h, fullArrayHashes));
@@ -621,23 +620,24 @@ final class EditModelTopologyCache {
     void recordMeshSnapshot(
             final int i, final boolean captureSelectedDeep, final EditSubtreeHandles h, final LongAdder fullArrayHashes)
             throws Throwable {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         final Object m = visibleMeshes[i];
         final Object src = visibleMeshSources[i];
-        lastMeshVer[i] = (int) h.meshSourceGetMeshVersion.invokeExact(src);
-        lastMeshCopiedVer[i] = (int) h.meshGetCopiedMeshVersion.invokeExact(m);
+        lastMeshVer[i] = acc.meshSourceGetMeshVersion(src);
+        lastMeshCopiedVer[i] = acc.meshGetCopiedMeshVersion(m);
         lastMeshKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
-        final Object form = (Object) h.meshGetInterpolatedForm.invokeExact(m);
+        final Object form = acc.meshGetInterpolatedForm(m);
         lastMeshInterpForm[i] = form;
-        lastMeshInterpEditVer[i] = form == null ? -1 : (int) h.formGetEditVersion.invokeExact(form);
-        lastMeshDrawOrder[i] = (int) h.meshGetDrawOrder.invokeExact(m);
-        lastMeshVisible[i] = (boolean) h.meshSourceIsVisible.invokeExact(src);
-        lastMeshVisHierarchy[i] = (boolean) h.meshSourceIsVisibleHierarchy.invokeExact(src);
+        lastMeshInterpEditVer[i] = form == null ? -1 : acc.formGetEditVersion(form);
+        lastMeshDrawOrder[i] = acc.meshGetDrawOrder(m);
+        lastMeshVisible[i] = acc.controllableSourceIsVisible(src);
+        lastMeshVisHierarchy[i] = acc.controllableSourceIsVisibleHierarchy(src);
         if (captureSelectedDeep) {
             selectedMeshBaselines.put(src, SelectedMeshBaseline.capture(src, form, h, fullArrayHashes));
         }
-        final Object container = (Object) h.meshGetContainer.invokeExact(m);
-        final Object gmesh = container == null ? null : (Object) h.meshContainerGetMesh.invokeExact(container);
-        lastMeshGMeshPosRefs[i] = gmesh == null ? null : (float[]) h.meshBaseGetPositions.invokeExact(gmesh);
+        final Object container = acc.meshGetContainer(m);
+        final Object gmesh = container == null ? null : acc.meshContainerGetMesh(container);
+        lastMeshGMeshPosRefs[i] = gmesh == null ? null : acc.meshBaseGetPositions(gmesh);
     }
 
     private void snapshotAllGlueStates(final EditSubtreeHandles h) throws Throwable {
@@ -651,22 +651,23 @@ final class EditModelTopologyCache {
     }
 
     void recordGlueSnapshot(final int i, final EditSubtreeHandles h) throws Throwable {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         final Object aff = affecters[i];
         if (!h.glueClass.isInstance(aff)) {
             return;
         }
-        lastGlueCachedVer[i] = (int) h.glueGetCachedEditVersion.invokeExact(aff);
-        final Object src = (Object) h.glueGetSource.invokeExact(aff);
-        lastGlueSourceVer[i] = (int) h.glueSourceGetEditVersion.invokeExact(src);
-        final Object form = (Object) h.glueGetInterpolatedForm.invokeExact(aff);
-        lastGlueIntensityBits[i] =
-                form == null ? 0 : Float.floatToRawIntBits((float) h.glueFormGetIntensity.invokeExact(form));
+        lastGlueCachedVer[i] = acc.glueGetCachedEditVersion(aff);
+        final Object src = acc.glueGetSource(aff);
+        lastGlueSourceVer[i] = acc.glueSourceGetEditVersion(src);
+        final Object form = acc.glueGetInterpolatedForm(aff);
+        lastGlueIntensityBits[i] = form == null ? 0 : Float.floatToRawIntBits(acc.glueFormGetIntensity(form));
     }
 
     void captureParameters(final Object paramSet, final EditSubtreeHandles h) throws Throwable {
-        lastParamUpdateVersion = (int) h.paramSetGetUpdateVersion.invokeExact(paramSet);
-        final Object paramsObj = (Object) h.paramSetGetParameters.invokeExact(paramSet);
-        if (!(paramsObj instanceof List<?> params)) {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
+        lastParamUpdateVersion = acc.paramSetGetUpdateVersion(paramSet);
+        final List<?> params = acc.paramSetGetParameters(paramSet);
+        if (params == null) {
             lastParamValues = null;
             return;
         }
@@ -674,22 +675,21 @@ final class EditModelTopologyCache {
             lastParamValues = new float[params.size()];
         }
         for (int i = 0; i < params.size(); i++) {
-            lastParamValues[i] = (float) h.paramGetValue.invokeExact(params.get(i));
+            lastParamValues[i] = acc.paramGetValue(params.get(i));
         }
     }
 
     boolean parametersUnchanged(final Object paramSet, final EditSubtreeHandles h) throws Throwable {
-        if ((int) h.paramSetGetUpdateVersion.invokeExact(paramSet) != lastParamUpdateVersion) {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
+        if (acc.paramSetGetUpdateVersion(paramSet) != lastParamUpdateVersion) {
             return false;
         }
-        final Object paramsObj = (Object) h.paramSetGetParameters.invokeExact(paramSet);
-        if (!(paramsObj instanceof List<?> params)
-                || lastParamValues == null
-                || params.size() != lastParamValues.length) {
+        final List<?> params = acc.paramSetGetParameters(paramSet);
+        if (params == null || lastParamValues == null || params.size() != lastParamValues.length) {
             return false;
         }
         for (int i = 0; i < params.size(); i++) {
-            final float cur = (float) h.paramGetValue.invokeExact(params.get(i));
+            final float cur = acc.paramGetValue(params.get(i));
             if (Float.floatToRawIntBits(cur) != Float.floatToRawIntBits(lastParamValues[i])) {
                 return false;
             }
@@ -698,16 +698,18 @@ final class EditModelTopologyCache {
     }
 
     /** Computes an O(keyforms) integer version stamp without hashing position arrays or unpacking colors. */
-    static int computeKeyformVersionStamp(final Object source, final EditSubtreeHandles h) throws Throwable {
-        final Object kfsObj = (Object) h.sourceGetKeyforms.invokeExact(source);
-        if (!(kfsObj instanceof List<?> kfs)) {
+    static int computeKeyformVersionStamp(final Object source, final EditSubtreeHandles h) {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
+        final List<?> kfs = acc.sourceGetKeyforms(source);
+        if (kfs == null) {
             return 0;
         }
         int stamp = kfs.size();
-        for (final Object kf : kfs) {
+        for (int i = 0; i < kfs.size(); i++) {
+            final Object kf = kfs.get(i);
             stamp *= HASH_PRIME;
             if (kf != null) {
-                stamp += System.identityHashCode(kf) * HASH_PRIME + (int) h.formGetEditVersion.invokeExact(kf);
+                stamp += System.identityHashCode(kf) * HASH_PRIME + acc.formGetEditVersion(kf);
             }
         }
         return stamp;
@@ -980,16 +982,16 @@ final class EditModelTopologyCache {
         return sum * HASH_PRIME + Long.hashCode(scrHash);
     }
 
-    private static int partSignature(final Object part, final EditSubtreeHandles h) throws Throwable {
-        final Object src = (Object) h.partGetSource.invokeExact(part);
+    private static int partSignature(final Object part, final EditSubtreeCompiledAccessors.HostOps acc) {
+        final Object src = acc.partGetSource(part);
         int sig = System.identityHashCode(part);
-        sig = sig * HASH_PRIME + ((boolean) h.partSourceIsVisible.invokeExact(src) ? 1 : 0);
-        sig = sig * HASH_PRIME + ((boolean) h.partSourceIsVisibleHierarchy.invokeExact(src) ? 1 : 0);
-        sig = sig * HASH_PRIME + (int) h.partGetDrawOrder.invokeExact(part);
-        final Object form = (Object) h.partGetInterpolatedForm.invokeExact(part);
+        sig = sig * HASH_PRIME + (acc.partSourceIsVisible(src) ? 1 : 0);
+        sig = sig * HASH_PRIME + (acc.partSourceIsVisibleHierarchy(src) ? 1 : 0);
+        sig = sig * HASH_PRIME + acc.partGetDrawOrder(part);
+        final Object form = acc.partGetInterpolatedForm(part);
         sig = sig * HASH_PRIME + System.identityHashCode(form);
         if (form != null) {
-            sig = sig * HASH_PRIME + (int) h.formGetEditVersion.invokeExact(form);
+            sig = sig * HASH_PRIME + acc.formGetEditVersion(form);
         }
         return sig;
     }
