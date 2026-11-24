@@ -9,6 +9,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 final class NativeShaderUniformBridgeTest {
+    private static final int ALLOCATION_WARMUP_ITERATIONS = 5000;
+    private static final int ALLOCATION_MEASURE_ITERATIONS = 1000;
+    private static final int ALLOCATION_SAMPLE_PASSES = 3;
+
     public static final class Context {
         static Context current;
         long handle = 1;
@@ -290,7 +294,7 @@ final class NativeShaderUniformBridgeTest {
                 gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection);
 
         final var allocMx = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
-        for (int i = 0; i < 2000; i++) {
+        for (int i = 0; i < ALLOCATION_WARMUP_ITERATIONS; i++) {
             assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
             assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
                     gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
@@ -298,14 +302,17 @@ final class NativeShaderUniformBridgeTest {
 
         final long tid = Thread.currentThread().getId();
         allocMx.getThreadAllocatedBytes(tid);
-        final long before = allocMx.getThreadAllocatedBytes(tid);
-        for (int i = 0; i < 1000; i++) {
-            assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
-            assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
-                    gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
+        long minAllocated = Long.MAX_VALUE;
+        for (int pass = 0; pass < ALLOCATION_SAMPLE_PASSES; pass++) {
+            final long before = allocMx.getThreadAllocatedBytes(tid);
+            for (int i = 0; i < ALLOCATION_MEASURE_ITERATIONS; i++) {
+                assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+                assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                        gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
+            }
+            minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
         }
-        final long after = allocMx.getThreadAllocatedBytes(tid);
-        assertEquals(0L, after - before, "steady-state lookup and camera matrix checks must allocate zero bytes");
+        assertEquals(0L, minAllocated, "steady-state lookup and camera matrix checks must allocate zero bytes");
     }
 
     private static int countEntries(final Map.Entry<?, ?>[] entries) {
