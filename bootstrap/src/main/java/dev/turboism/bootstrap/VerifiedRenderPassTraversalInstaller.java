@@ -4,6 +4,7 @@ import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalBridge;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalTarget;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalTransformer;
+import dev.turboism.adapter.cubism.optimization.renderpass.RenderTextureColorPoolTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;
@@ -22,10 +23,12 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
 
     static final int EXPECTED_MATCHES = 1;
 
-    static final int EXPECTED_OWNERS = 1;
+    /** Maximum reviewed owners across Cubism 5.3.x: render system, GRenderTexture, and pool manager. */
+    static final int EXPECTED_OWNERS = 3;
 
     private static final String FEATURE_NAME = "render pass traversal";
     private static final String SITES_PREFIX = "sites=";
+    private static final String POOL_SITES_PREFIX = "pool-sites=";
     private static final String REFUSED_MESSAGE = "render pass traversal refused: host-not-supported-or-hook-disabled";
 
     static final WeaveSpec<RenderPassTraversalTarget> SPEC = new WeaveSpec<>(
@@ -73,8 +76,48 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
         }
         final RenderPassTraversalTransformer transformer = new RenderPassTraversalTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(renderSystem), target);
-        return List.of(WeaveTarget.single(
+
+        final Class<?> renderTexture = source.load(RenderTextureColorPoolTransformer.RENDER_TEXTURE_OWNER);
+        source.load(RenderTextureColorPoolTransformer.PRESET_COLOR_TYPE_OWNER);
+        HostMemberVerifier.requireMethod(
+                renderTexture,
+                RenderTextureColorPoolTransformer.GET_PRESET_COLOR_TYPE_METHOD,
+                RenderTextureColorPoolTransformer.GET_PRESET_COLOR_TYPE_DESCRIPTOR);
+
+        final Class<?> poolLeaseClass = target.hasRecursiveTraverseMethod()
+                ? source.load(RenderTextureColorPoolTransformer.POOL_LEASE_OWNER)
+                : null;
+        if (poolLeaseClass != null) {
+            HostMemberVerifier.requireMethod(
+                    poolLeaseClass,
+                    RenderTextureColorPoolTransformer.ACQUIRE_LEASE_METHOD,
+                    RenderTextureColorPoolTransformer.ACQUIRE_LEASE_DESCRIPTOR);
+        }
+        final RenderTextureColorPoolTransformer poolTransformer = new RenderTextureColorPoolTransformer(
+                source.loader(),
+                source.artifact(),
+                source.referenceBytes(renderTexture),
+                poolLeaseClass == null ? null : source.referenceBytes(poolLeaseClass));
+        final int expectedPoolMatches = poolTransformer.expectedMatches();
+
+        final var targets = new java.util.ArrayList<WeaveTarget>();
+        targets.add(WeaveTarget.single(
                 renderSystem, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
+        targets.add(new WeaveTarget(
+                renderTexture,
+                poolTransformer,
+                expectedPoolMatches,
+                poolTransformer::matches,
+                poolTransformer::failure));
+        if (poolLeaseClass != null) {
+            targets.add(new WeaveTarget(
+                    poolLeaseClass,
+                    poolTransformer,
+                    expectedPoolMatches,
+                    poolTransformer::matches,
+                    poolTransformer::failure));
+        }
+        return List.copyOf(targets);
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
@@ -82,7 +125,13 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
                 targets.get(0).transformer(RenderPassTraversalTransformer.class);
         final int actual = transformer.sites();
         final int expected = transformer.expectedSites();
-        return actual == expected ? null : SITES_PREFIX + actual;
+        if (actual != expected) {
+            return SITES_PREFIX + actual;
+        }
+        final RenderTextureColorPoolTransformer poolTransformer =
+                targets.get(1).transformer(RenderTextureColorPoolTransformer.class);
+        final int poolSites = poolTransformer.sites();
+        return poolSites == poolTransformer.expectedMatches() ? null : POOL_SITES_PREFIX + poolSites;
     }
 
     @Override

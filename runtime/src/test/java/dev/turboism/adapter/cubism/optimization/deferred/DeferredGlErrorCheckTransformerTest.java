@@ -215,6 +215,194 @@ class DeferredGlErrorCheckTransformerTest {
         assertNotNull(transformer.failure());
     }
 
+    @Test
+    void standaloneFrameScopeDefersChecksPerFrameReportsErrorAndFeedsUploadElision() throws Exception {
+        String priorEnabled = System.getProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
+        System.setProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY, "true");
+        try {
+            var errors = new java.util.ArrayList<Integer>();
+            var uploadGl = new java.util.concurrent.atomic.AtomicReference<Object>();
+            System.getProperties()
+                    .put(
+                            dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge
+                                    .ERROR_PROPERTY,
+                            (java.util.function.BiConsumer<Object, Integer>) (gl, err) -> {
+                                uploadGl.set(gl);
+                                errors.add(err);
+                            });
+
+            var nextCode = new java.util.concurrent.atomic.AtomicInteger(0);
+            var nativeQueries = new java.util.concurrent.atomic.AtomicInteger(0);
+            var loader = new Loader();
+
+            ClassWriter glInterface = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+            glInterface.visit(
+                    Opcodes.V17,
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT,
+                    "com/jogamp/opengl/GL",
+                    null,
+                    "java/lang/Object",
+                    null);
+            glInterface
+                    .visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "glGetError", "()I", null, null)
+                    .visitEnd();
+            glInterface.visitEnd();
+            Class<?> glType = loader.define("com/jogamp/opengl/GL", glInterface.toByteArray());
+            Object gl = Proxy.newProxyInstance(loader, new Class<?>[] {glType}, (proxy, method, args) -> {
+                nativeQueries.incrementAndGet();
+                return nextCode.get();
+            });
+
+            ClassWriter frameArgWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            frameArgWriter.visit(
+                    Opcodes.V17,
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+                    "com/live2d/graphics3d/a",
+                    null,
+                    "java/lang/Object",
+                    null);
+            MethodVisitor ctor = frameArgWriter.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+            ctor.visitCode();
+            ctor.visitVarInsn(Opcodes.ALOAD, 0);
+            ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            ctor.visitInsn(Opcodes.RETURN);
+            ctor.visitMaxs(0, 0);
+            ctor.visitEnd();
+            frameArgWriter.visitEnd();
+            Class<?> frameArgType = loader.define("com/live2d/graphics3d/a", frameArgWriter.toByteArray());
+            Object frameArg = frameArgType.getDeclaredConstructor().newInstance();
+
+            ClassWriter errorWriter = empty(DeferredGlErrorCheckTarget.ERROR_OWNER);
+            MethodVisitor errorMv = errorWriter.visitMethod(
+                    Opcodes.ACC_PUBLIC, "a", DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR, null, null);
+            errorMv.visitCode();
+            errorMv.visitVarInsn(Opcodes.ALOAD, 1);
+            errorMv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "com/jogamp/opengl/GL", "glGetError", "()I", true);
+            errorMv.visitInsn(Opcodes.IRETURN);
+            errorMv.visitMaxs(0, 0);
+            errorMv.visitEnd();
+            errorWriter.visitEnd();
+            byte[] errorRef = errorWriter.toByteArray();
+
+            ClassWriter frameWriter = empty(DeferredGlErrorCheckTarget.FRAME_OWNER);
+            frameWriter
+                    .visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "errorOwner", "Ljava/lang/Object;", null, null)
+                    .visitEnd();
+            frameWriter
+                    .visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "glInstance", "Ljava/lang/Object;", null, null)
+                    .visitEnd();
+            MethodVisitor frameMv = frameWriter.visitMethod(
+                    Opcodes.ACC_PUBLIC, "render3d", DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR, null, null);
+            frameMv.visitCode();
+            for (int call = 0; call < 2; call++) {
+                frameMv.visitFieldInsn(
+                        Opcodes.GETSTATIC, DeferredGlErrorCheckTarget.FRAME_OWNER, "errorOwner", "Ljava/lang/Object;");
+                frameMv.visitTypeInsn(Opcodes.CHECKCAST, DeferredGlErrorCheckTarget.ERROR_OWNER);
+                frameMv.visitFieldInsn(
+                        Opcodes.GETSTATIC, DeferredGlErrorCheckTarget.FRAME_OWNER, "glInstance", "Ljava/lang/Object;");
+                frameMv.visitTypeInsn(Opcodes.CHECKCAST, "com/jogamp/opengl/GL");
+                frameMv.visitLdcInsn("draw-" + call);
+                frameMv.visitInsn(Opcodes.ICONST_1);
+                frameMv.visitMethodInsn(
+                        Opcodes.INVOKEVIRTUAL,
+                        DeferredGlErrorCheckTarget.ERROR_OWNER,
+                        "a",
+                        DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR,
+                        false);
+                frameMv.visitInsn(Opcodes.POP);
+            }
+            frameMv.visitInsn(Opcodes.RETURN);
+            frameMv.visitMaxs(0, 0);
+            frameMv.visitEnd();
+            frameWriter.visitEnd();
+            byte[] frameRef = frameWriter.toByteArray();
+
+            ProtectionDomain domain =
+                    new ProtectionDomain(new CodeSource(ARTIFACT.toUri().toURL(), (Certificate[]) null), null);
+            var target = DeferredGlErrorCheckTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03)
+                    .orElseThrow();
+            var transformer = new DeferredGlErrorCheckTransformer(loader, ARTIFACT, errorRef, frameRef, target, true);
+            Class<?> errorClass = loader.define(
+                    DeferredGlErrorCheckTarget.ERROR_OWNER,
+                    transformer.transform(
+                            null, loader, DeferredGlErrorCheckTarget.ERROR_OWNER, null, domain, errorRef));
+            Class<?> frameClass = loader.define(
+                    DeferredGlErrorCheckTarget.FRAME_OWNER,
+                    transformer.transform(
+                            null, loader, DeferredGlErrorCheckTarget.FRAME_OWNER, null, domain, frameRef));
+            frameClass
+                    .getField("errorOwner")
+                    .set(null, errorClass.getDeclaredConstructor().newInstance());
+            frameClass.getField("glInstance").set(null, gl);
+            Object frameInstance = frameClass.getDeclaredConstructor().newInstance();
+
+            Object context = new Object();
+            var frameAccessors =
+                    new dev.turboism.adapter.cubism.optimization.uniform.DeferredGlErrorReporter.FrameContextAccessors(
+                            MethodHandles.dropArguments(MethodHandles.constant(Object.class, gl), 0, Object.class),
+                            MethodHandles.dropArguments(MethodHandles.constant(Object.class, context), 0, Object.class),
+                            MethodHandles.constant(Object.class, context),
+                            MethodHandles.dropArguments(MethodHandles.constant(boolean.class, false), 0, Object.class),
+                            MethodHandles.dropArguments(MethodHandles.constant(boolean.class, true), 0, Object.class));
+            var logged = new java.util.ArrayList<String>();
+            var deferredAccessors = new UniformLocationHookBridge.DeferredAccessors(
+                    MethodHandles.lookup()
+                            .findVirtual(glType, "glGetError", MethodType.methodType(int.class))
+                            .asType(MethodType.methodType(int.class, Object.class)),
+                    new Object(),
+                    MethodHandles.dropArguments(
+                                    MethodHandles.dropArguments(
+                                            MethodHandles.insertArguments(
+                                                    MethodHandles.lookup()
+                                                            .findVirtual(
+                                                                    java.util.List.class,
+                                                                    "add",
+                                                                    MethodType.methodType(boolean.class, Object.class)),
+                                                    0,
+                                                    logged),
+                                            0,
+                                            Object.class),
+                                    2,
+                                    boolean.class,
+                                    String.class,
+                                    int.class,
+                                    Object.class)
+                            .asType(MethodType.methodType(
+                                    void.class,
+                                    Object.class,
+                                    Object.class,
+                                    boolean.class,
+                                    String.class,
+                                    int.class,
+                                    Object.class)),
+                    null);
+
+            try (var bridge = new DeferredGlErrorCheckBridge(frameAccessors, deferredAccessors, null)) {
+                bridge.install();
+                var render3d = frameClass.getMethod("render3d", frameArgType);
+                render3d.invoke(frameInstance, frameArg);
+                // Two in-frame shader checks must trigger only one frame-end native glGetError.
+                assertEquals(1, nativeQueries.get());
+                assertEquals(List.of(0), errors);
+                assertSame(gl, uploadGl.get());
+
+                nextCode.set(1282);
+                var thrown =
+                        assertThrows(InvocationTargetException.class, () -> render3d.invoke(frameInstance, frameArg));
+                assertTrue(thrown.getCause().getMessage().contains("draw-0: glError GL_INVALID_OPERATION"));
+                assertEquals(2, nativeQueries.get());
+                assertEquals(List.of(0, 1282), errors);
+            }
+        } finally {
+            System.getProperties()
+                    .remove(
+                            dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionBridge
+                                    .ERROR_PROPERTY);
+            if (priorEnabled == null) System.clearProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
+            else System.setProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY, priorEnabled);
+        }
+    }
+
     private static final class Loader extends ClassLoader {
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length);

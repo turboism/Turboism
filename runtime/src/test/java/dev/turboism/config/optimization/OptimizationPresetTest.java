@@ -101,7 +101,7 @@ final class OptimizationPresetTest {
             assertFalse(service.enabled(OptimizationCatalog.UNIFORM_LOCATION_CACHE.key()));
             assertFalse(service.enabled(OptimizationCatalog.INCREMENTAL_UPDATE.key()));
             assertFalse(service.enabled(OptimizationCatalog.ASYNC_READBACK.key()));
-            assertFalse(service.enabled(OptimizationCatalog.MESA_GL_THREAD.key()));
+            assertTrue(service.enabled(OptimizationCatalog.MESA_GL_THREAD.key()));
 
             OptimizationPreset.HEAVY_EDITING.apply(service);
             assertEquals(OptimizationPreset.HEAVY_EDITING, OptimizationPreset.detect(service));

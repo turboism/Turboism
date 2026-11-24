@@ -111,6 +111,15 @@ class DeferredGlErrorCheckHookContributorTest {
         assertEquals(0, instrumentationCalls.get());
     }
 
+    @Test
+    void absentUniformSeamRoutesToStandaloneInsteadOfFailingWithSeamUnavailable() throws Exception {
+        new DeferredGlErrorCheckHookContributor().install(environment()).close();
+        assertTrue(warnings.stream()
+                .anyMatch(line -> line.contains("deferred=INACTIVE") && line.contains("reason=installation-failed")));
+        assertFalse(warnings.stream().anyMatch(line -> line.contains("uniform-seam-unavailable")));
+        assertEquals(0, instrumentationCalls.get());
+    }
+
     private void readySeam() {
         SEAM.forEach((key, type) -> System.getProperties().put(key, MethodHandles.empty(type)));
         System.getProperties().put(UniformLocationHookBridge.STATS_PROPERTY, (Supplier<Map<String, Long>>)

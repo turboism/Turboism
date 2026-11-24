@@ -182,7 +182,7 @@ class WeaveSpecTest {
                 1, VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_OWNERS, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
-                1, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
+                3, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,

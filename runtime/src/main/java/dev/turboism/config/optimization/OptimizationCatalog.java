@@ -787,7 +787,6 @@ public final class OptimizationCatalog {
             INCREMENTAL_UPDATE_AFFECTERS,
             UNIFORM_LOCATION_CACHE,
             INPUT_PATH_ELISION,
-            MESA_GL_THREAD,
             ASYNC_READBACK,
             IMAGE_ARCHIVE_REUSE,
             FLOAT_ARRAY_PARSE_CACHE,
@@ -801,6 +800,7 @@ public final class OptimizationCatalog {
      * unversioned configs promote only keys from this set that remain default-enabled today.
      */
     private static final Set<String> LEGACY_PROMOTED_DEFAULT_OFF_KEYS = Set.of(
+            MESA_GL_THREAD.key(),
             MESH_INTERPOLATION.key(),
             SHADER_UNIFORM.key(),
             MATRIX_SCRATCH.key(),

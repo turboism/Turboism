@@ -40,8 +40,10 @@ import org.objectweb.asm.Opcodes;
  */
 class ShaderUniformCompositionArtifactTest {
 
-    private static final List<String> VERSIONS =
-            List.of("5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
+    private static final List<String> VERSIONS = List.of(
+            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+            "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
+            "5.3.05");
 
     @Test
     void everyAdaptedVersionPatchesTheReviewedShaderDefinition() throws Exception {
@@ -83,6 +85,17 @@ class ShaderUniformCompositionArtifactTest {
                         2,
                         bridgeCalls(patched, "borrowMapEntries"),
                         version + ": both uniform and optional-texture maps must use pooled entries");
+                assertEquals(
+                        2,
+                        bridgeCalls(patched, "shouldUploadCameraMatrix"),
+                        version + ": projectionMatrix and worldToCameraMatrix must consult bridge cache");
+                assertEquals(
+                        2,
+                        bridgeCalls(patched, "recordCameraMatrix"),
+                        version + ": projectionMatrix and worldToCameraMatrix must record completed uploads");
+                assertTrue(
+                        normalMatrixAbsenceSkipsBindCheck(patched),
+                        version + ": normalMatrix absence/negative-location checks must skip bind normalMatrix");
                 ShaderUniformTransformer.clearPatched(loader, ShaderUniformTransformer.OWNER);
             }
         }
@@ -148,6 +161,129 @@ class ShaderUniformCompositionArtifactTest {
                         version + ": the upstream lifecycle hooks stay untouched");
             }
         }
+    }
+
+    private static boolean normalMatrixAbsenceSkipsBindCheck(final byte[] bytes) {
+        final int[] nmStart = {-1};
+        final int[] bindLdc = {-1};
+        final int[] bindCall = {-1};
+        final var labels = new java.util.IdentityHashMap<org.objectweb.asm.Label, Integer>();
+        record Jump(int opIdx, int opcode, org.objectweb.asm.Label target) {}
+        final var jumps = new ArrayList<Jump>();
+        final int[] op = {0};
+
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                if (!ShaderUniformTransformer.DRAW_METHOD.equals(name)) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitLabel(org.objectweb.asm.Label label) {
+                                        labels.put(label, op[0]);
+                                    }
+
+                                    @Override
+                                    public void visitLdcInsn(Object value) {
+                                        if ("normalMatrix".equals(value) && nmStart[0] < 0) nmStart[0] = op[0];
+                                        if ("bind normalMatrix".equals(value) && bindLdc[0] < 0) bindLdc[0] = op[0];
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitJumpInsn(int opcode, org.objectweb.asm.Label label) {
+                                        jumps.add(new Jump(op[0]++, opcode, label));
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int opcode, String owner, String called, String desc, boolean itf) {
+                                        if (bindLdc[0] >= 0
+                                                && bindCall[0] < 0
+                                                && owner.startsWith("com/live2d/graphics3d/shader/")
+                                                && "a".equals(called)) {
+                                            bindCall[0] = op[0];
+                                        }
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitInsn(int opcode) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitIntInsn(int opcode, int operand) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitVarInsn(int opcode, int varIndex) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitTypeInsn(int opcode, String type) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitFieldInsn(int o, String ow, String n, String d) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitIincInsn(int varIndex, int increment) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitInvokeDynamicInsn(
+                                            String n, String d, org.objectweb.asm.Handle h, Object... a) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitTableSwitchInsn(
+                                            int min,
+                                            int max,
+                                            org.objectweb.asm.Label dflt,
+                                            org.objectweb.asm.Label... l) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitLookupSwitchInsn(
+                                            org.objectweb.asm.Label dflt, int[] keys, org.objectweb.asm.Label[] l) {
+                                        op[0]++;
+                                    }
+
+                                    @Override
+                                    public void visitMultiANewArrayInsn(String d, int n) {
+                                        op[0]++;
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        if (nmStart[0] < 0 || bindLdc[0] <= nmStart[0] || bindCall[0] <= bindLdc[0]) return false;
+        boolean sawIfNullSkip = false;
+        boolean sawIfLtSkip = false;
+        for (final Jump jump : jumps) {
+            if (jump.opIdx() <= nmStart[0] || jump.opIdx() >= bindLdc[0]) continue;
+            final Integer targetIdx = labels.get(jump.target());
+            if (targetIdx == null) return false;
+            if (jump.opcode() == Opcodes.IFNULL) {
+                if (targetIdx <= bindCall[0]) return false;
+                sawIfNullSkip = true;
+            } else if (jump.opcode() == Opcodes.IFLT) {
+                if (targetIdx <= bindCall[0]) return false;
+                sawIfLtSkip = true;
+            }
+        }
+        return sawIfNullSkip && sawIfLtSkip;
     }
 
     private static Path artifact(String version) throws Exception {

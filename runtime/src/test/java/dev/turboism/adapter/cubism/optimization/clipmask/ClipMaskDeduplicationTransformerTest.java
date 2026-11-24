@@ -58,6 +58,7 @@ final class ClipMaskDeduplicationTransformerTest {
         System.getProperties().remove(ClipMaskDeduplicationBridge.DEDUPE_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.RECORD_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.RELEASE_PROPERTY);
+        System.getProperties().remove(ClipMaskDeduplicationBridge.FRAME_ENTER_PROPERTY);
         System.getProperties().remove(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
         System.getProperties().remove(ClipMaskScissorBridge.CLEAR_PROPERTY);
         try {
@@ -233,6 +234,49 @@ final class ClipMaskDeduplicationTransformerTest {
         maskMethod.invoke(system, renderer, context, null);
 
         assertEquals(1, exit.get(), "the throw is contained and the normal return still runs the exit consult");
+    }
+
+    @Test
+    void frameRenderBracketsEnterAndExitAroundNormalAndExceptionalNesting() throws Exception {
+        loader.define(
+                "com/live2d/graphics3d/component/AGRenderer", plainClass("com/live2d/graphics3d/component/AGRenderer"));
+        loader.define("com/live2d/graphics3d/a", plainClass("com/live2d/graphics3d/a"));
+        loader.define("com/live2d/type/CRect", plainClass("com/live2d/type/CRect"));
+        loader.define(GL3, glInterface());
+        loader.define(FAKE_GL, fakeGl());
+
+        final byte[] renderSystemBytes = buildSyntheticRenderSystem();
+        final ClipMaskDeduplicationTransformer transformer = new ClipMaskDeduplicationTransformer(
+                loader, artifact, RENDER_SYSTEM, RENDER_DESC, Map.of(RENDER_SYSTEM, renderSystemBytes));
+        final byte[] transformedSystem =
+                transformer.transform(null, loader, RENDER_SYSTEM, null, loader.domain, renderSystemBytes);
+        final Class<?> systemClass = loader.define(RENDER_SYSTEM, transformedSystem);
+        final Object system = systemClass.getConstructor().newInstance();
+
+        final AtomicInteger depth = new AtomicInteger();
+        final AtomicInteger flushes = new AtomicInteger();
+        System.getProperties().put(ClipMaskDeduplicationBridge.FRAME_ENTER_PROPERTY, (Runnable) depth::incrementAndGet);
+        System.getProperties().put(ClipMaskDeduplicationBridge.FRAME_PROPERTY, (Runnable) () -> {
+            if (depth.decrementAndGet() == 0) {
+                flushes.incrementAndGet();
+            }
+        });
+
+        final java.lang.reflect.Method renderMethod = systemClass.getDeclaredMethod(
+                "a",
+                loader.loadClass("com.live2d.graphics3d.a"),
+                loader.loadClass("com.live2d.type.CRect"),
+                boolean.class,
+                boolean.class);
+        renderMethod.invoke(system, null, null, false, false);
+        assertEquals(0, depth.get());
+        assertEquals(1, flushes.get());
+
+        // Simulate nested render call: inner bracket drops depth from 2 to 1 without flushing.
+        depth.incrementAndGet();
+        renderMethod.invoke(system, null, null, false, false);
+        assertEquals(1, depth.get(), "Nested render exit must preserve outer depth");
+        assertEquals(1, flushes.get(), "Nested render exit must not flush outer caches");
     }
 
     private static byte[] glInterface() {

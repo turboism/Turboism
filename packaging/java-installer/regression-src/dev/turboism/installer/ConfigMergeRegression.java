@@ -371,6 +371,7 @@ public final class ConfigMergeRegression {
     /** Validates v0.70.2 defaults migration across listener, OFF preset, and idempotency. */
     private static void legacyOptimizationDefaultsMigration() throws Exception {
         final List<String> promotedKeys = List.of(
+                "mesaGlThread",
                 "meshInterpolation",
                 "shaderUniform",
                 "matrixScratch",

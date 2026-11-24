@@ -1,6 +1,7 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckBridge;
 import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTarget;
 import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
 import dev.turboism.adapter.cubism.optimization.glerror.GlGetErrorElisionTransformer;
@@ -42,19 +43,36 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
     /** The close proof restores both rewritten classes; pinned by {@code WeaveSpecTest}. */
     static final int EXPECTED_OWNERS = 2;
 
-    static final WeaveSpec<DeferredGlErrorCheckTarget> SPEC = new WeaveSpec<DeferredGlErrorCheckTarget>(
-            ADMISSION,
-            "deferred error check",
-            VerifiedDeferredGlErrorCheckInstaller::resolve,
-            new WeavePlan<>(VerifiedDeferredGlErrorCheckInstaller::targets, WeavePlan.PostCheck.NONE),
-            BridgeFactory.none(),
-            WeaveEffects.none());
+    static final WeaveSpec<DeferredGlErrorCheckTarget> SPEC = buildSpec(false);
+    static final WeaveSpec<DeferredGlErrorCheckTarget> STANDALONE_SPEC = buildSpec(true);
 
     private final InstallContext context;
+    private final boolean standalone;
     private VerifiedInstall<DeferredGlErrorCheckTarget> hook;
 
     VerifiedDeferredGlErrorCheckInstaller(final InstallContext context) {
+        this(context, false);
+    }
+
+    VerifiedDeferredGlErrorCheckInstaller(final InstallContext context, final boolean standalone) {
         this.context = context;
+        this.standalone = standalone;
+    }
+
+    private static WeaveSpec<DeferredGlErrorCheckTarget> buildSpec(final boolean standaloneMode) {
+        final BridgeFactory<DeferredGlErrorCheckTarget> bridges = standaloneMode
+                ? (target, launch) -> {
+                    final DeferredGlErrorCheckBridge bridge = new DeferredGlErrorCheckBridge(launch.hostLoader());
+                    return BridgeLayer.of(bridge::install, bridge);
+                }
+                : BridgeFactory.none();
+        return new WeaveSpec<>(
+                ADMISSION,
+                "deferred error check",
+                VerifiedDeferredGlErrorCheckInstaller::resolve,
+                new WeavePlan<>((target, source) -> targets(target, source, standaloneMode), WeavePlan.PostCheck.NONE),
+                bridges,
+                WeaveEffects.none());
     }
 
     static boolean admitted(
@@ -74,7 +92,8 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         return DeferredGlErrorCheckTarget.of(HostArtifactDigest.cached(artifact));
     }
 
-    private static List<WeaveTarget> targets(final DeferredGlErrorCheckTarget target, final WeaveSource source)
+    private static List<WeaveTarget> targets(
+            final DeferredGlErrorCheckTarget target, final WeaveSource source, final boolean standaloneMode)
             throws Exception {
         final Class<?> errorType = source.load(target.errorOwner());
         final Class<?> frameType = source.load(target.frameOwner());
@@ -92,26 +111,30 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
         final byte[] errorReference = source.referenceBytes(errorType);
         final byte[] frameReference = source.referenceBytes(frameType);
         final DeferredGlErrorCheckTransformer transformer = new DeferredGlErrorCheckTransformer(
-                source.loader(), source.artifact(), errorReference, frameReference, target);
-        final List<String> errorComposed = composedShape(
-                source,
-                errorReference,
-                UniformLocationLifecycleTransformer.Role.ERROR,
-                errorType,
-                target.errorOwner(),
-                DeferredGlErrorCheckTarget.ERROR_METHOD,
-                DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR);
+                source.loader(), source.artifact(), errorReference, frameReference, target, standaloneMode);
+        final List<String> errorComposed = standaloneMode
+                ? null
+                : composedShape(
+                        source,
+                        errorReference,
+                        UniformLocationLifecycleTransformer.Role.ERROR,
+                        errorType,
+                        target.errorOwner(),
+                        DeferredGlErrorCheckTarget.ERROR_METHOD,
+                        DeferredGlErrorCheckTarget.ERROR_DESCRIPTOR);
         if (errorComposed != null) {
             transformer.acceptComposedShape(target.errorOwner(), errorComposed);
         }
-        final List<String> frameComposed = composedShape(
-                source,
-                frameReference,
-                UniformLocationLifecycleTransformer.Role.FRAME,
-                frameType,
-                target.frameOwner(),
-                DeferredGlErrorCheckTarget.FRAME_METHOD,
-                DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR);
+        final List<String> frameComposed = standaloneMode
+                ? null
+                : composedShape(
+                        source,
+                        frameReference,
+                        UniformLocationLifecycleTransformer.Role.FRAME,
+                        frameType,
+                        target.frameOwner(),
+                        DeferredGlErrorCheckTarget.FRAME_METHOD,
+                        DeferredGlErrorCheckTarget.FRAME_DESCRIPTOR);
         if (frameComposed != null) {
             transformer.acceptComposedShape(target.frameOwner(), frameComposed);
         }
@@ -196,7 +219,7 @@ final class VerifiedDeferredGlErrorCheckInstaller implements AutoCloseable {
      */
     synchronized void install() throws Exception {
         if (hook != null) return;
-        if (!(VerifiedInstall.install(SPEC, context)
+        if (!(VerifiedInstall.install(standalone ? STANDALONE_SPEC : SPEC, context)
                 instanceof VerifiedInstall.Attempt.Installed<DeferredGlErrorCheckTarget> installed)) {
             throw new IllegalStateException("deferred error check refused: host-not-supported-or-hook-disabled");
         }

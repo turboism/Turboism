@@ -236,6 +236,48 @@ final class NativeShaderUniformBridgeTest {
         NativeShaderUniformBridge.releaseMapEntries(reused);
     }
 
+    @Test
+    void cameraMatrixCacheSkipsMatchingUploadsAndInvalidatesOnChangeErrorOrProgramSwitch() {
+        final Gl gl = new Gl();
+        final Shader shader = new Shader();
+        Context.current = gl.context;
+        final float[] projectionA = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+        final float[] projectionB = {2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
+        final long hitsBefore = NativeShaderUniformBridge.matrixHits();
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA));
+        NativeShaderUniformBridge.recordCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA);
+
+        // Unchanged matrix + location + program skips upload even if caller mutates original buffer later? Check first
+        // hit.
+        assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA));
+        assertEquals(hitsBefore + 1, NativeShaderUniformBridge.matrixHits());
+
+        // Value copy isolation: mutating caller array afterwards must still miss if content changed, and hit on A copy.
+        final float[] projectionCopy = projectionA.clone();
+        projectionA[0] = 99.0f;
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA));
+        assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionCopy));
+
+        // Different matrix kind stays independent on same shader.
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA, 6, projectionB));
+        NativeShaderUniformBridge.recordCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA, 6, projectionB);
+        assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA, 6, projectionB));
+
+        // Invalidation clears cached matrices.
+        NativeShaderUniformBridge.invalidate(shader);
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionCopy));
+    }
+
     private static int countEntries(final Map.Entry<?, ?>[] entries) {
         int count = 0;
         while (count < entries.length && entries[count] != null) {

@@ -58,6 +58,33 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
     private static final String BRIDGE_BORROW_DESC = "(Ljava/util/HashMap;)[Ljava/util/Map$Entry;";
     private static final String BRIDGE_RELEASE_METHOD = "releaseMapEntries";
     private static final String BRIDGE_RELEASE_DESC = "([Ljava/util/Map$Entry;)V";
+    private static final String BRIDGE_SHOULD_UPLOAD_MATRIX = "shouldUploadCameraMatrix";
+    private static final String BRIDGE_SHOULD_UPLOAD_MATRIX_DESC = "(Ljava/lang/Object;ILjava/lang/Object;II[F)Z";
+    private static final String BRIDGE_RECORD_MATRIX = "recordCameraMatrix";
+    private static final String BRIDGE_RECORD_MATRIX_DESC = "(Ljava/lang/Object;ILjava/lang/Object;II[F)V";
+
+    private static final String UNIFORM_PROJECTION_MATRIX = "projectionMatrix";
+    private static final String UNIFORM_WORLD_TO_CAMERA_MATRIX = "worldToCameraMatrix";
+    private static final String UNIFORM_NORMAL_MATRIX = "normalMatrix";
+    private static final String BIND_PREFIX = "bind ";
+    private static final String FIELD_UNIFORM_MAP = "uniformMap";
+    private static final String FIELD_GL_PROGRAM_ID = "glProgramID";
+    private static final String HASH_MAP_GET_METHOD = "get";
+    private static final String HASH_MAP_GET_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String SHADER_PARAM_OWNER = "com/live2d/graphics3d/shader/ShaderParameter";
+    private static final String GET_LOCATION_METHOD = "getLocation";
+    private static final String GET_LOCATION_DESC = "()I";
+    private static final String GCAMERA_OWNER = "com/live2d/graphics3d/GCamera";
+    private static final String GET_PROJECTION_MATRIX_METHOD = "getProjectionMatrix";
+    private static final String GET_WORLD_TO_CAMERA_MATRIX_METHOD = "getWorldToCameraMatrix";
+    private static final String GET_MATRIX_DESC = "()Lcom/live2d/graphics3d/type/GMatrix44;";
+    private static final String GMATRIX44_OWNER = "com/live2d/graphics3d/type/GMatrix44";
+    private static final String MATRIX_FLOATS_METHOD = "a";
+    private static final String MATRIX_FLOATS_DESC = "()[F";
+    private static final String UNIFORM_MATRIX_4FV_METHOD = "glUniformMatrix4fv";
+    private static final String UNIFORM_MATRIX_4FV_DESC = "(IIZ[FI)V";
+    private static final String GL_INTERFACE_OWNER = "com/jogamp/opengl/GL";
+    private static final int MATRIX_SCRATCH_SLOTS = 3;
 
     private static final String GMATERIAL_OWNER = "com/live2d/graphics3d/material/GMaterial";
     private static final String GET_UNIFORM_MAP_METHOD = "getUniformMap$core";
@@ -266,6 +293,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
     static byte[] patch(byte[] bytes) {
         ClassReader reader = new ClassReader(bytes);
         if (!reader.getClassName().equals(OWNER)) throw new IllegalArgumentException("shader owner");
+        final int drawMaxLocals = readDrawMaxLocals(reader);
         // Derive uniform frames identically for both transform() and composedShape() without host classloading.
         ClassWriter writer = HostClassWriters.newFrameWriter(reader, null);
         int[] count = {0, 0};
@@ -279,7 +307,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                         boolean lifecycle = (name.equals(LIFECYCLE_METHODS[0]) && descriptor.equals(LIFECYCLE_DESCS[0]))
                                 || (name.equals(LIFECYCLE_METHODS[1]) && descriptor.equals(LIFECYCLE_DESCS[1]));
                         if (drawing) {
-                            return new DrawMethodRewriter(delegate, count);
+                            return new DrawMethodRewriter(delegate, count, drawMaxLocals);
                         }
                         if (lifecycle) {
                             return new LifecycleVisitor(delegate, count);
@@ -291,6 +319,32 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
         if (count[0] != 1 || count[1] != 2)
             throw new IllegalArgumentException("shader hook cardinality " + java.util.Arrays.toString(count));
         return writer.toByteArray();
+    }
+
+    private static int readDrawMaxLocals(final ClassReader reader) {
+        final int[] maxLocals = {0};
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (!DRAW_METHOD.equals(name) || !DRAW_DESC.equals(descriptor)) {
+                            return null;
+                        }
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitMaxs(final int maxStack, final int locals) {
+                                maxLocals[0] = locals;
+                            }
+                        };
+                    }
+                },
+                ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return maxLocals[0];
     }
 
     private void report(String code) {
@@ -322,14 +376,19 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
         private enum Mode {
             IDLE,
             UNIFORM_HEADER,
-            TEXTURE_LAMBDA
+            TEXTURE_LAMBDA,
+            MATRIX_BLOCK
         }
 
         private final int[] count;
+        private final int matrixLocalBase;
         private final List<Op> buffer = new ArrayList<>();
         private final List<TryCatchSpec> deferredHandlers = new ArrayList<>();
         private Mode mode = Mode.IDLE;
         private int step;
+        private int uniformFieldTrigger;
+        private MatrixBlockCapture matrixBlock;
+        private boolean matrixLocalsUsed;
 
         private int iterableSlot = -1;
         private int dummySlot = -1;
@@ -345,22 +404,31 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
         private int textureCtxSlot = -1;
         private int textureGlSlot = -1;
 
-        DrawMethodRewriter(final MethodVisitor delegate, final int[] count) {
+        DrawMethodRewriter(final MethodVisitor delegate, final int[] count, final int matrixLocalBase) {
             super(Opcodes.ASM9, delegate);
             this.count = count;
+            this.matrixLocalBase = matrixLocalBase;
         }
 
         @Override
         public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
+            if (mode == Mode.MATRIX_BLOCK) {
+                flushBuffer();
+            }
             deferredHandlers.add(new TryCatchSpec(start, end, handler, type));
         }
 
         @Override
         public void visitMaxs(final int maxStack, final int maxLocals) {
+            if (mode != Mode.IDLE) {
+                flushBuffer();
+            }
             for (final TryCatchSpec handler : deferredHandlers) {
                 super.visitTryCatchBlock(handler.start, handler.end, handler.handler, handler.type);
             }
-            super.visitMaxs(maxStack, maxLocals);
+            final int totalLocals =
+                    matrixLocalsUsed ? Math.max(maxLocals, matrixLocalBase + MATRIX_SCRATCH_SLOTS) : maxLocals;
+            super.visitMaxs(maxStack, totalLocals);
         }
 
         @Override
@@ -379,14 +447,34 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 }
                 return;
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                if (opcode == Opcodes.ATHROW || (opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN)) {
+                    flushBuffer();
+                    super.visitInsn(opcode);
+                    return;
+                }
+                buffer.add(mv -> mv.visitInsn(opcode));
+                matrixBlock.onInsn(opcode, buffer.size() - 1);
+                if (matrixBlock.readyToEmit()) {
+                    emitMatrixBlockReplacement();
+                }
+                return;
+            }
+            uniformFieldTrigger = 0;
             super.visitInsn(opcode);
         }
 
         @Override
         public void visitIntInsn(final int opcode, final int operand) {
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitIntInsn(opcode, operand));
+                matrixBlock.onOtherOp();
+                return;
+            }
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = 0;
             super.visitIntInsn(opcode, operand);
         }
 
@@ -402,6 +490,12 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 advanceTextureVar(opcode, varIndex);
                 return;
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitVarInsn(opcode, varIndex));
+                matrixBlock.onVarInsn(opcode, varIndex);
+                return;
+            }
+            uniformFieldTrigger = (opcode == Opcodes.ALOAD && varIndex == 0) ? 1 : 0;
             super.visitVarInsn(opcode, varIndex);
         }
 
@@ -417,14 +511,32 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 advanceTextureType(opcode, type);
                 return;
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitTypeInsn(opcode, type));
+                matrixBlock.onTypeInsn(opcode, type, buffer.size() - 1);
+                return;
+            }
+            uniformFieldTrigger = 0;
             super.visitTypeInsn(opcode, type);
         }
 
         @Override
         public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitFieldInsn(opcode, owner, name, descriptor));
+                matrixBlock.onFieldInsn(opcode, owner, name, descriptor);
+                return;
+            }
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = (uniformFieldTrigger == 1
+                            && opcode == Opcodes.GETFIELD
+                            && OWNER.equals(owner)
+                            && FIELD_UNIFORM_MAP.equals(name)
+                            && HASH_MAP_GETTER_DESC.substring(2).equals(descriptor))
+                    ? 2
+                    : 0;
             super.visitFieldInsn(opcode, owner, name, descriptor);
         }
 
@@ -441,6 +553,14 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 advanceTextureMethod(opcode, owner, name, descriptor, itf);
                 return;
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitMethodInsn(opcode, owner, name, descriptor, itf));
+                if (!matrixBlock.onMethodInsn(opcode, owner, name, descriptor, itf, buffer.size() - 1)) {
+                    flushBuffer();
+                }
+                return;
+            }
+            uniformFieldTrigger = 0;
             if (opcode == Opcodes.INVOKEINTERFACE
                     && owner.equals(GL_OWNER)
                     && name.equals(QUERY_METHOD)
@@ -486,9 +606,12 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 }
                 return;
             }
-            if (mode != Mode.IDLE) {
+            if (mode == Mode.MATRIX_BLOCK) {
+                flushBuffer();
+            } else if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = 0;
             super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
         }
 
@@ -504,6 +627,14 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 }
                 return;
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitJumpInsn(opcode, label));
+                if (!matrixBlock.onJumpInsn(opcode, label, buffer.size() - 1)) {
+                    flushBuffer();
+                }
+                return;
+            }
+            uniformFieldTrigger = 0;
             super.visitJumpInsn(opcode, label);
         }
 
@@ -522,6 +653,12 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
             if (mode == Mode.TEXTURE_LAMBDA) {
                 flushBuffer();
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitLabel(label));
+                matrixBlock.onLabel(label, buffer.size() - 1);
+                return;
+            }
+            uniformFieldTrigger = 0;
             if (activeUniformLoop != null && label == activeUniformLoop.loopEnd) {
                 emitUniformLoopEnd();
                 return;
@@ -540,6 +677,20 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 }
                 return;
             }
+            if (mode == Mode.MATRIX_BLOCK) {
+                buffer.add(mv -> mv.visitLdcInsn(value));
+                matrixBlock.onLdcInsn(value);
+                return;
+            }
+            if (mode == Mode.IDLE && uniformFieldTrigger == 2 && isMatrixUniformName(value)) {
+                uniformFieldTrigger = 0;
+                mode = Mode.MATRIX_BLOCK;
+                buffer.clear();
+                matrixBlock = new MatrixBlockCapture((String) value);
+                buffer.add(mv -> mv.visitLdcInsn(value));
+                return;
+            }
+            uniformFieldTrigger = 0;
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
@@ -548,9 +699,12 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
 
         @Override
         public void visitIincInsn(final int varIndex, final int increment) {
-            if (mode != Mode.IDLE) {
+            if (mode == Mode.MATRIX_BLOCK) {
+                flushBuffer();
+            } else if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = 0;
             super.visitIincInsn(varIndex, increment);
         }
 
@@ -559,6 +713,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = 0;
             super.visitTableSwitchInsn(min, max, dflt, labels);
         }
 
@@ -567,6 +722,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = 0;
             super.visitLookupSwitchInsn(dflt, keys, labels);
         }
 
@@ -575,6 +731,7 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
             if (mode != Mode.IDLE) {
                 flushBuffer();
             }
+            uniformFieldTrigger = 0;
             super.visitMultiANewArrayInsn(descriptor, numDimensions);
         }
 
@@ -589,10 +746,298 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
 
         private void flushBuffer() {
             mode = Mode.IDLE;
+            matrixBlock = null;
             for (final Op op : buffer) {
                 op.emit(mv);
             }
             buffer.clear();
+        }
+
+        private static boolean isMatrixUniformName(final Object value) {
+            return UNIFORM_PROJECTION_MATRIX.equals(value)
+                    || UNIFORM_WORLD_TO_CAMERA_MATRIX.equals(value)
+                    || UNIFORM_NORMAL_MATRIX.equals(value);
+        }
+
+        private void emitMatrixBlockReplacement() {
+            final MatrixBlockCapture captured = matrixBlock;
+            matrixBlock = null;
+            mode = Mode.IDLE;
+            if (!captured.isValid()) {
+                for (final Op op : buffer) {
+                    op.emit(mv);
+                }
+                buffer.clear();
+                return;
+            }
+            if (UNIFORM_NORMAL_MATRIX.equals(captured.uniformName)) {
+                emitNormalMatrixBlock(captured);
+            } else {
+                emitCameraMatrixBlock(captured);
+            }
+            buffer.clear();
+        }
+
+        private void emitNormalMatrixBlock(final MatrixBlockCapture captured) {
+            final Label skipAllAndPop = new Label();
+            final Label done = new Label();
+            for (int i = 0; i <= captured.checkcastOpIdx; i++) {
+                buffer.get(i).emit(mv);
+            }
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitJumpInsn(Opcodes.IFNULL, skipAllAndPop);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, SHADER_PARAM_OWNER, GET_LOCATION_METHOD, GET_LOCATION_DESC, false);
+            mv.visitJumpInsn(Opcodes.IFLT, skipAllAndPop);
+            for (int i = captured.ifnullOpIdx + 1; i < captured.gotoAfterPopOpIdx; i++) {
+                buffer.get(i).emit(mv);
+            }
+            for (int i = captured.checkTailLabelOpIdx; i < buffer.size(); i++) {
+                buffer.get(i).emit(mv);
+            }
+            mv.visitJumpInsn(Opcodes.GOTO, done);
+            mv.visitLabel(skipAllAndPop);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(done);
+        }
+
+        private void emitCameraMatrixBlock(final MatrixBlockCapture captured) {
+            matrixLocalsUsed = true;
+            final int paramLocal = matrixLocalBase;
+            final int locLocal = matrixLocalBase + 1;
+            final int dataLocal = matrixLocalBase + 2;
+            final int kind = UNIFORM_PROJECTION_MATRIX.equals(captured.uniformName)
+                    ? NativeShaderUniformBridge.MATRIX_KIND_PROJECTION
+                    : NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA;
+            final String matrixMethod = UNIFORM_PROJECTION_MATRIX.equals(captured.uniformName)
+                    ? GET_PROJECTION_MATRIX_METHOD
+                    : GET_WORLD_TO_CAMERA_MATRIX_METHOD;
+            final Label done = new Label();
+
+            for (int i = 0; i <= captured.checkcastOpIdx; i++) {
+                buffer.get(i).emit(mv);
+            }
+            mv.visitVarInsn(Opcodes.ASTORE, paramLocal);
+            mv.visitVarInsn(Opcodes.ALOAD, paramLocal);
+            mv.visitJumpInsn(Opcodes.IFNULL, done);
+
+            mv.visitVarInsn(Opcodes.ALOAD, paramLocal);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, SHADER_PARAM_OWNER, GET_LOCATION_METHOD, GET_LOCATION_DESC, false);
+            mv.visitVarInsn(Opcodes.ISTORE, locLocal);
+            mv.visitVarInsn(Opcodes.ILOAD, locLocal);
+            mv.visitJumpInsn(Opcodes.IFLT, done);
+
+            mv.visitVarInsn(Opcodes.ALOAD, captured.cameraSlot);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, GCAMERA_OWNER, matrixMethod, GET_MATRIX_DESC, false);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, GMATRIX44_OWNER, MATRIX_FLOATS_METHOD, MATRIX_FLOATS_DESC, false);
+            mv.visitVarInsn(Opcodes.ASTORE, dataLocal);
+
+            mv.visitVarInsn(Opcodes.ALOAD, captured.glSlot);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETFIELD, OWNER, FIELD_GL_PROGRAM_ID, "I");
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitLdcInsn(kind);
+            mv.visitVarInsn(Opcodes.ILOAD, locLocal);
+            mv.visitVarInsn(Opcodes.ALOAD, dataLocal);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESTATIC,
+                    BRIDGE_OWNER,
+                    BRIDGE_SHOULD_UPLOAD_MATRIX,
+                    BRIDGE_SHOULD_UPLOAD_MATRIX_DESC,
+                    false);
+            mv.visitJumpInsn(Opcodes.IFEQ, done);
+
+            mv.visitVarInsn(Opcodes.ALOAD, captured.glSlot);
+            mv.visitVarInsn(Opcodes.ILOAD, locLocal);
+            mv.visitInsn(Opcodes.ICONST_1);
+            mv.visitInsn(Opcodes.ICONST_0);
+            mv.visitVarInsn(Opcodes.ALOAD, dataLocal);
+            mv.visitInsn(Opcodes.ICONST_0);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, GL_OWNER, UNIFORM_MATRIX_4FV_METHOD, UNIFORM_MATRIX_4FV_DESC, true);
+
+            for (int i = captured.checkTailLabelOpIdx; i < buffer.size(); i++) {
+                buffer.get(i).emit(mv);
+            }
+
+            mv.visitVarInsn(Opcodes.ALOAD, captured.glSlot);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETFIELD, OWNER, FIELD_GL_PROGRAM_ID, "I");
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitLdcInsn(kind);
+            mv.visitVarInsn(Opcodes.ILOAD, locLocal);
+            mv.visitVarInsn(Opcodes.ALOAD, dataLocal);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, BRIDGE_OWNER, BRIDGE_RECORD_MATRIX, BRIDGE_RECORD_MATRIX_DESC, false);
+
+            mv.visitLabel(done);
+        }
+
+        private static final class MatrixBlockCapture {
+            private final String uniformName;
+            private int checkcastOpIdx = -1;
+            private int ifnullOpIdx = -1;
+            private Label popLabel;
+            private int popLabelOpIdx = -1;
+            private int lastGotoOpIdx = -1;
+            private Label lastGotoTarget;
+            private int gotoAfterPopOpIdx = -1;
+            private Label checkTailLabel;
+            private int checkTailLabelOpIdx = -1;
+            private int glSlot = -1;
+            private int cameraSlot = -1;
+            private int lastAloadVar = -1;
+            private boolean sawGetCall;
+            private boolean sawDupAfterCast;
+            private boolean sawMatrixUpload;
+            private boolean sawBindString;
+            private boolean sawBindHelperCall;
+            private boolean sawFinalPop;
+
+            MatrixBlockCapture(final String uniformName) {
+                this.uniformName = uniformName;
+            }
+
+            void onInsn(final int opcode, final int opIdx) {
+                lastAloadVar = -1;
+                if (opcode == Opcodes.DUP && checkcastOpIdx >= 0 && ifnullOpIdx < 0) {
+                    sawDupAfterCast = true;
+                } else if (opcode == Opcodes.POP && sawBindHelperCall && !sawFinalPop) {
+                    sawFinalPop = true;
+                } else if (opcode == Opcodes.POP && checkTailLabelOpIdx >= 0 && !sawBindHelperCall) {
+                    // Any extra POP in the check tail before helper call resets bind completion.
+                    sawBindString = false;
+                }
+            }
+
+            void onOtherOp() {
+                lastAloadVar = -1;
+            }
+
+            void onVarInsn(final int opcode, final int varIndex) {
+                if (opcode == Opcodes.ALOAD) {
+                    lastAloadVar = varIndex;
+                } else {
+                    lastAloadVar = -1;
+                }
+            }
+
+            void onTypeInsn(final int opcode, final String type, final int opIdx) {
+                if (opcode == Opcodes.CHECKCAST && GL_INTERFACE_OWNER.equals(type) && checkTailLabelOpIdx >= 0) {
+                    glSlot = lastAloadVar;
+                } else if (opcode == Opcodes.CHECKCAST
+                        && SHADER_PARAM_OWNER.equals(type)
+                        && sawGetCall
+                        && checkcastOpIdx < 0) {
+                    checkcastOpIdx = opIdx;
+                }
+                lastAloadVar = -1;
+            }
+
+            void onFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
+                lastAloadVar = -1;
+            }
+
+            boolean onMethodInsn(
+                    final int opcode,
+                    final String owner,
+                    final String name,
+                    final String descriptor,
+                    final boolean itf,
+                    final int opIdx) {
+                final int prevAload = lastAloadVar;
+                lastAloadVar = -1;
+                if (opIdx == 1) {
+                    if (opcode == Opcodes.INVOKEVIRTUAL
+                            && HASH_MAP_OWNER.equals(owner)
+                            && HASH_MAP_GET_METHOD.equals(name)
+                            && HASH_MAP_GET_DESC.equals(descriptor)) {
+                        sawGetCall = true;
+                        return true;
+                    }
+                    return false;
+                }
+                if (opcode == Opcodes.INVOKEVIRTUAL
+                        && GCAMERA_OWNER.equals(owner)
+                        && (GET_PROJECTION_MATRIX_METHOD.equals(name) || GET_WORLD_TO_CAMERA_MATRIX_METHOD.equals(name))
+                        && GET_MATRIX_DESC.equals(descriptor)) {
+                    cameraSlot = prevAload;
+                } else if (opcode == Opcodes.INVOKEINTERFACE
+                        && itf
+                        && GL_OWNER.equals(owner)
+                        && UNIFORM_MATRIX_4FV_METHOD.equals(name)
+                        && UNIFORM_MATRIX_4FV_DESC.equals(descriptor)) {
+                    sawMatrixUpload = true;
+                } else if (opcode == Opcodes.INVOKESTATIC
+                        && !itf
+                        && owner.startsWith(SHADER_PACKAGE_PREFIX)
+                        && "a".equals(name)
+                        && checkTailLabelOpIdx >= 0
+                        && sawBindString) {
+                    sawBindHelperCall = true;
+                }
+                return true;
+            }
+
+            boolean onJumpInsn(final int opcode, final Label label, final int opIdx) {
+                lastAloadVar = -1;
+                if (opcode == Opcodes.IFNULL && sawDupAfterCast && ifnullOpIdx < 0) {
+                    ifnullOpIdx = opIdx;
+                    popLabel = label;
+                    return true;
+                }
+                if (ifnullOpIdx < 0) {
+                    return false;
+                }
+                if (opcode == Opcodes.GOTO && popLabelOpIdx < 0) {
+                    lastGotoOpIdx = opIdx;
+                    lastGotoTarget = label;
+                }
+                return true;
+            }
+
+            void onLabel(final Label label, final int opIdx) {
+                lastAloadVar = -1;
+                if (popLabel != null && label == popLabel && popLabelOpIdx < 0) {
+                    popLabelOpIdx = opIdx;
+                    if (lastGotoOpIdx >= 0) {
+                        gotoAfterPopOpIdx = lastGotoOpIdx;
+                        checkTailLabel = lastGotoTarget;
+                    }
+                } else if (checkTailLabel != null && label == checkTailLabel && checkTailLabelOpIdx < 0) {
+                    checkTailLabelOpIdx = opIdx;
+                }
+            }
+
+            void onLdcInsn(final Object value) {
+                lastAloadVar = -1;
+                if (checkTailLabelOpIdx >= 0 && (BIND_PREFIX + uniformName).equals(value)) {
+                    sawBindString = true;
+                }
+            }
+
+            boolean readyToEmit() {
+                return sawFinalPop;
+            }
+
+            boolean isValid() {
+                final boolean baseOk = checkcastOpIdx == 2
+                        && ifnullOpIdx == 4
+                        && gotoAfterPopOpIdx > ifnullOpIdx
+                        && popLabelOpIdx == gotoAfterPopOpIdx + 1
+                        && checkTailLabelOpIdx > popLabelOpIdx
+                        && sawMatrixUpload
+                        && glSlot >= 0
+                        && sawBindString
+                        && sawBindHelperCall
+                        && sawFinalPop;
+                if (!baseOk) {
+                    return false;
+                }
+                return UNIFORM_NORMAL_MATRIX.equals(uniformName) || cameraSlot >= 0;
+            }
         }
 
         private void advanceUniformMethod(

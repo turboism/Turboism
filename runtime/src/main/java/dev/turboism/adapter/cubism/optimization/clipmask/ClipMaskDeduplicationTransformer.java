@@ -430,13 +430,14 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
         @Override
         public void visitCode() {
             super.visitCode();
+            emitFrameCallback(ClipMaskDeduplicationBridge.FRAME_ENTER_PROPERTY);
             visitLabel(bodyStart);
         }
 
         @Override
         public void visitInsn(final int opcode) {
             if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN) {
-                emitFrameCleanup();
+                emitFrameCallback(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
             }
             super.visitInsn(opcode);
         }
@@ -448,18 +449,18 @@ public final class ClipMaskDeduplicationTransformer implements ClassFileTransfor
             visitLabel(throwableHandler);
             final int caught = locals;
             visitVarInsn(Opcodes.ASTORE, caught);
-            emitFrameCleanup();
+            emitFrameCallback(ClipMaskDeduplicationBridge.FRAME_PROPERTY);
             visitVarInsn(Opcodes.ALOAD, caught);
             visitInsn(Opcodes.ATHROW);
             super.visitMaxs(stack + 2, locals + 1);
         }
 
-        private void emitFrameCleanup() {
+        private void emitFrameCallback(final String property) {
             final Label start = new Label(), end = new Label(), handler = new Label();
             final Label skip = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            emitSlot(this, ClipMaskDeduplicationBridge.FRAME_PROPERTY, "java/lang/Runnable");
+            emitSlot(this, property, "java/lang/Runnable");
             super.visitJumpInsn(Opcodes.IFEQ, skip);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
             super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);

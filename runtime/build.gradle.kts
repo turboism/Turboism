@@ -364,6 +364,7 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
         "turboism.test.cubismCoreJar",
         "turboism.test.cubism5302Jar",
         "turboism.test.cubism5304Jar",
+        "turboism.test.cubism5305Jar",
         "turboism.test.cubismRefDir",
         "turboism.test.verificationDir"
     ).forEach { name ->
@@ -400,6 +401,7 @@ tasks.named<Test>("test") {
         "turboism.test.cubismCoreJar",
         "turboism.test.cubism5302Jar",
         "turboism.test.cubism5304Jar",
+        "turboism.test.cubism5305Jar",
         "turboism.test.cubismRefDir",
         "turboism.test.verificationDir"
     ).forEach { name ->
@@ -437,6 +439,7 @@ val admissionUnitTests by tasks.registering(Test::class) {
         "turboism.test.cubismCoreJar",
         "turboism.test.cubism5302Jar",
         "turboism.test.cubism5304Jar",
+        "turboism.test.cubism5305Jar",
         "turboism.test.cubismRefDir",
         "turboism.test.verificationDir"
     ).forEach { name ->

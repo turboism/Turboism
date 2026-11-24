@@ -19,11 +19,28 @@ final class TurboismAgentDeferredGlErrorCheckAdmissionTest {
     @Test
     void flagOffInstallsNothingAndNeverTouchesTheHost() {
         final String prior = System.getProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
-        System.clearProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
+        // Deferred GL error checking defaults on; verify explicit opt-out avoids touching the host.
+        System.setProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY, "false");
         try {
             final DeferredGlErrorCheckHookContributor contributor = new DeferredGlErrorCheckHookContributor();
             // The flag gate runs before any host access: install succeeds as a no-op
             // even though the environment carries no located host.
+            assertNotNull(contributor.install(HookEnvironments.admitted(true)));
+        } finally {
+            if (prior == null) {
+                System.clearProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
+            } else {
+                System.setProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY, prior);
+            }
+        }
+    }
+
+    @Test
+    void defaultOnWithoutExplicitPropertyOrHostFailsSafe() {
+        final String prior = System.getProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
+        System.clearProperty(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
+        try {
+            final DeferredGlErrorCheckHookContributor contributor = new DeferredGlErrorCheckHookContributor();
             assertNotNull(contributor.install(HookEnvironments.admitted(true)));
         } finally {
             if (prior == null) {

@@ -37,11 +37,15 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
             debug(environment, id() + " deferred=INACTIVE installation=NOT_ADMITTED reason=preference-disabled");
             return refused("preference-disabled");
         }
-        final String seamFailure = seamFailure();
-        if (seamFailure != null) {
-            warnInactive(environment, seamFailure);
-            return refused(seamFailure);
+        final boolean hasSeam = hasAnyUniformSeamSlot();
+        if (hasSeam) {
+            final String seamFailure = seamFailure();
+            if (seamFailure != null) {
+                warnInactive(environment, seamFailure);
+                return refused(seamFailure);
+            }
         }
+        final boolean standalone = !hasSeam;
         try {
             final var host = environment.host().orElseThrow();
             // The launch startup policy snapshot, never a re-read of config.json: a hook that re-read the
@@ -55,14 +59,30 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
                 return refused("host-not-supported-or-hook-disabled");
             }
             final VerifiedDeferredGlErrorCheckInstaller installer =
-                    new VerifiedDeferredGlErrorCheckInstaller(InstallContext.of(environment));
+                    new VerifiedDeferredGlErrorCheckInstaller(InstallContext.of(environment), standalone);
             installer.install();
-            log(environment, id() + " deferred=ACTIVE targets=" + installer.targetDescription());
+            log(
+                    environment,
+                    id() + " deferred=ACTIVE targets=" + installer.targetDescription() + " mode="
+                            + (standalone ? "standalone" : "composed"));
             return installer;
         } catch (Exception | Error failure) {
             warnInactive(environment, "installation-failed");
             throw failure;
         }
+    }
+
+    private static boolean hasAnyUniformSeamSlot() {
+        final var properties = System.getProperties();
+        if (properties.containsKey(UniformLocationHookBridge.STATS_PROPERTY)) {
+            return true;
+        }
+        for (final String key : REQUIRED_SEAM.keySet()) {
+            if (properties.containsKey(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String seamFailure() {
