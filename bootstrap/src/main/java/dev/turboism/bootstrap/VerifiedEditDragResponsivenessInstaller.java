@@ -106,7 +106,16 @@ final class VerifiedEditDragResponsivenessInstaller implements AutoCloseable {
 
     private static void verifyDependencies(final WeaveSource source) throws Exception {
         source.load(EditDragResponsivenessTarget.CANVAS_WIDGET_OWNER);
+        final Class<?> displayClass = source.load(EditDragResponsivenessTarget.CANVAS_DISPLAY_OWNER);
+        HostMemberVerifier.requireField(
+                displayClass,
+                EditDragResponsivenessTarget.DISPLAY_CANVAS_FIELD,
+                EditDragResponsivenessTarget.DISPLAY_CANVAS_FIELD_DESCRIPTOR);
         final Class<?> listenerClass = source.load(EditDragResponsivenessTarget.MOUSE_LISTENER_OWNER);
+        HostMemberVerifier.requireMethod(
+                listenerClass,
+                EditDragResponsivenessTarget.MOUSE_DRAGGED_METHOD,
+                EditDragResponsivenessTarget.MOUSE_EVENT_DESCRIPTOR);
         HostMemberVerifier.requireField(
                 listenerClass,
                 EditDragResponsivenessTarget.LISTENER_DELEGATE_FIELD,

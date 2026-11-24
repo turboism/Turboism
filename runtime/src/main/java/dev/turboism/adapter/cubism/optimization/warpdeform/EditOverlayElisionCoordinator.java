@@ -21,13 +21,19 @@ final class EditOverlayElisionCoordinator {
     private static final long BOOL_TRUE_HASH = 1231L;
     private static final long BOOL_FALSE_HASH = 1237L;
     private static final long NULL_SENTINEL_HASH = 17L;
+    private static final String SELECTION_DRAW_KEY = WarpDeformEditTarget.SELECTION_DRAW_KEY;
 
     private final EditSubtreeHandles h;
     private final EditSubtreeCoordinator subtreeCoordinator;
     private final WeakIdentityCache<Object, OverlayEntry> entries = new WeakIdentityCache<>();
+    private final WeakIdentityCache<Object, SelectionDrawState> selectionDrawStates = new WeakIdentityCache<>();
+    private final WeakIdentityCache<Object, ArtMeshSelectionState> artMeshSelectionStates = new WeakIdentityCache<>();
 
     final LongAdder overlayElisions = new LongAdder();
     final LongAdder overlayUpdates = new LongAdder();
+    final LongAdder selectionDrawElisions = new LongAdder();
+    final LongAdder selectionDrawUpdates = new LongAdder();
+    final LongAdder selectionMeshElisions = new LongAdder();
 
     private long cachedGlobalActionHash = Long.MIN_VALUE;
     private boolean cachedGlobalValid;
@@ -35,6 +41,16 @@ final class EditOverlayElisionCoordinator {
     private Set<Object> cachedFDeformers = Set.of();
     private Set<Object> cachedGDeformers = Set.of();
     private long legacyLastGlobalSig = Long.MIN_VALUE;
+    private Object cachedSelMeshPack;
+    private boolean cachedSelHide;
+    private Object cachedSelHover;
+    private Set<?> cachedSelWSet;
+    private Set<?> cachedSelXSet;
+    private Set<Object> cachedSelGGuids = Set.of();
+    private boolean cachedSelHasHover;
+    private boolean cachedSelHasW;
+    private boolean cachedSelHasX;
+    private boolean cachedSelHasG;
 
     EditOverlayElisionCoordinator(final EditSubtreeHandles handles, final EditSubtreeCoordinator subtreeCoordinator) {
         this.h = handles;
@@ -43,12 +59,23 @@ final class EditOverlayElisionCoordinator {
 
     void clearCaches() {
         entries.clear();
+        selectionDrawStates.clear();
+        artMeshSelectionStates.clear();
         cachedGlobalValid = false;
         cachedGlobalActionHash = Long.MIN_VALUE;
         legacyLastGlobalSig = Long.MIN_VALUE;
         cachedRGuids = Set.of();
         cachedFDeformers = Set.of();
         cachedGDeformers = Set.of();
+        cachedSelMeshPack = null;
+        cachedSelHover = null;
+        cachedSelWSet = null;
+        cachedSelXSet = null;
+        cachedSelGGuids = Set.of();
+        cachedSelHasHover = false;
+        cachedSelHasW = false;
+        cachedSelHasX = false;
+        cachedSelHasG = false;
     }
 
     /**
@@ -389,6 +416,370 @@ final class EditOverlayElisionCoordinator {
         return new FrameGlobalState(combined, selector, cachedRGuids, cachedFDeformers, cachedGDeformers);
     }
 
+    /**
+     * Entry gate for {@code updateSelectionDraw} ({@code J.D}/{@code K.D}/{@code K.E}).
+     * Skips full-canvas selection entity scans when model geometry, selection, camera,
+     * cursor, and view settings match the previous recorded pass.
+     */
+    boolean tryElideSelectionDraw(final Object viewHolder) {
+        if (viewHolder == null || !hasSelectionDrawHandles()) {
+            return false;
+        }
+        try {
+            final SelectionDrawState state = selectionDrawStates.getOrCompute(viewHolder, SelectionDrawState::new);
+            state.pendingRecord = false;
+            state.pendingSceneGraph = null;
+            state.pendingModel = null;
+            state.pendingActionPack = null;
+            if (!populateSelectionContext(viewHolder, state)) {
+                state.valid = false;
+                return false;
+            }
+            if (state.valid
+                    && state.lastActionPack == state.pendingActionPack
+                    && state.lastModel == state.pendingModel
+                    && state.lastSig == state.pendingSig
+                    && state.volatileEntities != null) {
+                for (final Object entity : state.volatileEntities) {
+                    h.sceneGraphSetVolatile.invokeExact(state.pendingSceneGraph, entity);
+                }
+                selectionDrawElisions.increment();
+                return true;
+            }
+            state.valid = false;
+            state.capturePreWillRender(h.sceneGraphWillRenderField.get(state.pendingSceneGraph));
+            state.pendingRecord = true;
+            cachedSelMeshPack = null;
+            return false;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    /** Records volatile selection draw entities emitted by a native {@code updateSelectionDraw} pass. */
+    void recordSelectionDraw(final Object viewHolder) {
+        if (viewHolder == null || !hasSelectionDrawHandles()) {
+            return;
+        }
+        try {
+            final SelectionDrawState state = selectionDrawStates.get(viewHolder);
+            if (state == null || !state.pendingRecord || state.pendingSceneGraph == null) {
+                return;
+            }
+            final Object sceneGraph = state.pendingSceneGraph;
+            state.pendingRecord = false;
+            state.pendingSceneGraph = null;
+            state.recordAddedVolatiles(h.sceneGraphWillRenderField.get(sceneGraph));
+            state.pendingModel = null;
+            state.pendingActionPack = null;
+            selectionDrawUpdates.increment();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    /**
+     * Per-mesh elision gate for {@code DrawEntity_ArtMesh_Selection.update} during active drag frames.
+     * Skips rebuilding unchanged inactive ArtMesh selection entities when all overlay flags remain off.
+     */
+    boolean tryElideArtMeshSelectionUpdate(
+            final Object drawEntity, final Object actionPack, final boolean isSelected, final boolean isGlued) {
+        if (drawEntity == null
+                || actionPack == null
+                || h.artMeshSelectionDrawGetMesh == null
+                || h.meshSourceGetSelection == null) {
+            return false;
+        }
+        try {
+            if (cachedSelMeshPack != actionPack) {
+                refreshSelMeshFrameCache(actionPack);
+            }
+            final boolean active;
+            if (cachedSelHide) {
+                active = false;
+            } else if (isSelected || isGlued) {
+                active = true;
+            } else if (!cachedSelHasHover && !cachedSelHasW && !cachedSelHasX && !cachedSelHasG) {
+                active = false;
+            } else {
+                final Object mesh = (Object) h.artMeshSelectionDrawGetMesh.invokeExact(drawEntity);
+                if (mesh == null) {
+                    return false;
+                }
+                boolean hit = false;
+                if (cachedSelHasHover) {
+                    final Object src = h.acc.meshGetSource(mesh);
+                    final Object selection = src == null ? null : (Object) h.meshSourceGetSelection.invokeExact(src);
+                    hit = cachedSelHover.equals(selection);
+                }
+                if (!hit && (cachedSelHasW || cachedSelHasX)) {
+                    final Object guid = h.acc.meshGetGuid(mesh);
+                    if (guid != null) {
+                        hit = (cachedSelHasW && cachedSelWSet.contains(guid))
+                                || (cachedSelHasX && cachedSelXSet.contains(guid));
+                    }
+                }
+                if (!hit && cachedSelHasG) {
+                    final Object targetGuid = h.acc.meshGetTargetGuid(mesh);
+                    hit = targetGuid != null && cachedSelGGuids.contains(targetGuid);
+                }
+                active = hit;
+            }
+            final ArtMeshSelectionState state =
+                    artMeshSelectionStates.getOrCompute(drawEntity, ArtMeshSelectionState::new);
+            if (!state.initialized) {
+                state.initialized = true;
+                state.cleanlyDisabled = !active;
+                return false;
+            }
+            if (!active && state.cleanlyDisabled) {
+                selectionMeshElisions.increment();
+                return true;
+            }
+            state.cleanlyDisabled = !active;
+            return false;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    private void refreshSelMeshFrameCache(final Object actionPack) throws Throwable {
+        if (cachedSelMeshPack == actionPack) {
+            return;
+        }
+        final Object canvasSetting = (Object) h.appSettingGetCanvas.invokeExact(h.appSettingInstance);
+        cachedSelHide = (boolean) h.canvasSettingGetHideSelected.invokeExact(canvasSetting);
+        final Object editMode = (Object) h.actionPackGetEditMode.invokeExact(actionPack);
+        final Object selector = editMode == null ? null : (Object) h.editModeMainGetSelector.invokeExact(editMode);
+        cachedSelHover = selector == null ? null : (Object) h.selectorGetHoveringObject.invokeExact(selector);
+        cachedSelWSet = h.actionPackGetW == null ? null : (Set<?>) (Object) h.actionPackGetW.invokeExact(actionPack);
+        cachedSelXSet =
+                h.actionPackGetXSet == null ? null : (Set<?>) (Object) h.actionPackGetXSet.invokeExact(actionPack);
+        final Object devSetting = (Object) h.appSettingGetDev.invokeExact(h.appSettingInstance);
+        final boolean showChildUnderWarp = (boolean) h.devSettingGetShowChildUnderWarp.invokeExact(devSetting)
+                && (boolean) h.warpOIsCtrlChildMode.invokeExact(h.warpOInstance);
+        final Object gRaw = showChildUnderWarp ? (Object) h.actionPackGetG.invokeExact(actionPack) : null;
+        if (gRaw instanceof List<?> gList && !gList.isEmpty()) {
+            final Set<Object> guids = new HashSet<>(gList.size());
+            for (final Object gd : gList) {
+                final Object g = h.acc.deformerGetGuid(gd);
+                if (g != null) {
+                    guids.add(g);
+                }
+            }
+            cachedSelGGuids = guids;
+        } else {
+            cachedSelGGuids = Set.of();
+        }
+        cachedSelHasHover = cachedSelHover != null
+                && (h.artMeshSelectionClass == null || h.artMeshSelectionClass.isInstance(cachedSelHover));
+        cachedSelHasW = cachedSelWSet != null && !cachedSelWSet.isEmpty();
+        cachedSelHasX = cachedSelXSet != null && !cachedSelXSet.isEmpty();
+        cachedSelHasG = !cachedSelGGuids.isEmpty();
+        cachedSelMeshPack = actionPack;
+    }
+
+    private boolean hasSelectionDrawHandles() {
+        return h.overlayViewGetModelingView != null
+                && h.overlayViewGetCompletePack != null
+                && h.overlayViewGetModel != null
+                && h.completePackGetCurrentViewContext != null
+                && h.modelingViewGetDevelopSetting != null
+                && h.developSettingGetC != null
+                && h.modelingViewGetAppearanceSetting != null
+                && h.appearanceSettingGetA != null
+                && h.modelingViewIsDrawableLocked != null
+                && h.modelingViewIsDrawableEditable != null
+                && h.modelingViewIsBoundingBoxVisible != null
+                && h.modelingViewIsGridVisible != null
+                && h.modelingViewIsControllerVisible != null
+                && h.sceneGraphWillRenderField != null
+                && (h.actionPackGetQ != null || h.actionPackGetS != null);
+    }
+
+    private boolean populateSelectionContext(final Object viewHolder, final SelectionDrawState state) throws Throwable {
+        final Object modelingView = (Object) h.overlayViewGetModelingView.invokeExact(viewHolder);
+        final Object completePack = (Object) h.overlayViewGetCompletePack.invokeExact(viewHolder);
+        final Object model = (Object) h.overlayViewGetModel.invokeExact(viewHolder);
+        if (modelingView == null || completePack == null || model == null) {
+            return false;
+        }
+        if (h.formAnimViewClass != null && h.formAnimViewClass.isInstance(modelingView)) {
+            return false;
+        }
+        final Object devSetting = (Object) h.modelingViewGetDevelopSetting.invokeExact(modelingView);
+        if (devSetting == null || !(boolean) h.developSettingGetC.invokeExact(devSetting)) {
+            return false;
+        }
+        final Object appSettingView = (Object) h.modelingViewGetAppearanceSetting.invokeExact(modelingView);
+        if (appSettingView == null || !(boolean) h.appearanceSettingGetA.invokeExact(appSettingView)) {
+            return false;
+        }
+        final Object actionPack = (Object) h.modelingViewGetLastActionPack.invokeExact(modelingView);
+        if (actionPack == null || !h.actionPackClass.isInstance(actionPack)) {
+            return false;
+        }
+        final Object editMode = (Object) h.actionPackGetEditMode.invokeExact(actionPack);
+        if (editMode == null || !h.editModeMainClass.isInstance(editMode)) {
+            return false;
+        }
+        final Object selector = (Object) h.editModeMainGetSelector.invokeExact(editMode);
+        if (selector == null) {
+            return false;
+        }
+        final Object sceneGraph = (Object) h.modelingViewGetSceneGraph.invokeExact(modelingView);
+        if (sceneGraph == null) {
+            return false;
+        }
+
+        final Object paramSet = h.acc.modelGetParameterSet(model);
+        long sig = h.acc.modelGetLastUpdatedTime(model);
+        sig = sig * HASH_PRIME + (paramSet == null ? 0 : h.acc.paramSetGetUpdateVersion(paramSet));
+        final EditModelTopologyCache subtreeCache = subtreeCoordinator.latestCacheSnapshot();
+        sig = sig * HASH_PRIME + (subtreeCache == null ? 0L : subtreeCache.nextEpoch);
+        sig = sig * HASH_PRIME
+                + ((Object) h.completePackGetCurrentViewContext.invokeExact(completePack) == modelingView
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.modelingViewIsDrawableLocked.invokeExact(modelingView)
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.modelingViewIsDrawableEditable.invokeExact(modelingView)
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.modelingViewIsDeformerVisible.invokeExact(modelingView)
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.modelingViewIsBoundingBoxVisible.invokeExact(modelingView)
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.modelingViewIsGridVisible.invokeExact(modelingView) ? BOOL_TRUE_HASH : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.modelingViewIsControllerVisible.invokeExact(modelingView)
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+
+        final Object canvasSetting = (Object) h.appSettingGetCanvas.invokeExact(h.appSettingInstance);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.canvasSettingGetHideSelected.invokeExact(canvasSetting)
+                        ? BOOL_TRUE_HASH
+                        : BOOL_FALSE_HASH);
+        if (h.canvasSettingGetShowPopupHovering != null) {
+            sig = sig * HASH_PRIME
+                    + ((boolean) h.canvasSettingGetShowPopupHovering.invokeExact(canvasSetting)
+                            ? BOOL_TRUE_HASH
+                            : BOOL_FALSE_HASH);
+        }
+        final Object rotSetting = (Object) h.deformerSettingGetRotDeformer.invokeExact(
+                (Object) h.appSettingGetDeformer.invokeExact(h.appSettingInstance));
+        sig = sig * HASH_PRIME + System.identityHashCode((Object) h.rotSettingGetMode.invokeExact(rotSetting));
+        if (h.appArtMeshInstance != null && h.artMeshSettingGetShowPoint != null) {
+            sig = sig * HASH_PRIME
+                    + ((boolean) h.artMeshSettingGetShowPoint.invokeExact(h.appArtMeshInstance)
+                            ? BOOL_TRUE_HASH
+                            : BOOL_FALSE_HASH);
+        }
+
+        sig = sig * HASH_PRIME + System.identityHashCode(selector);
+        sig = sig * HASH_PRIME + System.identityHashCode((Object) h.viewGetEditMode.invokeExact(modelingView));
+        final Object hovering = (Object) h.selectorGetHoveringObject.invokeExact(selector);
+        sig = sig * HASH_PRIME + System.identityHashCode(hovering);
+        sig = sig * HASH_PRIME + (int) h.selectorGetSelectedCount.invokeExact(selector);
+        sig = sig * HASH_PRIME + listIdentityHash((Object) h.selectorGetSelectedObjects.invokeExact(selector));
+        if (h.actionPackGetQ != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetQ.invokeExact(actionPack));
+        }
+        if (h.actionPackGetS != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetS.invokeExact(actionPack));
+        }
+        if (h.actionPackGetU != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetU.invokeExact(actionPack));
+        }
+        sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetF.invokeExact(actionPack));
+        sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetG.invokeExact(actionPack));
+        if (h.actionPackGetDeformers != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetDeformers.invokeExact(actionPack));
+        }
+        if (h.actionPackGetK != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetK.invokeExact(actionPack));
+        }
+        if (h.actionPackGetD != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetD.invokeExact(actionPack));
+        }
+        if (h.actionPackGetLList != null) {
+            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetLList.invokeExact(actionPack));
+        }
+        if (h.actionPackGetAm != null) {
+            sig = sig * HASH_PRIME + System.identityHashCode((Object) h.actionPackGetAm.invokeExact(actionPack));
+        }
+        if (h.actionPackGetW != null) {
+            final Object wObj = (Object) h.actionPackGetW.invokeExact(actionPack);
+            sig = sig * HASH_PRIME + (wObj instanceof Set<?> s ? s.size() : 0);
+        }
+        if (h.actionPackGetXSet != null) {
+            final Object xObj = (Object) h.actionPackGetXSet.invokeExact(actionPack);
+            sig = sig * HASH_PRIME + (xObj instanceof Set<?> s ? s.size() : 0);
+        }
+        sig = sig * HASH_PRIME
+                + ((boolean) h.actionPackGetL.invokeExact(actionPack) ? BOOL_TRUE_HASH : BOOL_FALSE_HASH);
+        sig = sig * HASH_PRIME
+                + ((boolean) h.actionPackGetM.invokeExact(actionPack) ? BOOL_TRUE_HASH : BOOL_FALSE_HASH);
+        if (h.actionPackGetP != null) {
+            sig = sig * HASH_PRIME
+                    + ((boolean) h.actionPackGetP.invokeExact(actionPack) ? BOOL_TRUE_HASH : BOOL_FALSE_HASH);
+        }
+
+        final Object camMgr = (Object) h.modelingViewGetCameraManager.invokeExact(modelingView);
+        if (camMgr != null) {
+            sig = sig * HASH_PRIME + Float.floatToRawIntBits((float) h.cameraGetScale.invokeExact(camMgr));
+            if (h.cameraGetWrapper != null && h.cameraWrapperGetLookAt != null && h.vec3GetX != null) {
+                final Object wrapper = (Object) h.cameraGetWrapper.invokeExact(camMgr);
+                final Object lookAt = wrapper == null ? null : (Object) h.cameraWrapperGetLookAt.invokeExact(wrapper);
+                if (lookAt != null) {
+                    sig = sig * HASH_PRIME + Float.floatToRawIntBits((float) h.vec3GetX.invokeExact(lookAt));
+                    sig = sig * HASH_PRIME + Float.floatToRawIntBits((float) h.vec3GetY.invokeExact(lookAt));
+                    sig = sig * HASH_PRIME + Float.floatToRawIntBits((float) h.vec3GetZ.invokeExact(lookAt));
+                }
+            }
+        }
+        if (h.completePackGetMainViewPanel != null && h.glPanelGetWidth != null && h.glPanelGetHeight != null) {
+            Object panel = null;
+            try {
+                panel = (Object) h.completePackGetMainViewPanel.invokeExact(completePack);
+            } catch (final NullPointerException ignored) {
+                // Early-init or headless contexts without an attached MainFrameCtrl return null panel.
+            }
+            if (panel != null) {
+                sig = sig * HASH_PRIME + (int) h.glPanelGetWidth.invokeExact(panel);
+                sig = sig * HASH_PRIME + (int) h.glPanelGetHeight.invokeExact(panel);
+            }
+        }
+        if (h.utilBInstance != null && h.utilBGetMousePos != null && h.pointGetX != null && h.pointGetY != null) {
+            Object pt = null;
+            try {
+                pt = (Object) h.utilBGetMousePos.invokeExact(h.utilBInstance);
+            } catch (final java.awt.HeadlessException | NullPointerException ignored) {
+                // Headless JVMs or uninitialized pointer state skip pointer hash.
+            }
+            if (pt != null) {
+                sig = sig * HASH_PRIME + (int) h.pointGetX.invokeExact(pt);
+                sig = sig * HASH_PRIME + (int) h.pointGetY.invokeExact(pt);
+            }
+        }
+        state.pendingModel = model;
+        state.pendingActionPack = actionPack;
+        state.pendingSceneGraph = sceneGraph;
+        state.pendingSig = sig;
+        return true;
+    }
+
     private float resolveCameraScale() throws Throwable {
         final EditModelTopologyCache recent = subtreeCoordinator.latestCacheSnapshot();
         if (recent != null && h.modelingViewClass.isInstance(recent.viewContext)) {
@@ -626,6 +1017,64 @@ final class EditOverlayElisionCoordinator {
 
     private record FrameGlobalState(
             long globalSig, Object selector, Set<Object> rGuids, Set<Object> fDeformers, Set<Object> gDeformers) {}
+
+    private static final class SelectionDrawState {
+        final IdentityHashMap<Object, Boolean> preWillRender = new IdentityHashMap<>();
+        Object lastModel;
+        Object lastActionPack;
+        long lastSig;
+        Object[] volatileEntities;
+        boolean valid;
+        Object pendingModel;
+        Object pendingActionPack;
+        Object pendingSceneGraph;
+        long pendingSig;
+        boolean pendingRecord;
+
+        void capturePreWillRender(final Object willRenderRaw) {
+            preWillRender.clear();
+            if (willRenderRaw instanceof Iterable<?> entities) {
+                for (final Object entity : entities) {
+                    if (entity != null) {
+                        preWillRender.put(entity, Boolean.TRUE);
+                    }
+                }
+            }
+        }
+
+        void recordAddedVolatiles(final Object willRenderRaw) {
+            if (!(willRenderRaw instanceof java.util.Collection<?> entities)) {
+                volatileEntities = null;
+                valid = false;
+                preWillRender.clear();
+                return;
+            }
+            int count = 0;
+            for (final Object entity : entities) {
+                if (entity != null && !preWillRender.containsKey(entity)) {
+                    count++;
+                }
+            }
+            final Object[] added = new Object[count];
+            int k = 0;
+            for (final Object entity : entities) {
+                if (entity != null && !preWillRender.containsKey(entity)) {
+                    added[k++] = entity;
+                }
+            }
+            preWillRender.clear();
+            this.volatileEntities = added;
+            this.lastModel = pendingModel;
+            this.lastActionPack = pendingActionPack;
+            this.lastSig = pendingSig;
+            this.valid = true;
+        }
+    }
+
+    private static final class ArtMeshSelectionState {
+        boolean initialized;
+        boolean cleanlyDisabled;
+    }
 
     private static final class OverlayEntry {
         Object primaryDraw;

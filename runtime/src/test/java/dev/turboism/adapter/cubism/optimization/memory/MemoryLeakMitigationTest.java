@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.objectweb.asm.Opcodes.*;
 
+import dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessTarget;
+import dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessTransformer;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTarget;
 import dev.turboism.adapter.cubism.optimization.uploadelision.SkippedFrameUploadElisionTransformer;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -28,9 +30,12 @@ import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -45,7 +50,9 @@ class MemoryLeakMitigationTest {
 
     private static final String ARTIFACTS_DIR_NAME = "cubism-host-artifacts";
     private static final Path DEFAULT_LOCAL_ARTIFACTS = Path.of(System.getProperty("user.home"), ARTIFACTS_DIR_NAME);
-    private static final int EXPECTED_REWRITTEN_OWNERS = 20;
+    private static final int EXPECTED_REWRITTEN_OWNERS = 21;
+    private static final String XVERIFY_ALL_FLAG = "-Xverify:all";
+    private static final long VERIFY_TIMEOUT_SECONDS = 30L;
     private static final int DETACHED_REUSE_VBO_ID = 73;
     private static final int LARGE_SUBTREE_CHILD_COUNT = 600;
     private static final int LARGE_SUBTREE_VBO_BASE = 1000;
@@ -127,60 +134,114 @@ class MemoryLeakMitigationTest {
         assumeTrue(!jars.isEmpty(), "no local Cubism Editor JARs present");
 
         int checked = 0;
-        for (int i = 0; i < jars.size(); i++) {
-            final Path jarPath = jars.get(i);
-            final HostArtifactDigest digest = HostArtifactDigest.cached(jarPath);
-            final MemoryLeakMitigationTarget target =
-                    MemoryLeakMitigationTarget.of(digest).orElse(null);
-            if (target == null) {
-                continue;
-            }
-            checked++;
-            try (var jar = new JarFile(jarPath.toFile());
-                    var urlLoader = openHostJarLoader(jarPath)) {
-                final ProtectionDomain domain = new ProtectionDomain(
-                        new CodeSource(jarPath.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
-                final MemoryLeakMitigationTransformer transformer =
-                        new MemoryLeakMitigationTransformer(urlLoader, jarPath, target);
-
-                for (final String owner : target.rewrittenOwners()) {
-                    final byte[] raw = readJarEntry(jar, owner + ".class");
-                    assertNotNull(raw, "missing " + owner + " in " + target.version());
-                    final byte[] woven = transformer.transform(null, urlLoader, owner, null, domain, raw);
-                    assertNotNull(
-                            woven,
-                            () -> "transform failed on " + target.version() + " " + owner + ": "
-                                    + transformer.failure());
-                    new ClassReader(woven).accept(new org.objectweb.asm.ClassVisitor(ASM9) {}, 0);
+        final Path verifyRoot = Files.createTempDirectory("memory-leak-xverify");
+        final List<String> manifestLines = new ArrayList<>();
+        try {
+            for (int i = 0; i < jars.size(); i++) {
+                final Path jarPath = jars.get(i);
+                final HostArtifactDigest digest = HostArtifactDigest.cached(jarPath);
+                final MemoryLeakMitigationTarget target =
+                        MemoryLeakMitigationTarget.of(digest).orElse(null);
+                if (target == null) {
+                    continue;
                 }
-                assertEquals(EXPECTED_REWRITTEN_OWNERS, transformer.matches(), target.version());
-                assertEquals(MemoryLeakMitigationTransformer.EXPECTED_SITES, transformer.sites(), target.version());
-                assertNull(transformer.failure(), target.version());
+                checked++;
+                final Path patchDir = verifyRoot.resolve(target.version());
+                try (var jar = new JarFile(jarPath.toFile());
+                        var urlLoader = openHostJarLoader(jarPath)) {
+                    final ProtectionDomain domain = new ProtectionDomain(
+                            new CodeSource(jarPath.toUri().toURL(), (java.security.cert.Certificate[]) null), null);
+                    final MemoryLeakMitigationTransformer transformer =
+                            new MemoryLeakMitigationTransformer(urlLoader, jarPath, target);
 
-                if (i == 0 || i == jars.size() - 1) {
+                    for (final String owner : target.rewrittenOwners()) {
+                        final byte[] raw = readJarEntry(jar, owner + ".class");
+                        assertNotNull(raw, "missing " + owner + " in " + target.version());
+                        final byte[] woven = transformer.transform(null, urlLoader, owner, null, domain, raw);
+                        assertNotNull(
+                                woven,
+                                () -> "transform failed on " + target.version() + " " + owner + ": "
+                                        + transformer.failure());
+                        new ClassReader(woven).accept(new org.objectweb.asm.ClassVisitor(ASM9) {}, 0);
+                        writePatchedClass(patchDir, owner, woven);
+                        manifestLines.add(target.version() + "\t" + jarPath + "\t" + patchDir + "\t" + owner);
+                    }
+                    assertEquals(EXPECTED_REWRITTEN_OWNERS, transformer.matches(), target.version());
+                    assertEquals(MemoryLeakMitigationTransformer.EXPECTED_SITES, transformer.sites(), target.version());
+                    assertNull(transformer.failure(), target.version());
+
                     try (MemoryLeakMitigationBridge bridge = new MemoryLeakMitigationBridge(urlLoader, target)) {
                         bridge.install();
                         assertNotNull(bridge.snapshot());
                     }
 
-                    // Verify composition when SkippedFrameUploadElisionTransformer runs before us on mesh/a/{b,c}.
-                    for (final String vboOwner : SkippedFrameUploadElisionTarget.OWNERS) {
-                        final byte[] vboBytes = readJarEntry(jar, vboOwner + ".class");
-                        final SkippedFrameUploadElisionTransformer uploadTx =
-                                new SkippedFrameUploadElisionTransformer(urlLoader, jarPath, vboBytes, vboOwner);
-                        final byte[] afterUpload =
-                                uploadTx.transform(null, urlLoader, vboOwner, null, domain, vboBytes);
-                        assertNotNull(afterUpload, uploadTx.failure());
-                        final MemoryLeakMitigationTransformer composedTx =
-                                new MemoryLeakMitigationTransformer(urlLoader, jarPath, target);
-                        final byte[] afterLeakFix =
-                                composedTx.transform(null, urlLoader, vboOwner, null, domain, afterUpload);
-                        assertNotNull(afterLeakFix, composedTx.failure());
+                    if (i == 0 || "5.3.02".equals(target.version()) || i == jars.size() - 1) {
+                        // Verify composition when SkippedFrameUploadElisionTransformer runs before us on mesh/a/{b,c}.
+                        for (final String vboOwner : SkippedFrameUploadElisionTarget.OWNERS) {
+                            final byte[] vboBytes = readJarEntry(jar, vboOwner + ".class");
+                            final SkippedFrameUploadElisionTransformer uploadTx =
+                                    new SkippedFrameUploadElisionTransformer(urlLoader, jarPath, vboBytes, vboOwner);
+                            final byte[] afterUpload =
+                                    uploadTx.transform(null, urlLoader, vboOwner, null, domain, vboBytes);
+                            assertNotNull(afterUpload, uploadTx.failure());
+                            final MemoryLeakMitigationTransformer composedTx =
+                                    new MemoryLeakMitigationTransformer(urlLoader, jarPath, target);
+                            final byte[] afterLeakFix =
+                                    composedTx.transform(null, urlLoader, vboOwner, null, domain, afterUpload);
+                            assertNotNull(afterLeakFix, composedTx.failure());
+                        }
+
+                        // Verify composition with EditDragResponsivenessTransformer across drag deferral & deformer
+                        // panel.
+                        final EditDragResponsivenessTarget dragTarget =
+                                EditDragResponsivenessTarget.of(digest).orElse(null);
+                        if (dragTarget != null) {
+                            final Path composedDir = verifyRoot.resolve(target.version() + "-composed");
+                            final Map<String, byte[]> dragRefs = new LinkedHashMap<>();
+                            for (final String dragOwner : dragTarget.targetClasses()) {
+                                dragRefs.put(dragOwner, readJarEntry(jar, dragOwner + ".class"));
+                            }
+                            final EditDragResponsivenessTransformer dragTx =
+                                    new EditDragResponsivenessTransformer(urlLoader, jarPath, dragRefs, dragTarget);
+                            final MemoryLeakMitigationTransformer composedWithDragTx =
+                                    new MemoryLeakMitigationTransformer(urlLoader, jarPath, target);
+                            for (final String owner : List.of(
+                                    EditDragResponsivenessTarget.MOUSE_LISTENER_OWNER,
+                                    EditDragResponsivenessTarget.WIDGET_OWNER,
+                                    EditDragResponsivenessTarget.INSPECTOR_VIEW_CTRL_OWNER,
+                                    EditDragResponsivenessTarget.INSPECTOR_INTERNAL_OWNER,
+                                    EditDragResponsivenessTarget.DEFORMER_SELECTOR_OWNER,
+                                    EditDragResponsivenessTarget.DEFORMER_VIEW_CTRL_OWNER,
+                                    target.deformerPanelOwner())) {
+                                final byte[] origBytes = readJarEntry(jar, owner + ".class");
+                                final byte[] afterDrag =
+                                        dragTx.transform(null, urlLoader, owner, null, domain, origBytes);
+                                final byte[] cur = afterDrag != null ? afterDrag : origBytes;
+                                final byte[] afterMem =
+                                        composedWithDragTx.transform(null, urlLoader, owner, null, domain, cur);
+                                final byte[] finalBytes = afterMem != null ? afterMem : cur;
+                                new ClassReader(finalBytes).accept(new org.objectweb.asm.ClassVisitor(ASM9) {}, 0);
+                                writePatchedClass(composedDir, owner, finalBytes);
+                                manifestLines.add(
+                                        target.version() + "-composed\t" + jarPath + "\t" + composedDir + "\t" + owner);
+                            }
+                            assertNull(dragTx.failure(), dragTx::failure);
+                            assertNull(composedWithDragTx.failure(), composedWithDragTx::failure);
+                        }
                     }
                 }
             }
+            assertTrue(checked > 0, "expected at least one reviewed JAR to match");
+            final Path manifestFile = verifyRoot.resolve("verify-manifest.txt");
+            Files.write(manifestFile, manifestLines);
+            runStrictVerifySubprocess(manifestFile, manifestLines.size());
+        } finally {
+            try (var walk = Files.walk(verifyRoot)) {
+                for (final Path p : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
         }
-        assertTrue(checked > 0, "expected at least one reviewed JAR to match");
     }
 
     @Test
@@ -233,6 +294,172 @@ class MemoryLeakMitigationTest {
             panelCls.getMethod("b", boolean.class, boolean.class).invoke(panel, false, false);
             assertNotNull(panelCls.getField("b").get(panel));
             assertTrue(panelCls.getField("B").getBoolean(panel));
+            assertEquals(1, keyRegistry.size());
+        } finally {
+            Files.deleteIfExists(fakeJar);
+        }
+    }
+
+    @Test
+    void deformerTreeRebuildSkipAndInvalidationAndLifecycleWorkCleanly() throws Exception {
+        final Path fakeJar = Files.createTempFile("memory-leak-deformer", ".jar");
+        try {
+            final SyntheticHost host = weaveAndBootBridge(fakeJar);
+            final Class<?> keyRegCls = host.load(MemoryLeakMitigationTarget.KEY_REGISTRY_OWNER_53_PLUS);
+            final Map<?, ?> keyRegistry = (Map<?, ?>) keyRegCls.getField("e").get(null);
+            final Class<?> docCls = host.load(MemoryLeakMitigationTarget.MODELING_DOC_OWNER);
+            final Object doc1 = docCls.getConstructor().newInstance();
+            final Object doc2 = docCls.getConstructor().newInstance();
+            final Object model = host.load("com/live2d/cubism/doc/model/CModel")
+                    .getConstructor()
+                    .newInstance();
+            final Object modelSource = host.load(MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER)
+                    .getConstructor()
+                    .newInstance();
+            final Object modelingVc = host.load("com/live2d/cubism/view/context/CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            final Object nonModelingVc = host.load(MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER)
+                    .getConstructor()
+                    .newInstance();
+            final Object pack = host.load("com/live2d/cubism/pack/CECompletePack")
+                    .getConstructor()
+                    .newInstance();
+
+            final Class<?> panelCls = host.load(MemoryLeakMitigationTarget.DEFORMER_PANEL_OWNER_53_MODERN);
+            final Object panel = panelCls.getConstructor(
+                            pack.getClass(),
+                            docCls,
+                            model.getClass(),
+                            modelSource.getClass(),
+                            host.load(MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER))
+                    .newInstance(pack, doc1, model, modelSource, modelingVc);
+            final Method updateMethod = panelCls.getMethod("a", boolean.class);
+            final Field treeField = panelCls.getField("b");
+            final Field initField = panelCls.getField("q");
+            final Field rebuildCountField = panelCls.getField("rebuildCount");
+
+            // Populate model deformer/artMesh/part hierarchy.
+            final Object defSrc = host.load("com/live2d/cubism/doc/model/deformer/ACDeformerSource")
+                    .getConstructor()
+                    .newInstance();
+            final Object deformer = host.load("com/live2d/cubism/doc/model/deformer/ACDeformer")
+                    .getConstructor(defSrc.getClass())
+                    .newInstance(defSrc);
+            final Object meshSrc = host.load("com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource")
+                    .getConstructor()
+                    .newInstance();
+            final Object artMesh = host.load("com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh")
+                    .getConstructor(meshSrc.getClass())
+                    .newInstance(meshSrc);
+            final Object part1 = host.load("com/live2d/cubism/doc/model/parts/CPartSource")
+                    .getConstructor()
+                    .newInstance();
+            final Object part2 = host.load("com/live2d/cubism/doc/model/parts/CPartSource")
+                    .getConstructor()
+                    .newInstance();
+            @SuppressWarnings("unchecked")
+            final List<Object> deformers =
+                    (List<Object>) model.getClass().getMethod("getAllDeformers").invoke(model);
+            deformers.add(deformer);
+            @SuppressWarnings("unchecked")
+            final List<Object> meshes =
+                    (List<Object>) model.getClass().getMethod("getAllArtMeshes").invoke(model);
+            meshes.add(artMesh);
+            @SuppressWarnings("unchecked")
+            final List<Object> parts = (List<Object>)
+                    modelSource.getClass().getMethod("getAllParts").invoke(modelSource);
+            parts.add(part1);
+            parts.add(part2);
+            final Object rootPart =
+                    modelSource.getClass().getMethod("getRootPart").invoke(modelSource);
+            @SuppressWarnings("unchecked")
+            final List<Object> rootChildGuids = (List<Object>)
+                    rootPart.getClass().getMethod("getChildGuids").invoke(rootPart);
+            final Object g1 =
+                    host.load("com/live2d/type/CGuid").getConstructor().newInstance();
+            g1.getClass().getField("idStr").set(g1, "part-guid-1");
+            final Object g2 =
+                    host.load("com/live2d/type/CGuid").getConstructor().newInstance();
+            g2.getClass().getField("idStr").set(g2, "part-guid-2");
+            rootChildGuids.add(g1);
+            rootChildGuids.add(g2);
+
+            // Non-modeling view context must fail closed without throwing or reusing.
+            panelCls.getField("vc").set(panel, nonModelingVc);
+            updateMethod.invoke(panel, true);
+            assertEquals(1, rebuildCountField.getInt(panel));
+
+            // First modeling update builds Tree1 (detaches non-modeling Tree0); repeated updates skip rebuild cleanly.
+            panelCls.getField("vc").set(panel, modelingVc);
+            updateMethod.invoke(panel, true);
+            final Object tree1 = treeField.get(panel);
+            assertNotNull(tree1);
+            assertTrue(initField.getBoolean(panel));
+            assertEquals(2, rebuildCountField.getInt(panel));
+            assertEquals(1L, activeBridge.snapshot().get("deformerTreesDetached"));
+            assertEquals(1, keyRegistry.size());
+
+            updateMethod.invoke(panel, true);
+            updateMethod.invoke(panel, false);
+            assertSame(tree1, treeField.get(panel));
+            assertEquals(2, rebuildCountField.getInt(panel));
+            assertEquals(2L, activeBridge.snapshot().get("deformerTreesReused"));
+
+            // Rename invalidates fingerprint and triggers rebuild + old tree detach.
+            defSrc.getClass().getField("localName").set(defSrc, "RenamedDeformer");
+            updateMethod.invoke(panel, true);
+            final Object tree2 = treeField.get(panel);
+            assertFalse(tree2 == tree1);
+            assertEquals(3, rebuildCountField.getInt(panel));
+            assertEquals(2L, activeBridge.snapshot().get("deformerTreesDetached"));
+            assertEquals(1, keyRegistry.size());
+
+            // Reparenting deformer invalidates fingerprint -> rebuilds.
+            final Object parentGuid =
+                    host.load("com/live2d/type/CGuid").getConstructor().newInstance();
+            parentGuid.getClass().getField("idStr").set(parentGuid, "new-parent-guid");
+            defSrc.getClass().getField("targetDeformerGuid").set(defSrc, parentGuid);
+            updateMethod.invoke(panel, true);
+            final Object tree3 = treeField.get(panel);
+            assertFalse(tree3 == tree2);
+            assertEquals(4, rebuildCountField.getInt(panel));
+
+            // Reordering child GUIDs under rootPart invalidates fingerprint -> rebuilds.
+            rootChildGuids.set(0, g2);
+            rootChildGuids.set(1, g1);
+            updateMethod.invoke(panel, true);
+            final Object tree4 = treeField.get(panel);
+            assertFalse(tree4 == tree3);
+            assertEquals(5, rebuildCountField.getInt(panel));
+
+            // Toggling visibility or lock state invalidates fingerprint -> rebuilds.
+            meshSrc.getClass().getField("visible").setBoolean(meshSrc, false);
+            updateMethod.invoke(panel, true);
+            final Object tree5 = treeField.get(panel);
+            assertFalse(tree5 == tree4);
+            meshSrc.getClass().getField("locked").setBoolean(meshSrc, true);
+            updateMethod.invoke(panel, true);
+            final Object tree6 = treeField.get(panel);
+            assertFalse(tree6 == tree5);
+
+            // Panel filter boolean change & document switch invalidate fingerprint -> rebuilds.
+            final WeakReference<Object> staleTreeRef =
+                    toggleDeformerFilterAndSwitchDoc(panel, panelCls, tree6, doc2, updateMethod, treeField);
+            forceGcUntilCollected(staleTreeRef);
+            assertNull(staleTreeRef.get(), "replaced CDeformerTreeTable must be collectable");
+
+            // Closing panel detaches remaining tree KeyListener and resets init flag before reopening.
+            panelCls.getMethod(MemoryLeakMitigationTarget.DEFORMER_CLOSE_METHOD_MODERN)
+                    .invoke(panel);
+            assertEquals(0, keyRegistry.size());
+            assertNull(treeField.get(panel));
+            assertFalse(initField.getBoolean(panel));
+
+            // Reopening builds fresh tree cleanly.
+            updateMethod.invoke(panel, true);
+            assertNotNull(treeField.get(panel));
+            assertTrue(initField.getBoolean(panel));
             assertEquals(1, keyRegistry.size());
         } finally {
             Files.deleteIfExists(fakeJar);
@@ -747,6 +974,25 @@ class MemoryLeakMitigationTest {
         return new WeakReference<>(tree1);
     }
 
+    private static WeakReference<Object> toggleDeformerFilterAndSwitchDoc(
+            final Object panel,
+            final Class<?> panelCls,
+            final Object previousTree,
+            final Object nextDoc,
+            final Method updateMethod,
+            final Field treeField)
+            throws Exception {
+        panelCls.getField("k").setBoolean(panel, false);
+        updateMethod.invoke(panel, true);
+        final Object afterFilter = treeField.get(panel);
+        assertFalse(afterFilter == previousTree);
+        panelCls.getField("doc").set(panel, nextDoc);
+        updateMethod.invoke(panel, true);
+        final Object afterDocSwitch = treeField.get(panel);
+        assertFalse(afterDocSwitch == afterFilter);
+        return new WeakReference<>(afterFilter);
+    }
+
     private SyntheticHost weaveAndBootBridge(final Path artifact) throws Exception {
         final SyntheticHost host = new SyntheticHost(artifact);
         final MemoryLeakMitigationTarget target = MemoryLeakMitigationTarget.of(ReviewedHostArtifacts.CUBISM_5_3_04)
@@ -779,9 +1025,16 @@ class MemoryLeakMitigationTest {
     }
 
     private static URLClassLoader openHostJarLoader(final Path jarPath) throws IOException {
+        return openHostJarLoader(jarPath, null);
+    }
+
+    private static URLClassLoader openHostJarLoader(final Path jarPath, final Path patchRoot) throws IOException {
+        final Path normalizedHostJar = jarPath.toAbsolutePath().normalize();
         final List<URL> urls = new ArrayList<>();
-        try (var files = Files.walk(jarPath.getParent())) {
+        try (var files = Files.walk(jarPath.getParent(), java.nio.file.FileVisitOption.FOLLOW_LINKS)) {
             files.filter(p -> p.toString().endsWith(".jar"))
+                    .filter(p ->
+                            patchRoot == null || !p.toAbsolutePath().normalize().equals(normalizedHostJar))
                     .map(MemoryLeakMitigationTest::toUrlUnchecked)
                     .forEach(urls::add);
         }
@@ -799,16 +1052,37 @@ class MemoryLeakMitigationTest {
                 }
             }
         }
+        final JarFile unverifiedHostJar = patchRoot == null ? null : new JarFile(jarPath.toFile(), false);
         return new URLClassLoader(urls.toArray(URL[]::new), MemoryLeakMitigationTest.class.getClassLoader()) {
             @Override
             protected Class<?> findClass(final String name) throws ClassNotFoundException {
+                final String internal = name.replace('.', '/');
+                if (patchRoot != null) {
+                    final Path patched = patchRoot.resolve(internal + ".class");
+                    if (Files.isRegularFile(patched)) {
+                        try {
+                            final byte[] bytes = Files.readAllBytes(patched);
+                            return defineClass(name, bytes, 0, bytes.length);
+                        } catch (final IOException failure) {
+                            throw new ClassNotFoundException(name, failure);
+                        }
+                    }
+                    final JarEntry entry = unverifiedHostJar.getJarEntry(internal + ".class");
+                    if (entry != null) {
+                        try (InputStream in = unverifiedHostJar.getInputStream(entry)) {
+                            final byte[] bytes = in.readAllBytes();
+                            return defineClass(name, bytes, 0, bytes.length);
+                        } catch (final IOException failure) {
+                            throw new ClassNotFoundException(name, failure);
+                        }
+                    }
+                }
                 try {
                     return super.findClass(name);
                 } catch (final ClassNotFoundException missing) {
                     if (name.startsWith("com.jogamp.common.")
                             || "org.jdom.Element".equals(name)
                             || name.startsWith("com.formdev.flatlaf.")) {
-                        final String internal = name.replace('.', '/');
                         final boolean isInterface = name.endsWith("WriteCloneable") || name.endsWith("Lock");
                         final String superOwner;
                         if ("com.jogamp.common.util.VersionNumberString".equals(name)) {
@@ -852,6 +1126,17 @@ class MemoryLeakMitigationTest {
                 }
                 return super.loadClass(name, resolve);
             }
+
+            @Override
+            public void close() throws IOException {
+                try {
+                    if (unverifiedHostJar != null) {
+                        unverifiedHostJar.close();
+                    }
+                } finally {
+                    super.close();
+                }
+            }
         };
     }
 
@@ -860,6 +1145,76 @@ class MemoryLeakMitigationTest {
             return path.toUri().toURL();
         } catch (final IOException failure) {
             throw new IllegalStateException(failure);
+        }
+    }
+
+    private static void writePatchedClass(final Path outDir, final String owner, final byte[] bytes)
+            throws IOException {
+        final Path outFile = outDir.resolve(owner + ".class");
+        Files.createDirectories(outFile.getParent());
+        Files.write(outFile, bytes);
+    }
+
+    private static void runStrictVerifySubprocess(final Path manifestFile, final int expectedCount) throws Exception {
+        final String javaExe =
+                Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        final Process process = new ProcessBuilder(
+                        javaExe,
+                        XVERIFY_ALL_FLAG,
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        StrictVerifyChild.class.getName(),
+                        manifestFile.toString(),
+                        Integer.toString(expectedCount))
+                .redirectErrorStream(true)
+                .start();
+        final String output;
+        try (InputStream stream = process.getInputStream()) {
+            output = new String(stream.readAllBytes());
+        }
+        assertTrue(process.waitFor(VERIFY_TIMEOUT_SECONDS, TimeUnit.SECONDS), "Strict -Xverify:all timed out");
+        assertEquals(0, process.exitValue(), "Strict -Xverify:all failed:\n" + output);
+    }
+
+    /** Child entrypoint launched under {@code -Xverify:all} to link all woven host classes. */
+    public static final class StrictVerifyChild {
+        private StrictVerifyChild() {}
+
+        public static void main(final String[] args) throws Exception {
+            final List<String> lines = Files.readAllLines(Path.of(args[0]));
+            final int expectedCount = Integer.parseInt(args[1]);
+            String currentTag = null;
+            URLClassLoader currentLoader = null;
+            int verifiedCount = 0;
+            try {
+                for (final String line : lines) {
+                    if (line.isBlank()) {
+                        continue;
+                    }
+                    final String[] parts = line.split("\t");
+                    final String tag = parts[0];
+                    final Path jarPath = Path.of(parts[1]);
+                    final Path patchRoot = Path.of(parts[2]);
+                    final String internalName = parts[3];
+                    if (!tag.equals(currentTag)) {
+                        if (currentLoader != null) {
+                            currentLoader.close();
+                        }
+                        currentTag = tag;
+                        currentLoader = openHostJarLoader(jarPath, patchRoot);
+                    }
+                    final Class<?> defined = Class.forName(internalName.replace('/', '.'), false, currentLoader);
+                    defined.getDeclaredMethods();
+                    verifiedCount++;
+                }
+            } finally {
+                if (currentLoader != null) {
+                    currentLoader.close();
+                }
+            }
+            if (verifiedCount != expectedCount) {
+                throw new IllegalStateException("Unexpected verified count: " + verifiedCount + " != " + expectedCount);
+            }
         }
     }
 
@@ -1050,6 +1405,7 @@ class MemoryLeakMitigationTest {
                     "getLocalName:()Ljava/lang/String;:field:localName");
             addControllableMethods();
             addPartsHierarchyTypes();
+            addDeformerHierarchyAndPanelTypes();
             addGlTypes();
             addEntityAndMeshTypes();
             addTextureTypes();
@@ -1060,20 +1416,6 @@ class MemoryLeakMitigationTest {
         }
 
         private void addControllableMethods() {
-            final ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-            w.visit(V17, ACC_PUBLIC, "com/live2d/type/CGuid", null, "java/lang/Object", null);
-            w.visitField(ACC_PUBLIC, "idStr", "Ljava/lang/String;", null, "id-1")
-                    .visitEnd();
-            emitDefaultCtor(w, "java/lang/Object");
-            final MethodVisitor m = w.visitMethod(ACC_PUBLIC, "getIdString", "()Ljava/lang/String;", null, null);
-            m.visitCode();
-            m.visitVarInsn(ALOAD, 0);
-            m.visitFieldInsn(GETFIELD, "com/live2d/type/CGuid", "idStr", "Ljava/lang/String;");
-            m.visitInsn(ARETURN);
-            m.visitMaxs(0, 0);
-            m.visitEnd();
-            w.visitEnd();
-            rawClasses.put("com/live2d/type/CGuid", w.toByteArray());
 
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             cw.visit(
@@ -1085,8 +1427,15 @@ class MemoryLeakMitigationTest {
                     null);
             cw.visitField(ACC_PUBLIC, "id", "Lcom/live2d/type/CGuid;", null, null)
                     .visitEnd();
+            cw.visitField(ACC_PUBLIC, "guid", "Lcom/live2d/type/CGuid;", null, null)
+                    .visitEnd();
+            cw.visitField(ACC_PUBLIC, "targetDeformerGuid", "Lcom/live2d/type/CGuid;", null, null)
+                    .visitEnd();
             cw.visitField(ACC_PUBLIC, "localName", "Ljava/lang/String;", null, null)
                     .visitEnd();
+            cw.visitField(ACC_PUBLIC, "visible", "Z", null, null).visitEnd();
+            cw.visitField(ACC_PUBLIC, "locked", "Z", null, null).visitEnd();
+            cw.visitField(ACC_PUBLIC, "lockedInHierarchy", "Z", null, null).visitEnd();
             final MethodVisitor ctor = cw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
             ctor.visitCode();
             ctor.visitVarInsn(ALOAD, 0);
@@ -1101,12 +1450,33 @@ class MemoryLeakMitigationTest {
                     "id",
                     "Lcom/live2d/type/CGuid;");
             ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitTypeInsn(NEW, "com/live2d/type/CGuid");
+            ctor.visitInsn(DUP);
+            ctor.visitMethodInsn(INVOKESPECIAL, "com/live2d/type/CGuid", "<init>", "()V", false);
+            ctor.visitFieldInsn(
+                    PUTFIELD,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "guid",
+                    "Lcom/live2d/type/CGuid;");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitTypeInsn(NEW, "com/live2d/type/CGuid");
+            ctor.visitInsn(DUP);
+            ctor.visitMethodInsn(INVOKESPECIAL, "com/live2d/type/CGuid", "<init>", "()V", false);
+            ctor.visitFieldInsn(
+                    PUTFIELD,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "targetDeformerGuid",
+                    "Lcom/live2d/type/CGuid;");
+            ctor.visitVarInsn(ALOAD, 0);
             ctor.visitLdcInsn("PartA");
             ctor.visitFieldInsn(
                     PUTFIELD,
                     "com/live2d/cubism/doc/model/ACParameterControllableSource",
                     "localName",
                     "Ljava/lang/String;");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitInsn(ICONST_1);
+            ctor.visitFieldInsn(PUTFIELD, "com/live2d/cubism/doc/model/ACParameterControllableSource", "visible", "Z");
             ctor.visitInsn(RETURN);
             ctor.visitMaxs(0, 0);
             ctor.visitEnd();
@@ -1119,11 +1489,58 @@ class MemoryLeakMitigationTest {
             emitFieldGetter(
                     cw,
                     "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "getGuid",
+                    "()Lcom/live2d/type/CGuid;",
+                    "guid");
+            emitFieldGetter(
+                    cw,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "getTargetDeformerGuid",
+                    "()Lcom/live2d/type/CGuid;",
+                    "targetDeformerGuid");
+            emitFieldGetter(
+                    cw,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
                     "getLocalName",
                     "()Ljava/lang/String;",
                     "localName");
+            emitBooleanFieldGetter(
+                    cw, "com/live2d/cubism/doc/model/ACParameterControllableSource", "isVisible", "visible");
+            emitBooleanFieldGetter(
+                    cw, "com/live2d/cubism/doc/model/ACParameterControllableSource", "isLocked", "locked");
+            emitBooleanFieldGetter(
+                    cw,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "isLockedInHierarchy",
+                    "lockedInHierarchy");
             cw.visitEnd();
             rawClasses.put("com/live2d/cubism/doc/model/ACParameterControllableSource", cw.toByteArray());
+
+            // CGuid hashCode/equals delegates to idStr so value updates invalidate hashes deterministically.
+            final ClassWriter gw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            gw.visit(V17, ACC_PUBLIC, "com/live2d/type/CGuid", null, "java/lang/Object", null);
+            gw.visitField(ACC_PUBLIC, "idStr", "Ljava/lang/String;", null, null).visitEnd();
+            final MethodVisitor gc = gw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+            gc.visitCode();
+            gc.visitVarInsn(ALOAD, 0);
+            gc.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            gc.visitVarInsn(ALOAD, 0);
+            gc.visitLdcInsn("id-1");
+            gc.visitFieldInsn(PUTFIELD, "com/live2d/type/CGuid", "idStr", "Ljava/lang/String;");
+            gc.visitInsn(RETURN);
+            gc.visitMaxs(0, 0);
+            gc.visitEnd();
+            emitFieldGetter(gw, "com/live2d/type/CGuid", "getIdString", "()Ljava/lang/String;", "idStr");
+            final MethodVisitor gh = gw.visitMethod(ACC_PUBLIC, "hashCode", "()I", null, null);
+            gh.visitCode();
+            gh.visitVarInsn(ALOAD, 0);
+            gh.visitFieldInsn(GETFIELD, "com/live2d/type/CGuid", "idStr", "Ljava/lang/String;");
+            gh.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "hashCode", "()I", false);
+            gh.visitInsn(IRETURN);
+            gh.visitMaxs(0, 0);
+            gh.visitEnd();
+            gw.visitEnd();
+            rawClasses.put("com/live2d/type/CGuid", gw.toByteArray());
         }
 
         private void addPartsHierarchyTypes() {
@@ -1137,6 +1554,8 @@ class MemoryLeakMitigationTest {
                     null);
             ps.visitField(ACC_PUBLIC, "children", "Ljava/util/List;", null, null)
                     .visitEnd();
+            ps.visitField(ACC_PUBLIC, "childGuids", "Ljava/util/List;", null, null)
+                    .visitEnd();
             final MethodVisitor psCtor = ps.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
             psCtor.visitCode();
             psCtor.visitVarInsn(ALOAD, 0);
@@ -1148,6 +1567,12 @@ class MemoryLeakMitigationTest {
             psCtor.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
             psCtor.visitFieldInsn(
                     PUTFIELD, "com/live2d/cubism/doc/model/parts/CPartSource", "children", "Ljava/util/List;");
+            psCtor.visitVarInsn(ALOAD, 0);
+            psCtor.visitTypeInsn(NEW, "java/util/ArrayList");
+            psCtor.visitInsn(DUP);
+            psCtor.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+            psCtor.visitFieldInsn(
+                    PUTFIELD, "com/live2d/cubism/doc/model/parts/CPartSource", "childGuids", "Ljava/util/List;");
             psCtor.visitInsn(RETURN);
             psCtor.visitMaxs(0, 0);
             psCtor.visitEnd();
@@ -1157,6 +1582,12 @@ class MemoryLeakMitigationTest {
                     "getChildren",
                     "()Ljava/util/List;",
                     "children");
+            emitFieldGetter(
+                    ps,
+                    "com/live2d/cubism/doc/model/parts/CPartSource",
+                    "getChildGuids",
+                    "()Ljava/util/List;",
+                    "childGuids");
             ps.visitEnd();
             rawClasses.put("com/live2d/cubism/doc/model/parts/CPartSource", ps.toByteArray());
 
@@ -1178,7 +1609,32 @@ class MemoryLeakMitigationTest {
 
             final ClassWriter cm = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             cm.visit(V17, ACC_PUBLIC, "com/live2d/cubism/doc/model/CModel", null, "java/lang/Object", null);
-            emitDefaultCtor(cm, "java/lang/Object");
+            cm.visitField(ACC_PUBLIC, "deformers", "Ljava/util/List;", null, null)
+                    .visitEnd();
+            cm.visitField(ACC_PUBLIC, "artMeshes", "Ljava/util/List;", null, null)
+                    .visitEnd();
+            cm.visitField(ACC_PUBLIC, "artPaths", "Ljava/util/List;", null, null)
+                    .visitEnd();
+            final MethodVisitor cmc = cm.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+            cmc.visitCode();
+            cmc.visitVarInsn(ALOAD, 0);
+            cmc.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            for (final String lst : List.of("deformers", "artMeshes", "artPaths")) {
+                cmc.visitVarInsn(ALOAD, 0);
+                cmc.visitTypeInsn(NEW, "java/util/ArrayList");
+                cmc.visitInsn(DUP);
+                cmc.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+                cmc.visitFieldInsn(PUTFIELD, "com/live2d/cubism/doc/model/CModel", lst, "Ljava/util/List;");
+            }
+            cmc.visitInsn(RETURN);
+            cmc.visitMaxs(0, 0);
+            cmc.visitEnd();
+            emitFieldGetter(
+                    cm, "com/live2d/cubism/doc/model/CModel", "getAllDeformers", "()Ljava/util/List;", "deformers");
+            emitFieldGetter(
+                    cm, "com/live2d/cubism/doc/model/CModel", "getAllArtMeshes", "()Ljava/util/List;", "artMeshes");
+            emitFieldGetter(
+                    cm, "com/live2d/cubism/doc/model/CModel", "getAllArtPaths", "()Ljava/util/List;", "artPaths");
             final MethodVisitor gd = cm.visitMethod(
                     ACC_PUBLIC,
                     "getDrawable",
@@ -1195,17 +1651,55 @@ class MemoryLeakMitigationTest {
 
             final ClassWriter ms = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             ms.visit(V17, ACC_PUBLIC, MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER, null, "java/lang/Object", null);
-            emitDefaultCtor(ms, "java/lang/Object");
+            ms.visitField(ACC_PUBLIC, "rootPart", "Lcom/live2d/cubism/doc/model/parts/CPartSource;", null, null)
+                    .visitEnd();
+            ms.visitField(ACC_PUBLIC, "parts", "Ljava/util/List;", null, null).visitEnd();
+            final MethodVisitor msc = ms.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+            msc.visitCode();
+            msc.visitVarInsn(ALOAD, 0);
+            msc.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            msc.visitVarInsn(ALOAD, 0);
+            msc.visitTypeInsn(NEW, "com/live2d/cubism/doc/model/parts/CPartSource");
+            msc.visitInsn(DUP);
+            msc.visitMethodInsn(INVOKESPECIAL, "com/live2d/cubism/doc/model/parts/CPartSource", "<init>", "()V", false);
+            msc.visitFieldInsn(
+                    PUTFIELD,
+                    MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER,
+                    "rootPart",
+                    "Lcom/live2d/cubism/doc/model/parts/CPartSource;");
+            msc.visitVarInsn(ALOAD, 0);
+            msc.visitTypeInsn(NEW, "java/util/ArrayList");
+            msc.visitInsn(DUP);
+            msc.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+            msc.visitFieldInsn(PUTFIELD, MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER, "parts", "Ljava/util/List;");
+            msc.visitInsn(RETURN);
+            msc.visitMaxs(0, 0);
+            msc.visitEnd();
+            emitFieldGetter(
+                    ms,
+                    MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER,
+                    "getRootPart",
+                    "()Lcom/live2d/cubism/doc/model/parts/CPartSource;",
+                    "rootPart");
+            emitFieldGetter(
+                    ms, MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER, "getAllParts", "()Ljava/util/List;", "parts");
             ms.visitEnd();
             rawClasses.put(MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER, ms.toByteArray());
 
             final ClassWriter rt = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             rt.visit(V17, ACC_PUBLIC, "com/live2d/cubism/CEUpdateManager$b", null, "java/lang/Object", null);
+            rt.visitField(ACC_PUBLIC | ACC_STATIC | ACC_FINAL, "a", "Lcom/live2d/cubism/CEUpdateManager$b;", null, null)
+                    .visitEnd();
             rt.visitField(ACC_PUBLIC | ACC_STATIC | ACC_FINAL, "b", "Lcom/live2d/cubism/CEUpdateManager$b;", null, null)
                     .visitEnd();
             emitDefaultCtor(rt, "java/lang/Object");
             final MethodVisitor clinit = rt.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
             clinit.visitCode();
+            clinit.visitTypeInsn(NEW, "com/live2d/cubism/CEUpdateManager$b");
+            clinit.visitInsn(DUP);
+            clinit.visitMethodInsn(INVOKESPECIAL, "com/live2d/cubism/CEUpdateManager$b", "<init>", "()V", false);
+            clinit.visitFieldInsn(
+                    PUTSTATIC, "com/live2d/cubism/CEUpdateManager$b", "a", "Lcom/live2d/cubism/CEUpdateManager$b;");
             clinit.visitTypeInsn(NEW, "com/live2d/cubism/CEUpdateManager$b");
             clinit.visitInsn(DUP);
             clinit.visitMethodInsn(INVOKESPECIAL, "com/live2d/cubism/CEUpdateManager$b", "<init>", "()V", false);
@@ -1222,6 +1716,7 @@ class MemoryLeakMitigationTest {
             emitDefaultCtor(um, "java/lang/Object");
             emitReturnNewList(um, "getSelectionGuidList");
             emitVoidMethod(um, "expandByObjectGuidPartsPalette", "(Ljava/util/List;)V");
+            emitVoidMethod(um, "expandByObjectGuidDeformerPalette", "(Ljava/util/List;)V");
             um.visitEnd();
             rawClasses.put("com/live2d/cubism/CEUpdateManager", um.toByteArray());
 
@@ -1572,6 +2067,247 @@ class MemoryLeakMitigationTest {
             cr.visitEnd();
             tkl.visitEnd();
             rawClasses.put("TestKeyListener", tkl.toByteArray());
+        }
+
+        private void addDeformerHierarchyAndPanelTypes() {
+            addSimpleClass(
+                    "com/live2d/cubism/view/context/CEViewContext_ModelingView",
+                    MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER,
+                    new String[0],
+                    false);
+
+            final String srcType = "com/live2d/cubism/doc/model/ACParameterControllableSource";
+            final String ctrlOwner = "com/live2d/cubism/doc/model/ACParameterControllable";
+            final ClassWriter ctrl = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            ctrl.visit(V17, ACC_PUBLIC, ctrlOwner, null, "java/lang/Object", null);
+            ctrl.visitField(ACC_PUBLIC, "source", "L" + srcType + ";", null, null)
+                    .visitEnd();
+            final MethodVisitor ctrlCtor = ctrl.visitMethod(ACC_PUBLIC, "<init>", "(L" + srcType + ";)V", null, null);
+            ctrlCtor.visitCode();
+            ctrlCtor.visitVarInsn(ALOAD, 0);
+            ctrlCtor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            ctrlCtor.visitVarInsn(ALOAD, 0);
+            ctrlCtor.visitVarInsn(ALOAD, 1);
+            ctrlCtor.visitFieldInsn(PUTFIELD, ctrlOwner, "source", "L" + srcType + ";");
+            ctrlCtor.visitInsn(RETURN);
+            ctrlCtor.visitMaxs(0, 0);
+            ctrlCtor.visitEnd();
+            emitFieldGetter(ctrl, ctrlOwner, "get_source", "()L" + srcType + ";", "source");
+            ctrl.visitEnd();
+            rawClasses.put(ctrlOwner, ctrl.toByteArray());
+
+            addSimpleClass("com/live2d/cubism/doc/model/deformer/ACDeformerSource", srcType, new String[0], false);
+            addSimpleClass(
+                    "com/live2d/cubism/doc/model/drawable/artPath/CArtPathSource", srcType, new String[0], false);
+
+            for (final String[] pair : new String[][] {
+                {
+                    "com/live2d/cubism/doc/model/deformer/ACDeformer",
+                    "com/live2d/cubism/doc/model/deformer/ACDeformerSource"
+                },
+                {
+                    "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+                    "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource"
+                },
+                {
+                    "com/live2d/cubism/doc/model/drawable/artPath/CArtPath",
+                    "com/live2d/cubism/doc/model/drawable/artPath/CArtPathSource"
+                }
+            }) {
+                final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                cw.visit(V17, ACC_PUBLIC, pair[0], null, ctrlOwner, null);
+                final MethodVisitor c = cw.visitMethod(ACC_PUBLIC, "<init>", "(L" + pair[1] + ";)V", null, null);
+                c.visitCode();
+                c.visitVarInsn(ALOAD, 0);
+                c.visitVarInsn(ALOAD, 1);
+                c.visitMethodInsn(INVOKESPECIAL, ctrlOwner, "<init>", "(L" + srcType + ";)V", false);
+                c.visitInsn(RETURN);
+                c.visitMaxs(0, 0);
+                c.visitEnd();
+                cw.visitEnd();
+                rawClasses.put(pair[0], cw.toByteArray());
+            }
+
+            final ClassWriter dh = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            dh.visit(
+                    V17, ACC_PUBLIC, MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER, null, "java/lang/Object", null);
+            dh.visitField(ACC_PUBLIC, "nodes", "Ljava/util/ArrayList;", null, null)
+                    .visitEnd();
+            final MethodVisitor dhc = dh.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+            dhc.visitCode();
+            dhc.visitVarInsn(ALOAD, 0);
+            dhc.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            dhc.visitVarInsn(ALOAD, 0);
+            dhc.visitTypeInsn(NEW, "java/util/ArrayList");
+            dhc.visitInsn(DUP);
+            dhc.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+            dhc.visitFieldInsn(
+                    PUTFIELD, MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER, "nodes", "Ljava/util/ArrayList;");
+            dhc.visitInsn(RETURN);
+            dhc.visitMaxs(0, 0);
+            dhc.visitEnd();
+            emitFieldGetter(
+                    dh, MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER, "e", "()Ljava/util/ArrayList;", "nodes");
+            emitVoidMethod(dh, "h", "()V");
+            dh.visitEnd();
+            rawClasses.put(MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER, dh.toByteArray());
+
+            final String owner = MemoryLeakMitigationTarget.DEFORMER_PANEL_OWNER_53_MODERN;
+            final ClassWriter dp = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            dp.visit(V17, ACC_PUBLIC, owner, null, "java/lang/Object", null);
+            dp.visitField(ACC_PUBLIC, "d", "Lcom/live2d/cubism/pack/CECompletePack;", null, null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "doc", "L" + MemoryLeakMitigationTarget.MODELING_DOC_OWNER + ";", null, null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "model", "Lcom/live2d/cubism/doc/model/CModel;", null, null)
+                    .visitEnd();
+            dp.visitField(
+                            ACC_PUBLIC,
+                            "modelSource",
+                            "L" + MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER + ";",
+                            null,
+                            null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "vc", "L" + MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER + ";", null, null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "b", "L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";", null, null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "c", "L" + MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER + ";", null, null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "f", "L" + MemoryLeakMitigationTarget.CVBOX_OWNER + ";", null, null)
+                    .visitEnd();
+            dp.visitField(ACC_PUBLIC, "k", "Z", null, null).visitEnd();
+            dp.visitField(ACC_PUBLIC, "q", "Z", null, null).visitEnd();
+            dp.visitField(ACC_PUBLIC, "rebuildCount", "I", null, null).visitEnd();
+
+            final MethodVisitor ctor = dp.visitMethod(
+                    ACC_PUBLIC,
+                    "<init>",
+                    "(Lcom/live2d/cubism/pack/CECompletePack;L"
+                            + MemoryLeakMitigationTarget.MODELING_DOC_OWNER
+                            + ";Lcom/live2d/cubism/doc/model/CModel;L"
+                            + MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER
+                            + ";L"
+                            + MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER
+                            + ";)V",
+                    null,
+                    null);
+            ctor.visitCode();
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitVarInsn(ALOAD, 1);
+            ctor.visitFieldInsn(PUTFIELD, owner, "d", "Lcom/live2d/cubism/pack/CECompletePack;");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitVarInsn(ALOAD, 2);
+            ctor.visitFieldInsn(PUTFIELD, owner, "doc", "L" + MemoryLeakMitigationTarget.MODELING_DOC_OWNER + ";");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitVarInsn(ALOAD, 3);
+            ctor.visitFieldInsn(PUTFIELD, owner, "model", "Lcom/live2d/cubism/doc/model/CModel;");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitVarInsn(ALOAD, 4);
+            ctor.visitFieldInsn(
+                    PUTFIELD, owner, "modelSource", "L" + MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER + ";");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitVarInsn(ALOAD, 5);
+            ctor.visitFieldInsn(PUTFIELD, owner, "vc", "L" + MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER + ";");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitTypeInsn(NEW, MemoryLeakMitigationTarget.CVBOX_OWNER);
+            ctor.visitInsn(DUP);
+            ctor.visitMethodInsn(INVOKESPECIAL, MemoryLeakMitigationTarget.CVBOX_OWNER, "<init>", "()V", false);
+            ctor.visitFieldInsn(PUTFIELD, owner, "f", "L" + MemoryLeakMitigationTarget.CVBOX_OWNER + ";");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitTypeInsn(NEW, MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER);
+            ctor.visitInsn(DUP);
+            ctor.visitMethodInsn(
+                    INVOKESPECIAL, MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER, "<init>", "()V", false);
+            ctor.visitFieldInsn(PUTFIELD, owner, "c", "L" + MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER + ";");
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitInsn(ICONST_1);
+            ctor.visitFieldInsn(PUTFIELD, owner, "k", "Z");
+            ctor.visitInsn(RETURN);
+            ctor.visitMaxs(0, 0);
+            ctor.visitEnd();
+
+            emitFieldGetter(dp, owner, "h", "()L" + MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER + ";", "vc");
+            emitFieldGetter(dp, owner, "i", "()L" + MemoryLeakMitigationTarget.MODELING_DOC_OWNER + ";", "doc");
+            emitFieldGetter(dp, owner, "j", "()L" + MemoryLeakMitigationTarget.MODEL_SOURCE_OWNER + ";", "modelSource");
+            emitFieldGetter(dp, owner, "k", "()Lcom/live2d/cubism/doc/model/CModel;", "model");
+            emitFieldGetter(dp, owner, "d", "()L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";", "b");
+            emitFieldGetter(dp, owner, "e", "()L" + MemoryLeakMitigationTarget.DEFORMER_HANDLER_OWNER + ";", "c");
+
+            final MethodVisitor setTree =
+                    dp.visitMethod(ACC_PUBLIC, "a", MemoryLeakMitigationTarget.PARTS_SET_TREE_DESCRIPTOR, null, null);
+            setTree.visitCode();
+            setTree.visitVarInsn(ALOAD, 0);
+            setTree.visitVarInsn(ALOAD, 1);
+            setTree.visitFieldInsn(PUTFIELD, owner, "b", "L" + MemoryLeakMitigationTarget.TREE_TABLE_OWNER + ";");
+            setTree.visitInsn(RETURN);
+            setTree.visitMaxs(0, 0);
+            setTree.visitEnd();
+
+            final MethodVisitor upd =
+                    dp.visitMethod(ACC_PUBLIC, "a", MemoryLeakMitigationTarget.DEFORMER_UPDATE_DESCRIPTOR, null, null);
+            upd.visitCode();
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitInsn(DUP);
+            upd.visitFieldInsn(GETFIELD, owner, "rebuildCount", "I");
+            upd.visitInsn(ICONST_1);
+            upd.visitInsn(IADD);
+            upd.visitFieldInsn(PUTFIELD, owner, "rebuildCount", "I");
+            upd.visitTypeInsn(NEW, MemoryLeakMitigationTarget.TREE_TABLE_OWNER);
+            upd.visitInsn(DUP);
+            upd.visitMethodInsn(INVOKESPECIAL, MemoryLeakMitigationTarget.TREE_TABLE_OWNER, "<init>", "()V", false);
+            upd.visitVarInsn(ASTORE, 2);
+            upd.visitMethodInsn(INVOKESTATIC, "TestKeyListener", "create", "()Ljava/awt/event/KeyListener;", false);
+            upd.visitVarInsn(ASTORE, 3);
+            upd.visitVarInsn(ALOAD, 2);
+            upd.visitFieldInsn(
+                    GETFIELD,
+                    MemoryLeakMitigationTarget.TREE_TABLE_OWNER,
+                    "eventImpl",
+                    "L" + MemoryLeakMitigationTarget.UI_EVENT_HANDLER_OWNER + ";");
+            upd.visitVarInsn(ALOAD, 3);
+            upd.visitFieldInsn(
+                    PUTFIELD, MemoryLeakMitigationTarget.UI_EVENT_HANDLER_OWNER, "kl", "Ljava/awt/event/KeyListener;");
+            upd.visitFieldInsn(
+                    GETSTATIC, MemoryLeakMitigationTarget.KEY_REGISTRY_OWNER_53_PLUS, "e", "Ljava/util/HashMap;");
+            upd.visitVarInsn(ALOAD, 3);
+            upd.visitVarInsn(ALOAD, 3);
+            upd.visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    "java/util/HashMap",
+                    "put",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
+            upd.visitInsn(POP);
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitVarInsn(ALOAD, 2);
+            upd.visitMethodInsn(INVOKEVIRTUAL, owner, "a", MemoryLeakMitigationTarget.PARTS_SET_TREE_DESCRIPTOR, false);
+            upd.visitVarInsn(ALOAD, 0);
+            upd.visitInsn(ICONST_1);
+            upd.visitFieldInsn(PUTFIELD, owner, "q", "Z");
+            upd.visitInsn(RETURN);
+            upd.visitMaxs(0, 0);
+            upd.visitEnd();
+
+            final MethodVisitor closeM = dp.visitMethod(
+                    ACC_PUBLIC, MemoryLeakMitigationTarget.DEFORMER_CLOSE_METHOD_MODERN, "()V", null, null);
+            closeM.visitCode();
+            closeM.visitVarInsn(ALOAD, 0);
+            closeM.visitFieldInsn(GETFIELD, owner, "f", "L" + MemoryLeakMitigationTarget.CVBOX_OWNER + ";");
+            closeM.visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    MemoryLeakMitigationTarget.CVBOX_OWNER,
+                    MemoryLeakMitigationTarget.REMOVE_ALL_METHOD,
+                    "()V",
+                    false);
+            closeM.visitInsn(RETURN);
+            closeM.visitMaxs(0, 0);
+            closeM.visitEnd();
+
+            dp.visitEnd();
+            rawClasses.put(owner, dp.toByteArray());
         }
 
         private void addGlTypes() {

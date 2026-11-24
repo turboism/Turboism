@@ -33,6 +33,12 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     /** Internal name of {@code CWarpDeformerSource}. */
     public static final String WARP_SOURCE_OWNER = "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource";
 
+    /** Internal name of {@code CRotationDeformerForm}. */
+    public static final String ROT_FORM_OWNER = "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm";
+
+    /** Internal name of {@code CRotationDeformer$a} vector transform helper. */
+    public static final String ROT_HELPER_OWNER = "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformer$a";
+
     /** Internal name of {@code CSimpleGrid}. */
     public static final String SIMPLE_GRID_OWNER = "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid";
 
@@ -170,11 +176,52 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     public static final String ACTION_OFFSET_FLOATS_METHOD = "b";
     public static final String ACTION_OFFSET_FLOATS_DESCRIPTOR = "(Lcom/live2d/graphics3d/type/GVector2;)[F";
 
+    /** Method name of {@code CWarpDeformerSource.reinitInstance}. */
+    public static final String WARP_SOURCE_REINIT_METHOD = "reinitInstance";
+
+    /** JVM descriptor of {@code CWarpDeformerSource.reinitInstance}. */
+    public static final String WARP_SOURCE_REINIT_DESCRIPTOR =
+            "(Lcom/live2d/cubism/doc/model/ACParameterControllable;)V";
+
+    /** Method name of {@code CRotationDeformerForm.transform_exe}. */
+    public static final String ROT_TRANSFORM_EXE_METHOD = "transform_exe";
+
+    /** JVM descriptor of {@code CRotationDeformerForm.transform_exe}. */
+    public static final String ROT_TRANSFORM_EXE_DESCRIPTOR =
+            "(Lcom/live2d/doc/selection/d;Lcom/live2d/doc/selection/d;Lcom/live2d/cubism/doc/model/ACForm;)"
+                    + "Lcom/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm;";
+
+    /** Method name of {@code CRotationDeformer$a.a} directional vector transform helper. */
+    public static final String ROT_HELPER_METHOD = "a";
+
+    /** JVM descriptor of {@code CRotationDeformer$a.a}. */
+    public static final String ROT_HELPER_DESCRIPTOR = "(Lcom/live2d/doc/selection/d;[F[F[F)V";
+
     /** Internal name of overlay loop host in Cubism 5.0.x builds. */
     public static final String LEGACY_OVERLAY_VIEW_OWNER = "com/live2d/cubism/view/context/J";
 
+    /** Internal name of selection-draw holder in Cubism 5.1+ builds. */
+    public static final String OVERLAY_VIEW_OWNER = "com/live2d/cubism/view/context/K";
+
     /** Internal name of overlay loop helper in Cubism 5.1+ builds. */
     public static final String OVERLAY_HELPER_OWNER = "com/live2d/cubism/view/context/K$b";
+
+    /** Constant-pool key identifying {@code updateSelectionDraw} across Cubism 5.0–5.3. */
+    public static final String SELECTION_DRAW_KEY = "selectionDraw@updateSelectionDraw";
+
+    /** Method descriptor of {@code updateSelectionDraw} ({@code D}/{@code E}). */
+    public static final String SELECTION_DRAW_DESCRIPTOR = "()V";
+
+    /** Internal name of {@code DrawEntity_ArtMesh_Selection}. */
+    public static final String DRAW_ENTITY_ARTMESH_SELECTION_OWNER =
+            "com/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_ArtMesh_Selection";
+
+    /** Method name of {@code DrawEntity_ArtMesh_Selection.update}. */
+    public static final String DRAW_ENTITY_ARTMESH_UPDATE_METHOD = "update";
+
+    /** JVM descriptor of {@code DrawEntity_ArtMesh_Selection.update}. */
+    public static final String DRAW_ENTITY_ARTMESH_UPDATE_DESCRIPTOR =
+            "(Lcom/live2d/cubism/view/context/actionManager/b;ZZ)V";
 
     /** Reviewed overlay method name on {@code J} in 5.0.00–5.0.05 builds. */
     public static final String LEGACY_OVERLAY_METHOD_V500 = "E";

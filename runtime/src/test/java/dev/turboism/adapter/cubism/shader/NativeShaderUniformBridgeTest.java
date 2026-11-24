@@ -9,6 +9,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 final class NativeShaderUniformBridgeTest {
+    private static final int ALLOCATION_WARMUP_ITERATIONS = 5000;
+    private static final int ALLOCATION_MEASURE_ITERATIONS = 1000;
+    private static final int ALLOCATION_SAMPLE_PASSES = 3;
+
     public static final class Context {
         static Context current;
         long handle = 1;
@@ -234,6 +238,81 @@ final class NativeShaderUniformBridgeTest {
 
         NativeShaderUniformBridge.releaseMapEntries(nested);
         NativeShaderUniformBridge.releaseMapEntries(reused);
+    }
+
+    @Test
+    void cameraMatrixCacheSkipsMatchingUploadsAndInvalidatesOnChangeErrorOrProgramSwitch() {
+        final Gl gl = new Gl();
+        final Shader shader = new Shader();
+        Context.current = gl.context;
+        final float[] projectionA = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+        final float[] projectionB = {2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
+        final long hitsBefore = NativeShaderUniformBridge.matrixHits();
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA));
+        NativeShaderUniformBridge.recordCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA);
+
+        // Unchanged matrix + location + program skips upload even if caller mutates original buffer later? Check first
+        // hit.
+        assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA));
+        assertEquals(hitsBefore + 1, NativeShaderUniformBridge.matrixHits());
+
+        // Value copy isolation: mutating caller array afterwards must still miss if content changed, and hit on A copy.
+        final float[] projectionCopy = projectionA.clone();
+        projectionA[0] = 99.0f;
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionA));
+        assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionCopy));
+
+        // Different matrix kind stays independent on same shader.
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA, 6, projectionB));
+        NativeShaderUniformBridge.recordCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA, 6, projectionB);
+        assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_WORLD_TO_CAMERA, 6, projectionB));
+
+        // Invalidation clears cached matrices.
+        NativeShaderUniformBridge.invalidate(shader);
+        assertTrue(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projectionCopy));
+    }
+
+    @Test
+    void steadyStateLookupAndMatrixCacheCheckAllocateZeroBytes() {
+        final Gl gl = new Gl();
+        final Shader shader = new Shader();
+        Context.current = gl.context;
+        final float[] projection = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+
+        assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+        NativeShaderUniformBridge.recordCameraMatrix(
+                gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection);
+
+        final var allocMx = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+        for (int i = 0; i < ALLOCATION_WARMUP_ITERATIONS; i++) {
+            assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+            assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                    gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
+        }
+
+        final long tid = Thread.currentThread().getId();
+        allocMx.getThreadAllocatedBytes(tid);
+        long minAllocated = Long.MAX_VALUE;
+        for (int pass = 0; pass < ALLOCATION_SAMPLE_PASSES; pass++) {
+            final long before = allocMx.getThreadAllocatedBytes(tid);
+            for (int i = 0; i < ALLOCATION_MEASURE_ITERATIONS; i++) {
+                assertEquals(306, NativeShaderUniformBridge.lookup(gl, 3, "active", shader));
+                assertFalse(NativeShaderUniformBridge.shouldUploadCameraMatrix(
+                        gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
+            }
+            minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
+        }
+        assertEquals(0L, minAllocated, "steady-state lookup and camera matrix checks must allocate zero bytes");
     }
 
     private static int countEntries(final Map.Entry<?, ?>[] entries) {

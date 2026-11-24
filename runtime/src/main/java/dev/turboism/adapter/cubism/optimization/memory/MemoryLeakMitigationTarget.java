@@ -20,6 +20,9 @@ public record MemoryLeakMitigationTarget(
         String keyRegistryOwner,
         String renderingCacheOwner,
         String partsCloseMethod,
+        String deformerPanelOwner,
+        String deformerCloseMethod,
+        String deformerInitFlagField,
         List<StaticHolderSpec> staticHolders,
         List<String> targetClasses) {
 
@@ -37,6 +40,14 @@ public record MemoryLeakMitigationTarget(
     private static final Set<String> PRE_53_RENDERING_CACHE_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.03");
     private static final Set<String> PARTS_LEGACY_CLOSE_VERSIONS = ReviewedVersions.between("5.0.00", "5.1.03");
     private static final Set<String> PARTS_MID_CLOSE_VERSIONS = ReviewedVersions.between("5.2.00", "5.2.02");
+    private static final Set<String> DEFORMER_50_EARLY_VERSIONS = ReviewedVersions.between("5.0.00", "5.0.02");
+    private static final Set<String> DEFORMER_50_MID_VERSIONS = ReviewedVersions.between("5.0.03", "5.0.04");
+    private static final Set<String> DEFORMER_50_LATE_VERSIONS = ReviewedVersions.between("5.0.05", "5.0.06");
+    private static final Set<String> DEFORMER_51_52_VERSIONS = ReviewedVersions.between("5.1.00", "5.2.03");
+    private static final Set<String> DEFORMER_53_EARLY_VERSIONS = ReviewedVersions.between("5.3.00", "5.3.02");
+    private static final Set<String> DEFORMER_LEGACY_CLOSE_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.02");
+    private static final Set<String> DEFORMER_MID_CLOSE_VERSIONS = ReviewedVersions.between("5.2.03", "5.3.03");
+    private static final Set<String> DEFORMER_LEGACY_INIT_VERSIONS = ReviewedVersions.between("5.0.00", "5.1.03");
     private static final Set<String> PARAMETER_DIALOG_G_VERSIONS = ReviewedVersions.since("5.0.05");
     private static final Set<String> SCENE_UI_VERSIONS = ReviewedVersions.since("5.2.00");
     private static final Set<String> PARAMETER_DIALOG_AF_VERSIONS = ReviewedVersions.since("5.3.00");
@@ -74,6 +85,22 @@ public record MemoryLeakMitigationTarget(
     public static final String C_WIDGET_OWNER = "com/live2d/ui/CWidget";
     public static final String CVBOX_OWNER = "com/live2d/ui/container/CVBox";
     public static final String REMOVE_ALL_METHOD = "removeAll";
+
+    // ---- Deformer palette & tree table ----
+    public static final String DEFORMER_PANEL_OWNER_50_EARLY = "com/live2d/cubism/view/palette/deformer/j";
+    public static final String DEFORMER_PANEL_OWNER_50_MID = "com/live2d/cubism/view/palette/deformer/k";
+    public static final String DEFORMER_PANEL_OWNER_50_LATE = "com/live2d/cubism/view/palette/deformer/o";
+    public static final String DEFORMER_PANEL_OWNER_51_52 = "com/live2d/cubism/view/palette/deformer/p";
+    public static final String DEFORMER_PANEL_OWNER_53_EARLY = "com/live2d/cubism/view/palette/deformer/s";
+    public static final String DEFORMER_PANEL_OWNER_53_MODERN = "com/live2d/cubism/view/palette/deformer/t";
+    public static final String DEFORMER_HANDLER_OWNER = "com/live2d/cubism/view/palette/deformer/b";
+    public static final String DEFORMER_UPDATE_METHOD = "a";
+    public static final String DEFORMER_UPDATE_DESCRIPTOR = "(Z)V";
+    public static final String DEFORMER_CLOSE_METHOD_EARLY = "p";
+    public static final String DEFORMER_CLOSE_METHOD_MID = "q";
+    public static final String DEFORMER_CLOSE_METHOD_MODERN = "r";
+    public static final String DEFORMER_INIT_FLAG_LEGACY = "s";
+    public static final String DEFORMER_INIT_FLAG_MODERN = "q";
 
     // ---- Priority 2: GL VBO, entity, texture & offscreen context lifecycle ----
     public static final String GL_BUFFER_BASE_OWNER = "com/live2d/graphics3d/mesh/a/a";
@@ -177,6 +204,9 @@ public record MemoryLeakMitigationTarget(
         Objects.requireNonNull(keyRegistryOwner, "keyRegistryOwner");
         Objects.requireNonNull(renderingCacheOwner, "renderingCacheOwner");
         Objects.requireNonNull(partsCloseMethod, "partsCloseMethod");
+        Objects.requireNonNull(deformerPanelOwner, "deformerPanelOwner");
+        Objects.requireNonNull(deformerCloseMethod, "deformerCloseMethod");
+        Objects.requireNonNull(deformerInitFlagField, "deformerInitFlagField");
         staticHolders = List.copyOf(Objects.requireNonNull(staticHolders, "staticHolders"));
         targetClasses = List.copyOf(Objects.requireNonNull(targetClasses, "targetClasses"));
     }
@@ -213,6 +243,7 @@ public record MemoryLeakMitigationTarget(
     public List<String> rewrittenOwners() {
         return List.of(
                 PARTS_PANEL_OWNER,
+                deformerPanelOwner,
                 GL_BUFFER_FLOAT_OWNER,
                 GL_BUFFER_INT_OWNER,
                 G_ENTITY_OWNER,
@@ -246,6 +277,14 @@ public record MemoryLeakMitigationTarget(
         final String partsCloseMethod = PARTS_LEGACY_CLOSE_VERSIONS.contains(version)
                 ? PARTS_CLOSE_METHOD_LEGACY
                 : (PARTS_MID_CLOSE_VERSIONS.contains(version) ? PARTS_CLOSE_METHOD_MID : PARTS_CLOSE_METHOD_MODERN);
+        final String deformerPanelOwner = resolveDeformerPanelOwner(version);
+        final String deformerCloseMethod = DEFORMER_LEGACY_CLOSE_VERSIONS.contains(version)
+                ? DEFORMER_CLOSE_METHOD_EARLY
+                : (DEFORMER_MID_CLOSE_VERSIONS.contains(version)
+                        ? DEFORMER_CLOSE_METHOD_MID
+                        : DEFORMER_CLOSE_METHOD_MODERN);
+        final String deformerInitFlagField =
+                DEFORMER_LEGACY_INIT_VERSIONS.contains(version) ? DEFORMER_INIT_FLAG_LEGACY : DEFORMER_INIT_FLAG_MODERN;
         final List<StaticHolderSpec> holders = new java.util.ArrayList<>();
         holders.add(new StaticHolderSpec(PARTS_DIALOG_HOLDER, "d", MODEL_SOURCE_OWNER, false));
         holders.add(new StaticHolderSpec(APP_UI_HOLDER, "d", MODEL_SOURCE_OWNER, false));
@@ -261,6 +300,34 @@ public record MemoryLeakMitigationTarget(
         }
         final List<String> classes = TargetClassTable.classes(TARGET_TABLE_NAME, version);
         return new MemoryLeakMitigationTarget(
-                digest, version, keyRegistryOwner, renderingCacheOwner, partsCloseMethod, holders, classes);
+                digest,
+                version,
+                keyRegistryOwner,
+                renderingCacheOwner,
+                partsCloseMethod,
+                deformerPanelOwner,
+                deformerCloseMethod,
+                deformerInitFlagField,
+                holders,
+                classes);
+    }
+
+    private static String resolveDeformerPanelOwner(final String version) {
+        if (DEFORMER_50_EARLY_VERSIONS.contains(version)) {
+            return DEFORMER_PANEL_OWNER_50_EARLY;
+        }
+        if (DEFORMER_50_MID_VERSIONS.contains(version)) {
+            return DEFORMER_PANEL_OWNER_50_MID;
+        }
+        if (DEFORMER_50_LATE_VERSIONS.contains(version)) {
+            return DEFORMER_PANEL_OWNER_50_LATE;
+        }
+        if (DEFORMER_51_52_VERSIONS.contains(version)) {
+            return DEFORMER_PANEL_OWNER_51_52;
+        }
+        if (DEFORMER_53_EARLY_VERSIONS.contains(version)) {
+            return DEFORMER_PANEL_OWNER_53_EARLY;
+        }
+        return DEFORMER_PANEL_OWNER_53_MODERN;
     }
 }

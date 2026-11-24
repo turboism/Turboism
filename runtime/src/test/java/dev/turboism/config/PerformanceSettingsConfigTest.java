@@ -23,6 +23,7 @@ class PerformanceSettingsConfigTest {
             Field.MODEL_UPDATE_SKIP,
             Field.UPLOAD_ELISION,
             Field.MESH_SETUP_ELISION,
+            Field.MESA_GL_THREAD,
             Field.MESH_INTERPOLATION,
             Field.SHADER_UNIFORM,
             Field.MATRIX_SCRATCH,

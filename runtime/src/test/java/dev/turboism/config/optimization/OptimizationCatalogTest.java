@@ -63,6 +63,7 @@ final class OptimizationCatalogTest {
             OptimizationCatalog.MODEL_UPDATE_SKIP,
             OptimizationCatalog.UPLOAD_ELISION,
             OptimizationCatalog.MESH_SETUP_ELISION,
+            OptimizationCatalog.MESA_GL_THREAD,
             OptimizationCatalog.MESH_INTERPOLATION,
             OptimizationCatalog.SHADER_UNIFORM,
             OptimizationCatalog.MATRIX_SCRATCH,

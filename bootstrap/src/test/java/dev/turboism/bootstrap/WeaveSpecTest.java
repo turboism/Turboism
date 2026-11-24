@@ -105,7 +105,7 @@ class WeaveSpecTest {
                 VerifiedAtlasInteractiveRenderInstaller.EXPECTED_MATCHES,
                 VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
         assertEquals(
-                6,
+                7,
                 VerifiedEditDragResponsivenessInstaller.EXPECTED_MATCHES,
                 VerifiedEditDragResponsivenessInstaller.HOOK_ID);
     }
@@ -182,7 +182,7 @@ class WeaveSpecTest {
                 1, VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_OWNERS, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
-                1, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
+                3, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,
@@ -193,7 +193,7 @@ class WeaveSpecTest {
                 VerifiedAtlasInteractiveRenderInstaller.EXPECTED_OWNERS,
                 VerifiedAtlasInteractiveRenderInstaller.HOOK_ID);
         assertEquals(
-                6,
+                7,
                 VerifiedEditDragResponsivenessInstaller.EXPECTED_OWNERS,
                 VerifiedEditDragResponsivenessInstaller.HOOK_ID);
     }

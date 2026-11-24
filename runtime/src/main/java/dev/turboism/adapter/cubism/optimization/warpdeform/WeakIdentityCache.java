@@ -15,21 +15,33 @@ final class WeakIdentityCache<K, V> {
 
     private final ReferenceQueue<K> queue = new ReferenceQueue<>();
     private final Map<Object, V> entries = new HashMap<>();
+    private final LookupKey lookupScratch = new LookupKey();
 
     synchronized V get(final K key) {
         expunge();
-        return entries.get(new LookupKey(key));
+        lookupScratch.set(key);
+        try {
+            return entries.get(lookupScratch);
+        } finally {
+            lookupScratch.clear();
+        }
     }
 
     synchronized V getOrCompute(final K key, final java.util.function.Supplier<V> factory) {
         expunge();
-        final LookupKey lookup = new LookupKey(key);
-        V value = entries.get(lookup);
-        if (value == null) {
-            value = factory.get();
-            entries.put(new IdentityKey<>(key, queue), value);
+        lookupScratch.set(key);
+        final V existing;
+        try {
+            existing = entries.get(lookupScratch);
+        } finally {
+            lookupScratch.clear();
         }
-        return value;
+        if (existing != null) {
+            return existing;
+        }
+        final V created = factory.get();
+        entries.put(new IdentityKey<>(key, queue), created);
+        return created;
     }
 
     synchronized void clear() {
@@ -81,12 +93,17 @@ final class WeakIdentityCache<K, V> {
 
     private static final class LookupKey {
 
-        private final Object referent;
-        private final int hash;
+        private Object referent;
+        private int hash;
 
-        private LookupKey(final Object referent) {
+        private void set(final Object referent) {
             this.referent = referent;
             this.hash = System.identityHashCode(referent);
+        }
+
+        private void clear() {
+            this.referent = null;
+            this.hash = 0;
         }
 
         @Override

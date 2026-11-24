@@ -2130,9 +2130,9 @@ function Remove-TurboismJdkOptions {
 # Every launcher.<name> optimization field the agent persists appears in exactly
 # one of the four machine-readable lines below, and the cross-check also verifies
 # each name against the emission code that follows these lines.
-# optimization-emit-false: modelUpdateSkip, uploadElision, meshSetupElision, reinitPairElision, clipMaskDeduplication, clipMaskScissorClear, extendedInterpolationIncrementalSetup
+# optimization-emit-false: modelUpdateSkip, uploadElision, meshSetupElision, mesaGlThread, reinitPairElision, clipMaskDeduplication, clipMaskScissorClear, extendedInterpolationIncrementalSetup
 # optimization-emit-true: incrementalUpdate, incrementalUpdateAffecters
-# optimization-explicit-false: uniformLocationCache, inputPathElision, mesaGlThread, inspectorPropertyBypass
+# optimization-explicit-false: uniformLocationCache, inputPathElision, inspectorPropertyBypass
 # optimization-not-emitted: asyncReadback, meshInterpolation, shaderUniform, matrixScratch, imageArchiveReuse, floatArrayParseCache, textureUploadPreparation, warpPositionProjection, modelInstanceCoalesce, extendedInterpolationSiblingElision, warpGridInterpolation, warpNormalPointElision, cameraMatrixCache, renderPassTraversal, meshHitTest, sceneHandlerCache, cursorValidationElision, parameterRowRepaint, warpDeformEditAcceleration
 
 function Get-CubismManagedJdkOptionTokens {
@@ -2201,15 +2201,17 @@ function Get-CubismManagedJdkOptionTokens {
     if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inspectorPropertyBypass") {
         $tokens += "-Dturboism.optimization.inspectorPropertyBypass=false"
     }
-    # inputPathElision/mesaGlThread are Proton-scoped: the Linux launcher is
-    # the only emitter of their =true flags. This native-Windows path never
-    # emits =true, but an explicit false is still passed through so a stray
-    # Wine/Proton marker on the JVM side can never re-enable them.
+    # Deferred GL error checks are default-on everywhere including native
+    # Windows (standalone mode eliminates synchronous glGetError driver
+    # flushes); emit =false only when opted out. Never export mesa_glthread.
+    if (-not (Read-CubismOptimizationPreference -TurboismHome $TurboismHome -Name "mesaGlThread")) {
+        $tokens += "-Dturboism.optimization.mesaGlThread=false"
+    }
+    # inputPathElision is Proton-scoped: the Linux launcher is the only emitter
+    # of its =true flag. This native-Windows path never emits =true, but an
+    # explicit false still passes through.
     if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inputPathElision") {
         $tokens += "-Dturboism.optimization.inputPathElision=false"
-    }
-    if (Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "mesaGlThread") {
-        $tokens += "-Dturboism.optimization.mesaGlThread=false"
     }
     return $tokens
 }
@@ -2238,14 +2240,13 @@ function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
     # Verified optimizations default on; opt-in, conflicting, workload trade-off, and
     # Proton-scoped options default off on this native-Windows path.
-    # inputPathElision/mesaGlThread default on only under Wine/Proton, which
+    # inputPathElision defaults on only under Wine/Proton, which
     # the Linux launcher resolves — this script never runs there.
     $defaultValue = @(
         "incrementalUpdate",
         "incrementalUpdateAffecters",
         "uniformLocationCache",
         "inputPathElision",
-        "mesaGlThread",
         "asyncReadback",
         "imageArchiveReuse",
         "floatArrayParseCache",

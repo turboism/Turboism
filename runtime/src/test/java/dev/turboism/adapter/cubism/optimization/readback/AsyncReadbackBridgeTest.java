@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +27,50 @@ class AsyncReadbackBridgeTest {
 
     @AfterEach
     void disarm() {
+        AsyncReadbackBridge.setActiveCanvasDragSupplierForTest(null);
         AsyncReadbackBridge.uninstall();
+    }
+
+    @Test
+    void activeCanvasDragBypassesPipelinedDelayAndReprimesCleanlyOnRelease() {
+        final AtomicBoolean dragging = new AtomicBoolean(false);
+        AsyncReadbackBridge.setActiveCanvasDragSupplierForTest(dragging::get);
+        AsyncReadbackBridge.install();
+        final FakeGl gl = new FakeGl();
+
+        final IntBuffer f1 = frameBuffer();
+        AsyncReadbackBridge.read(gl, 0, 0, WIDTH, HEIGHT, 0x80E1, 0x1401, f1);
+        assertValues(f1, 1, "initial frame must deliver synchronously");
+
+        final IntBuffer f2 = frameBuffer();
+        AsyncReadbackBridge.read(gl, 0, 0, WIDTH, HEIGHT, 0x80E1, 0x1401, f2);
+        assertValues(f2, 1, "non-drag pipelined frame still delivers N-1");
+
+        // Entering active canvas drag bypasses N-1 PBO lag and delivers current frame synchronously.
+        dragging.set(true);
+        final IntBuffer f3 = frameBuffer();
+        AsyncReadbackBridge.read(gl, 0, 0, WIDTH, HEIGHT, 0x80E1, 0x1401, f3);
+        assertValues(f3, 3, "active drag must deliver current frame instead of N-1");
+
+        final IntBuffer f4 = frameBuffer();
+        AsyncReadbackBridge.read(gl, 0, 0, WIDTH, HEIGHT, 0x80E1, 0x1401, f4);
+        assertValues(f4, 4, "subsequent drag frames stay synchronous with zero lag");
+
+        // Releasing drag re-primes PBO cleanly so stale pre-drag buffers are never surfaced.
+        dragging.set(false);
+        final IntBuffer f5 = frameBuffer();
+        AsyncReadbackBridge.read(gl, 0, 0, WIDTH, HEIGHT, 0x80E1, 0x1401, f5);
+        assertValues(f5, 5, "first frame after drag release must re-prime synchronously");
+
+        final IntBuffer f6 = frameBuffer();
+        AsyncReadbackBridge.read(gl, 0, 0, WIDTH, HEIGHT, 0x80E1, 0x1401, f6);
+        assertValues(f6, 5, "steady playback resumes 1-frame pipelining after re-prime");
+
+        final Map<String, Long> stats = AsyncReadbackBridge.snapshot();
+        assertEquals(2L, stats.get("dragBypassed"));
+        assertEquals(0L, stats.get("fallbacks"));
+        assertEquals(0L, stats.get("failures"));
+        assertEquals(0L, stats.get("mismatched"));
     }
 
     @Test
@@ -101,6 +145,7 @@ class AsyncReadbackBridgeTest {
         private int bound;
         private int frame;
         private int currentFrame;
+        private boolean asyncQueuedForCurrentFrame;
 
         public void glBindBuffer(final int target, final int name) {
             bound = name;
@@ -115,6 +160,7 @@ class AsyncReadbackBridgeTest {
                 final int type,
                 final long offset) {
             currentFrame = ++frame;
+            asyncQueuedForCurrentFrame = true;
             final ByteBuffer pixels = pixelPacks.get(bound);
             if (pixels == null) {
                 throw new IllegalStateException("pixel-pack buffer not allocated: " + bound);
@@ -130,9 +176,10 @@ class AsyncReadbackBridgeTest {
                 final int format,
                 final int type,
                 final Buffer destination) {
-            if (currentFrame == 0) {
+            if (!asyncQueuedForCurrentFrame) {
                 currentFrame = ++frame;
             }
+            asyncQueuedForCurrentFrame = false;
             destination.position(0);
             if (destination instanceof IntBuffer ints) {
                 for (int i = 0; i < ints.capacity(); i++) {
@@ -144,6 +191,7 @@ class AsyncReadbackBridgeTest {
         }
 
         public ByteBuffer glMapBuffer(final int target, final int access) {
+            asyncQueuedForCurrentFrame = false;
             return pixelPacks.get(bound);
         }
 

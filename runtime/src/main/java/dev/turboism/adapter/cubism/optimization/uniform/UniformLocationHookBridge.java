@@ -276,17 +276,13 @@ public final class UniformLocationHookBridge implements AutoCloseable {
      * @throws ReflectiveOperationException when the required accessor shape is absent
      */
     private static MethodHandle[] accessors(ClassLoader loader) throws ReflectiveOperationException {
-        Class<?> frame = HostHandles.load(loader, "com/live2d/graphics3d/a");
-        Class<?> gl = HostHandles.load(loader, "com/jogamp/opengl/GL");
-        Class<?> context = HostHandles.load(loader, "com/jogamp/opengl/GLContext");
+        DeferredGlErrorReporter.FrameContextAccessors resolved = DeferredGlErrorReporter.resolveFrameContext(loader);
         return new MethodHandle[] {
-            HostHandles.virtual(
-                    frame, "a", "()Lcom/jogamp/opengl/GL3;", MethodType.methodType(Object.class, Object.class)),
-            HostHandles.virtual(
-                    gl, "getContext", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class, Object.class)),
-            HostHandles.staticCall(context, "getCurrent", GL_CONTEXT_DESCRIPTOR, MethodType.methodType(Object.class)),
-            HostHandles.virtual(context, "isShared", "()Z", MethodType.methodType(boolean.class, Object.class)),
-            HostHandles.virtual(context, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class))
+            resolved.frameToGl(),
+            resolved.glToContext(),
+            resolved.currentContext(),
+            resolved.contextShared(),
+            resolved.contextCreated()
         };
     }
 
@@ -643,45 +639,12 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     private void reportDeferred(final int error) {
         if (error == 0) return;
         deferredErrors++;
-        final String mapped =
-                switch (error) {
-                    case 1280 -> "GL_INVALID_ENUM (1280　無効な列挙　GLenum型の引数が範囲を超えている)";
-                    case 1281 -> "GL_INVALID_VALUE ( 1281\t無効な値　引数が範囲を超えている)";
-                    case 1282 -> "GL_INVALID_OPERATION ( 1282\t　無効な演算)";
-                    case 1285 -> "GL_OUT_OF_MEMORY (1285 実行するのにメモリが足りない)";
-                    case 1286 -> "GL_INVALID_FRAMEBUFFER_OPERATION ( 1286 完全じゃないフレームバッファを書いたり読んだりしようとしている)";
-                    default -> null;
-                };
-        if (mapped == null) {
-            deferredReport = new IllegalStateException("Not impl : " + error);
-            deferredThrows++;
-            return;
-        }
-        final String message = deferredContext + ": glError " + mapped;
-        try {
-            deferredAccessors
-                    .log()
-                    .invokeExact(deferredAccessors.logger(), (Object) message, false, (String) null, 6, (Object) null);
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-        }
-        if (deferredThrowSite) {
-            deferredReport = newException(message);
+        final Throwable report =
+                DeferredGlErrorReporter.buildReport(deferredAccessors, error, deferredContext, deferredThrowSite);
+        if (report != null) {
+            deferredReport = report;
             deferredThrows++;
         }
-    }
-    /** Builds the host {@code GLException} or a same-message stand-in when unreachable. */
-    private Throwable newException(final String message) {
-        try {
-            if (deferredAccessors != null) {
-                // invoke, not invokeExact: the resolved constructor returns the
-                // host exception type, not Throwable.
-                return (Throwable) deferredAccessors.exceptionNew().invoke(message);
-            }
-        } catch (Throwable ignored) {
-            FatalErrors.rethrowIfFatal(ignored);
-        }
-        return new IllegalStateException(message);
     }
     /** Conservatively retires the current frame on any covered program mutation. */
     public synchronized void invalidate() {

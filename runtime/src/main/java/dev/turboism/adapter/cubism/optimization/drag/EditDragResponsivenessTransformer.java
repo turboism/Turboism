@@ -32,11 +32,14 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
     private static final String INTEGER_VALUE_OF_METHOD = "valueOf";
     private static final String INTEGER_VALUE_OF_DESCRIPTOR = "(I)Ljava/lang/Integer;";
     private static final String PREDICATE_OWNER = "java/util/function/Predicate";
+    private static final String PREDICATE_TEST_METHOD = "test";
+    private static final String PREDICATE_TEST_DESCRIPTOR = "(Ljava/lang/Object;)Z";
     private static final String BIPREDICATE_OWNER = "java/util/function/BiPredicate";
     private static final String BIPREDICATE_TEST_METHOD = "test";
     private static final String BIPREDICATE_TEST_DESCRIPTOR = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
 
     private static final int EXPECTED_MOUSE_SITES = 3;
+    private static final int EXPECTED_WIDGET_SITES = 2;
     private static final int EXPECTED_SINGLE_SITE = 1;
     private static final int DEFORMER_SYNC_FLAG = 2;
     private static final int DEFORMER_SKIP_EXPAND_FLAG = 1;
@@ -52,17 +55,19 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
     private final List<String> mouseReleasedShape;
     private final List<String> cursorOfficialShape;
     private final List<String> cursorComposedShape;
+    private final List<String> widgetRepaintShape;
     private final List<String> inspectorCtrlShape;
     private final List<String> inspectorPanelShape;
     private final List<String> deformerSelectorShape;
     private final List<String> deformerCtrlShape;
+    private final List<String> canvasDisplayShape;
 
     private final Map<String, Integer> ownerMatches = new LinkedHashMap<>();
     private volatile String failure;
     private volatile int sites;
 
     /**
-     * Captures exact reference method shapes for all six reviewed host classes.
+     * Captures exact reference method shapes for all seven reviewed host classes.
      *
      * @param loader admitted host class loader
      * @param artifact official host JAR path
@@ -86,6 +91,7 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
         final byte[] inspPanelRef = requireReference(references, EditDragResponsivenessTarget.INSPECTOR_INTERNAL_OWNER);
         final byte[] selectorRef = requireReference(references, EditDragResponsivenessTarget.DEFORMER_SELECTOR_OWNER);
         final byte[] defCtrlRef = requireReference(references, EditDragResponsivenessTarget.DEFORMER_VIEW_CTRL_OWNER);
+        final byte[] displayRef = requireReference(references, EditDragResponsivenessTarget.CANVAS_DISPLAY_OWNER);
 
         this.mousePressedShape = requireShape(
                 mouseRef,
@@ -108,6 +114,11 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
                 EditDragResponsivenessTarget.SET_CURSOR_METHOD,
                 EditDragResponsivenessTarget.SET_CURSOR_DESCRIPTOR);
         this.cursorComposedShape = InputPathElisionTransformer.composedCursorShape(widgetRef);
+        this.widgetRepaintShape = requireShape(
+                widgetRef,
+                EditDragResponsivenessTarget.WIDGET_OWNER,
+                EditDragResponsivenessTarget.REPAINT_METHOD,
+                EditDragResponsivenessTarget.VOID_DESCRIPTOR);
         this.inspectorCtrlShape = requireShape(
                 inspCtrlRef,
                 EditDragResponsivenessTarget.INSPECTOR_VIEW_CTRL_OWNER,
@@ -128,6 +139,11 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
                 EditDragResponsivenessTarget.DEFORMER_VIEW_CTRL_OWNER,
                 EditDragResponsivenessTarget.UPDATE_METHOD,
                 EditDragResponsivenessTarget.UPDATE_DEFORMER_DESCRIPTOR);
+        this.canvasDisplayShape = requireShape(
+                displayRef,
+                EditDragResponsivenessTarget.CANVAS_DISPLAY_OWNER,
+                EditDragResponsivenessTarget.DISPLAY_METHOD,
+                EditDragResponsivenessTarget.DISPLAY_DESCRIPTOR);
 
         for (final String owner : contract.targetClasses()) {
             ownerMatches.put(owner, 0);
@@ -169,7 +185,7 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
 
     /** Returns total expected site injections when every reviewed owner transforms once. */
     public int expectedTotalSites() {
-        return EXPECTED_MOUSE_SITES + 5 * EXPECTED_SINGLE_SITE;
+        return EXPECTED_MOUSE_SITES + EXPECTED_WIDGET_SITES + 5 * EXPECTED_SINGLE_SITE;
     }
 
     @Override
@@ -216,6 +232,7 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
                             deformerSelectorShape,
                             EditDragResponsivenessBridge.DEFER_DEFORMER_SELECTOR_PROPERTY);
                 case EditDragResponsivenessTarget.DEFORMER_VIEW_CTRL_OWNER -> transformDeformerCtrl(bytes);
+                case EditDragResponsivenessTarget.CANVAS_DISPLAY_OWNER -> transformCanvasDisplay(bytes);
                 default -> null;
             };
         } catch (final Throwable rejected) {
@@ -298,7 +315,60 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
                 EditDragResponsivenessTarget.SET_CURSOR_DESCRIPTOR);
         final boolean official = cursorOfficialShape.equals(observed);
         final boolean composed = cursorComposedShape != null && cursorComposedShape.equals(observed);
-        if (!official && !composed) {
+        final boolean repaintValid = matchesShape(
+                bytes,
+                owner,
+                EditDragResponsivenessTarget.REPAINT_METHOD,
+                EditDragResponsivenessTarget.VOID_DESCRIPTOR,
+                widgetRepaintShape);
+        if ((!official && !composed) || !repaintValid) {
+            failure = "edit drag responsiveness shape changed: " + owner;
+            return null;
+        }
+        final ClassReader reader = new ClassReader(bytes);
+        final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
+        final boolean[] applied = {false, false};
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String method,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, method, descriptor, signature, exceptions);
+                        if (EditDragResponsivenessTarget.SET_CURSOR_METHOD.equals(method)
+                                && EditDragResponsivenessTarget.SET_CURSOR_DESCRIPTOR.equals(descriptor)) {
+                            return new EarlyReturnBiEntryVisitor(
+                                    delegate, applied, 0, EditDragResponsivenessBridge.CURSOR_PROPERTY);
+                        }
+                        if (EditDragResponsivenessTarget.REPAINT_METHOD.equals(method)
+                                && EditDragResponsivenessTarget.VOID_DESCRIPTOR.equals(descriptor)) {
+                            return new EarlyReturnPredicateEntryVisitor(
+                                    delegate, applied, 1, EditDragResponsivenessBridge.REPAINT_ELIDE_PROPERTY);
+                        }
+                        return delegate;
+                    }
+                },
+                ClassReader.EXPAND_FRAMES);
+        if (!applied[0] || !applied[1]) {
+            failure = "edit drag responsiveness anchor drift on " + owner;
+            return null;
+        }
+        recordOwnerMatch(owner, EXPECTED_WIDGET_SITES);
+        return writer.toByteArray();
+    }
+
+    private byte[] transformCanvasDisplay(final byte[] bytes) {
+        final String owner = EditDragResponsivenessTarget.CANVAS_DISPLAY_OWNER;
+        if (!matchesShape(
+                bytes,
+                owner,
+                EditDragResponsivenessTarget.DISPLAY_METHOD,
+                EditDragResponsivenessTarget.DISPLAY_DESCRIPTOR,
+                canvasDisplayShape)) {
             failure = "edit drag responsiveness shape changed: " + owner;
             return null;
         }
@@ -316,10 +386,9 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
                             final String[] exceptions) {
                         final MethodVisitor delegate =
                                 super.visitMethod(access, method, descriptor, signature, exceptions);
-                        if (EditDragResponsivenessTarget.SET_CURSOR_METHOD.equals(method)
-                                && EditDragResponsivenessTarget.SET_CURSOR_DESCRIPTOR.equals(descriptor)) {
-                            return new EarlyReturnBiEntryVisitor(
-                                    delegate, applied, 0, EditDragResponsivenessBridge.CURSOR_PROPERTY);
+                        if (EditDragResponsivenessTarget.DISPLAY_METHOD.equals(method)
+                                && EditDragResponsivenessTarget.DISPLAY_DESCRIPTOR.equals(descriptor)) {
+                            return new CanvasDisplayEntryVisitor(delegate, applied);
                         }
                         return delegate;
                     }
@@ -331,6 +400,51 @@ public final class EditDragResponsivenessTransformer implements ClassFileTransfo
         }
         recordOwnerMatch(owner, EXPECTED_SINGLE_SITE);
         return writer.toByteArray();
+    }
+
+    private static void emitDisplayFieldPredicateConsult(final MethodVisitor mv) {
+        final Label start = new Label();
+        final Label end = new Label();
+        final Label handler = new Label();
+        final Label fallback = new Label();
+        final Label resume = new Label();
+
+        mv.visitTryCatchBlock(start, end, handler, THROWABLE_OWNER);
+        mv.visitLabel(start);
+        SlotBridgeEmitter.emitPredicateConsult(mv, EditDragResponsivenessBridge.PRE_RENDER_DRAG_PROPERTY, fallback);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitFieldInsn(
+                Opcodes.GETFIELD,
+                EditDragResponsivenessTarget.CANVAS_DISPLAY_OWNER,
+                EditDragResponsivenessTarget.DISPLAY_CANVAS_FIELD,
+                EditDragResponsivenessTarget.DISPLAY_CANVAS_FIELD_DESCRIPTOR);
+        SlotBridgeEmitter.emitTest(mv);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitJumpInsn(Opcodes.GOTO, resume);
+        mv.visitLabel(end);
+        mv.visitLabel(fallback);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitJumpInsn(Opcodes.GOTO, resume);
+        mv.visitLabel(handler);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitLabel(resume);
+    }
+
+    private static final class CanvasDisplayEntryVisitor extends MethodVisitor {
+
+        private final boolean[] applied;
+
+        CanvasDisplayEntryVisitor(final MethodVisitor delegate, final boolean[] applied) {
+            super(Opcodes.ASM9, delegate);
+            this.applied = applied;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            emitDisplayFieldPredicateConsult(mv);
+            applied[0] = true;
+        }
     }
 
     private byte[] transformSinglePredicateOwner(

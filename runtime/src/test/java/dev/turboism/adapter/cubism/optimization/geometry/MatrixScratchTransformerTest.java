@@ -291,6 +291,42 @@ class MatrixScratchTransformerTest {
         }
     }
 
+    @Test
+    void fourWayPlruCacheResistsCollisionsAcrossManyTransformsWithoutAliasing() throws Exception {
+        AtomicBoolean admission = new AtomicBoolean(true);
+        System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, Boolean.TRUE.toString());
+        System.getProperties().put(ADMISSION, admission);
+        try (BridgeFixture f = bridgeFixture();
+                MatrixScratchBridge bridge = new MatrixScratchBridge(f.loader, admission)) {
+            bridge.activate();
+            System.getProperties().put(CALLBACK, bridge.callback());
+
+            final int transformCount = 512;
+            final int totalRepeats = 3;
+            Object[] transforms = new Object[transformCount];
+            for (int i = 0; i < transformCount; i++) {
+                transforms[i] = f.chain(1)[0];
+            }
+
+            f.reset();
+            for (int pass = 0; pass < totalRepeats; pass++) {
+                for (int i = 0; i < transformCount; i++) {
+                    Object first = f.result(transforms[i]);
+                    Object second = f.result(transforms[i]);
+                    assertNotSame(first, second);
+                    f.values(second)[0] = -123.0f;
+                    assertNotEquals(-123.0f, f.values(first)[0]);
+                }
+            }
+            java.util.Map<String, Long> stats = bridge.snapshot();
+            assertEquals(0L, stats.get(KEY_FAILURES));
+            long actualMisses = stats.get(KEY_CACHE_MISSES);
+            assertTrue(
+                    actualMisses <= transformCount + 8L,
+                    () -> "Expected negligible conflict misses in 4-way PLRU cache, got " + stats);
+        }
+    }
+
     private BridgeFixture bridgeFixture() throws Exception {
         Path base = root.resolve("bridge");
         Path src = base.resolve("src");

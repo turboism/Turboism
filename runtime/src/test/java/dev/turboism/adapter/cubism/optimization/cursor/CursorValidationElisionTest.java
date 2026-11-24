@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Panel;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -14,7 +16,9 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import javax.swing.JPanel;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -205,12 +209,88 @@ final class CursorValidationElisionTest {
         componentWriter.visitEnd();
 
         final byte[] containerBytes = writer.toByteArray();
+        containerBytes[7] = 69;
         final byte[] componentBytes = componentWriter.toByteArray();
+        componentBytes[7] = 69;
         final CursorValidationElisionTransformer transformer =
                 new CursorValidationElisionTransformer(containerBytes, componentBytes);
         final byte[] rewritten = transformer.transform(
                 null, null, CursorValidationElisionTarget.CONTAINER_OWNER, null, null, containerBytes);
         assertNotNull(rewritten, () -> "JDK 25 MouseInfo shape should be admitted: " + transformer.failure());
         assertEquals(2, transformer.sites());
+        assertEquals(69, ((rewritten[6] & 0xFF) << 8) | (rewritten[7] & 0xFF));
+        final byte[] rewrittenComponent = transformer.transform(
+                null, null, CursorValidationElisionTarget.COMPONENT_OWNER, null, null, componentBytes);
+        assertNotNull(rewrittenComponent, () -> "JDK 25 Component shape should be admitted: " + transformer.failure());
+        assertEquals(69, ((rewrittenComponent[6] & 0xFF) << 8) | (rewrittenComponent[7] & 0xFF));
+
+        final byte[] unsupportedMajor = containerBytes.clone();
+        unsupportedMajor[7] = 70;
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new CursorValidationElisionTransformer(unsupportedMajor, componentBytes));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void activeDragElidesSiblingAndResizedContainerValidatesUntilDragEnds() {
+        final AtomicBoolean dragging = new AtomicBoolean(false);
+        try (CursorValidationElisionBridge bridge = new CursorValidationElisionBridge(dragging::get, true)) {
+            bridge.install();
+            final Predicate<Object> validate =
+                    (Predicate<Object>) System.getProperties().get(CursorValidationElisionBridge.VALIDATE_PROPERTY);
+            final Runnable dirty = (Runnable) System.getProperties().get(CursorValidationElisionBridge.DIRTY_PROPERTY);
+            final JPanel canvas = new JPanel();
+            canvas.setBounds(0, 0, 800, 600);
+            canvas.setVisible(true);
+
+            // Initial validate consumes startup dirtiness; repeated clean validate elides.
+            assertTrue(validate.test(canvas));
+            assertFalse(validate.test(canvas));
+
+            dragging.set(true);
+            bridge.onAwtEventForTest(new MouseEvent(
+                    canvas,
+                    MouseEvent.MOUSE_PRESSED,
+                    5L,
+                    InputEvent.BUTTON1_DOWN_MASK,
+                    100,
+                    120,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
+            assertTrue(validate.test(canvas), "initial press passes once before active drag settles");
+
+            // MOUSE_DRAGGED, newly-seen sibling panels, resized inspector panels, and dirty callbacks elide during
+            // drag.
+            bridge.onAwtEventForTest(new MouseEvent(
+                    canvas, MouseEvent.MOUSE_DRAGGED, 10L, InputEvent.BUTTON1_DOWN_MASK, 120, 140, 1, false));
+            final JPanel newlyValidatedSibling = new JPanel();
+            newlyValidatedSibling.setBounds(810, 0, 220, 36);
+            assertFalse(validate.test(newlyValidatedSibling), "newly-seen sibling panel during drag must elide");
+            newlyValidatedSibling.setBounds(810, 0, 260, 44);
+            assertFalse(validate.test(newlyValidatedSibling), "resized inspector panel during drag must elide");
+            dirty.run();
+            assertFalse(
+                    validate.test(newlyValidatedSibling),
+                    "dirty callback during active drag does not re-trigger validate");
+
+            // Ending drag flushes pending dirtiness, and non-drag dirty marks pass once then elide.
+            dragging.set(false);
+            assertTrue(validate.test(canvas), "deferred dirtiness flushes cleanly once drag ends");
+            assertFalse(validate.test(newlyValidatedSibling), "clean sibling validate elides outside drag");
+
+            dirty.run();
+            assertTrue(validate.test(canvas), "non-drag cursor/visibility mutation updates once");
+            assertFalse(validate.test(newlyValidatedSibling));
+
+            // Explicit MOUSE_RELEASED forces immediate post-drag cursor validation even across drag state reset.
+            dragging.set(true);
+            bridge.onAwtEventForTest(
+                    new MouseEvent(canvas, MouseEvent.MOUSE_RELEASED, 20L, 0, 120, 140, 1, false, MouseEvent.BUTTON1));
+            dragging.set(false);
+            assertTrue(validate.test(canvas));
+            assertFalse(validate.test(newlyValidatedSibling));
+        }
     }
 }

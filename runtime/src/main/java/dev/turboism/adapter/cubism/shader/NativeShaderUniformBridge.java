@@ -7,6 +7,7 @@ import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -26,13 +27,25 @@ public final class NativeShaderUniformBridge {
     private static final AtomicLong HITS = new AtomicLong();
     private static final AtomicLong QUERIES = new AtomicLong();
     private static final AtomicLong INVALIDATIONS = new AtomicLong();
+    private static final AtomicLong MATRIX_HITS = new AtomicLong();
+    private static final AtomicLong MATRIX_UPLOADS = new AtomicLong();
     static final int MAX_SHADERS = 1024;
     static final int MAX_NAMES = 4096;
+
+    /** Matrix uniform slot identifier for camera {@code projectionMatrix}. */
+    public static final int MATRIX_KIND_PROJECTION = 0;
+
+    /** Matrix uniform slot identifier for camera {@code worldToCameraMatrix}. */
+    public static final int MATRIX_KIND_WORLD_TO_CAMERA = 1;
+
+    private static final int MATRIX_FLOAT_COUNT = 16;
+    private static final int UNKNOWN_LOCATION = Integer.MIN_VALUE;
 
     private static final int INITIAL_ENTRY_CAPACITY = 16;
     private static final int REENTRANT_POOL_LIMIT = 4;
     private static final Map.Entry<?, ?>[] EMPTY_ENTRIES = new Map.Entry<?, ?>[0];
     private static final ThreadLocal<EntryPool> ENTRY_POOL = ThreadLocal.withInitial(EntryPool::new);
+    private static final ThreadLocal<ContextStamp> CONTEXT_SCRATCH = ThreadLocal.withInitial(ContextStamp::new);
 
     private static final String METHOD_GL_GET_UNIFORM_LOCATION = "glGetUniformLocation";
     private static final String METHOD_GET_CONTEXT = "getContext";
@@ -96,6 +109,25 @@ public final class NativeShaderUniformBridge {
         return INVALIDATIONS.get();
     }
 
+    /**
+     * Returns total camera-matrix uploads skipped because the shader program already held matching
+     * matrix coefficients.
+     *
+     * @return elided camera-matrix upload count
+     */
+    public static long matrixHits() {
+        return MATRIX_HITS.get();
+    }
+
+    /**
+     * Returns total camera-matrix uploads executed through {@code glUniformMatrix4fv}.
+     *
+     * @return performed camera-matrix upload count
+     */
+    public static long matrixUploads() {
+        return MATRIX_UPLOADS.get();
+    }
+
     static void patched(boolean value) {
         patched = value;
     }
@@ -142,30 +174,11 @@ public final class NativeShaderUniformBridge {
      */
     public static int lookup(Object gl, int program, String name, Object shader) {
         if (!enabled || program <= 0 || name == null) return original(gl, program, name);
-        Object context = null;
-        long handle = 0;
-        boolean eligible = false;
-        try {
-            final GlAccess glApi = GL.get(gl.getClass());
-            context = (Object) glApi.getContext().invokeExact(gl);
-            if (context != null) {
-                final ContextAccess ctxApi = CONTEXT.get(context.getClass());
-                handle = (long) ctxApi.getHandle().invokeExact(context);
-                final ShaderAccess shaderApi = SHADER.get(shader.getClass());
-                eligible = handle != 0
-                        && (boolean) ctxApi.isCreated().invokeExact(context)
-                        && (Object) ctxApi.getCurrent().invokeExact() == context
-                        && (int) shaderApi.getProgramId().invokeExact(shader) == program
-                        && (Object) shaderApi.getUniformMap().invokeExact(shader) instanceof Map<?, ?> uniforms
-                        && !uniforms.isEmpty();
-            }
-        } catch (IllegalStateException rejected) {
-            eligible = false;
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw wrapOrRethrow(failure);
-        }
-        if (!eligible) return original(gl, program, name);
+        final ContextStamp stamp = verifyContextStamp(gl, program, shader);
+        if (stamp == null) return original(gl, program, name);
+        final Object context = stamp.context;
+        final long handle = stamp.handle;
+        stamp.clear();
         State state;
         synchronized (CACHE) {
             state = CACHE.get(shader);
@@ -185,6 +198,143 @@ public final class NativeShaderUniformBridge {
             if (CACHE.get(shader) == state && state.locations.size() < MAX_NAMES) state.locations.put(name, location);
         }
         return location;
+    }
+
+    /**
+     * Reports whether a camera-invariant 4x4 matrix upload must run for the current shader program
+     * and OpenGL context.
+     *
+     * <p>When the shader program on the current context already holds an identical 16-float matrix
+     * at {@code location}, both {@code glUniformMatrix4fv} and its trailing {@code glGetError}
+     * check can be skipped safely. Disabled or ineligible contexts fall back to returning
+     * {@code true}.</p>
+     *
+     * @param gl host GL implementation object
+     * @param program active host shader program identifier
+     * @param shader host shader instance
+     * @param kind {@link #MATRIX_KIND_PROJECTION} or {@link #MATRIX_KIND_WORLD_TO_CAMERA}
+     * @param location resolved uniform location
+     * @param values 16-element column-major matrix coefficients
+     * @return {@code true} to execute the native upload, {@code false} to skip it
+     */
+    public static boolean shouldUploadCameraMatrix(
+            final Object gl,
+            final int program,
+            final Object shader,
+            final int kind,
+            final int location,
+            final float[] values) {
+        if (!enabled
+                || program <= 0
+                || location < 0
+                || values == null
+                || values.length < MATRIX_FLOAT_COUNT
+                || !validMatrixKind(kind)) {
+            return true;
+        }
+        final ContextStamp stamp = verifyContextStampSafely(gl, program, shader);
+        if (stamp == null) {
+            return true;
+        }
+        final Object context = stamp.context;
+        final long handle = stamp.handle;
+        stamp.clear();
+        synchronized (CACHE) {
+            final State state = CACHE.get(shader);
+            if (state != null && state.same(context, handle, program) && state.matchesMatrix(kind, location, values)) {
+                MATRIX_HITS.incrementAndGet();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Records a completed camera-matrix upload after both {@code glUniformMatrix4fv} and the host's
+     * check return normally.
+     *
+     * @param gl host GL implementation object
+     * @param program active host shader program identifier
+     * @param shader host shader instance
+     * @param kind {@link #MATRIX_KIND_PROJECTION} or {@link #MATRIX_KIND_WORLD_TO_CAMERA}
+     * @param location resolved uniform location
+     * @param values 16-element column-major matrix coefficients
+     */
+    public static void recordCameraMatrix(
+            final Object gl,
+            final int program,
+            final Object shader,
+            final int kind,
+            final int location,
+            final float[] values) {
+        MATRIX_UPLOADS.incrementAndGet();
+        if (!enabled
+                || program <= 0
+                || location < 0
+                || values == null
+                || values.length < MATRIX_FLOAT_COUNT
+                || !validMatrixKind(kind)) {
+            return;
+        }
+        final ContextStamp stamp = verifyContextStampSafely(gl, program, shader);
+        if (stamp == null) {
+            return;
+        }
+        final Object context = stamp.context;
+        final long handle = stamp.handle;
+        stamp.clear();
+        synchronized (CACHE) {
+            State state = CACHE.get(shader);
+            if (state == null || !state.same(context, handle, program)) {
+                if (CACHE.size() >= MAX_SHADERS) {
+                    CACHE.clear();
+                }
+                state = new State(context, handle, program);
+                CACHE.put(shader, state);
+            }
+            state.storeMatrix(kind, location, values);
+        }
+    }
+
+    private static boolean validMatrixKind(final int kind) {
+        return kind == MATRIX_KIND_PROJECTION || kind == MATRIX_KIND_WORLD_TO_CAMERA;
+    }
+
+    private static ContextStamp verifyContextStampSafely(final Object gl, final int program, final Object shader) {
+        try {
+            return verifyContextStamp(gl, program, shader);
+        } catch (RuntimeException | Error ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+            return null;
+        }
+    }
+
+    private static ContextStamp verifyContextStamp(final Object gl, final int program, final Object shader) {
+        if (gl == null || shader == null) {
+            return null;
+        }
+        try {
+            final GlAccess glApi = GL.get(gl.getClass());
+            final Object context = (Object) glApi.getContext().invokeExact(gl);
+            if (context == null) {
+                return null;
+            }
+            final ContextAccess ctxApi = CONTEXT.get(context.getClass());
+            final long handle = (long) ctxApi.getHandle().invokeExact(context);
+            final ShaderAccess shaderApi = SHADER.get(shader.getClass());
+            final boolean eligible = handle != 0
+                    && (boolean) ctxApi.isCreated().invokeExact(context)
+                    && (Object) ctxApi.getCurrent().invokeExact() == context
+                    && (int) shaderApi.getProgramId().invokeExact(shader) == program
+                    && (Object) shaderApi.getUniformMap().invokeExact(shader) instanceof Map<?, ?> uniforms
+                    && !uniforms.isEmpty();
+            return eligible ? CONTEXT_SCRATCH.get().assign(context, handle) : null;
+        } catch (IllegalStateException rejected) {
+            return null;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            throw wrapOrRethrow(failure);
+        }
     }
 
     /**
@@ -340,11 +490,31 @@ public final class NativeShaderUniformBridge {
         }
     }
 
+    private static final class ContextStamp {
+        Object context;
+        long handle;
+
+        ContextStamp assign(final Object context, final long handle) {
+            this.context = context;
+            this.handle = handle;
+            return this;
+        }
+
+        void clear() {
+            this.context = null;
+            this.handle = 0L;
+        }
+    }
+
     private static final class State {
         final WeakReference<Object> context;
         final long handle;
         final int program;
         final Map<String, Integer> locations = new HashMap<>();
+        int projectionLocation = UNKNOWN_LOCATION;
+        float[] projectionValues;
+        int worldToCameraLocation = UNKNOWN_LOCATION;
+        float[] worldToCameraValues;
 
         State(Object context, long handle, int program) {
             this.context = new WeakReference<>(context);
@@ -354,6 +524,33 @@ public final class NativeShaderUniformBridge {
 
         boolean same(Object context, long handle, int program) {
             return this.context.get() == context && this.handle == handle && this.program == program;
+        }
+
+        boolean matchesMatrix(final int kind, final int location, final float[] values) {
+            if (kind == MATRIX_KIND_PROJECTION) {
+                return location == projectionLocation
+                        && projectionValues != null
+                        && Arrays.equals(projectionValues, 0, MATRIX_FLOAT_COUNT, values, 0, MATRIX_FLOAT_COUNT);
+            }
+            return location == worldToCameraLocation
+                    && worldToCameraValues != null
+                    && Arrays.equals(worldToCameraValues, 0, MATRIX_FLOAT_COUNT, values, 0, MATRIX_FLOAT_COUNT);
+        }
+
+        void storeMatrix(final int kind, final int location, final float[] values) {
+            if (kind == MATRIX_KIND_PROJECTION) {
+                if (projectionValues == null) {
+                    projectionValues = new float[MATRIX_FLOAT_COUNT];
+                }
+                projectionLocation = location;
+                System.arraycopy(values, 0, projectionValues, 0, MATRIX_FLOAT_COUNT);
+            } else {
+                if (worldToCameraValues == null) {
+                    worldToCameraValues = new float[MATRIX_FLOAT_COUNT];
+                }
+                worldToCameraLocation = location;
+                System.arraycopy(values, 0, worldToCameraValues, 0, MATRIX_FLOAT_COUNT);
+            }
         }
     }
 

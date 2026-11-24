@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import dev.turboism.adapter.cubism.optimization.HostArtifactTestLoader;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTarget;
 import dev.turboism.adapter.cubism.optimization.inputpath.InputPathElisionTransformer;
+import dev.turboism.adapter.cubism.optimization.warpdeform.WarpDeformEditTarget;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.io.ByteArrayOutputStream;
@@ -68,7 +69,8 @@ final class EditDragResponsivenessArtifactTest {
             Files.createDirectories(versionOutDir);
 
             try (JarFile jar = new JarFile(jarPath.toFile());
-                    HostArtifactTestLoader loader = HostArtifactTestLoader.open(jarPath.getParent(), null)) {
+                    HostArtifactTestLoader loader =
+                            HostArtifactTestLoader.open(jarPath.getParent(), findJoglCompanion(jarPath))) {
                 final ProtectionDomain domain =
                         new ProtectionDomain(new CodeSource(jarPath.toUri().toURL(), (Certificate[]) null), null);
                 final Map<String, byte[]> references = new LinkedHashMap<>();
@@ -89,6 +91,11 @@ final class EditDragResponsivenessArtifactTest {
                 }
                 assertEquals(EditDragResponsivenessTarget.EXPECTED_MATCHES, transformer.matches(), contract.version());
                 assertEquals(transformer.expectedTotalSites(), transformer.sites(), contract.version());
+                final WarpDeformEditTarget warpContract =
+                        WarpDeformEditTarget.of(digest).orElseThrow();
+                assertTrue(
+                        java.util.Collections.disjoint(contract.targetClasses(), warpContract.targetClasses()),
+                        contract.version() + " edit drag owners must stay disjoint from warp deform owners");
 
                 try (EditDragResponsivenessBridge bridge = new EditDragResponsivenessBridge(loader)) {
                     assertNotNull(bridge.snapshot(), contract.version());
@@ -211,11 +218,21 @@ final class EditDragResponsivenessArtifactTest {
 
         private static URL[] siblingUrls(final Path jarPath) throws IOException {
             final List<URL> urls = new ArrayList<>();
+            boolean hasJogl = false;
             try (var files = Files.walk(jarPath.getParent(), 2)) {
                 for (final Path file : files.toList()) {
                     if (Files.isRegularFile(file) && file.toString().endsWith(".jar") && !file.equals(jarPath)) {
                         urls.add(file.toUri().toURL());
+                        if (file.getFileName().toString().startsWith("jogl-all")) {
+                            hasJogl = true;
+                        }
                     }
+                }
+            }
+            if (!hasJogl) {
+                final Path jogl = findJoglCompanion(jarPath);
+                if (jogl != null) {
+                    urls.add(jogl.toUri().toURL());
                 }
             }
             return urls.toArray(URL[]::new);
@@ -299,6 +316,20 @@ final class EditDragResponsivenessArtifactTest {
             found.add(win5305);
         }
         return found;
+    }
+
+    private static Path findJoglCompanion(final Path jarPath) {
+        final Path versionRoot =
+                jarPath.getParent() != null ? jarPath.getParent().getParent() : null;
+        if (versionRoot != null) {
+            final Path fromRoot =
+                    HostArtifactTestLoader.reviewedJogl(versionRoot).orElse(null);
+            if (fromRoot != null && Files.isRegularFile(fromRoot)) {
+                return fromRoot;
+            }
+        }
+        final Path archiveRoot = Path.of(System.getProperty("user.home"), ARTIFACTS_DIR_NAME);
+        return HostArtifactTestLoader.reviewedJogl(archiveRoot).orElse(null);
     }
 
     private static byte[] readClassBytes(final JarFile jar, final String internalName) throws Exception {

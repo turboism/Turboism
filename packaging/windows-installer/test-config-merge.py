@@ -146,7 +146,7 @@ ROOT_OPTIMIZATION_FIELDS = {
     "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation",
 }
 LEGACY_PROMOTED_DEFAULT_OFF_FIELDS = {
-    "meshInterpolation", "shaderUniform", "matrixScratch",
+    "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch",
     "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
     "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
     "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint",

@@ -35,7 +35,7 @@ class ClipMaskBridgeArtifactTest {
         final Path jogl = joglArtifact(root);
         int resolved = 0;
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
-            final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
+            final Path artifact = resolveArtifact(root, version);
             if (!Files.isRegularFile(artifact)) continue;
             assertTrue(
                     ReviewedHostArtifacts.cubismVersionOf(HostArtifactDigest.from(artifact))
@@ -59,7 +59,7 @@ class ClipMaskBridgeArtifactTest {
         int dedupeVersions = 0;
         int scissorVersions = 0;
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
-            final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
+            final Path artifact = resolveArtifact(root, version);
             if (!Files.isRegularFile(artifact)) continue;
             final String owner = ClipMaskDeduplicationTarget.renderSystemOwner(version);
             final String descriptor = ClipMaskDeduplicationTarget.renderMethodDescriptor(version);
@@ -97,6 +97,14 @@ class ClipMaskBridgeArtifactTest {
                 return input.readAllBytes();
             }
         }
+    }
+
+    private static Path resolveArtifact(final Path root, final String version) {
+        final String override = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (!override.isBlank()) {
+            return Path.of(override);
+        }
+        return root.resolve(version).resolve("Live2D_Cubism.jar");
     }
 
     private static Path referenceRoot() {

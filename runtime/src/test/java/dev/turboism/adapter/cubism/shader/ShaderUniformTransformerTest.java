@@ -512,6 +512,384 @@ final class ShaderUniformTransformerTest {
         return cw.toByteArray();
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void matrixBlocksElideMissingNormalMatrixAndInvariantCameraUploads(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path out = compileMatrixStubs(dir);
+        final byte[] original = matrixShaderFixture();
+        final byte[] patched = ShaderUniformTransformer.patch(original);
+
+        final boolean previousEnabled = NativeShaderUniformBridge.enabled();
+        NativeShaderUniformBridge.enabled(true);
+        try (var loader =
+                new java.net.URLClassLoader(
+                        new java.net.URL[] {out.toUri().toURL()}, ShaderUniformTransformerTest.class.getClassLoader()) {
+                    Class<?> defineShader(final byte[] bytes) {
+                        return defineClass(OWNER.replace('/', '.'), bytes, 0, bytes.length);
+                    }
+                }) {
+            final Class<?> shaderClass = loader.defineShader(patched);
+            final Class<?> ctxClass = loader.loadClass("com.live2d.graphics3d.a");
+            final Class<?> matClass = loader.loadClass("com.live2d.graphics3d.material.GMaterial");
+            final Class<?> matrixClass = loader.loadClass("com.live2d.graphics3d.type.GMatrix44");
+            final Class<?> paramClass = loader.loadClass("com.live2d.graphics3d.shader.ShaderParameter");
+            final Class<?> checkHelper = loader.loadClass("com.live2d.graphics3d.shader.a");
+
+            final var draw = shaderClass.getDeclaredMethod(DRAW, ctxClass, matClass, matrixClass);
+            final var initExe = shaderClass.getDeclaredMethod("init_exe", ctxClass);
+            final var setGlProgramID = shaderClass.getDeclaredMethod("setGlProgramID", int.class);
+            draw.setAccessible(true);
+
+            final Object shader = shaderClass.getConstructor().newInstance();
+            final Object ctx = ctxClass.getConstructor().newInstance();
+            final Object mat = matClass.getConstructor().newInstance();
+            final Object localToWorld = matrixClass.getConstructor().newInstance();
+            final var ops = (List<String>) ctxClass.getField("ops").get(ctx);
+            final var bindChecks =
+                    (List<String>) checkHelper.getField("bindChecks").get(null);
+            final var companion = matrixClass.getField("Companion").get(null);
+            final var normalComputeField = companion.getClass().getField("normalComputeCount");
+            bindChecks.clear();
+            normalComputeField.setInt(companion, 0);
+
+            final var uniformMap = (java.util.HashMap<String, Object>)
+                    shaderClass.getField("uniformMap").get(shader);
+            uniformMap.put(
+                    "projectionMatrix", paramClass.getConstructor(int.class).newInstance(1));
+            uniformMap.put(
+                    "worldToCameraMatrix", paramClass.getConstructor(int.class).newInstance(2));
+            // Omit normalMatrix (typical 2D ArtMesh shader) -> must skip computation, upload, and bind check.
+
+            final long uploadsBefore = NativeShaderUniformBridge.matrixUploads();
+            final long hitsBefore = NativeShaderUniformBridge.matrixHits();
+
+            // Draw 1: uploads projectionMatrix & worldToCameraMatrix once and performs bind checks for those two only.
+            draw.invoke(shader, ctx, mat, localToWorld);
+            assertEquals(0, normalComputeField.getInt(companion));
+            assertFalse(bindChecks.contains("bind normalMatrix"));
+            assertEquals(List.of("upload:1:1.0", "upload:2:2.0"), ops);
+            assertEquals(List.of("bind projectionMatrix", "bind worldToCameraMatrix"), bindChecks);
+            assertEquals(uploadsBefore + 2L, NativeShaderUniformBridge.matrixUploads());
+            assertEquals(hitsBefore, NativeShaderUniformBridge.matrixHits());
+
+            // Draw 2: unchanged program and camera matrices must skip both glUniformMatrix4fv and bind error checks.
+            ops.clear();
+            bindChecks.clear();
+            draw.invoke(shader, ctx, mat, localToWorld);
+            assertEquals(List.of(), ops);
+            assertEquals(List.of(), bindChecks);
+            assertEquals(uploadsBefore + 2L, NativeShaderUniformBridge.matrixUploads());
+            assertEquals(hitsBefore + 2L, NativeShaderUniformBridge.matrixHits());
+
+            // In-place float mutation in projection matrix invalidates cached coefficients and triggers re-upload.
+            final Object camera = ctxClass.getMethod("getCamera").invoke(ctx);
+            final Object projMat =
+                    camera.getClass().getMethod("getProjectionMatrix").invoke(camera);
+            ((float[]) matrixClass.getField("data").get(projMat))[0] = 9.0f;
+            draw.invoke(shader, ctx, mat, localToWorld);
+            assertEquals(List.of("upload:1:9.0"), ops);
+            assertEquals(List.of("bind projectionMatrix"), bindChecks);
+            assertEquals(uploadsBefore + 3L, NativeShaderUniformBridge.matrixUploads());
+            assertEquals(hitsBefore + 3L, NativeShaderUniformBridge.matrixHits());
+
+            // Program switch (setGlProgramID) invalidates shader matrix cache and forces re-upload of both matrices.
+            ops.clear();
+            bindChecks.clear();
+            setGlProgramID.invoke(shader, 11);
+            draw.invoke(shader, ctx, mat, localToWorld);
+            assertEquals(List.of("upload:1:9.0", "upload:2:2.0"), ops);
+            assertEquals(uploadsBefore + 5L, NativeShaderUniformBridge.matrixUploads());
+
+            // Shader re-init (init_exe) clears cached state and triggers fresh upload on the next draw.
+            ops.clear();
+            bindChecks.clear();
+            initExe.invoke(shader, ctx);
+            draw.invoke(shader, ctx, mat, localToWorld);
+            assertEquals(List.of("upload:1:9.0", "upload:2:2.0"), ops);
+            assertEquals(uploadsBefore + 7L, NativeShaderUniformBridge.matrixUploads());
+        } finally {
+            NativeShaderUniformBridge.enabled(previousEnabled);
+        }
+    }
+
+    private static java.nio.file.Path compileMatrixStubs(final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path src = dir.resolve("MatrixSources");
+        final java.nio.file.Path out = dir.resolve("MatrixOut");
+        java.nio.file.Files.createDirectories(src);
+        java.nio.file.Files.createDirectories(out);
+        final java.util.Map<String, String> files = java.util.Map.ofEntries(
+                java.util.Map.entry(
+                        "com/jogamp/opengl/GL.java",
+                        "package com.jogamp.opengl; public interface GL { int glGetError(); }"),
+                java.util.Map.entry("com/jogamp/opengl/GL3.java", """
+                        package com.jogamp.opengl;
+                        public interface GL3 extends GL {
+                            int glGetUniformLocation(int p, String n);
+                            void glUniformMatrix4fv(int loc, int count, boolean transpose, float[] v, int off);
+                        }
+                        """),
+                java.util.Map.entry("com/live2d/graphics3d/type/GMatrix44.java", """
+                        package com.live2d.graphics3d.type;
+                        public class GMatrix44 {
+                            public static final Companion Companion = new Companion();
+                            public final float[] data = new float[16];
+                            public GMatrix44() {}
+                            public GMatrix44(final float v0) { data[0] = v0; }
+                            public float[] a() { return data; }
+                            public static final class Companion {
+                                public int normalComputeCount;
+                                public GMatrix44 a(final GMatrix44 m) {
+                                    normalComputeCount++;
+                                    return m;
+                                }
+                            }
+                        }
+                        """),
+                java.util.Map.entry("com/live2d/graphics3d/GCamera.java", """
+                        package com.live2d.graphics3d;
+                        import com.live2d.graphics3d.type.GMatrix44;
+                        public class GCamera {
+                            public final GMatrix44 projection = new GMatrix44(1.0f);
+                            public final GMatrix44 view = new GMatrix44(2.0f);
+                            public GMatrix44 getProjectionMatrix() { return projection; }
+                            public GMatrix44 getWorldToCameraMatrix() { return view; }
+                        }
+                        """),
+                java.util.Map.entry("com/jogamp/opengl/GLContext.java", """
+                        package com.jogamp.opengl;
+                        public final class GLContext {
+                            private static GLContext current;
+                            private final long handle = 100L;
+                            private final boolean created = true;
+                            public GLContext() { current = this; }
+                            public long getHandle() { return handle; }
+                            public boolean isCreated() { return created; }
+                            public static GLContext getCurrent() { return current; }
+                        }
+                        """),
+                java.util.Map.entry("com/live2d/graphics3d/a.java", """
+                        package com.live2d.graphics3d;
+                        import com.jogamp.opengl.GL3;
+                        import com.jogamp.opengl.GLContext;
+                        import java.util.ArrayList;
+                        import java.util.List;
+                        public class a {
+                            public final GLContext glContext = new GLContext();
+                            public final List<String> ops = new ArrayList<>();
+                            public final GL3 gl = new GL3Impl(this);
+                            public final GCamera camera = new GCamera();
+                            public GCamera getCamera() { return camera; }
+                            public static final class GL3Impl implements GL3 {
+                                private final a ctx;
+                                public GL3Impl(final a ctx) { this.ctx = ctx; }
+                                public GLContext getContext() { return ctx.glContext; }
+                                @Override public int glGetError() { return 0; }
+                                @Override public int glGetUniformLocation(int p, String n) { return 7; }
+                                @Override public void glUniformMatrix4fv(int loc, int count, boolean transpose, float[] v, int off) {
+                                    ctx.ops.add("upload:" + loc + ":" + v[0]);
+                                }
+                            }
+                        }
+                        """),
+                java.util.Map.entry("com/live2d/graphics3d/shader/ShaderParameter.java", """
+                        package com.live2d.graphics3d.shader;
+                        public class ShaderParameter {
+                            private final int location;
+                            public ShaderParameter(final int location) { this.location = location; }
+                            public int getLocation() { return location; }
+                        }
+                        """),
+                java.util.Map.entry("com/live2d/graphics3d/shader/a.java", """
+                        package com.live2d.graphics3d.shader;
+                        import com.jogamp.opengl.GL;
+                        import java.util.ArrayList;
+                        import java.util.List;
+                        public final class a {
+                            public static final List<String> bindChecks = new ArrayList<>();
+                            public static boolean a(final GL gl, final String label) {
+                                bindChecks.add(label);
+                                return false;
+                            }
+                        }
+                        """),
+                java.util.Map.entry(
+                        "com/live2d/graphics3d/texture/GTexture.java",
+                        "package com.live2d.graphics3d.texture; public class GTexture {}"),
+                java.util.Map.entry(
+                        "com/live2d/graphics3d/material/GMaterial.java",
+                        "package com.live2d.graphics3d.material; public class GMaterial {}"));
+        final var args = new ArrayList<String>(List.of("--release", "17", "-d", out.toString()));
+        for (final var e : files.entrySet()) {
+            final java.nio.file.Path p = src.resolve(e.getKey());
+            java.nio.file.Files.createDirectories(p.getParent());
+            java.nio.file.Files.writeString(p, e.getValue());
+            args.add(p.toString());
+        }
+        assertEquals(
+                0, javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        return out;
+    }
+
+    private static byte[] matrixShaderFixture() {
+        final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
+        cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "uniformMap", "Ljava/util/HashMap;", null, null)
+                .visitEnd();
+        cw.visitField(Opcodes.ACC_PUBLIC, "glProgramID", "I", null, null).visitEnd();
+
+        final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        init.visitCode();
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitTypeInsn(Opcodes.NEW, "java/util/HashMap");
+        init.visitInsn(Opcodes.DUP);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/HashMap", "<init>", "()V", false);
+        init.visitFieldInsn(Opcodes.PUTFIELD, OWNER, "uniformMap", "Ljava/util/HashMap;");
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitIntInsn(Opcodes.BIPUSH, 10);
+        init.visitFieldInsn(Opcodes.PUTFIELD, OWNER, "glProgramID", "I");
+        init.visitInsn(Opcodes.RETURN);
+        init.visitMaxs(3, 1);
+        init.visitEnd();
+
+        final MethodVisitor initExe =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, "init_exe", "(Lcom/live2d/graphics3d/a;)V", null, null);
+        initExe.visitCode();
+        initExe.visitInsn(Opcodes.RETURN);
+        initExe.visitMaxs(0, 2);
+        initExe.visitEnd();
+
+        final MethodVisitor setProg = cw.visitMethod(Opcodes.ACC_PUBLIC, "setGlProgramID", "(I)V", null, null);
+        setProg.visitCode();
+        setProg.visitVarInsn(Opcodes.ALOAD, 0);
+        setProg.visitVarInsn(Opcodes.ILOAD, 1);
+        setProg.visitFieldInsn(Opcodes.PUTFIELD, OWNER, "glProgramID", "I");
+        setProg.visitInsn(Opcodes.RETURN);
+        setProg.visitMaxs(2, 2);
+        setProg.visitEnd();
+
+        final MethodVisitor getProg = cw.visitMethod(Opcodes.ACC_PUBLIC, "getGlProgramID", "()I", null, null);
+        getProg.visitCode();
+        getProg.visitVarInsn(Opcodes.ALOAD, 0);
+        getProg.visitFieldInsn(Opcodes.GETFIELD, OWNER, "glProgramID", "I");
+        getProg.visitInsn(Opcodes.IRETURN);
+        getProg.visitMaxs(1, 1);
+        getProg.visitEnd();
+
+        final MethodVisitor getMap =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, "getUniformMap", "()Ljava/util/HashMap;", null, null);
+        getMap.visitCode();
+        getMap.visitVarInsn(Opcodes.ALOAD, 0);
+        getMap.visitFieldInsn(Opcodes.GETFIELD, OWNER, "uniformMap", "Ljava/util/HashMap;");
+        getMap.visitInsn(Opcodes.ARETURN);
+        getMap.visitMaxs(1, 1);
+        getMap.visitEnd();
+
+        final MethodVisitor draw = cw.visitMethod(Opcodes.ACC_PUBLIC, DRAW, DRAW_DESC, null, null);
+        draw.visitCode();
+        draw.visitVarInsn(Opcodes.ALOAD, 1);
+        draw.visitFieldInsn(Opcodes.GETFIELD, "com/live2d/graphics3d/a", "gl", "Lcom/jogamp/opengl/GL3;");
+        draw.visitVarInsn(Opcodes.ASTORE, 4);
+        draw.visitVarInsn(Opcodes.ALOAD, 1);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "com/live2d/graphics3d/a",
+                "getCamera",
+                "()Lcom/live2d/graphics3d/GCamera;",
+                false);
+        draw.visitVarInsn(Opcodes.ASTORE, 5);
+
+        // Single uniform query required by ShaderUniformTransformer shape guard.
+        draw.visitVarInsn(Opcodes.ALOAD, 4);
+        draw.visitVarInsn(Opcodes.ALOAD, 0);
+        draw.visitFieldInsn(Opcodes.GETFIELD, OWNER, "glProgramID", "I");
+        draw.visitLdcInsn("uBase");
+        draw.visitMethodInsn(
+                Opcodes.INVOKEINTERFACE,
+                ShaderUniformTransformer.GL_OWNER,
+                ShaderUniformTransformer.QUERY_METHOD,
+                ShaderUniformTransformer.QUERY_DESC,
+                true);
+        draw.visitInsn(Opcodes.POP);
+
+        emitSyntheticMatrixBlock(draw, "projectionMatrix", "getProjectionMatrix", "bind projectionMatrix", false);
+        emitSyntheticMatrixBlock(
+                draw, "worldToCameraMatrix", "getWorldToCameraMatrix", "bind worldToCameraMatrix", false);
+        emitSyntheticMatrixBlock(draw, "normalMatrix", null, "bind normalMatrix", true);
+
+        draw.visitInsn(Opcodes.RETURN);
+        draw.visitMaxs(7, 8);
+        draw.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    private static void emitSyntheticMatrixBlock(
+            final MethodVisitor draw,
+            final String uniformName,
+            final String cameraGetter,
+            final String bindLabel,
+            final boolean isNormal) {
+        final Label popLabel = new Label();
+        final Label tailLabel = new Label();
+        draw.visitVarInsn(Opcodes.ALOAD, 0);
+        draw.visitFieldInsn(Opcodes.GETFIELD, OWNER, "uniformMap", "Ljava/util/HashMap;");
+        draw.visitLdcInsn(uniformName);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/HashMap", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        draw.visitTypeInsn(Opcodes.CHECKCAST, "com/live2d/graphics3d/shader/ShaderParameter");
+        draw.visitInsn(Opcodes.DUP);
+        draw.visitJumpInsn(Opcodes.IFNULL, popLabel);
+        draw.visitVarInsn(Opcodes.ASTORE, 6);
+        draw.visitVarInsn(Opcodes.ALOAD, 4);
+        draw.visitVarInsn(Opcodes.ALOAD, 6);
+        draw.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "com/live2d/graphics3d/shader/ShaderParameter", "getLocation", "()I", false);
+        draw.visitInsn(Opcodes.ICONST_1);
+        draw.visitInsn(Opcodes.ICONST_0);
+        if (isNormal) {
+            draw.visitFieldInsn(
+                    Opcodes.GETSTATIC,
+                    "com/live2d/graphics3d/type/GMatrix44",
+                    "Companion",
+                    "Lcom/live2d/graphics3d/type/GMatrix44$Companion;");
+            draw.visitVarInsn(Opcodes.ALOAD, 3);
+            draw.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "com/live2d/graphics3d/type/GMatrix44$Companion",
+                    "a",
+                    "(Lcom/live2d/graphics3d/type/GMatrix44;)Lcom/live2d/graphics3d/type/GMatrix44;",
+                    false);
+        } else {
+            draw.visitVarInsn(Opcodes.ALOAD, 5);
+            draw.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "com/live2d/graphics3d/GCamera",
+                    cameraGetter,
+                    "()Lcom/live2d/graphics3d/type/GMatrix44;",
+                    false);
+        }
+        draw.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "com/live2d/graphics3d/type/GMatrix44", "a", "()[F", false);
+        draw.visitInsn(Opcodes.ICONST_0);
+        draw.visitMethodInsn(Opcodes.INVOKEINTERFACE, "com/jogamp/opengl/GL3", "glUniformMatrix4fv", "(IIZ[FI)V", true);
+        draw.visitJumpInsn(Opcodes.GOTO, tailLabel);
+        draw.visitLabel(popLabel);
+        draw.visitInsn(Opcodes.POP);
+        draw.visitLabel(tailLabel);
+        draw.visitVarInsn(Opcodes.ALOAD, 4);
+        draw.visitTypeInsn(Opcodes.CHECKCAST, "com/jogamp/opengl/GL");
+        draw.visitLdcInsn(bindLabel);
+        draw.visitMethodInsn(
+                Opcodes.INVOKESTATIC,
+                "com/live2d/graphics3d/shader/a",
+                "a",
+                "(Lcom/jogamp/opengl/GL;Ljava/lang/String;)Z",
+                false);
+        draw.visitInsn(Opcodes.POP);
+    }
+
     @SuppressWarnings("unchecked")
     private static List<String> getRecordedCalls(final Object shader) throws Exception {
         return (List<String>) shader.getClass().getField("log").get(shader);

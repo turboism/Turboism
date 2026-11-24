@@ -3,24 +3,31 @@ package dev.turboism.adapter.cubism.optimization.warpdeform;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Edit-mode dirty-subtree incremental evaluator and level-order parallel transform coordinator.
+ * Edit-mode dirty-subtree incremental evaluator and single-dispatch DAG parallel transform coordinator.
  *
- * <p>Detects which root deformer(s) changed between {@code updateModel} frames when parameters,
+ * <p>Detects which root deformers changed between {@code updateModel} frames when parameters,
  * topology, and non-deformer drawables stayed invariant, propagates dirt strictly down the DAG,
- * runs independent deformer depth levels and dirty ArtMeshes across {@link SubtreeParallelExecutor},
- * and calls host {@code updateArtMeshAppearance} (including GL VBO {@code .l()}) strictly on dirty
- * meshes. Any unrecognized mutation falls back fail-closed to native host execution.</p>
+ * re-interpolates dirty roots on EDT with zero-allocation morph blending and buffer reuse,
+ * dispatches all dirty deformers and dirty ArtMeshes under one DAG barrier, and elides clean
+ * ArtMesh appearance uploads. Any unrecognized mutation falls back fail-closed to host code.</p>
  */
 final class EditSubtreeCoordinator {
 
     private static final float ZERO_F = 0.0f;
     private static final float UNIT_SCALE = 1.0f;
+    private static final float NEG_ONE = -1.0f;
+    private static final float ROT_ANGLE_MIN = -3600.0f;
+    private static final float ROT_ANGLE_MAX = 3600.0f;
+    private static final float ROT_SCALE_MIN = 1.0e-4f;
+    private static final float ROT_SCALE_MAX = 100.0f;
+    private static final int INITIAL_MORPH_ENTRIES_CAP = 16;
 
     private final EditSubtreeHandles h;
     private final SubtreeParallelExecutor parallelExecutor;
@@ -28,6 +35,7 @@ final class EditSubtreeCoordinator {
     private final ThreadLocal<Boolean> inFastPath = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final ThreadLocal<IdentityHashMap<Object, Boolean>> activeEditSourcesScratch =
             ThreadLocal.withInitial(IdentityHashMap::new);
+    private final ThreadLocal<MorphScratch> morphScratch = ThreadLocal.withInitial(MorphScratch::new);
 
     final LongAdder fastModelUpdates = new LongAdder();
     final LongAdder fallbackModelUpdates = new LongAdder();
@@ -54,6 +62,9 @@ final class EditSubtreeCoordinator {
         }
         modelCaches.clear();
         latestCache = null;
+        morphScratch.remove();
+        inFastPath.remove();
+        activeEditSourcesScratch.remove();
     }
 
     /** Returns the most recently updated model topology cache, or {@code null} when none exists. */
@@ -352,71 +363,62 @@ final class EditSubtreeCoordinator {
             }
         }
 
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
+
         // Verify all dirty root deformers with morph targets have resolved morphTarget helper.
         for (int i = 0; i < nDef; i++) {
             if (needsReinterp[i]) {
-                final Object src = (Object) h.deformerGetSource.invokeExact(c.deformers[i]);
-                final Object targets = (Object) h.sourceGetMorphTargets.invokeExact(src);
-                if (targets instanceof List<?> list && !list.isEmpty() && h.morphTargetApply == null) {
+                final Object src = acc.deformerGetSource(c.deformers[i]);
+                final List<?> targets = acc.sourceGetMorphTargets(src);
+                if (targets != null && !targets.isEmpty() && h.morphTargetApply == null) {
                     return false;
                 }
             }
         }
 
         // Update model timestamp without clearing clean siblings' parameter-outside flags.
-        h.modelSetLastUpdatedTime.invokeExact(model, System.currentTimeMillis());
+        acc.modelSetLastUpdatedTime(model, System.currentTimeMillis());
 
         // Re-interpolate only dirty root deformers whose source version or keyform edited state changed.
         for (int i = 0; i < nDef; i++) {
             if (needsReinterp[i]) {
-                reinterpolateDeformer(c.deformers[i], paramSet, updCtx);
+                reinterpolateDeformer(
+                        c.deformers[i], c.deformerParentIdx[i] >= 0, c.isWarp[i], c.isRotation[i], paramSet, updCtx);
             }
         }
 
-        // Evaluate dirty deformers strictly depth-by-depth (parallel when a level is wide enough).
+        // Execute all dirty deformer subtrees via single-dispatch DAG continuation stealing plus ArtMeshes.
         int dirtyDefCount = 0;
-        for (int level = 0; level < c.levelDeformers.length; level++) {
-            final int[] candidates = c.levelDeformers[level];
-            final int[] activeAtLevel = filterDirtyIndices(candidates, dirtyDef);
-            if (activeAtLevel.length == 0) {
-                continue;
+        for (final boolean flag : dirtyDef) {
+            if (flag) {
+                dirtyDefCount++;
             }
-            dirtyDefCount += activeAtLevel.length;
-            updateTotalsForLevel(c, activeAtLevel);
-            if (activeAtLevel.length >= SubtreeParallelExecutor.MIN_PARALLEL_DEFORMERS
-                    && parallelExecutor.isParallelCapable()
-                    && level > 0) {
+        }
+        final int[] dirtyDefIndices = collectTrueIndices(dirtyDef);
+        final int[] dirtyMeshIndices = collectTrueIndices(dirtyMesh);
+        if (dirtyDefIndices.length > 0 || dirtyMeshIndices.length > 0) {
+            if (parallelExecutor.isParallelCapable()
+                    && dirtyDefIndices.length >= SubtreeParallelExecutor.MIN_PARALLEL_DEFORMERS) {
                 parallelDeformerLevels.increment();
-                parallelExecutor.executeBatch(
-                        activeAtLevel.length,
-                        SubtreeParallelExecutor.MIN_PARALLEL_DEFORMERS,
-                        idx -> transformChildDeformerUnchecked(c, activeAtLevel[idx]));
-            } else {
-                for (final int defIdx : activeAtLevel) {
-                    transformDeformerIfChild(c, defIdx);
-                }
             }
+            if (parallelExecutor.isParallelCapable()
+                    && dirtyMeshIndices.length >= SubtreeParallelExecutor.MIN_PARALLEL_MESHES) {
+                parallelMeshBatches.increment();
+            }
+            parallelExecutor.executeDagAndMeshes(
+                    dirtyDefIndices,
+                    dirtyDef,
+                    c.deformerChildren,
+                    c.deformerParentIdx,
+                    defIdx -> evaluateDirtyDeformerUnchecked(c, defIdx, acc),
+                    dirtyMeshIndices.length,
+                    pos -> acc.prepareAndTransformArtMesh(
+                            c.visibleMeshes[dirtyMeshIndices[pos]],
+                            parentOrNull(c, c.meshParentDeformerIdx[dirtyMeshIndices[pos]]),
+                            h.canvasCoordType));
         }
         dirtyDeformersProcessed.add(dirtyDefCount);
         skippedDeformers.add(nDef - dirtyDefCount);
-
-        // Ensure all dirty ArtMeshes have compatible target deformedForm buffers before parallel transform.
-        final int[] dirtyMeshIndices = collectTrueIndices(dirtyMesh);
-        for (final int mIdx : dirtyMeshIndices) {
-            prepareArtMeshDeformedForm(c, mIdx);
-        }
-        if (dirtyMeshIndices.length >= SubtreeParallelExecutor.MIN_PARALLEL_MESHES
-                && parallelExecutor.isParallelCapable()) {
-            parallelMeshBatches.increment();
-            parallelExecutor.executeBatch(
-                    dirtyMeshIndices.length,
-                    SubtreeParallelExecutor.MIN_PARALLEL_MESHES,
-                    idx -> transformArtMeshUnchecked(c, dirtyMeshIndices[idx]));
-        } else {
-            for (final int mIdx : dirtyMeshIndices) {
-                transformArtMesh(c, mIdx);
-            }
-        }
 
         // Recompute only dirty CGlue connected components (affecter subset supported on 5.2+).
         if (anyGlueDirty) {
@@ -493,33 +495,32 @@ final class EditSubtreeCoordinator {
             final boolean[] needsReinterp,
             final boolean[] dirtyDef)
             throws Throwable {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         pruneUnselected(c.selectedDeformerBaselines, activeEditSources);
         for (int i = 0; i < c.deformers.length; i++) {
             final Object d = c.deformers[i];
-            if ((Object) h.deformerGetAnimatedForm.invokeExact(d) != null
-                    || (Object) h.deformerGetLocalAnimatedForm.invokeExact(d) != null) {
+            if (acc.deformerGetAnimatedForm(d) != null || acc.deformerGetLocalAnimatedForm(d) != null) {
                 return false;
             }
             if (!c.isWarp[i] && !c.isRotation[i]) {
                 return false;
             }
-            if (c.deformerParentIdx[i] >= 0 && (Object) h.deformerGetDeformedForm.invokeExact(d) == null) {
+            if (c.deformerParentIdx[i] >= 0 && acc.deformerGetDeformedForm(d) == null) {
                 return false;
             }
             final Object src = c.deformerSources[i];
-            final int srcVer = (int) h.sourceGetUpdateVersion.invokeExact(src);
-            final int copiedVer = (int) h.deformerGetCopiedUpdateVersion.invokeExact(d);
+            final int srcVer = acc.sourceGetUpdateVersion(src);
+            final int copiedVer = acc.deformerGetCopiedUpdateVersion(d);
             final int kfStamp = EditModelTopologyCache.computeKeyformVersionStamp(src, h);
             boolean versionOrKeyformChanged = srcVer != c.lastDefSourceUpdateVer[i]
                     || copiedVer != srcVer
                     || kfStamp != c.lastDefKeyformVersionStamp[i];
 
-            boolean formMutated = versionOrKeyformChanged || (boolean) h.deformerGetDirtyDeformedForm.invokeExact(d);
-            final Object form = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
+            boolean formMutated = versionOrKeyformChanged || acc.deformerGetDirtyDeformedForm(d);
+            final Object form = acc.deformerGetInterpolatedForm(d);
             if (!formMutated
                     && (form != c.lastDefInterpForm[i]
-                            || (form != null
-                                    && (int) h.formGetEditVersion.invokeExact(form) != c.lastDefInterpEditVer[i]))) {
+                            || (form != null && acc.formGetEditVersion(form) != c.lastDefInterpEditVer[i]))) {
                 formMutated = true;
             }
             if (!versionOrKeyformChanged && activeEditSources.containsKey(src)) {
@@ -551,28 +552,28 @@ final class EditSubtreeCoordinator {
     private boolean verifyLocalMeshesUnchanged(
             final EditModelTopologyCache c, final int nMesh, final IdentityHashMap<Object, Boolean> activeEditSources)
             throws Throwable {
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         pruneUnselected(c.selectedMeshBaselines, activeEditSources);
         for (int m = 0; m < nMesh; m++) {
             final Object mesh = c.visibleMeshes[m];
-            if ((Object) h.meshGetAnimatedForm.invokeExact(mesh) != null
-                    || (Object) h.meshGetLocalAnimatedForm.invokeExact(mesh) != null) {
+            if (acc.meshGetAnimatedForm(mesh) != null || acc.meshGetLocalAnimatedForm(mesh) != null) {
                 return false;
             }
-            if ((Object) h.meshGetDeformedForm.invokeExact(mesh) == null && c.meshParentDeformerIdx[m] >= 0) {
+            if (acc.meshGetDeformedForm(mesh) == null && c.meshParentDeformerIdx[m] >= 0) {
                 return false;
             }
             final Object src = c.visibleMeshSources[m];
-            if ((int) h.meshSourceGetMeshVersion.invokeExact(src) != c.lastMeshVer[m]
-                    || (int) h.meshGetCopiedMeshVersion.invokeExact(mesh) != c.lastMeshCopiedVer[m]
+            if (acc.meshSourceGetMeshVersion(src) != c.lastMeshVer[m]
+                    || acc.meshGetCopiedMeshVersion(mesh) != c.lastMeshCopiedVer[m]
                     || EditModelTopologyCache.computeKeyformVersionStamp(src, h) != c.lastMeshKeyformVersionStamp[m]
-                    || (boolean) h.meshSourceIsVisible.invokeExact(src) != c.lastMeshVisible[m]
-                    || (boolean) h.meshSourceIsVisibleHierarchy.invokeExact(src) != c.lastMeshVisHierarchy[m]
-                    || (int) h.meshGetDrawOrder.invokeExact(mesh) != c.lastMeshDrawOrder[m]) {
+                    || acc.controllableSourceIsVisible(src) != c.lastMeshVisible[m]
+                    || acc.controllableSourceIsVisibleHierarchy(src) != c.lastMeshVisHierarchy[m]
+                    || acc.meshGetDrawOrder(mesh) != c.lastMeshDrawOrder[m]) {
                 return false;
             }
-            final Object form = (Object) h.meshGetInterpolatedForm.invokeExact(mesh);
+            final Object form = acc.meshGetInterpolatedForm(mesh);
             if (form != c.lastMeshInterpForm[m]
-                    || (form != null && (int) h.formGetEditVersion.invokeExact(form) != c.lastMeshInterpEditVer[m])) {
+                    || (form != null && acc.formGetEditVersion(form) != c.lastMeshInterpEditVer[m])) {
                 return false;
             }
             if (activeEditSources.containsKey(src)) {
@@ -581,9 +582,9 @@ final class EditSubtreeCoordinator {
                     return false;
                 }
             }
-            final Object container = (Object) h.meshGetContainer.invokeExact(mesh);
-            final Object gmesh = container == null ? null : (Object) h.meshContainerGetMesh.invokeExact(container);
-            final float[] gPos = gmesh == null ? null : (float[]) h.meshBaseGetPositions.invokeExact(gmesh);
+            final Object container = acc.meshGetContainer(mesh);
+            final Object gmesh = container == null ? null : acc.meshContainerGetMesh(container);
+            final float[] gPos = gmesh == null ? null : acc.meshBaseGetPositions(gmesh);
             if (gPos != c.lastMeshGMeshPosRefs[m]) {
                 if (c.lastMeshGMeshPosRefs[m] != null
                         && c.lastMeshGMeshPosRefs[m].length == 0
@@ -679,186 +680,262 @@ final class EditSubtreeCoordinator {
         return any;
     }
 
-    private void reinterpolateDeformer(final Object deformer, final Object paramSet, final Object updCtx)
+    private void reinterpolateDeformer(
+            final Object deformer,
+            final boolean hasParent,
+            final boolean isWarp,
+            final boolean isRotation,
+            final Object paramSet,
+            final Object updCtx)
             throws Throwable {
-        final Object src = (Object) h.deformerGetSource.invokeExact(deformer);
-        final int srcVer = (int) h.sourceGetUpdateVersion.invokeExact(src);
-        final int copiedVer = (int) h.deformerGetCopiedUpdateVersion.invokeExact(deformer);
+        final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
+        final Object src = acc.deformerGetSource(deformer);
+        final int srcVer = acc.sourceGetUpdateVersion(src);
+        final int copiedVer = acc.deformerGetCopiedUpdateVersion(deformer);
+        final Object prevDeformed =
+                (copiedVer != srcVer && isWarp && hasParent) ? acc.deformerGetDeformedForm(deformer) : null;
         if (copiedVer != srcVer) {
             h.sourceReinitInstance.invokeExact(src, deformer);
         }
-        final Object interpForm = (Object) h.deformerGetInterpolatedForm.invokeExact(deformer);
+        final Object interpForm = acc.deformerGetInterpolatedForm(deformer);
         if (interpForm != null) {
-            Object gridSrc = (Object) h.sourceGetExtKeyformGrid.invokeExact(src);
+            Object gridSrc = acc.sourceGetExtKeyformGrid(src);
             if (gridSrc == null) {
-                gridSrc = (Object) h.sourceGetKeyformGrid.invokeExact(src);
+                gridSrc = acc.sourceGetKeyformGrid(src);
             }
             if (gridSrc != null) {
                 h.deformerFormInterpolate.invokeExact(interpForm, gridSrc, paramSet, updCtx);
-                h.deformerFormSetCoordType.invokeExact(interpForm, (Object) h.sourceGetCoordType.invokeExact(src));
+                acc.deformerFormSetCoordType(interpForm, acc.sourceGetCoordType(src));
             }
         }
         if (h.morphTargetApply != null) {
-            final Object targets = (Object) h.sourceGetMorphTargets.invokeExact(src);
-            if (targets instanceof List<?> list && !list.isEmpty()) {
-                final Object params = (Object) h.paramSetGetParameters.invokeExact(paramSet);
-                h.morphTargetApply.invokeExact(h.morphTargetInstance, deformer, params);
+            final List<?> targets = acc.sourceGetMorphTargets(src);
+            if (targets != null && !targets.isEmpty()) {
+                final List<?> params = acc.paramSetGetParameters(paramSet);
+                applyMorphTargetsFast(deformer, src, interpForm, targets, params, isWarp, isRotation, acc);
             }
         }
-        h.deformerSetDirtyDeformedForm.invokeExact(deformer, true);
+        if (prevDeformed != null && acc.deformerGetDeformedForm(deformer) == null && interpForm != null) {
+            // Reattach compatible deformedForm buffer cleared by reinitInstance to avoid deepCopy churn.
+            if (acc.formIsCompatible(prevDeformed, interpForm)) {
+                acc.deformerSetDeformedForm(deformer, prevDeformed);
+            }
+        }
+        acc.deformerSetDirtyDeformedForm(deformer, true);
     }
 
-    private void updateTotalsForLevel(final EditModelTopologyCache c, final int[] defIndices) throws Throwable {
-        for (final int i : defIndices) {
-            final Object d = c.deformers[i];
-            final int pIdx = c.deformerParentIdx[i];
-            final float localScale = c.isRotation[i]
-                    ? (float) h.rotFormGetScale.invokeExact((Object) h.deformerGetInterpolatedForm.invokeExact(d))
-                    : UNIT_SCALE;
-            final Object localForm = (Object) h.deformerGetInterpolatedForm.invokeExact(d);
-            final float localOp = (float) h.deformerFormGetOpacity.invokeExact(localForm);
-            final Object localMul = (Object) h.deformerFormGetMultiplyColor.invokeExact(localForm);
-            final Object localScr = (Object) h.deformerFormGetScreenColor.invokeExact(localForm);
+    private void applyMorphTargetsFast(
+            final Object deformer,
+            final Object src,
+            final Object interpForm,
+            final List<?> targets,
+            final List<?> params,
+            final boolean isWarp,
+            final boolean isRotation,
+            final EditSubtreeCompiledAccessors.HostOps acc)
+            throws Throwable {
+        if (interpForm == null
+                || params == null
+                || h.morphTargetUtilsInstance == null
+                || h.morphTargetUseExtended == null
+                || h.morphTargetResolveBaseForm == null
+                || h.morphTargetSetGetList == null
+                || h.morphTargetSetGetConstraintSet == null
+                || h.morphTargetConstraintGetByParam == null
+                || h.morphItemGetParameterGuid == null
+                || h.morphItemGetKeyValue == null
+                || h.morphItemGetKeyform == null
+                || h.copyInfoDefault == null) {
+            h.morphTargetApply.invokeExact(h.morphTargetInstance, deformer, (Object) params);
+            return;
+        }
+        final boolean useExtended = (boolean) h.morphTargetUseExtended.invokeExact(h.morphTargetUtilsInstance, src);
+        Object morphSet = useExtended ? acc.sourceGetExtMorphSet(src) : null;
+        if (morphSet == null) {
+            morphSet = acc.sourceGetMorphSet(src);
+        }
+        if (morphSet == null) {
+            h.morphTargetApply.invokeExact(h.morphTargetInstance, deformer, (Object) params);
+            return;
+        }
+        final Object constraintSet = h.morphTargetSetGetConstraintSet.invokeExact(morphSet);
+        final Object lower = h.morphTargetResolveBaseForm.invokeExact(h.keyFormMorphCompanion, src);
+        final MorphScratch scratch = morphScratch.get();
+        final int targetCount = targets.size();
+        final int paramCount = params.size();
 
-            final Object totalMul = (Object) h.deformerGetCalcTotalMultiplyColor.invokeExact(d);
-            final Object totalScr = (Object) h.deformerGetCalcTotalScreenColor.invokeExact(d);
-
-            if (pIdx < 0) {
-                h.deformerSetParamOutsideAnyParents.invokeExact(d, false);
-                h.deformerSetCalcTotalScale.invokeExact(d, localScale);
-                h.deformerSetCalcTotalOpacity.invokeExact(d, localOp);
-                copyFloatColor(totalMul, localMul);
-                copyFloatColor(totalScr, localScr);
+        for (int pIdx = 0; pIdx < paramCount; pIdx++) {
+            final Object param = params.get(pIdx);
+            final Object paramGuid = acc.paramGetGuid(param);
+            if (!targetsContainGuid(targets, targetCount, paramGuid)) {
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            final List<Object> kfMorphs =
+                    (List<Object>) (Object) h.morphTargetSetGetList.invokeExact(morphSet, paramGuid);
+            if (kfMorphs == null || kfMorphs.isEmpty() || lower == null) {
+                continue;
+            }
+            final Object paramSrc = acc.paramGetSource(param);
+            final Object paramSrcGuid = acc.paramSourceGetGuid(paramSrc);
+            final float paramMaxVal = acc.paramSourceGetMaxValue(paramSrc);
+            final float paramVal = acc.paramGetValue(param);
+            final int entryCount = buildSortedMorphEntries(scratch, kfMorphs, paramSrcGuid, paramMaxVal, lower);
+            final Object blendedMorph;
+            if (entryCount < 2) {
+                blendedMorph = lower;
             } else {
-                final Object parent = c.deformers[pIdx];
-                h.deformerSetParamOutsideAnyParents.invokeExact(
-                        d, (boolean) h.deformerIsParamOutsideHierarchy.invokeExact(parent));
-                h.deformerSetCalcTotalScale.invokeExact(
-                        d, localScale * (float) h.deformerGetCalcTotalScale.invokeExact(parent));
-                h.deformerSetCalcTotalOpacity.invokeExact(
-                        d, localOp * (float) h.deformerGetCalcTotalOpacity.invokeExact(parent));
+                blendedMorph = evaluateMorphInterval(
+                        scratch, scratch.entries, entryCount, paramVal, lower, isWarp, acc, h.copyInfoDefault);
+            }
 
-                final Object pMul = (Object) h.deformerGetCalcTotalMultiplyColor.invokeExact(parent);
-                final Object pScr = (Object) h.deformerGetCalcTotalScreenColor.invokeExact(parent);
-                multiplyFloatColor(totalMul, localMul, pMul);
-                screenFloatColor(totalScr, localScr, pScr);
+            float weight = UNIT_SCALE;
+            if (constraintSet != null) {
+                @SuppressWarnings("unchecked")
+                final List<Object> constraints =
+                        (List<Object>) (Object) h.morphTargetConstraintGetByParam.invokeExact(constraintSet, paramGuid);
+                if (constraints != null && !constraints.isEmpty()) {
+                    if (h.morphConstraintEval == null || h.morphConstraintEvalInstance == null) {
+                        // Fall back cleanly when constraint evaluator helper is unavailable.
+                        h.morphTargetApply.invokeExact(h.morphTargetInstance, deformer, (Object) params);
+                        return;
+                    }
+                    final Float evaluated = (Float) (Object) h.morphConstraintEval.invokeExact(
+                            h.morphConstraintEvalInstance, (Object) constraints, (Object) params);
+                    if (evaluated != null) {
+                        weight = evaluated;
+                    }
+                }
+            }
+
+            final Object delta = scratch.obtainDeltaForm(blendedMorph, isWarp, acc, h.copyInfoDefault);
+            acc.formBlend(delta, lower, NEG_ONE);
+            acc.formPostBlend(delta);
+            acc.formBlend(interpForm, delta, weight);
+            acc.formPostBlend(interpForm);
+        }
+
+        acc.deformerSetPreClampMorphedForm(deformer, acc.formDeepCopy(interpForm, h.copyInfoDefault));
+        clampDeformerForm(interpForm, isRotation, acc);
+    }
+
+    private boolean targetsContainGuid(final List<?> targets, final int size, final Object paramGuid) throws Throwable {
+        for (int i = 0; i < size; i++) {
+            final Object itemGuid = h.morphItemGetParameterGuid.invokeExact(targets.get(i));
+            if (paramGuid.equals(itemGuid)) {
+                return true;
             }
         }
+        return false;
     }
 
-    private void transformDeformerIfChild(final EditModelTopologyCache c, final int defIdx) throws Throwable {
-        final Object d = c.deformers[defIdx];
-        final int pIdx = c.deformerParentIdx[defIdx];
-        if (pIdx >= 0) {
-            h.deformerTransformTestImpl.invokeExact(d, c.deformers[pIdx]);
-        }
-        h.deformerSetDirtyDeformedForm.invokeExact(d, false);
-    }
-
-    private void transformChildDeformerUnchecked(final EditModelTopologyCache c, final int defIdx) {
-        try {
-            transformDeformerIfChild(c, defIdx);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("parallel child deformer transform failed", failure);
-        }
-    }
-
-    private void prepareArtMeshDeformedForm(final EditModelTopologyCache c, final int mIdx) throws Throwable {
-        final int pIdx = c.meshParentDeformerIdx[mIdx];
-        final Object mesh = c.visibleMeshes[mIdx];
-        if (pIdx < 0) {
-            h.meshSetDeformedForm.invokeExact(mesh, (Object) null);
-            return;
-        }
-        final Object preForm = (Object) h.meshGetInterpolatedForm.invokeExact(mesh);
-        Object out = (Object) h.meshGetDeformedForm.invokeExact(mesh);
-        if (out == null || !(boolean) h.meshFormIsCompatible.invokeExact(out, preForm)) {
-            final Object tr = (Object) h.deformerGetCreateTransform.invokeExact(c.deformers[pIdx]);
-            out = (Object) h.meshFormTransform.invokeExact(preForm, tr, (Object) null);
-            h.meshSetDeformedForm.invokeExact(mesh, out);
-        }
-    }
-
-    private void transformArtMesh(final EditModelTopologyCache c, final int mIdx) throws Throwable {
-        final int pIdx = c.meshParentDeformerIdx[mIdx];
-        if (pIdx < 0) {
-            return;
-        }
-        final Object mesh = c.visibleMeshes[mIdx];
-        final Object parent = c.deformers[pIdx];
-        final Object preForm = (Object) h.meshGetInterpolatedForm.invokeExact(mesh);
-        final Object out = (Object) h.meshGetDeformedForm.invokeExact(mesh);
-        final Object tr = (Object) h.deformerGetCreateTransform.invokeExact(parent);
-        final Object transformed = (Object) h.meshFormTransform.invokeExact(preForm, tr, out);
-        h.meshFormSetCoordType.invokeExact(transformed, h.canvasCoordType);
-        if (transformed != out) {
-            h.meshSetDeformedForm.invokeExact(mesh, transformed);
-        }
-        h.meshSetParamOutsideAnyParents.invokeExact(
-                mesh, (boolean) h.deformerIsParamOutsideHierarchy.invokeExact(parent));
-    }
-
-    private void transformArtMeshUnchecked(final EditModelTopologyCache c, final int mIdx) {
-        try {
-            transformArtMesh(c, mIdx);
-        } catch (Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("parallel ArtMesh transform failed", failure);
-        }
-    }
-
-    private void copyFloatColor(final Object dst, final Object src) throws Throwable {
-        h.floatColorSetA.invokeExact(dst, (float) h.floatColorGetA.invokeExact(src));
-        h.floatColorSetR.invokeExact(dst, (float) h.floatColorGetR.invokeExact(src));
-        h.floatColorSetG.invokeExact(dst, (float) h.floatColorGetG.invokeExact(src));
-        h.floatColorSetB.invokeExact(dst, (float) h.floatColorGetB.invokeExact(src));
-    }
-
-    private void multiplyFloatColor(final Object dst, final Object local, final Object parentTotal) throws Throwable {
-        h.floatColorSetA.invokeExact(dst, (float) h.floatColorGetA.invokeExact(local));
-        h.floatColorSetR.invokeExact(
-                dst, (float) h.floatColorGetR.invokeExact(local) * (float) h.floatColorGetR.invokeExact(parentTotal));
-        h.floatColorSetG.invokeExact(
-                dst, (float) h.floatColorGetG.invokeExact(local) * (float) h.floatColorGetG.invokeExact(parentTotal));
-        h.floatColorSetB.invokeExact(
-                dst, (float) h.floatColorGetB.invokeExact(local) * (float) h.floatColorGetB.invokeExact(parentTotal));
-    }
-
-    private void screenFloatColor(final Object dst, final Object local, final Object parentTotal) throws Throwable {
-        h.floatColorSetA.invokeExact(dst, (float) h.floatColorGetA.invokeExact(local));
-        final float lr = (float) h.floatColorGetR.invokeExact(local);
-        final float lg = (float) h.floatColorGetG.invokeExact(local);
-        final float lb = (float) h.floatColorGetB.invokeExact(local);
-        final float pr = (float) h.floatColorGetR.invokeExact(parentTotal);
-        final float pg = (float) h.floatColorGetG.invokeExact(parentTotal);
-        final float pb = (float) h.floatColorGetB.invokeExact(parentTotal);
-        h.floatColorSetR.invokeExact(dst, (lr + pr) - (lr * pr));
-        h.floatColorSetG.invokeExact(dst, (lg + pg) - (lg * pg));
-        h.floatColorSetB.invokeExact(dst, (lb + pb) - (lb * pb));
-    }
-
-    private static int[] filterDirtyIndices(final int[] levelNodes, final boolean[] dirty) {
+    private int buildSortedMorphEntries(
+            final MorphScratch scratch,
+            final List<Object> kfMorphs,
+            final Object paramSrcGuid,
+            final float paramMaxVal,
+            final Object lower)
+            throws Throwable {
+        final int kfSize = kfMorphs.size();
+        scratch.ensureCapacity(kfSize + 1);
         int count = 0;
-        for (final int idx : levelNodes) {
-            if (dirty[idx]) {
-                count++;
+        for (int i = 0; i < kfSize; i++) {
+            final Object item = kfMorphs.get(i);
+            final Object itemGuid = h.morphItemGetParameterGuid.invokeExact(item);
+            if (!paramSrcGuid.equals(itemGuid)) {
+                continue;
+            }
+            final Object kf = h.morphItemGetKeyform.invokeExact(item);
+            if (kf == null) {
+                continue;
+            }
+            final Float keyVal = (Float) (Object) h.morphItemGetKeyValue.invokeExact(item);
+            final float v = keyVal != null ? keyVal : paramMaxVal;
+            scratch.entries[count++].set(kf, v);
+        }
+        scratch.entries[count++].set(lower, ZERO_F);
+        if (count > 1) {
+            Arrays.sort(scratch.entries, 0, count, MorphKeyEntry::compareValue);
+        }
+        return count;
+    }
+
+    private static Object evaluateMorphInterval(
+            final MorphScratch scratch,
+            final MorphKeyEntry[] entries,
+            final int count,
+            final float paramVal,
+            final Object lower,
+            final boolean isWarp,
+            final EditSubtreeCompiledAccessors.HostOps acc,
+            final Object defaultCopyInfo) {
+        MorphKeyEntry lowEntry = null;
+        for (int i = count - 1; i >= 0; i--) {
+            if (entries[i].keyValue <= paramVal) {
+                lowEntry = entries[i];
+                break;
             }
         }
-        if (count == 0) {
-            return new int[0];
-        }
-        if (count == levelNodes.length) {
-            return levelNodes;
-        }
-        final int[] out = new int[count];
-        int k = 0;
-        for (final int idx : levelNodes) {
-            if (dirty[idx]) {
-                out[k++] = idx;
+        MorphKeyEntry highEntry = null;
+        for (int i = 0; i < count; i++) {
+            if (paramVal < entries[i].keyValue) {
+                highEntry = entries[i];
+                break;
             }
         }
-        return out;
+        if (lowEntry == null && highEntry == null) {
+            return lower;
+        }
+        if (lowEntry == null) {
+            return highEntry.form;
+        }
+        if (highEntry == null) {
+            return lowEntry.form;
+        }
+        final float t = (paramVal - lowEntry.keyValue) / (highEntry.keyValue - lowEntry.keyValue);
+        final float oneMinusT = UNIT_SCALE - t;
+        final Object blended = scratch.obtainBlendedForm(lowEntry.form, isWarp, acc, defaultCopyInfo);
+        acc.formZero(blended);
+        acc.formBlend(blended, lowEntry.form, oneMinusT);
+        acc.formBlend(blended, highEntry.form, t);
+        acc.formPostBlend(blended);
+        return blended;
+    }
+
+    private static void clampDeformerForm(
+            final Object form, final boolean isRotation, final EditSubtreeCompiledAccessors.HostOps acc) {
+        acc.deformerFormSetOpacity(form, clampFloat(acc.deformerFormGetOpacity(form), ZERO_F, UNIT_SCALE));
+        acc.floatColorClamp(acc.deformerFormGetMultiplyColor(form));
+        acc.floatColorClamp(acc.deformerFormGetScreenColor(form));
+        if (isRotation) {
+            acc.rotFormSetAngle(form, clampFloat(acc.rotFormGetAngle(form), ROT_ANGLE_MIN, ROT_ANGLE_MAX));
+            acc.rotFormSetScale(form, clampFloat(acc.rotFormGetScale(form), ROT_SCALE_MIN, ROT_SCALE_MAX));
+        }
+    }
+
+    private static float clampFloat(final float v, final float min, final float max) {
+        if (v < min) {
+            return min;
+        }
+        return v > max ? max : v;
+    }
+
+    private static Object parentOrNull(final EditModelTopologyCache c, final int pIdx) {
+        return pIdx < 0 ? null : c.deformers[pIdx];
+    }
+
+    private static void evaluateDirtyDeformerUnchecked(
+            final EditModelTopologyCache c, final int defIdx, final EditSubtreeCompiledAccessors.HostOps acc) {
+        final Object parent = parentOrNull(c, c.deformerParentIdx[defIdx]);
+        final Object deformer = c.deformers[defIdx];
+        acc.updateDeformerTotals(deformer, parent, c.isRotation[defIdx]);
+        acc.transformDeformerIfChild(deformer, parent);
+    }
+
+    private static void prepareAndTransformArtMeshUnchecked(
+            final EditModelTopologyCache c, final int mIdx, final EditSubtreeCompiledAccessors.HostOps acc) {
+        final Object parent = parentOrNull(c, c.meshParentDeformerIdx[mIdx]);
+        acc.prepareAndTransformArtMesh(c.visibleMeshes[mIdx], parent, null);
     }
 
     private static int[] collectTrueIndices(final boolean[] flags) {
@@ -876,5 +953,111 @@ final class EditSubtreeCoordinator {
             }
         }
         return out;
+    }
+
+    private static final class MorphKeyEntry {
+        Object form;
+        float keyValue;
+
+        void set(final Object form, final float keyValue) {
+            this.form = form;
+            this.keyValue = keyValue;
+        }
+
+        static int compareValue(final MorphKeyEntry a, final MorphKeyEntry b) {
+            return Float.compare(a.keyValue, b.keyValue);
+        }
+    }
+
+    private static final class MorphScratch {
+        MorphKeyEntry[] entries;
+        Object blendedWarpForm;
+        int blendedWarpPosLen = -1;
+        Object deltaWarpForm;
+        int deltaWarpPosLen = -1;
+        Object blendedRotForm;
+        Object deltaRotForm;
+
+        MorphScratch() {
+            entries = new MorphKeyEntry[INITIAL_MORPH_ENTRIES_CAP];
+            for (int i = 0; i < entries.length; i++) {
+                entries[i] = new MorphKeyEntry();
+            }
+        }
+
+        void ensureCapacity(final int needed) {
+            if (entries.length >= needed) {
+                return;
+            }
+            final int oldLen = entries.length;
+            entries = Arrays.copyOf(entries, Math.max(needed, oldLen * 2));
+            for (int i = oldLen; i < entries.length; i++) {
+                entries[i] = new MorphKeyEntry();
+            }
+        }
+
+        Object obtainBlendedForm(
+                final Object template,
+                final boolean isWarp,
+                final EditSubtreeCompiledAccessors.HostOps acc,
+                final Object defaultCopyInfo) {
+            if (defaultCopyInfo == null) {
+                throw new IllegalStateException("Missing default CopyInfo for morph blend copy.");
+            }
+            if (isWarp) {
+                final float[] pos = acc.warpFormGetPositions(template);
+                final int len = pos == null ? -1 : pos.length;
+                if (blendedWarpForm == null || blendedWarpPosLen != len) {
+                    blendedWarpForm = acc.formDeepCopy(template, defaultCopyInfo);
+                    blendedWarpPosLen = len;
+                }
+                return blendedWarpForm;
+            }
+            if (blendedRotForm == null) {
+                blendedRotForm = acc.formDeepCopy(template, defaultCopyInfo);
+            }
+            return blendedRotForm;
+        }
+
+        Object obtainDeltaForm(
+                final Object src,
+                final boolean isWarp,
+                final EditSubtreeCompiledAccessors.HostOps acc,
+                final Object defaultCopyInfo) {
+            if (isWarp) {
+                final float[] srcPos = acc.warpFormGetPositions(src);
+                final int len = srcPos == null ? -1 : srcPos.length;
+                if (deltaWarpForm == null || deltaWarpPosLen != len) {
+                    deltaWarpForm = acc.formDeepCopy(src, defaultCopyInfo);
+                    deltaWarpPosLen = len;
+                } else {
+                    final float[] dstPos = acc.warpFormGetPositions(deltaWarpForm);
+                    if (srcPos != null && dstPos != null) {
+                        System.arraycopy(srcPos, 0, dstPos, 0, len);
+                    }
+                    acc.deformerFormSetOpacity(deltaWarpForm, acc.deformerFormGetOpacity(src));
+                    copyColor(
+                            acc.deformerFormGetMultiplyColor(deltaWarpForm),
+                            acc.deformerFormGetMultiplyColor(src),
+                            acc);
+                    copyColor(acc.deformerFormGetScreenColor(deltaWarpForm), acc.deformerFormGetScreenColor(src), acc);
+                }
+                return deltaWarpForm;
+            }
+            if (deltaRotForm == null) {
+                deltaRotForm = acc.formDeepCopy(src, defaultCopyInfo);
+            } else {
+                acc.formReinit(deltaRotForm, src, defaultCopyInfo);
+            }
+            return deltaRotForm;
+        }
+
+        private static void copyColor(
+                final Object dst, final Object src, final EditSubtreeCompiledAccessors.HostOps acc) {
+            acc.colorSetA(dst, acc.colorGetA(src));
+            acc.colorSetR(dst, acc.colorGetR(src));
+            acc.colorSetG(dst, acc.colorGetG(src));
+            acc.colorSetB(dst, acc.colorGetB(src));
+        }
     }
 }

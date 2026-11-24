@@ -90,7 +90,7 @@ class RenderPassTraversalArtifactTest {
         int checked = 0;
 
         for (final RenderPassTraversalTarget target : targets) {
-            final Path artifact = root.resolve(target.version()).resolve(CUBISM_JAR);
+            final Path artifact = resolveArtifact(root, target.version());
             if (!Files.isRegularFile(artifact)) {
                 continue;
             }
@@ -135,7 +135,7 @@ class RenderPassTraversalArtifactTest {
         int checked = 0;
 
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
-            final Path artifact = root.resolve(version).resolve(CUBISM_JAR);
+            final Path artifact = resolveArtifact(root, version);
             if (!Files.isRegularFile(artifact)) {
                 continue;
             }
@@ -217,8 +217,8 @@ class RenderPassTraversalArtifactTest {
         final Path root = referenceRoot();
         final Path jogl = joglArtifact(root);
         assumeTrue(jogl != null, "JOGL artifact unavailable for live render-system invocation");
-        for (final String version : List.of("5.0.00", "5.2.03", "5.3.04")) {
-            final Path artifact = root.resolve(version).resolve(CUBISM_JAR);
+        for (final String version : List.of("5.0.00", "5.2.03", "5.3.04", "5.3.05")) {
+            final Path artifact = resolveArtifact(root, version);
             if (!Files.isRegularFile(artifact)) {
                 continue;
             }
@@ -658,6 +658,14 @@ class RenderPassTraversalArtifactTest {
             mv.visitEnd();
         }
 
+        final MethodVisitor getRootGl =
+                cw.visitMethod(Opcodes.ACC_PUBLIC, "getRootGL", "()Lcom/jogamp/opengl/GL;", null, null);
+        getRootGl.visitCode();
+        getRootGl.visitVarInsn(Opcodes.ALOAD, 0);
+        getRootGl.visitInsn(Opcodes.ARETURN);
+        getRootGl.visitMaxs(0, 0);
+        getRootGl.visitEnd();
+
         final MethodVisitor depthMask = cw.visitMethod(Opcodes.ACC_PUBLIC, "glDepthMask", "(Z)V", null, null);
         depthMask.visitCode();
         depthMask.visitInsn(Opcodes.RETURN);
@@ -804,6 +812,361 @@ class RenderPassTraversalArtifactTest {
                             RenderPassTraversalTarget.TRAVERSE_DESCRIPTOR)));
             assertEquals(0, tShapeTrav.matches());
             assertNotNull(tShapeTrav.failure());
+        }
+    }
+
+    @Test
+    void colorPoolTransformerCachesPresetValuesAndEliminatesPoolArrayListAcrossAllVersions() throws Throwable {
+        final Path root = referenceRoot();
+        final Path jogl = joglArtifact(root);
+        final List<RenderPassTraversalTarget> targets = RenderPassTraversalTarget.all();
+        int checked = 0;
+
+        for (final RenderPassTraversalTarget target : targets) {
+            final Path artifact = resolveArtifact(root, target.version());
+            if (!Files.isRegularFile(artifact)) {
+                continue;
+            }
+            final byte[] renderTexOrig =
+                    readClassBytes(artifact, RenderTextureColorPoolTransformer.RENDER_TEXTURE_OWNER);
+            final byte[] poolOrig = target.hasRecursiveTraverseMethod()
+                    ? readClassBytes(artifact, RenderTextureColorPoolTransformer.POOL_LEASE_OWNER)
+                    : null;
+
+            try (HostClassLoader baselineLoader = hostLoader(artifact.getParent(), jogl);
+                    HostClassLoader transformLoader = hostLoader(artifact.getParent(), jogl);
+                    HostClassLoader rewrittenLoader = hostLoader(artifact.getParent(), jogl)) {
+                final ProtectionDomain domain = protectionDomain(artifact);
+                final RenderTextureColorPoolTransformer transformer =
+                        new RenderTextureColorPoolTransformer(transformLoader, artifact, renderTexOrig, poolOrig);
+                final byte[] renderTexPatched = transformer.transform(
+                        null,
+                        transformLoader,
+                        RenderTextureColorPoolTransformer.RENDER_TEXTURE_OWNER,
+                        null,
+                        domain,
+                        renderTexOrig);
+                assertNotNull(renderTexPatched, target.version() + ": " + transformer.failure());
+                assertNull(transformer.failure(), target.version());
+
+                byte[] poolPatched = null;
+                if (poolOrig != null) {
+                    poolPatched = transformer.transform(
+                            null,
+                            transformLoader,
+                            RenderTextureColorPoolTransformer.POOL_LEASE_OWNER,
+                            null,
+                            domain,
+                            poolOrig);
+                    assertNotNull(poolPatched, target.version() + ": " + transformer.failure());
+                    assertNull(transformer.failure(), target.version());
+                }
+                assertEquals(transformer.expectedMatches(), transformer.matches(), target.version());
+                assertEquals(transformer.expectedMatches(), transformer.sites(), target.version());
+
+                final String renderTexDot = RenderTextureColorPoolTransformer.RENDER_TEXTURE_OWNER.replace('/', '.');
+                final ProtectionDomain signedDomain =
+                        Class.forName(renderTexDot, false, baselineLoader).getProtectionDomain();
+                rewrittenLoader.installOverride(renderTexDot, renderTexPatched, signedDomain);
+                if (poolPatched != null) {
+                    assertEquals(
+                            0,
+                            countNewType(
+                                    poolPatched,
+                                    RenderTextureColorPoolTransformer.ACQUIRE_LEASE_METHOD,
+                                    RenderTextureColorPoolTransformer.ACQUIRE_LEASE_DESCRIPTOR,
+                                    "java/util/ArrayList"),
+                            target.version() + " rendering/b.a must allocate zero ArrayList");
+                    final String poolDot = RenderTextureColorPoolTransformer.POOL_LEASE_OWNER.replace('/', '.');
+                    final ProtectionDomain poolSigned =
+                            Class.forName(poolDot, false, baselineLoader).getProtectionDomain();
+                    rewrittenLoader.installOverride(poolDot, poolPatched, poolSigned);
+                }
+
+                verifyRenderTextureParityAndZeroAlloc(
+                        baselineLoader,
+                        rewrittenLoader,
+                        target.version(),
+                        checked == 0 || target.version().endsWith(".05"));
+                if (poolPatched != null && jogl != null) {
+                    verifyPoolLeaseParityAndReducedAlloc(baselineLoader, rewrittenLoader, target.version());
+                }
+            }
+            checked++;
+        }
+        assertEquals(EXPECTED_REVIEWED_VERSIONS, checked, "expected every reviewed artifact under " + root);
+    }
+
+    private static int countNewType(
+            final byte[] bytes, final String methodName, final String methodDescriptor, final String typeInternalName) {
+        final int[] count = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!methodName.equals(name) || !methodDescriptor.equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitTypeInsn(final int opcode, final String type) {
+                                        if (opcode == Opcodes.NEW && typeInternalName.equals(type)) {
+                                            count[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        return count[0];
+    }
+
+    private static void verifyRenderTextureParityAndZeroAlloc(
+            final ClassLoader baselineLoader,
+            final ClassLoader rewrittenLoader,
+            final String version,
+            final boolean measureAllocations)
+            throws Throwable {
+        final String renderTexDot = RenderTextureColorPoolTransformer.RENDER_TEXTURE_OWNER.replace('/', '.');
+        final String enumDot = RenderTextureColorPoolTransformer.PRESET_COLOR_TYPE_OWNER.replace('/', '.');
+        final Class<?> baseClass = Class.forName(renderTexDot, true, baselineLoader);
+        final Class<?> patClass = Class.forName(renderTexDot, true, rewrittenLoader);
+        final Class<?> baseEnum = Class.forName(enumDot, true, baselineLoader);
+        final Class<?> patEnum = Class.forName(enumDot, true, rewrittenLoader);
+
+        final Object baseTex = baseClass.getDeclaredConstructor().newInstance();
+        final Object patTex = patClass.getDeclaredConstructor().newInstance();
+        final Method baseGet = baseClass.getMethod("getPresetColorType");
+        final Method patGet = patClass.getMethod("getPresetColorType");
+        final Method baseSetPreset = baseClass.getMethod("setPresetColorType", baseEnum);
+        final Method patSetPreset = patClass.getMethod("setPresetColorType", patEnum);
+
+        final Object[] baseConsts = baseEnum.getEnumConstants();
+        final Object[] patConsts = patEnum.getEnumConstants();
+        assertEquals(baseConsts.length, patConsts.length, version);
+        for (int i = 0; i < baseConsts.length; i++) {
+            baseSetPreset.invoke(baseTex, baseConsts[i]);
+            patSetPreset.invoke(patTex, patConsts[i]);
+            final String baseName = ((Enum<?>) baseGet.invoke(baseTex)).name();
+            final String patName = ((Enum<?>) patGet.invoke(patTex)).name();
+            assertEquals(baseName, patName, version + " constant " + baseConsts[i]);
+        }
+
+        // Verify live mutation without touching setPresetColorType still falls back to NOT_SELECTED.
+        final Class<?> internalFmtClass =
+                Class.forName("com.live2d.graphics3d.texture.InternalFormatType", true, baselineLoader);
+        final Class<?> patInternalFmtClass =
+                Class.forName("com.live2d.graphics3d.texture.InternalFormatType", true, rewrittenLoader);
+        final Object firstBaseFmt = internalFmtClass.getEnumConstants()[0];
+        final Object firstPatFmt = patInternalFmtClass.getEnumConstants()[0];
+        baseClass.getMethod("setInternalFormat", internalFmtClass).invoke(baseTex, firstBaseFmt);
+        patClass.getMethod("setInternalFormat", patInternalFmtClass).invoke(patTex, firstPatFmt);
+        assertEquals(
+                ((Enum<?>) baseGet.invoke(baseTex)).name(),
+                ((Enum<?>) patGet.invoke(patTex)).name(),
+                version + " live internalFormat mutation parity");
+
+        if (measureAllocations) {
+            final com.sun.management.ThreadMXBean allocMx =
+                    (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+            baseSetPreset.invoke(baseTex, baseConsts[0]);
+            patSetPreset.invoke(patTex, patConsts[0]);
+            final var lookup = java.lang.invoke.MethodHandles.publicLookup();
+            final var getType = java.lang.invoke.MethodType.methodType(Object.class, Object.class);
+            final java.lang.invoke.MethodHandle baseGetHandle =
+                    lookup.unreflect(baseGet).asType(getType);
+            final java.lang.invoke.MethodHandle patGetHandle =
+                    lookup.unreflect(patGet).asType(getType);
+            for (int w = 0; w < 5000; w++) {
+                final Object bIgnored = (Object) baseGetHandle.invokeExact(baseTex);
+                final Object pIgnored = (Object) patGetHandle.invokeExact(patTex);
+            }
+            final long tid = Thread.currentThread().getId();
+            allocMx.getThreadAllocatedBytes(tid);
+            final long baseBefore = allocMx.getThreadAllocatedBytes(tid);
+            for (int i = 0; i < 1000; i++) {
+                final Object bIgnored = (Object) baseGetHandle.invokeExact(baseTex);
+            }
+            final long baseAlloc = allocMx.getThreadAllocatedBytes(tid) - baseBefore;
+            final long patBefore = allocMx.getThreadAllocatedBytes(tid);
+            for (int i = 0; i < 1000; i++) {
+                final Object pIgnored = (Object) patGetHandle.invokeExact(patTex);
+            }
+            final long patAlloc = allocMx.getThreadAllocatedBytes(tid) - patBefore;
+            assertTrue(
+                    baseAlloc > 0L,
+                    version + " baseline GRenderTexture.getPresetColorType() should allocate PresetColorType[]");
+            assertEquals(
+                    0L,
+                    patAlloc,
+                    version + " GRenderTexture.getPresetColorType() must allocate 0 bytes (baseAlloc="
+                            + baseAlloc
+                            + ")");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void verifyPoolLeaseParityAndReducedAlloc(
+            final HostClassLoader baselineLoader, final HostClassLoader rewrittenLoader, final String version)
+            throws Throwable {
+        final String poolDot = RenderTextureColorPoolTransformer.POOL_LEASE_OWNER.replace('/', '.');
+        final Class<?> basePoolClass = Class.forName(poolDot, true, baselineLoader);
+        final Class<?> patPoolClass = Class.forName(poolDot, true, rewrittenLoader);
+
+        final Class<?> baseEnum = Class.forName(
+                RenderTextureColorPoolTransformer.PRESET_COLOR_TYPE_OWNER.replace('/', '.'), true, baselineLoader);
+        final Class<?> patEnum = Class.forName(
+                RenderTextureColorPoolTransformer.PRESET_COLOR_TYPE_OWNER.replace('/', '.'), true, rewrittenLoader);
+
+        final var baseArg = newPoolTestArgs(baselineLoader);
+        final var patArg = newPoolTestArgs(rewrittenLoader);
+
+        final Class<?> baseCtxType = Class.forName("com.live2d.graphics3d.a", true, baselineLoader);
+        final Class<?> patCtxType = Class.forName("com.live2d.graphics3d.a", true, rewrittenLoader);
+        final Method baseAcquire =
+                basePoolClass.getMethod("a", baseCtxType, int.class, int.class, baseEnum, boolean.class);
+        final Method patAcquire = patPoolClass.getMethod("a", patCtxType, int.class, int.class, patEnum, boolean.class);
+        final Object basePool = basePoolClass.getField("a").get(null);
+        final Object patPool = patPoolClass.getField("a").get(null);
+
+        final Object baseArgb = baseEnum.getEnumConstants()[1];
+        final Object patArgb = patEnum.getEnumConstants()[1];
+        final int[][] seedDims = {
+            {512, 512},
+            {256, 256},
+            {320, 320},
+            {320, 320},
+            {320, 320},
+            {320, 320},
+            {320, 320},
+            {320, 320},
+            {320, 320},
+            {320, 320}
+        };
+        seedPoolCandidates(baselineLoader, baseArg.rootGl(), baseArgb, seedDims);
+        seedPoolCandidates(rewrittenLoader, patArg.rootGl(), patArgb, seedDims);
+
+        // Request 280x280: 256x256 is too small, first 320x320 has minimal excess (40*40=1600 < 232*232).
+        final var lookup = java.lang.invoke.MethodHandles.publicLookup();
+        final var acquireType = java.lang.invoke.MethodType.methodType(
+                Object.class, Object.class, Object.class, int.class, int.class, Object.class, boolean.class);
+        final java.lang.invoke.MethodHandle baseHandle =
+                lookup.unreflect(baseAcquire).asType(acquireType);
+        final java.lang.invoke.MethodHandle patHandle =
+                lookup.unreflect(patAcquire).asType(acquireType);
+
+        final Object baseLease = (Object) baseHandle.invokeExact(basePool, baseArg.context(), 280, 280, baseArgb, true);
+        final Object patLease = (Object) patHandle.invokeExact(patPool, patArg.context(), 280, 280, patArgb, true);
+        final Object baseTex = baseLease.getClass().getMethod("b").invoke(baseLease);
+        final Object patTex = patLease.getClass().getMethod("b").invoke(patLease);
+        assertEquals(
+                baseTex.getClass().getMethod("getWidth").invoke(baseTex),
+                patTex.getClass().getMethod("getWidth").invoke(patTex),
+                version);
+        assertEquals(
+                baseTex.getClass().getMethod("getHeight").invoke(baseTex),
+                patTex.getClass().getMethod("getHeight").invoke(patTex),
+                version);
+
+        // Warm up acquire MethodHandles before comparing single-pass vs baseline candidate-list allocations.
+        for (int w = 0; w < 6; w++) {
+            final Object bWarm = (Object) baseHandle.invokeExact(basePool, baseArg.context(), 280, 280, baseArgb, true);
+            final Object pWarm = (Object) patHandle.invokeExact(patPool, patArg.context(), 280, 280, patArgb, true);
+            assertNotNull(bWarm);
+            assertNotNull(pWarm);
+        }
+        final com.sun.management.ThreadMXBean allocMx =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        final long tid = Thread.currentThread().getId();
+        allocMx.getThreadAllocatedBytes(tid);
+        final long baseStart = allocMx.getThreadAllocatedBytes(tid);
+        final Object bMeasured = (Object) baseHandle.invokeExact(basePool, baseArg.context(), 280, 280, baseArgb, true);
+        final long baseAlloc = allocMx.getThreadAllocatedBytes(tid) - baseStart;
+        final long patStart = allocMx.getThreadAllocatedBytes(tid);
+        final Object pMeasured = (Object) patHandle.invokeExact(patPool, patArg.context(), 280, 280, patArgb, true);
+        final long patAlloc = allocMx.getThreadAllocatedBytes(tid) - patStart;
+        assertNotNull(bMeasured);
+        assertNotNull(pMeasured);
+        assertTrue(
+                patAlloc < baseAlloc,
+                version + " pool lease must allocate less than ArrayList baseline: pat=" + patAlloc + " base="
+                        + baseAlloc);
+    }
+
+    private static Path resolveArtifact(final Path root, final String version) {
+        final String override = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (!override.isBlank()) {
+            return Path.of(override);
+        }
+        return root.resolve(version).resolve(CUBISM_JAR);
+    }
+
+    private record PoolTestArgs(Object context, Object rootGl) {}
+
+    private static PoolTestArgs newPoolTestArgs(final HostClassLoader loader) throws Exception {
+        final Class<?> gl3Interface = Class.forName("com.jogamp.opengl.GL3", true, loader);
+        final ProtectionDomain domain = Class.forName(
+                        RenderTextureColorPoolTransformer.POOL_LEASE_OWNER.replace('/', '.'), false, loader)
+                .getProtectionDomain();
+        loader.installExtraOverride(TEST_GL3_DOT, buildTestGl3Stub(), domain);
+        final Object gl3 = Class.forName(TEST_GL3_DOT, true, loader)
+                .getConstructor(int.class)
+                .newInstance(GL_NO_ERROR);
+        final Class<?> ctxClass = Class.forName("com.live2d.graphics3d.a", true, loader);
+        final Object ctx = getUnsafe().allocateInstance(ctxClass);
+        final var field = findFirstField(ctxClass, gl3Interface);
+        field.setAccessible(true);
+        field.set(ctx, gl3);
+        return new PoolTestArgs(ctx, gl3);
+    }
+
+    private static sun.misc.Unsafe getUnsafe() throws Exception {
+        final var f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+        f.setAccessible(true);
+        return (sun.misc.Unsafe) f.get(null);
+    }
+
+    private static java.lang.reflect.Field findFirstField(final Class<?> type, final Class<?> fieldType) {
+        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
+            for (final var f : c.getDeclaredFields()) {
+                if (fieldType.isAssignableFrom(f.getType())) return f;
+            }
+        }
+        throw new IllegalStateException("field missing: " + fieldType);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void seedPoolCandidates(
+            final ClassLoader loader, final Object rootGl, final Object presetColor, final int[][] dims)
+            throws Exception {
+        final Class<?> poolClass =
+                Class.forName(RenderTextureColorPoolTransformer.POOL_LEASE_OWNER.replace('/', '.'), true, loader);
+        final var mapField = poolClass.getDeclaredField("c");
+        mapField.setAccessible(true);
+        final var map = (java.util.HashMap<Object, Object>) mapField.get(null);
+        final Class<?> entryClass = Class.forName("com.live2d.graphics3d.rendering.b$a", true, loader);
+        final Class<?> glInterface = Class.forName("com.jogamp.opengl.GL", true, loader);
+        final Object entry = entryClass.getDeclaredConstructor(glInterface).newInstance(rootGl);
+        map.put(rootGl, entry);
+        final var freeSet =
+                (java.util.HashSet<Object>) entryClass.getMethod("e").invoke(entry);
+        final Class<?> leaseClass = Class.forName("com.live2d.graphics3d.rendering.a", true, loader);
+        final Class<?> presetClass = Class.forName(
+                RenderTextureColorPoolTransformer.PRESET_COLOR_TYPE_OWNER.replace('/', '.'), true, loader);
+        for (final int[] d : dims) {
+            final Object lease = leaseClass.getDeclaredConstructor(glInterface).newInstance(rootGl);
+            final Object tex = leaseClass.getMethod("b").invoke(lease);
+            tex.getClass().getMethod("setWidth", int.class).invoke(tex, d[0]);
+            tex.getClass().getMethod("setHeight", int.class).invoke(tex, d[1]);
+            tex.getClass().getMethod("setPresetColorType", presetClass).invoke(tex, presetColor);
+            tex.getClass().getMethod("setUseStencilBuffer", boolean.class).invoke(tex, true);
+            freeSet.add(lease);
         }
     }
 

@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.RandomAccess;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -73,6 +75,9 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     /** Slot for the {@code Predicate<Object>} end-clipping release consult. */
     public static final String RELEASE_PROPERTY = "turboism.clip-mask-dedupe.release";
 
+    /** Slot for the {@code Runnable} frame-render entry depth bracket. */
+    public static final String FRAME_ENTER_PROPERTY = "turboism.clip-mask-dedupe.frame-enter";
+
     /** Slot for the {@code Runnable} frame boundary. */
     public static final String FRAME_PROPERTY = "turboism.clip-mask-dedupe.frame";
 
@@ -81,6 +86,10 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
 
     private static final int MAX_HELD_LEASES = 128;
     private static final int MAX_FRAME_RENDERERS = 4096;
+    private static final long DIGEST_SEED = 0x9E3779B97F4A7C15L;
+    private static final long FNV_PRIME = 0x100000001B3L;
+    private static final long DIGEST_LENGTH_MULTIPLIER = 31L;
+    private static final Object[] EMPTY_MASKS = new Object[0];
 
     private static volatile ClipMaskDeduplicationBridge current;
 
@@ -93,6 +102,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     private final MethodHandle getInvert;
     private final MethodHandle getEntity;
     private final MethodHandle getComponents;
+    private final MethodHandle getComponentList;
     private final MethodHandle getCurMaterial;
     private final MethodHandle setTexture;
     private final MethodHandle setVector2;
@@ -112,6 +122,8 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     private final DigestTable currentFrameMasks = new DigestTable(64);
     private final Map<Object, ResolvedClip> resolvedRenderers = new IdentityHashMap<>(64);
     private final Set<Object> heldLeases = Collections.newSetFromMap(new IdentityHashMap<>(64));
+    private final ArrayList<Object> heldLeaseList = new ArrayList<>(16);
+    private final ThreadLocal<int[]> renderDepth = ThreadLocal.withInitial(() -> new int[1]);
 
     // Metrics
     private final LongAdder frames = new LongAdder();
@@ -128,26 +140,30 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     private final BiPredicate<Object, Object> passEntry = this::onPassEntry;
     private final BiConsumer<Object, Object> passExit = this::onPassExit;
     private final Predicate<Object> releaseConsult = this::onReleaseConsult;
-    private final Runnable frameBoundary = this::onFrameBoundary;
+    private final Runnable frameEnter = this::onFrameEnter;
+    private final Runnable frameBoundary = this::onFrameBoundaryExit;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
 
     /**
      * One renderer's structural clip state for the current frame.
      *
      * <p>{@code remove} and the clipping component come from the entity's component list, which
-     * the host does not mutate while it renders; the mask list and digest are refreshed on every
-     * consult so a swapped mask set is never deduplicated against the previous one.</p>
+     * the host does not mutate while it renders; the mask snapshot and digest are refreshed on
+     * every consult using indexed reads so a swapped mask set is never deduplicated against the
+     * previous one.</p>
      */
     private static final class ResolvedClip {
         final Object clipping;
         final boolean remove;
-        List<?> masks;
+        Object[] masks;
+        int maskCount;
         long digest;
 
         ResolvedClip(final Object clipping, final boolean remove) {
             this.clipping = clipping;
             this.remove = remove;
-            this.masks = List.of();
+            this.masks = EMPTY_MASKS;
+            this.maskCount = 0;
             this.digest = 0L;
         }
     }
@@ -190,6 +206,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             throw new NoSuchMethodException("getComponents returning non-List Components on GEntity");
         }
         getComponents = HostHandles.virtual(componentsGetter, MethodType.methodType(Object.class, Object.class));
+        getComponentList = resolveComponentListHandle(componentsGetter.getReturnType());
 
         final Class<?> materialClass = HostHandles.load(loader, "com/live2d/graphics3d/material/GMaterial");
         final Class<?> textureClass = HostHandles.load(loader, "com/live2d/graphics3d/texture/GTexture");
@@ -314,6 +331,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             if (properties.containsKey(DEDUPE_PROPERTY)
                     || properties.containsKey(RECORD_PROPERTY)
                     || properties.containsKey(RELEASE_PROPERTY)
+                    || properties.containsKey(FRAME_ENTER_PROPERTY)
                     || properties.containsKey(FRAME_PROPERTY)) {
                 active.set(false);
                 throw new IllegalStateException("clip mask deduplication slots occupied");
@@ -321,6 +339,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             properties.put(DEDUPE_PROPERTY, passEntry);
             properties.put(RECORD_PROPERTY, passExit);
             properties.put(RELEASE_PROPERTY, releaseConsult);
+            properties.put(FRAME_ENTER_PROPERTY, frameEnter);
             properties.put(FRAME_PROPERTY, frameBoundary);
             properties.put(STATS_PROPERTY, statistics);
             installedProperties = properties;
@@ -336,12 +355,14 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
                 installedProperties.remove(DEDUPE_PROPERTY, passEntry);
                 installedProperties.remove(RECORD_PROPERTY, passExit);
                 installedProperties.remove(RELEASE_PROPERTY, releaseConsult);
+                installedProperties.remove(FRAME_ENTER_PROPERTY, frameEnter);
                 installedProperties.remove(FRAME_PROPERTY, frameBoundary);
                 installedProperties.remove(STATS_PROPERTY, statistics);
                 installedProperties = null;
             }
         }
         onFrameBoundary();
+        renderDepth.remove();
         if (current == this) current = null;
     }
 
@@ -373,9 +394,9 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (!active.get() || renderSystem == null || renderer == null) return false;
         try {
             final ResolvedClip resolved = resolveRenderer(renderer);
-            if (resolved == null || resolved.masks.isEmpty()) return false;
+            if (resolved == null || resolved.maskCount == 0) return false;
 
-            final CachedMaskEntry cached = frameMask(resolved.digest);
+            final CachedMaskEntry cached = frameMask(frameMaskKey(renderSystem, resolved.digest));
             if (cached != null) {
                 final Object curMaterial = getCurMaterial.invokeExact(renderer);
                 if (curMaterial != null) {
@@ -404,8 +425,9 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             final Object lease = renderSystemLease.get(renderSystem);
             if (lease == null) return;
             final ResolvedClip resolved = resolveRenderer(renderer);
-            if (resolved == null || resolved.masks.isEmpty()) return;
-            if (frameMask(resolved.digest) != null) return;
+            if (resolved == null || resolved.maskCount == 0) return;
+            final long frameKey = frameMaskKey(renderSystem, resolved.digest);
+            if (frameMask(frameKey) != null) return;
             if (heldLeases.size() >= MAX_HELD_LEASES) return;
             final Object renderTexture = getRenderTexture.invokeExact(lease);
             if (renderTexture == null) return;
@@ -414,8 +436,10 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
             if (width <= 0 || height <= 0) return;
             final Object scale = gVector2Constructor.invokeExact(1.0f / (float) width, 1.0f / (float) height);
 
-            currentFrameMasks.put(resolved.digest, new CachedMaskEntry(lease, renderTexture, scale));
-            heldLeases.add(lease);
+            currentFrameMasks.put(frameKey, new CachedMaskEntry(lease, renderTexture, scale));
+            if (heldLeases.add(lease)) {
+                heldLeaseList.add(lease);
+            }
             distinctMaskSets.increment();
             heldPeak.getAndUpdate(peak -> Math.max(peak, heldLeases.size()));
             dedupeMisses.increment();
@@ -448,10 +472,25 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     /**
      * Frame boundary: releases all held leases back to the pool and drops every per-frame cache.
      */
+    private void onFrameEnter() {
+        renderDepth.get()[0]++;
+    }
+
+    private void onFrameBoundaryExit() {
+        final int[] depth = renderDepth.get();
+        if (depth[0] > 0) {
+            depth[0]--;
+        }
+        if (depth[0] == 0) {
+            onFrameBoundary();
+        }
+    }
+
     private void onFrameBoundary() {
         final ClipMaskScissorBridge scissorBridge = scissor;
         try {
-            for (final Object lease : heldLeases) {
+            for (int index = 0, count = heldLeaseList.size(); index < count; index++) {
+                final Object lease = heldLeaseList.get(index);
                 try {
                     poolRelease.invokeExact(poolInstance, lease);
                 } catch (Throwable failure) {
@@ -460,6 +499,7 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
                 }
             }
         } finally {
+            heldLeaseList.clear();
             heldLeases.clear();
             currentFrameMasks.clear();
             resolvedRenderers.clear();
@@ -471,9 +511,9 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
     /**
      * Resolves the renderer's clipping component once per frame and refreshes its mask digest.
      *
-     * <p>The mask list is re-read on every consult and compared with the cached one, so a host
-     * that swaps the clipping's masks still gets a fresh digest; only the component walk and the
-     * {@code isRemove} probe are memoized.</p>
+     * <p>The mask list is re-read on every consult and compared against an element snapshot without
+     * iterators, so a host that swaps the clipping's masks still gets a fresh digest; only the
+     * component walk and the {@code isRemove} probe are memoized.</p>
      */
     private ResolvedClip resolveRenderer(final Object renderer) throws Throwable {
         ResolvedClip resolved = resolvedRenderers.get(renderer);
@@ -491,20 +531,42 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         if (resolved == NO_CLIP || resolved.remove) return null;
         final Object masksValue = getValidMasks.invokeExact(resolved.clipping);
         final List<?> masks = masksValue instanceof List<?> list ? list : List.of();
-        if (!masks.equals(resolved.masks)) {
-            resolved.masks = masks;
+        if (!masksMatch(masks, resolved.masks, resolved.maskCount)) {
+            snapshotMasks(masks, resolved);
             resolved.digest = digestOf(masks);
         }
         return resolved;
+    }
+
+    private static MethodHandle resolveComponentListHandle(final Class<?> componentsType) {
+        try {
+            final Method getter = componentsType.getMethod("a");
+            if (List.class.isAssignableFrom(getter.getReturnType())) {
+                return HostHandles.virtual(getter, MethodType.methodType(Object.class, Object.class));
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Test stubs may implement Iterable directly on the components container.
+        }
+        return null;
     }
 
     private Object findClipping(final Object renderer) throws Throwable {
         final Object entity = getEntity.invokeExact(renderer);
         if (entity == null) return null;
         final Object components = getComponents.invokeExact(entity);
-        if (!(components instanceof Iterable<?> iterable)) return null;
-        for (final Object component : iterable) {
-            if (clippingType.isInstance(component)) return component;
+        if (components == null) return null;
+        final Object container = getComponentList != null ? getComponentList.invokeExact(components) : components;
+        if (container instanceof List<?> list && container instanceof RandomAccess) {
+            for (int index = 0, size = list.size(); index < size; index++) {
+                final Object component = list.get(index);
+                if (clippingType.isInstance(component)) return component;
+            }
+            return null;
+        }
+        if (container instanceof Iterable<?> iterable) {
+            for (final Object component : iterable) {
+                if (clippingType.isInstance(component)) return component;
+            }
         }
         return null;
     }
@@ -534,12 +596,67 @@ public final class ClipMaskDeduplicationBridge implements AutoCloseable {
         return (CachedMaskEntry) currentFrameMasks.get(digest);
     }
 
-    static long digestOf(final List<?> masks) {
-        long digest = 0x9E3779B97F4A7C15L;
-        for (final Object mask : masks) {
-            digest = (digest ^ System.identityHashCode(mask)) * 0x100000001B3L;
+    static long frameMaskKey(final Object renderSystem, final long digest) {
+        return (digest ^ (System.identityHashCode(renderSystem) * DIGEST_SEED)) * FNV_PRIME;
+    }
+
+    private static boolean masksMatch(final List<?> masks, final Object[] snapshot, final int count) {
+        if (masks.size() != count) return false;
+        if (masks instanceof RandomAccess) {
+            for (int index = 0; index < count; index++) {
+                final Object item = masks.get(index);
+                final Object cached = snapshot[index];
+                if (item != cached && !Objects.equals(item, cached)) return false;
+            }
+            return true;
         }
-        return (digest * 31L) + masks.size();
+        int index = 0;
+        for (final Object item : masks) {
+            final Object cached = snapshot[index++];
+            if (item != cached && !Objects.equals(item, cached)) return false;
+        }
+        return true;
+    }
+
+    private static void snapshotMasks(final List<?> masks, final ResolvedClip resolved) {
+        final int count = masks.size();
+        if (count == 0) {
+            if (resolved.maskCount > 0) {
+                Arrays.fill(resolved.masks, 0, resolved.maskCount, null);
+                resolved.maskCount = 0;
+            }
+            return;
+        }
+        if (resolved.masks.length < count) {
+            resolved.masks = new Object[count];
+        } else if (resolved.maskCount > count) {
+            Arrays.fill(resolved.masks, count, resolved.maskCount, null);
+        }
+        if (masks instanceof RandomAccess) {
+            for (int index = 0; index < count; index++) {
+                resolved.masks[index] = masks.get(index);
+            }
+        } else {
+            int index = 0;
+            for (final Object item : masks) {
+                resolved.masks[index++] = item;
+            }
+        }
+        resolved.maskCount = count;
+    }
+
+    static long digestOf(final List<?> masks) {
+        long digest = DIGEST_SEED;
+        if (masks instanceof RandomAccess) {
+            for (int index = 0, size = masks.size(); index < size; index++) {
+                digest = (digest ^ System.identityHashCode(masks.get(index))) * FNV_PRIME;
+            }
+        } else {
+            for (final Object mask : masks) {
+                digest = (digest ^ System.identityHashCode(mask)) * FNV_PRIME;
+            }
+        }
+        return (digest * DIGEST_LENGTH_MULTIPLIER) + masks.size();
     }
 
     /**

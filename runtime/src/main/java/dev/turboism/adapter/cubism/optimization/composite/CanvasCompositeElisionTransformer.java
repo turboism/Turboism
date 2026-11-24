@@ -133,11 +133,11 @@ public final class CanvasCompositeElisionTransformer implements ClassFileTransfo
                 failure = "canvas composite method shape changed: " + name;
                 return null;
             }
-            final ClassReader reader = new ClassReader(bytes);
+            final ClassReader reader = HostClassWriters.newClassReader(bytes);
             final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final boolean[] applied = {false};
             reader.accept(
-                    new ClassVisitor(Opcodes.ASM9, writer) {
+                    HostClassWriters.preservingClassVersion(bytes, new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
                         public MethodVisitor visitMethod(
                                 final int access,
@@ -166,7 +166,7 @@ public final class CanvasCompositeElisionTransformer implements ClassFileTransfo
                             }
                             return visitor;
                         }
-                    },
+                    }),
                     ClassReader.EXPAND_FRAMES);
             if (!applied[0]) {
                 failure = "canvas composite elision anchor drift on " + name;

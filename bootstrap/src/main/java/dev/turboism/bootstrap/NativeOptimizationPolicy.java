@@ -83,7 +83,9 @@ final class NativeOptimizationPolicy {
     }
 
     static boolean mesaGlThreadEnabled(final HookEnvironment environment) {
-        return requested(environment, OptimizationCatalog.MESA_GL_THREAD);
+        final boolean enabled = requested(environment, OptimizationCatalog.MESA_GL_THREAD);
+        dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer.setConfiguredDefault(enabled);
+        return enabled;
     }
 
     static boolean asyncReadbackEnabled(final HookEnvironment environment) {

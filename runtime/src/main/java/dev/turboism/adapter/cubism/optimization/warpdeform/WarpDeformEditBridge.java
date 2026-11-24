@@ -84,6 +84,21 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     /** {@code MethodHandle} slot: {@code (jView) -> void}. */
     public static final String EDIT_LEGACY_OVERLAY_RECORD_PROPERTY = "turboism.warp-deform-edit.legacy-overlay-record";
 
+    /** {@code MethodHandle} slot: {@code (defaultPositions, warpDeformer, len) -> float[]} (reused or null). */
+    public static final String WARP_REINIT_POS_PROPERTY = "turboism.warp-deform-edit.warp-reinit-pos";
+
+    /** {@code MethodHandle} slot: {@code (slotIndex) -> float[2]} scratch buffer (or null on fallback). */
+    public static final String ROT_SCRATCH_PROPERTY = "turboism.warp-deform-edit.rot-scratch";
+
+    /** {@code MethodHandle} slot: {@code (viewHolder) -> boolean} for {@code updateSelectionDraw} elision. */
+    public static final String EDIT_SELECTION_DRAW_ELIDE_PROPERTY = "turboism.warp-deform-edit.selection-draw-elide";
+
+    /** {@code MethodHandle} slot: {@code (viewHolder) -> void} recording volatile draw entities. */
+    public static final String EDIT_SELECTION_DRAW_RECORD_PROPERTY = "turboism.warp-deform-edit.selection-draw-record";
+
+    /** {@code MethodHandle} slot: {@code (drawEntity, actionPack, selected, glued) -> boolean} mesh update elision. */
+    public static final String EDIT_SELECTION_MESH_ELIDE_PROPERTY = "turboism.warp-deform-edit.selection-mesh-elide";
+
     /** Diagnostic counter snapshot slot ({@code Supplier<Map<String, Long>>}). */
     public static final String STATS_PROPERTY = "turboism.warp-deform-edit.stats";
 
@@ -164,13 +179,21 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private static final String STAT_PARALLEL_MESH_BATCHES = "parallelMeshBatches";
     private static final String STAT_OVERLAY_ELISIONS = "overlayElisions";
     private static final String STAT_OVERLAY_UPDATES = "overlayUpdates";
+    private static final String STAT_WARP_REINIT_REUSED = "warpReinitPosReused";
+    private static final String STAT_ROT_SCRATCH_USED = "rotScratchReused";
+    private static final String STAT_SELECTION_DRAW_ELISIONS = "selectionDrawElisions";
+    private static final String STAT_SELECTION_DRAW_UPDATES = "selectionDrawUpdates";
+    private static final String STAT_SELECTION_MESH_ELISIONS = "selectionMeshElisions";
     private static final String STAT_FAILURES = "failures";
+    private static final int ROT_SCRATCH_SLOTS = 8;
 
     private static final ThreadLocal<double[]> DOUBLE2_SCRATCH = ThreadLocal.withInitial(() -> new double[2]);
     private static final ThreadLocal<float[]> FLOAT2_SCRATCH = ThreadLocal.withInitial(() -> new float[2]);
     private static final ThreadLocal<float[]> CORNER_SCRATCH =
             ThreadLocal.withInitial(() -> new float[CORNER_POSITION_FLOATS]);
     private static final ThreadLocal<float[]> WEIGHT_SCRATCH = new ThreadLocal<>();
+    private static final ThreadLocal<float[][]> ROT_SCRATCH =
+            ThreadLocal.withInitial(() -> new float[ROT_SCRATCH_SLOTS][2]);
 
     private static volatile boolean configuredDefault = true;
 
@@ -277,6 +300,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final WeakIdentityCache<Object, FloatArraySnapshot> selectedBufferCache = new WeakIdentityCache<>();
     private final WeakIdentityCache<Object, WeightMapOverlayState> weightMapCache = new WeakIdentityCache<>();
     private final ClassLoader hostLoader;
+    private final EditSubtreeHandles subtreeHandles;
     private final SubtreeParallelExecutor parallelExecutor;
     private final EditSubtreeCoordinator editSubtreeCoordinator;
     private final EditOverlayElisionCoordinator editOverlayCoordinator;
@@ -298,6 +322,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final LongAdder selectedUploadElided = new LongAdder();
     private final LongAdder softSelectionCalls = new LongAdder();
     private final LongAdder overlayUploadsElided = new LongAdder();
+    private final LongAdder warpReinitPosReused = new LongAdder();
+    private final LongAdder rotScratchReused = new LongAdder();
     private final LongAdder failures = new LongAdder();
 
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
@@ -600,9 +626,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             throw new ReflectiveOperationException("Failed reading host static constants", failure);
         }
 
-        final SubtreeParallelExecutor executor = new SubtreeParallelExecutor(loader);
+        final SubtreeParallelExecutor executor = new SubtreeParallelExecutor();
         try {
-            final EditSubtreeHandles subtreeHandles = EditSubtreeHandles.resolve(loader);
+            subtreeHandles = EditSubtreeHandles.resolve(loader);
             parallelExecutor = executor;
             editSubtreeCoordinator = new EditSubtreeCoordinator(subtreeHandles, executor);
             editOverlayCoordinator = new EditOverlayElisionCoordinator(subtreeHandles, editSubtreeCoordinator);
@@ -694,6 +720,11 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         counters.put(STAT_PARALLEL_MESH_BATCHES, editSubtreeCoordinator.parallelMeshBatches.sum());
         counters.put(STAT_OVERLAY_ELISIONS, editOverlayCoordinator.overlayElisions.sum());
         counters.put(STAT_OVERLAY_UPDATES, editOverlayCoordinator.overlayUpdates.sum());
+        counters.put(STAT_WARP_REINIT_REUSED, warpReinitPosReused.sum());
+        counters.put(STAT_ROT_SCRATCH_USED, rotScratchReused.sum());
+        counters.put(STAT_SELECTION_DRAW_ELISIONS, editOverlayCoordinator.selectionDrawElisions.sum());
+        counters.put(STAT_SELECTION_DRAW_UPDATES, editOverlayCoordinator.selectionDrawUpdates.sum());
+        counters.put(STAT_SELECTION_MESH_ELISIONS, editOverlayCoordinator.selectionMeshElisions.sum());
         counters.put(STAT_FAILURES, failures.sum());
         return Map.copyOf(counters);
     }
@@ -853,6 +884,28 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         slots.put(
                 EDIT_LEGACY_OVERLAY_RECORD_PROPERTY,
                 lookup.bind(this, "recordLegacyDeformerOverlay", MethodType.methodType(void.class, Object.class)));
+        slots.put(
+                WARP_REINIT_POS_PROPERTY,
+                lookup.bind(
+                        this,
+                        "reinitWarpPositions",
+                        MethodType.methodType(float[].class, Object.class, Object.class, int.class)));
+        slots.put(
+                ROT_SCRATCH_PROPERTY,
+                lookup.bind(this, "rotationScratch", MethodType.methodType(float[].class, int.class)));
+        slots.put(
+                EDIT_SELECTION_DRAW_ELIDE_PROPERTY,
+                lookup.bind(this, "tryElideSelectionDraw", MethodType.methodType(boolean.class, Object.class)));
+        slots.put(
+                EDIT_SELECTION_DRAW_RECORD_PROPERTY,
+                lookup.bind(this, "recordSelectionDraw", MethodType.methodType(void.class, Object.class)));
+        slots.put(
+                EDIT_SELECTION_MESH_ELIDE_PROPERTY,
+                lookup.bind(
+                        this,
+                        "tryElideArtMeshSelectionUpdate",
+                        MethodType.methodType(
+                                boolean.class, Object.class, Object.class, boolean.class, boolean.class)));
         slots.put(STATS_PROPERTY, statistics);
         return Map.copyOf(slots);
     }
@@ -930,6 +983,61 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         editOverlayCoordinator.recordLegacyOverlayLoop(viewOverlay);
     }
 
+    private float[] reinitWarpPositions(final Object defaultPositionsObj, final Object deformerObj, final int length) {
+        if (!isOperational()
+                || !(defaultPositionsObj instanceof float[] srcPos)
+                || length != srcPos.length
+                || !warpDeformerClass.isInstance(deformerObj)) {
+            return null;
+        }
+        try {
+            final Object interpForm = subtreeHandles.acc.deformerGetInterpolatedForm(deformerObj);
+            if (interpForm == null) {
+                return null;
+            }
+            final float[] existing = subtreeHandles.acc.warpFormGetPositions(interpForm);
+            if (existing != null && existing != srcPos && existing.length == length) {
+                System.arraycopy(srcPos, 0, existing, 0, length);
+                warpReinitPosReused.increment();
+                return existing;
+            }
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            failures.increment();
+        }
+        return null;
+    }
+
+    private float[] rotationScratch(final int slotIndex) {
+        if (!isOperational() || slotIndex < 0 || slotIndex >= ROT_SCRATCH_SLOTS) {
+            return null;
+        }
+        rotScratchReused.increment();
+        return ROT_SCRATCH.get()[slotIndex];
+    }
+
+    private boolean tryElideSelectionDraw(final Object viewHolder) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editOverlayCoordinator.tryElideSelectionDraw(viewHolder);
+    }
+
+    private void recordSelectionDraw(final Object viewHolder) {
+        if (!isOperational()) {
+            return;
+        }
+        editOverlayCoordinator.recordSelectionDraw(viewHolder);
+    }
+
+    private boolean tryElideArtMeshSelectionUpdate(
+            final Object drawEntity, final Object actionPack, final boolean isSelected, final boolean isGlued) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editOverlayCoordinator.tryElideArtMeshSelectionUpdate(drawEntity, actionPack, isSelected, isGlued);
+    }
+
     private boolean isOperational() {
         final boolean enabled = active.get() && enabledByPreference();
         if (activeSlot.get() != enabled) {
@@ -943,6 +1051,11 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         lineCache.clear();
         selectedBufferCache.clear();
         weightMapCache.clear();
+        DOUBLE2_SCRATCH.remove();
+        FLOAT2_SCRATCH.remove();
+        CORNER_SCRATCH.remove();
+        WEIGHT_SCRATCH.remove();
+        ROT_SCRATCH.remove();
         editSubtreeCoordinator.clearCaches();
         editOverlayCoordinator.clearCaches();
     }

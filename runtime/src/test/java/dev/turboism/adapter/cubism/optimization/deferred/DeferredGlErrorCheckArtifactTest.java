@@ -35,7 +35,7 @@ class DeferredGlErrorCheckArtifactTest {
         final Path root = referenceRoot();
         int rewritten = 0;
         for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
-            final Path artifact = root.resolve(version).resolve("Live2D_Cubism.jar");
+            final Path artifact = resolveArtifact(root, version);
             if (!Files.isRegularFile(artifact)) continue;
             final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
             final DeferredGlErrorCheckTarget target = DeferredGlErrorCheckTarget.of(digest)
@@ -56,6 +56,16 @@ class DeferredGlErrorCheckArtifactTest {
                 assertNotNull(frame, version + ": " + transformer.failure());
                 assertNull(transformer.failure(), version);
                 assertEquals(2, transformer.matches(), version);
+
+                final DeferredGlErrorCheckTransformer standalone = new DeferredGlErrorCheckTransformer(
+                        loader, artifact, errorReference, frameReference, target, true);
+                final byte[] standaloneError =
+                        standalone.transform(null, loader, target.errorOwner(), null, domain, errorReference);
+                assertNotNull(standaloneError, version + " standalone error: " + standalone.failure());
+                final byte[] standaloneFrame =
+                        standalone.transform(null, loader, target.frameOwner(), null, domain, frameReference);
+                assertNotNull(standaloneFrame, version + " standalone frame: " + standalone.failure());
+                assertEquals(2, standalone.matches(), version + " standalone matches");
             }
             rewritten++;
             System.out.println("DEFERRED_GL artifact transform PASS version=" + version);
@@ -82,6 +92,14 @@ class DeferredGlErrorCheckArtifactTest {
                 return input.readAllBytes();
             }
         }
+    }
+
+    private static Path resolveArtifact(final Path root, final String version) {
+        final String override = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (!override.isBlank()) {
+            return Path.of(override);
+        }
+        return root.resolve(version).resolve("Live2D_Cubism.jar");
     }
 
     private static Path referenceRoot() {
