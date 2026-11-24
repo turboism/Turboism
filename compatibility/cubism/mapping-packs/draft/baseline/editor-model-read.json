@@ -17739,6 +17739,24 @@
       "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;)V"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_05.object_context_menu.method.workspace_menu_append",
+      "kind": "method",
+      "owner": "editor-model-object-context-menu",
+      "name": "object-context-menu.workspace.menu.append",
+      "runtime": "a",
+      "profile": "cubism-${version}",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/k"
+      },
+      "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;Ljava/awt/GridBagConstraints;)V"
+    },
+    {
       "semanticName": "cubism.mapping.v5_2_03.object_context_menu.method.menu_component",
       "name": "object-context-menu.menu.component",
       "kind": "method",

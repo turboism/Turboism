@@ -8243,6 +8243,12 @@
         "template": 92
       }
     ],
+    "object-context-menu.workspace.menu.append": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
+        "template": 93
+      }
+    ],
     "object-context-menu.workspace.selected": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",

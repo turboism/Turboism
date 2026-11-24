@@ -922,7 +922,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     }
                     final dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess nativeAccess =
                             new dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess(
-                                    resolver, hostGeneration, () -> menuBindingIdentity(modelAccess));
+                                    resolver, hostGeneration, () -> menuBindingIdentity(modelAccess), effectiveLocale);
                     menuGeneration = hostGeneration;
                     menuHandler = new dev.turboism.ui.context.VerifiedObjectContextMenuHostOperations(
                             nativeAccess, nativeAccess, nativeAccess::appendPersistent);
@@ -995,7 +995,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                         final long hostGeneration) {
                     final var host = menuHandler(hostGeneration);
                     final var nativeAccess = new dev.turboism.ui.context.VerifiedObjectContextMenuNativeAccess(
-                            resolver, hostGeneration, () -> menuBindingIdentity(modelAccess));
+                            resolver, hostGeneration, () -> menuBindingIdentity(modelAccess), effectiveLocale);
                     return dev.turboism.ui.context.NativeParameterPointContextMenuBridge.handler(host, nativeAccess);
                 }
 

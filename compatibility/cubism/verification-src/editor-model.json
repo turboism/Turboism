@@ -50087,6 +50087,36 @@
           "id": "cubism.mapping.v5_3_05.official_export.display_info_format"
         }
       ]
+    },
+    {
+      "base": {
+        "alias": "object-context-menu.workspace.menu.append",
+        "kind": "method",
+        "ownerInternalName": "com/live2d/ui/menu/k",
+        "memberName": "a",
+        "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;Ljava/awt/GridBagConstraints;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-",
+      "mappingId": [
+        {
+          "versions": "5.0.00-",
+          "id": "cubism.mapping.v5_3_05.object_context_menu.method.workspace_menu_append"
+        }
+      ]
     }
   ],
   "selectorOrder": [
@@ -51125,6 +51155,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -52206,6 +52237,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -53289,6 +53321,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -54373,6 +54406,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -55487,6 +55521,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -56608,6 +56643,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -57734,6 +57770,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -58735,6 +58772,7 @@
         1046,
         1027,
         1031,
+        1245,
         1032,
         1029,
         1033,
@@ -60013,6 +60051,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -61072,6 +61111,7 @@
         1046,
         1027,
         1031,
+        1245,
         1032,
         1029,
         1033,
@@ -62245,6 +62285,7 @@
         1046,
         1027,
         1031,
+        1245,
         1032,
         1029,
         1033,
@@ -63490,6 +63531,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,
@@ -64652,6 +64694,7 @@
         1029,
         1030,
         1031,
+        1245,
         1032,
         1033,
         1034,

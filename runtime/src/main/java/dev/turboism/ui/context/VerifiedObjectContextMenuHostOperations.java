@@ -72,6 +72,7 @@ public final class VerifiedObjectContextMenuHostOperations
                                                 + selection.items().size()));
                 return menu;
             }
+            boolean firstMatch = true;
             for (Entry entry : entries) {
                 final boolean matches = entry.contribution().matches(selection);
                 dev.turboism.runtime.log.RuntimeDiagnostics.info(
@@ -80,6 +81,10 @@ public final class VerifiedObjectContextMenuHostOperations
                                 + " matches=" + matches
                                 + " kinds=" + selection.items());
                 if (matches) {
+                    if (firstMatch) {
+                        appender.begin(menu, location);
+                        firstMatch = false;
+                    }
                     appender.append(
                             menu,
                             entry.contribution(),
@@ -149,6 +154,9 @@ public final class VerifiedObjectContextMenuHostOperations
     /** Appends one contributed item to a transient (per-show) native menu. */
     @FunctionalInterface
     public interface NativeAppender {
+        /** Prepares the native menu when a contribution matches the selection. */
+        default void begin(final Object menu, final Location location) {}
+
         /**
          * @param menu the native menu being built
          * @param contribution the contribution to append
