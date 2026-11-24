@@ -24,7 +24,7 @@ import java.util.Set;
 final class TextureRegionSegmenter {
 
     /** Felzenszwalb observation scale; the reference implementation divides it by the 8-bit range. */
-    static final double GRAPH_SCALE = 100.0;
+    static final double GRAPH_SCALE = 50.0;
 
     /** Smoothing width applied before edge weights are taken. */
     static final double SMOOTHING_SIGMA = 0.6;
@@ -32,20 +32,32 @@ final class TextureRegionSegmenter {
     /** Kernel truncation width in standard deviations. */
     static final double GAUSSIAN_TRUNCATE = 4.0;
 
-    /** Smallest accepted component size of the initial graph cut, in pixels. */
-    static final int MIN_COMPONENT_SIZE = 100;
+    /** Minimum component size floor of the initial graph cut, in pixels. */
+    static final int MIN_COMPONENT_FLOOR = 24;
+
+    /** Minimum component size ceiling of the initial graph cut, in pixels. */
+    static final int MIN_COMPONENT_CEILING = 80;
+
+    /** Solid pixel divisor that scales initial component size to the artwork. */
+    static final int COMPONENT_AREA_DIVISOR = 500;
 
     /** Floor of the small-region area threshold, in pixels. */
-    static final int MIN_AREA_FLOOR_PIXELS = 100;
+    static final int MIN_AREA_FLOOR_PIXELS = 24;
+
+    /** Pixel area below which a fragment counts as raster noise and merges aggressively. */
+    static final int MIN_NOISE_PIXELS = 24;
 
     /** Colour-distance multiplier of the finest merge level. */
-    static final double FINE_THRESHOLD_SCALE = 0.65;
+    static final double FINE_THRESHOLD_SCALE = 0.60;
 
     /** Colour-distance multiplier of the coarsest merge level. */
-    static final double COARSE_THRESHOLD_SCALE = 1.5;
+    static final double COARSE_THRESHOLD_SCALE = 1.45;
 
-    /** Divisor that makes below-threshold regions merge before their larger neighbours. */
+    /** Divisor that makes below-noise fragments merge before their larger neighbours. */
     static final double SMALL_AREA_WEIGHT_DIVISOR = 1000.0;
+
+    /** Gentle weight divisor for regions above noise floor yet below {@code minArea}. */
+    static final double SUB_THRESHOLD_WEIGHT_DIVISOR = 4.0;
 
     /** Highest colour distance an 8-bit sRGB pair can reach after smoothing. */
     static final double COST_SPAN = Math.sqrt(3.0);
@@ -63,10 +75,13 @@ final class TextureRegionSegmenter {
     static final double RIDGE_SALIENCE_SCALE = 18.0;
 
     /** Weight of the crease salience inside the pixel-pair cost of the graph cut. */
-    static final double RIDGE_COST_WEIGHT = 0.45;
+    static final double RIDGE_COST_WEIGHT = 0.65;
 
     /** CIELAB distance that a fully salient border adds to the merge dissimilarity. */
-    static final double RIDGE_MERGE_WEIGHT = 8.0;
+    static final double RIDGE_MERGE_WEIGHT = 16.0;
+
+    /** Weight of direct border pixel colour jump relative to region mean difference. */
+    static final double LOCAL_BORDER_COLOUR_WEIGHT = 0.85;
 
     /** Divisors of the Scharr kernel, which keeps the gradient on the 8-bit colour scale. */
     private static final double SCHARR_KERNEL_SUM = 32.0;
@@ -117,8 +132,11 @@ final class TextureRegionSegmenter {
     static Levels segment(final RegionRaster raster, final double minRegionRatio, final double contrast) {
         final int width = raster.width();
         final int height = raster.height();
+        final int solidCount = raster.solidCount();
+        final int minComponentSize =
+                Math.max(MIN_COMPONENT_FLOOR, Math.min(MIN_COMPONENT_CEILING, solidCount / COMPONENT_AREA_DIVISOR));
         final float[] salience = salience(raster.lab(), width, height);
-        final int[] graph = felzenszwalb(raster.rgb(), salience, width, height);
+        final int[] graph = felzenszwalb(raster.rgb(), salience, width, height, minComponentSize);
         final boolean[] mask = raster.mask();
         for (int i = 0; i < graph.length; i++) {
             // Region labels start at one so zero keeps one meaning: outside the silhouette.
@@ -126,7 +144,7 @@ final class TextureRegionSegmenter {
         }
         final int[] autonomous = splitDisconnected(graph, width, height);
         final float[] lab = raster.lab();
-        final int minArea = Math.max(MIN_AREA_FLOOR_PIXELS, (int) (raster.solidCount() * minRegionRatio));
+        final int minArea = Math.max(MIN_AREA_FLOOR_PIXELS, (int) (solidCount * minRegionRatio));
         final int[] fine = merge(autonomous, lab, salience, width, height, contrast * FINE_THRESHOLD_SCALE, minArea);
         final int[] medium = merge(fine, lab, salience, width, height, contrast, 0);
         final int[] coarse = merge(medium, lab, salience, width, height, contrast * COARSE_THRESHOLD_SCALE, 0);
@@ -240,7 +258,8 @@ final class TextureRegionSegmenter {
      *
      * @return labels {@code 0..k-1} in root order, one per pixel
      */
-    private static int[] felzenszwalb(final float[] rgb, final float[] salience, final int width, final int height) {
+    private static int[] felzenszwalb(
+            final float[] rgb, final float[] salience, final int width, final int height, final int minComponentSize) {
         final float[][] planes = smoothedPlanes(rgb, width, height);
         final EdgeGrid grid = new EdgeGrid(planes, salience, width, height);
         final int pixels = width * height;
@@ -274,7 +293,7 @@ final class TextureRegionSegmenter {
             if (rootA == rootB) {
                 continue;
             }
-            if (size[rootA] < MIN_COMPONENT_SIZE || size[rootB] < MIN_COMPONENT_SIZE) {
+            if (size[rootA] < minComponentSize || size[rootB] < minComponentSize) {
                 final int merged = join(parent, rootA, rootB);
                 size[merged] = size[rootA] + size[rootB];
             }
@@ -366,10 +385,10 @@ final class TextureRegionSegmenter {
             for (int x = 0; x < width; x++) {
                 final int cell = y * width + x;
                 if (x + 1 < width) {
-                    collect(adjacency, borders, labels, salience, cell, cell + 1);
+                    collect(adjacency, borders, labels, lab, salience, cell, cell + 1);
                 }
                 if (y + 1 < height) {
-                    collect(adjacency, borders, labels, salience, cell, cell + width);
+                    collect(adjacency, borders, labels, lab, salience, cell, cell + width);
                 }
             }
         }
@@ -430,13 +449,14 @@ final class TextureRegionSegmenter {
     /**
      * Records one adjacent pixel pair for the merge graph.
      *
-     * <p>The pair contributes its crease salience, so the merge weight of a border can tell a drawn
-     * line from a smooth shading ramp.</p>
+     * <p>The pair contributes peak crease salience and direct CIELAB jump so drawn lines and sharp
+     * local boundaries stay visible even across shaded regions.</p>
      */
     private static void collect(
             final List<Set<Integer>> adjacency,
             final Map<Long, Border> borders,
             final int[] labels,
+            final float[] lab,
             final float[] salience,
             final int first,
             final int second) {
@@ -449,7 +469,16 @@ final class TextureRegionSegmenter {
         if (low == 0) {
             return;
         }
-        borders.merge(pairKey(low, high), new Border(salience[first] + salience[second], 2L), Border::merge);
+        final double pairSalience = Math.max(salience[first], salience[second]);
+        final double pairColour = labDistance(lab, first, second);
+        borders.merge(pairKey(low, high), new Border(pairSalience, pairColour, 1L), Border::merge);
+    }
+
+    private static double labDistance(final float[] lab, final int first, final int second) {
+        final double dl = lab[3 * first] - lab[3 * second];
+        final double da = lab[3 * first + 1] - lab[3 * second + 1];
+        final double db = lab[3 * first + 2] - lab[3 * second + 2];
+        return Math.sqrt(dl * dl + da * da + db * db);
     }
 
     private static long pairKey(final int a, final int b) {
@@ -458,18 +487,27 @@ final class TextureRegionSegmenter {
         return ((long) low << 32) | (high & 0xFFFF_FFFFL);
     }
 
-    /** Accumulated crease salience over the pixels that two labels share. */
-    private record Border(double salience, long pixels) {
+    /** Accumulated crease salience and local colour jump over shared border pixel pairs. */
+    private record Border(double salience, double colourJump, long pixels) {
 
         static Border merge(final Border first, final Border second) {
             if (first == null) {
-                return second == null ? new Border(0.0, 0L) : second;
+                return second == null ? new Border(0.0, 0.0, 0L) : second;
             }
-            return second == null ? first : new Border(first.salience + second.salience, first.pixels + second.pixels);
+            return second == null
+                    ? first
+                    : new Border(
+                            first.salience + second.salience,
+                            first.colourJump + second.colourJump,
+                            first.pixels + second.pixels);
         }
 
-        double mean() {
+        double meanSalience() {
             return pixels == 0L ? 0.0 : salience / pixels;
+        }
+
+        double meanColourJump() {
+            return pixels == 0L ? 0.0 : colourJump / pixels;
         }
     }
 
@@ -493,10 +531,16 @@ final class TextureRegionSegmenter {
         final double dl = sumL[a] / counts[a] - sumL[b] / counts[b];
         final double da = sumA[a] / counts[a] - sumA[b] / counts[b];
         final double db = sumB[a] / counts[a] - sumB[b] / counts[b];
-        final double colour = Math.sqrt(dl * dl + da * da + db * db);
+        final double meanColour = Math.sqrt(dl * dl + da * da + db * db);
         final Border border = borders.get(pairKey(a, b));
-        final double distance = colour + RIDGE_MERGE_WEIGHT * (border == null ? 0.0 : border.mean());
-        return Math.min(counts[a], counts[b]) < minArea ? distance / SMALL_AREA_WEIGHT_DIVISOR : distance;
+        final double borderColour = border == null ? 0.0 : border.meanColourJump();
+        final double effectiveColour = Math.max(meanColour, LOCAL_BORDER_COLOUR_WEIGHT * borderColour);
+        final double distance = effectiveColour + RIDGE_MERGE_WEIGHT * (border == null ? 0.0 : border.meanSalience());
+        final long smaller = Math.min(counts[a], counts[b]);
+        if (smaller < MIN_NOISE_PIXELS) {
+            return distance / SMALL_AREA_WEIGHT_DIVISOR;
+        }
+        return smaller < minArea ? distance / SUB_THRESHOLD_WEIGHT_DIVISOR : distance;
     }
 
     private static int[] relabel(final int[] labels, final int[] parent) {

@@ -20,6 +20,14 @@ import java.util.TreeMap;
  */
 final class SharedBoundaryPaths {
 
+    /** Spacing ratio applied to internal texture separators relative to outer boundary spacing. */
+    static final double SEPARATOR_SPACING_RATIO = 0.65;
+
+    /** Simplification tolerance ratio applied to internal texture separators. */
+    static final double SEPARATOR_TOLERANCE_RATIO = 0.70;
+
+    private static final double SEPARATOR_MIN_SPACING_MULTIPLIER = 2.0;
+
     private SharedBoundaryPaths() {}
 
     /**
@@ -42,10 +50,15 @@ final class SharedBoundaryPaths {
         for (final Map.Entry<Long, List<int[]>> group : groups.entrySet()) {
             final int labelA = (int) (group.getKey() >>> 32);
             final int labelB = (int) (group.getKey() & 0xFFFF_FFFFL);
+            final boolean isSeparator = labelA != 0 && labelB != 0;
+            final double chainSpacing = isSeparator
+                    ? Math.max(minSpacing * SEPARATOR_MIN_SPACING_MULTIPLIER, spacing * SEPARATOR_SPACING_RATIO)
+                    : spacing;
+            final double chainTolerance = isSeparator ? tolerance * SEPARATOR_TOLERANCE_RATIO : tolerance;
             for (final int[] chain :
                     DirectedBoundary.chains(group.getValue(), node -> node % (width + 1), node -> node / (width + 1))) {
-                final Polyline line =
-                        CurvatureBoundarySampler.sample(toPolyline(chain, width + 1), tolerance, minSpacing, spacing);
+                final Polyline line = CurvatureBoundarySampler.sample(
+                        toPolyline(chain, width + 1), chainTolerance, minSpacing, chainSpacing);
                 if (line.size() >= 2 && line.length() > 0.0) {
                     paths.add(new BoundaryPath(labelA, labelB, line));
                 }

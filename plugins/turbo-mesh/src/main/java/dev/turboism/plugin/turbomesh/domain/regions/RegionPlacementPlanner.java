@@ -2,6 +2,7 @@ package dev.turboism.plugin.turbomesh.domain.regions;
 
 import dev.turboism.plugin.turbomesh.domain.ConstraintDelaunay;
 import dev.turboism.sdk.cubism.model.Point2;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -65,14 +66,18 @@ public final class RegionPlacementPlanner {
     public static RegionPlacementPlan plan(
             final int[] argb, final int width, final int height, final RegionPlacementParams params) {
         params.validate();
-        final RegionRaster raster = RegionRaster.cropped(argb, width, height);
-        final RegionPlacementParams.Resolved resolved = params.resolve(raster.silhouetteSpan());
+        final double span = RegionRaster.silhouetteSpan(argb, width, height);
+        final RegionPlacementParams.Resolved resolved = params.resolve(span);
+        final RegionRaster raster = RegionRaster.cropped(argb, width, height, resolved.bleedMargin());
         // An absent contrast means the run follows the artwork gradient, not a fixed default.
         final double contrast = params.contrast() == null ? raster.autoContrast() : resolved.contrast();
         checkInterrupted();
         final TextureRegionSegmenter.Levels levels =
                 TextureRegionSegmenter.segment(raster, resolved.minRegionRatio(), contrast);
-        final int[] labels = levels.level(resolved.level());
+        final int[] paintedLabels = levels.level(resolved.level());
+        final int[] labels = resolved.bleedMargin() > 0.0
+                ? expandLabelsToDomain(paintedLabels, raster.domainMask(), raster.width(), raster.height())
+                : paintedLabels;
         checkInterrupted();
         final List<String> rejections = new ArrayList<>(RETRY_LADDER.size());
         for (final RegionPlacementPlan.Fallback fallback : RETRY_LADDER) {
@@ -85,6 +90,48 @@ public final class RegionPlacementPlanner {
         }
         throw new IllegalStateException(
                 "every planning attempt missed the mesh contract: " + String.join("; ", rejections));
+    }
+
+    /**
+     * Propagates painted region labels outward into transparent bleed cells via multi-source BFS.
+     */
+    private static int[] expandLabelsToDomain(
+            final int[] paintedLabels, final boolean[] domainMask, final int width, final int height) {
+        final int[] out = new int[paintedLabels.length];
+        final ArrayDeque<Integer> queue = new ArrayDeque<>();
+        for (int i = 0; i < paintedLabels.length; i++) {
+            if (paintedLabels[i] > 0) {
+                out[i] = paintedLabels[i];
+                queue.add(i);
+            }
+        }
+        while (!queue.isEmpty()) {
+            final int cell = queue.poll();
+            final int label = out[cell];
+            final int x = cell % width;
+            final int y = cell / width;
+            for (int dy = -1; dy <= 1; dy++) {
+                final int ny = y + dy;
+                if (ny < 0 || ny >= height) {
+                    continue;
+                }
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (dx == 0 && dy == 0) {
+                        continue;
+                    }
+                    final int nx = x + dx;
+                    if (nx < 0 || nx >= width) {
+                        continue;
+                    }
+                    final int neighbour = ny * width + nx;
+                    if (domainMask[neighbour] && out[neighbour] == 0) {
+                        out[neighbour] = label;
+                        queue.add(neighbour);
+                    }
+                }
+            }
+        }
+        return out;
     }
 
     private static Attempt planOnce(
@@ -358,7 +405,7 @@ public final class RegionPlacementPlanner {
                     vertexCountBeforeMerge,
                     vertices.size(),
                     PixelCoverage.triangleIou(
-                            rasterVertices, triangles, raster.mask(), raster.width(), raster.height()),
+                            rasterVertices, triangles, raster.domainMask(), raster.width(), raster.height()),
                     shapeFamily,
                     fallback);
         }

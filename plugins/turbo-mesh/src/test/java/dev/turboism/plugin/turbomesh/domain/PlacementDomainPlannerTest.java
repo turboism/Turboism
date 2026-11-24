@@ -39,10 +39,10 @@ class PlacementDomainPlannerTest {
         final TurboMeshPlanner.PlacementPlan plan = PlacementDomainPlanner.plan(
                 unitQuad(), texture, PlacementSettings.defaults(), FeatureOptions.defaults(), diagnostics::add);
 
-        assertEquals("texture-regions", plan.stats().presetName(), "the region plan must own the run");
+        assertEquals("AUTO_BLEND", plan.stats().presetName(), "the adaptive feature plan must own the run");
         assertTrue(
-                diagnostics.get(0).contains("texture regions"),
-                "the run must report the region domain but reported " + diagnostics);
+                diagnostics.get(0).contains("adaptive silhouette + texture features"),
+                "the run must report the adaptive silhouette domain but reported " + diagnostics);
         assertValidGeometry(plan.geometry(), 0.0f, 1.0f);
     }
 

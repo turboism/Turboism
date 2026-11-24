@@ -660,8 +660,8 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
         private List<String> attachInline() throws Exception {
             final List<String> diagnostics = new ArrayList<>();
             final List<String> problems = new ArrayList<>();
-            final AutoMeshSelectorHost host =
-                    new AutoMeshSelectorHost(new ParametricSource(placements), Locale.ENGLISH, diagnostics::add);
+            final ParametricSource source = new ParametricSource(placements);
+            final AutoMeshSelectorHost host = new AutoMeshSelectorHost(source, Locale.ENGLISH, diagnostics::add);
             try {
                 SwingUtilities.invokeAndWait(() -> {
                     try {
@@ -678,7 +678,7 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
                             problems.add("the host must record exactly one row, recorded " + host.attachedCount());
                         }
                         probeInline(panel, problems);
-                        probePlacements(panel, problems);
+                        probePlacements(panel, source.selection(), problems);
                     } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
                         problems.add("the inline groups could not be probed: " + describe(failure));
                     }
@@ -795,7 +795,8 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
          * points immediately. The counter is reset here, after the earlier visibility probe already
          * picked the Editor's generator.</p>
          */
-        private void probePlacements(final Object panel, final List<String> problems)
+        private void probePlacements(
+                final Object panel, final AutoMeshSelectionState parametricSelection, final List<String> problems)
                 throws ReflectiveOperationException {
             placements.set(0);
             final Object centre = type(CONTENT_PANEL).getMethod("getCenter").invoke(panel);
@@ -812,6 +813,15 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
                 return;
             }
             pick(presetCombo, FIRST_PRESET_INDEX);
+            final int selectedPreset =
+                    ((Number) type(COMBO).getMethod("getSelectedIndex").invoke(presetCombo)).intValue();
+            if (selectedPreset != FIRST_PRESET_INDEX) {
+                problems.add("preset combo stayed at index " + selectedPreset + " instead of " + FIRST_PRESET_INDEX);
+            }
+            if (!Optional.of("dense").equals(parametricSelection.selectedPresetName(PARAMETRIC_ALGORITHM))) {
+                problems.add(
+                        "selected preset name was " + parametricSelection.selectedPresetName(PARAMETRIC_ALGORITHM));
+            }
         }
 
         private List<String> titlesOf(final List<Object> groups) throws ReflectiveOperationException {
@@ -1026,7 +1036,7 @@ class AutoMeshSelectorRowReviewedArtifactsTest {
                                             new AlgorithmParameterDescriptor.EnumParameter.Option("exact", "Exact")),
                                     "fast"),
                             new AlgorithmParameterDescriptor.TextParameter("tag", "Tag", "Region tag.", 8, "body")),
-                    List.of(new AlgorithmPreset("dense", Map.of())),
+                    List.of(new AlgorithmPreset("dense", Map.of("segments", "7", "density", "1.5"))),
                     false,
                     (AutoMeshRequest request, CancellationToken cancellation) -> AutoMeshResult.Cancelled.INSTANCE);
         }

@@ -109,6 +109,43 @@ public final class TurboMeshPlanner {
         if (loops.isEmpty()) {
             throw new PlacementException("source mesh has no boundary ring to preserve");
         }
+        final List<List<Point2>> rings = new ArrayList<>();
+        for (final int[] loop : loops) {
+            final List<Point2> ring = new ArrayList<>(loop.length);
+            for (final int idx : loop) {
+                ring.add(sourceUvs.get(idx));
+            }
+            if (ring.size() >= 3) {
+                rings.add(ring);
+            }
+        }
+        return planWithRings(source, mask, rings, settings, options);
+    }
+
+    /**
+     * Plans a feature-aware mesh over explicit boundary rings while keeping {@code source} as the
+     * UV-to-position mapping frame.
+     */
+    public static PlacementPlan planWithRings(
+            final ArtMeshGeometry source,
+            final DomainMask mask,
+            final List<List<Point2>> overrideRings,
+            final PlacementSettings settings,
+            final FeatureOptions options)
+            throws PlacementException {
+        final List<Point2> sourceUvs = source.uvs();
+        if (overrideRings.isEmpty()) {
+            throw new PlacementException("no usable boundary ring");
+        }
+        final List<List<Point2>> rings = new ArrayList<>(overrideRings.size());
+        for (final List<Point2> ring : overrideRings) {
+            if (ring.size() >= 3) {
+                rings.add(ring);
+            }
+        }
+        if (rings.isEmpty()) {
+            throw new PlacementException("no usable boundary ring");
+        }
 
         // 1. Region segmentation on the shape domain. In texture mode the geometric cuts are
         //    replaced by feature lines extracted from the artwork itself (line-art centerlines
@@ -120,19 +157,6 @@ public final class TurboMeshPlanner {
 
         // 2. Boundary sampling — geometry-driven, not budgeted: each ring emits structural
         //    vertices, then curvature/length bounds decide how many more points it earns.
-        final List<List<Point2>> rings = new ArrayList<>();
-        for (final int[] loop : loops) {
-            final List<Point2> ring = new ArrayList<>(loop.length);
-            for (final int idx : loop) {
-                ring.add(sourceUvs.get(idx));
-            }
-            if (ring.size() >= 3) {
-                rings.add(ring);
-            }
-        }
-        if (rings.isEmpty()) {
-            throw new PlacementException("no usable boundary ring");
-        }
         final boolean features = options.enabled();
         final MeshFeatureAnalyzer.Analysis analysis =
                 features ? MeshFeatureAnalyzer.analyze(mask, rings, options) : null;
@@ -270,8 +294,9 @@ public final class TurboMeshPlanner {
         //    regions under the analyzed feature field, bounded by the remaining point budget.
         //    Legacy mode: fixed sparse grid per region. Everything keeps the global min-spacing
         //    rule either way.
-        final List<RegionSegmenter.Region> fillRegions =
-                textured ? flatRegions(mask, extraction.featureCells(), settings) : segmentation.regions();
+        final List<RegionSegmenter.Region> fillRegions = (!features && textured)
+                ? flatRegions(mask, extraction.featureCells(), settings)
+                : segmentation.regions();
         if (features) {
             final List<MeshFeatureAnalyzer.Corner> allCorners = new ArrayList<>();
             for (final List<MeshFeatureAnalyzer.Corner> ringCorners : analysis.corners()) {
