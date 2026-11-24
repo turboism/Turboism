@@ -28,6 +28,7 @@ public final class ObjectContextMenuVerificationManifest {
         "object-context-menu.id-value",
         "object-context-menu.menu-item.create",
         "object-context-menu.menu.append",
+        "object-context-menu.workspace.menu.append",
         "object-context-menu.submenu.append",
         "object-context-menu.menu-separator.create",
         "object-context-menu.submenu.create",

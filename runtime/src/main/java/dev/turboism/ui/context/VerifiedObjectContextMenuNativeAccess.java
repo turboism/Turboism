@@ -4,10 +4,22 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
+import dev.turboism.sdk.ui.context.ContextMenuRegistry.PlacementKind;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
+import dev.turboism.ui.menu.TopMenuText;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
+import javax.swing.JLabel;
+import javax.swing.SwingConstants;
 
 /** Exact-selector adapter from Cubism menu callbacks to typed selection snapshots and native items. */
 public final class VerifiedObjectContextMenuNativeAccess
@@ -27,6 +39,7 @@ public final class VerifiedObjectContextMenuNativeAccess
     private static final String ID_VALUE = "object-context-menu.id-value";
     private static final String MENU_ITEM_CREATE = "object-context-menu.menu-item.create";
     private static final String MENU_APPEND = "object-context-menu.menu.append";
+    private static final String WORKSPACE_MENU_APPEND = "object-context-menu.workspace.menu.append";
     private static final String SUBMENU_APPEND = "object-context-menu.submenu.append";
     private static final String MENU_SEPARATOR_CREATE = "object-context-menu.menu-separator.create";
     private static final String SUBMENU_CREATE = "object-context-menu.submenu.create";
@@ -34,10 +47,16 @@ public final class VerifiedObjectContextMenuNativeAccess
     private static final String MENU_ITEM_LABEL = "object-context-menu.menu-item.label";
     private static final String PARAMETER_POINT_GUID_VALUE = "object-context-menu.parameter-point.guid-value";
     private static final String MENU_COMPONENT = "object-context-menu.menu.component";
+    // The native header spans six grid cells.
+    private static final int WORKSPACE_PLUGIN_COLUMN = 6;
+    private static final int WORKSPACE_PLUGIN_COLUMN_GAP = 8;
+    private static final double WORKSPACE_PLUGIN_COLUMN_WEIGHT = 1.0;
+    private static final String WORKSPACE_HEADING_UNAVAILABLE = "Workspace menu heading is unavailable.";
 
     private final VerifiedMemberResolver resolver;
     private final long hostGeneration;
-    private final java.util.function.Supplier<String> documentIdentity;
+    private final Supplier<String> documentIdentity;
+    private final Supplier<Locale> locale;
 
     /**
      * Creates the adapter. {@code documentIdentity} is queried once per resolved selection so a
@@ -47,11 +66,23 @@ public final class VerifiedObjectContextMenuNativeAccess
     public VerifiedObjectContextMenuNativeAccess(
             final VerifiedMemberResolver resolver,
             final long hostGeneration,
-            final java.util.function.Supplier<String> documentIdentity) {
+            final Supplier<String> documentIdentity,
+            final Supplier<Locale> locale) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         this.hostGeneration = hostGeneration;
         this.documentIdentity = Objects.requireNonNull(documentIdentity, "documentIdentity");
+        this.locale = Objects.requireNonNull(locale, "locale");
+    }
+
+    @Override
+    public void begin(final Object menu, final Location location) {
+        if (location != Location.WORKSPACE_OBJECT || menu instanceof List<?>) return;
+        final String title = TopMenuText.pluginOptionsLabel(locale.get());
+        final Object heading = resolver.construct(MENU_ITEM_CREATE, title, null, null);
+        final Object separator = resolver.construct(MENU_SEPARATOR_CREATE);
+        appendWorkspaceHeading(menu, heading, title);
+        appendWorkspaceRow(menu, separator);
     }
 
     @Override
@@ -93,13 +124,54 @@ public final class VerifiedObjectContextMenuNativeAccess
         Objects.requireNonNull(contribution, "contribution");
         Objects.requireNonNull(action, "action");
         final Object item = nativeEntry(contribution.entry(), action);
-        place(menu, item, contribution.placement());
+        final PlacementKind placementKind = contribution.placement().kind();
+        if (contribution.location() == Location.WORKSPACE_OBJECT
+                && !(menu instanceof List<?>)
+                && (placementKind == PlacementKind.FIRST || placementKind == PlacementKind.LAST)) {
+            appendWorkspaceRow(menu, item);
+        } else {
+            place(menu, item, contribution.placement());
+        }
         dev.turboism.runtime.log.RuntimeDiagnostics.info(
                 "context-menu",
                 "appended " + contribution.contributionId()
                         + " menu=" + menu.getClass().getName()
                         + " item=" + item.getClass().getName()
                         + " attachment=" + attachment(item));
+    }
+
+    private void appendWorkspaceRow(final Object menu, final Object item) {
+        resolver.invoke(WORKSPACE_MENU_APPEND, menu, item, workspaceRowConstraints());
+    }
+
+    private void appendWorkspaceHeading(final Object menu, final Object item, final String title) {
+        if (!(resolver.invoke(MENU_COMPONENT, item) instanceof Component component)) {
+            throw new IllegalStateException(WORKSPACE_HEADING_UNAVAILABLE);
+        }
+        final JLabel label = new JLabel(title, SwingConstants.CENTER);
+        label.setVerticalAlignment(SwingConstants.CENTER);
+        label.setForeground(Color.BLACK);
+        final Font font = component.getFont();
+        if (font != null) label.setFont(font.deriveFont(Font.BOLD));
+        final GridBagConstraints row = workspaceRowConstraints();
+        row.fill = GridBagConstraints.BOTH;
+        resolver.invoke(WORKSPACE_MENU_APPEND, menu, item, row);
+        final Container popup = component.getParent();
+        if (popup == null) throw new IllegalStateException(WORKSPACE_HEADING_UNAVAILABLE);
+        final int index = popup.getComponentZOrder(component);
+        // A label keeps the heading out of the popup's menu selection path.
+        popup.remove(index);
+        popup.add(label, row, index);
+    }
+
+    private static GridBagConstraints workspaceRowConstraints() {
+        final GridBagConstraints row = new GridBagConstraints();
+        row.gridx = WORKSPACE_PLUGIN_COLUMN;
+        row.anchor = GridBagConstraints.SOUTHWEST;
+        row.fill = GridBagConstraints.HORIZONTAL;
+        row.insets = new Insets(0, WORKSPACE_PLUGIN_COLUMN_GAP, 0, 0);
+        row.weightx = WORKSPACE_PLUGIN_COLUMN_WEIGHT;
+        return row;
     }
 
     /** Appends to a persistent native Q menu and returns reversible Swing removal. */

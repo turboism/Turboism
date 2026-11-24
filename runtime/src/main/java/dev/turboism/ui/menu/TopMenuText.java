@@ -14,6 +14,7 @@ public final class TopMenuText {
     private static final String SHARED_ROOT_FALLBACK = "Turboism";
     private static final String PLUGINS_GROUP_KEY = "menu.plugins-group";
     private static final String PLUGINS_GROUP_FALLBACK = "Plugins";
+    private static final String PLUGIN_OPTIONS_KEY = "menu.plugin-options";
 
     private TopMenuText() {}
 
@@ -33,5 +34,11 @@ public final class TopMenuText {
     public static String pluginsGroupLabel(final Locale locale) {
         final ResourceBundle bundle = ResourceBundle.getBundle(BUNDLE, locale == null ? Locale.ENGLISH : locale);
         return bundle.containsKey(PLUGINS_GROUP_KEY) ? bundle.getString(PLUGINS_GROUP_KEY) : PLUGINS_GROUP_FALLBACK;
+    }
+
+    /** Supplies the heading for the plugin column in the canvas menu. */
+    public static String pluginOptionsLabel(final Locale locale) {
+        return ResourceBundle.getBundle(BUNDLE, locale == null ? Locale.ENGLISH : locale)
+                .getString(PLUGIN_OPTIONS_KEY);
     }
 }
