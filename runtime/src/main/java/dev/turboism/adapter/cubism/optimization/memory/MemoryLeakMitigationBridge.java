@@ -39,6 +39,15 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     /** Property key for {@code Consumer<Object>} invoked when the Parts panel closes. */
     public static final String ON_PARTS_CLOSE_SLOT = "turboism.memory-leak.parts-close";
 
+    /** Property key for {@code BiConsumer<Object, Object>} invoked before replacing Deformer {@code CTreeTable}. */
+    public static final String ON_BEFORE_SET_DEFORMER_TREE_SLOT = "turboism.memory-leak.before-set-deformer-tree";
+
+    /** Property key for {@code Predicate<Object[]>} invoked on Deformer palette update to attempt reuse. */
+    public static final String TRY_REUSE_DEFORMER_SLOT = "turboism.memory-leak.try-reuse-deformer";
+
+    /** Property key for {@code Consumer<Object>} invoked when the Deformer panel closes. */
+    public static final String ON_DEFORMER_CLOSE_SLOT = "turboism.memory-leak.deformer-close";
+
     /** Property key for {@code Consumer<Object>} draining deferred GL deletes on active GL2ES2. */
     public static final String DRAIN_GL_SLOT = "turboism.memory-leak.drain-gl";
 
@@ -97,6 +106,7 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     public static final String STATS_PROPERTY = "turboism.memory-leak.stats";
 
     private static final int REUSE_PARTS_ARG_COUNT = 3;
+    private static final int REUSE_DEFORMER_ARG_COUNT = 2;
     private static final int ARG_PANEL = 0;
     private static final int ARG_SKIP_SEL = 1;
     private static final int ARG_EXPAND_SEL = 2;
@@ -110,6 +120,7 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
 
     private final GlDeleteQueue glDeleteQueue;
     private final PartsPaletteHelper partsPaletteHelper;
+    private final DeformerPaletteHelper deformerPaletteHelper;
     private final LifecycleCleanupHelper lifecycleHelper;
     private final MethodHandle graphicsCtxGetGl3;
     private final MethodHandle modelDocGetViewContexts;
@@ -121,6 +132,8 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
 
     private long partsTreesDetached;
     private long partsTreesReused;
+    private long deformerTreesDetached;
+    private long deformerTreesReused;
     private long vbosReused;
     private long vbosQueued;
     private long vbosDeleted;
@@ -136,6 +149,9 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     private final BiConsumer<Object, Object> onBeforeSetTreeSlot = this::onBeforeSetTree;
     private final Predicate<Object[]> tryReusePartsSlot = this::tryReuseParts;
     private final Consumer<Object> onPartsCloseSlot = this::onPartsClose;
+    private final BiConsumer<Object, Object> onBeforeSetDeformerTreeSlot = this::onBeforeSetDeformerTree;
+    private final Predicate<Object[]> tryReuseDeformerSlot = this::tryReuseDeformer;
+    private final Consumer<Object> onDeformerCloseSlot = this::onDeformerClose;
     private final Consumer<Object> drainGlSlot = this::drainGl;
     private final BiPredicate<Object, Object> prepareVboSlot = this::prepareVbo;
     private final Consumer<Object> disposeEntitySlot = this::disposeEntity;
@@ -205,21 +221,39 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
             }
         });
 
-        partsPaletteHelper = new PartsPaletteHelper(loader, target, new PartsPaletteHelper.Listener() {
-            @Override
-            public void onTreeDetached() {
-                synchronized (statsLock) {
-                    partsTreesDetached++;
-                }
-            }
+        final TreeTableSupport.Detacher treeTableDetacher = new TreeTableSupport.Detacher(loader, target);
+        partsPaletteHelper =
+                new PartsPaletteHelper(loader, target, treeTableDetacher, new PartsPaletteHelper.Listener() {
+                    @Override
+                    public void onTreeDetached() {
+                        synchronized (statsLock) {
+                            partsTreesDetached++;
+                        }
+                    }
 
-            @Override
-            public void onTreeReused() {
-                synchronized (statsLock) {
-                    partsTreesReused++;
-                }
-            }
-        });
+                    @Override
+                    public void onTreeReused() {
+                        synchronized (statsLock) {
+                            partsTreesReused++;
+                        }
+                    }
+                });
+        deformerPaletteHelper =
+                new DeformerPaletteHelper(loader, target, treeTableDetacher, new DeformerPaletteHelper.Listener() {
+                    @Override
+                    public void onDeformerTreeDetached() {
+                        synchronized (statsLock) {
+                            deformerTreesDetached++;
+                        }
+                    }
+
+                    @Override
+                    public void onDeformerTreeReused() {
+                        synchronized (statsLock) {
+                            deformerTreesReused++;
+                        }
+                    }
+                });
 
         lifecycleHelper = new LifecycleCleanupHelper(loader, target, new LifecycleCleanupHelper.Listener() {
             @Override
@@ -287,6 +321,9 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
                     ON_BEFORE_SET_TREE_SLOT,
                     TRY_REUSE_PARTS_SLOT,
                     ON_PARTS_CLOSE_SLOT,
+                    ON_BEFORE_SET_DEFORMER_TREE_SLOT,
+                    TRY_REUSE_DEFORMER_SLOT,
+                    ON_DEFORMER_CLOSE_SLOT,
                     DRAIN_GL_SLOT,
                     PREPARE_VBO_SLOT,
                     DISPOSE_ENTITY_SLOT,
@@ -314,6 +351,9 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
             properties.put(ON_BEFORE_SET_TREE_SLOT, onBeforeSetTreeSlot);
             properties.put(TRY_REUSE_PARTS_SLOT, tryReusePartsSlot);
             properties.put(ON_PARTS_CLOSE_SLOT, onPartsCloseSlot);
+            properties.put(ON_BEFORE_SET_DEFORMER_TREE_SLOT, onBeforeSetDeformerTreeSlot);
+            properties.put(TRY_REUSE_DEFORMER_SLOT, tryReuseDeformerSlot);
+            properties.put(ON_DEFORMER_CLOSE_SLOT, onDeformerCloseSlot);
             properties.put(DRAIN_GL_SLOT, drainGlSlot);
             properties.put(PREPARE_VBO_SLOT, prepareVboSlot);
             properties.put(DISPOSE_ENTITY_SLOT, disposeEntitySlot);
@@ -352,6 +392,9 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
                 properties.remove(ON_BEFORE_SET_TREE_SLOT, onBeforeSetTreeSlot);
                 properties.remove(TRY_REUSE_PARTS_SLOT, tryReusePartsSlot);
                 properties.remove(ON_PARTS_CLOSE_SLOT, onPartsCloseSlot);
+                properties.remove(ON_BEFORE_SET_DEFORMER_TREE_SLOT, onBeforeSetDeformerTreeSlot);
+                properties.remove(TRY_REUSE_DEFORMER_SLOT, tryReuseDeformerSlot);
+                properties.remove(ON_DEFORMER_CLOSE_SLOT, onDeformerCloseSlot);
                 properties.remove(DRAIN_GL_SLOT, drainGlSlot);
                 properties.remove(PREPARE_VBO_SLOT, prepareVboSlot);
                 properties.remove(DISPOSE_ENTITY_SLOT, disposeEntitySlot);
@@ -381,6 +424,8 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
             return Map.ofEntries(
                     Map.entry("partsTreesDetached", partsTreesDetached),
                     Map.entry("partsTreesReused", partsTreesReused),
+                    Map.entry("deformerTreesDetached", deformerTreesDetached),
+                    Map.entry("deformerTreesReused", deformerTreesReused),
                     Map.entry("vbosReused", vbosReused),
                     Map.entry("vbosQueued", vbosQueued),
                     Map.entry("vbosDeleted", vbosDeleted),
@@ -413,6 +458,27 @@ public final class MemoryLeakMitigationBridge implements AutoCloseable {
     private void onPartsClose(final Object panel) {
         if (active.get()) {
             partsPaletteHelper.onPartsPanelClosed(panel);
+        }
+    }
+
+    private void onBeforeSetDeformerTree(final Object panel, final Object nextTree) {
+        if (active.get()) {
+            deformerPaletteHelper.onBeforeSetTreeTable(panel, nextTree);
+        }
+    }
+
+    private boolean tryReuseDeformer(final Object[] args) {
+        if (!active.get() || args == null || args.length != REUSE_DEFORMER_ARG_COUNT) {
+            return false;
+        }
+        final Object panel = args[ARG_PANEL];
+        final boolean skipSel = args[ARG_SKIP_SEL] instanceof Boolean b && b;
+        return deformerPaletteHelper.tryReuseDeformerPalette(panel, skipSel);
+    }
+
+    private void onDeformerClose(final Object panel) {
+        if (active.get()) {
+            deformerPaletteHelper.onPanelClosed(panel);
         }
     }
 

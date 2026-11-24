@@ -18,15 +18,16 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Rewrites the 20 reviewed Cubism host classes to wire {@link MemoryLeakMitigationBridge} lifecycle,
+ * Rewrites the 21 reviewed Cubism host classes to wire {@link MemoryLeakMitigationBridge} lifecycle,
  * OpenGL cleanup/reuse, undo eviction, image cache pruning, and inspector/listener guards.
  */
 public final class MemoryLeakMitigationTransformer implements ClassFileTransformer {
 
-    /** Total instrumentation sites required across all 20 rewritten classes. */
-    public static final int EXPECTED_SITES = 26;
+    /** Total instrumentation sites required across all 21 rewritten classes. */
+    public static final int EXPECTED_SITES = 29;
 
     private static final int PARTS_REUSE_ARRAY_SIZE = 3;
+    private static final int DEFORMER_REUSE_ARRAY_SIZE = 2;
     private static final int SLOT_THIS = 0;
     private static final int SLOT_ARG1 = 1;
     private static final int SLOT_ARG2 = 2;
@@ -60,6 +61,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
     private final Path artifact;
     private final Set<String> allowedOwners;
     private final String partsCloseMethod;
+    private final String deformerPanelOwner;
+    private final String deformerCloseMethod;
     private final Set<String> transformedOwners = ConcurrentHashMap.newKeySet();
 
     private volatile String failure;
@@ -80,6 +83,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         Objects.requireNonNull(target, "target");
         this.allowedOwners = Set.copyOf(target.rewrittenOwners());
         this.partsCloseMethod = Objects.requireNonNull(target.partsCloseMethod(), "partsCloseMethod");
+        this.deformerPanelOwner = Objects.requireNonNull(target.deformerPanelOwner(), "deformerPanelOwner");
+        this.deformerCloseMethod = Objects.requireNonNull(target.deformerCloseMethod(), "deformerCloseMethod");
     }
 
     /** Returns the latest fail-closed rejection reason, or {@code null}. */
@@ -115,8 +120,12 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             }
             final ClassReader reader = new ClassReader(bytes);
             final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
-            final ClassRewriteTracker tracker = new ClassRewriteTracker(name);
-            reader.accept(new OwnerDispatchClassVisitor(writer, tracker, partsCloseMethod), ClassReader.EXPAND_FRAMES);
+            final ClassRewriteTracker tracker =
+                    new ClassRewriteTracker(name, expectedSitesForOwner(name, deformerPanelOwner));
+            reader.accept(
+                    new OwnerDispatchClassVisitor(
+                            writer, tracker, partsCloseMethod, deformerPanelOwner, deformerCloseMethod),
+                    ClassReader.EXPAND_FRAMES);
             if (!tracker.complete()) {
                 failure = "memory leak mitigation anchor drift on " + name + ": " + tracker.describe();
                 return null;
@@ -133,7 +142,10 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         }
     }
 
-    private static int expectedSitesForOwner(final String owner) {
+    private static int expectedSitesForOwner(final String owner, final String deformerPanelOwner) {
+        if (deformerPanelOwner.equals(owner)) {
+            return 3;
+        }
         return switch (owner) {
             case MemoryLeakMitigationTarget.PARTS_PANEL_OWNER -> 3;
             case MemoryLeakMitigationTarget.GL_BUFFER_FLOAT_OWNER,
@@ -149,9 +161,9 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         private final int expectedSites;
         private int instrumentedSites;
 
-        private ClassRewriteTracker(final String owner) {
+        private ClassRewriteTracker(final String owner, final int expectedSites) {
             this.owner = owner;
-            this.expectedSites = expectedSitesForOwner(owner);
+            this.expectedSites = expectedSites;
         }
 
         private void recordSite() {
@@ -174,12 +186,20 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
     private static final class OwnerDispatchClassVisitor extends ClassVisitor {
         private final ClassRewriteTracker tracker;
         private final String partsCloseMethod;
+        private final String deformerPanelOwner;
+        private final String deformerCloseMethod;
 
         private OwnerDispatchClassVisitor(
-                final ClassWriter writer, final ClassRewriteTracker tracker, final String partsCloseMethod) {
+                final ClassWriter writer,
+                final ClassRewriteTracker tracker,
+                final String partsCloseMethod,
+                final String deformerPanelOwner,
+                final String deformerCloseMethod) {
             super(Opcodes.ASM9, writer);
             this.tracker = tracker;
             this.partsCloseMethod = partsCloseMethod;
+            this.deformerPanelOwner = deformerPanelOwner;
+            this.deformerCloseMethod = deformerCloseMethod;
         }
 
         @Override
@@ -193,7 +213,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             if (delegate == null) {
                 return null;
             }
-            return selectMethodVisitor(tracker, delegate, name, descriptor, partsCloseMethod);
+            return selectMethodVisitor(
+                    tracker, delegate, name, descriptor, partsCloseMethod, deformerPanelOwner, deformerCloseMethod);
         }
     }
 
@@ -202,8 +223,27 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             final MethodVisitor delegate,
             final String name,
             final String descriptor,
-            final String partsCloseMethod) {
+            final String partsCloseMethod,
+            final String deformerPanelOwner,
+            final String deformerCloseMethod) {
         final String owner = tracker.owner;
+        if (deformerPanelOwner.equals(owner)) {
+            if (MemoryLeakMitigationTarget.PARTS_SET_TREE_METHOD.equals(name)
+                    && MemoryLeakMitigationTarget.PARTS_SET_TREE_DESCRIPTOR.equals(descriptor)) {
+                return entryBiConsumer(
+                        delegate, tracker, MemoryLeakMitigationBridge.ON_BEFORE_SET_DEFORMER_TREE_SLOT, SLOT_ARG1);
+            }
+            if (MemoryLeakMitigationTarget.DEFORMER_UPDATE_METHOD.equals(name)
+                    && MemoryLeakMitigationTarget.DEFORMER_UPDATE_DESCRIPTOR.equals(descriptor)) {
+                return new DeformerUpdateMethodVisitor(delegate, tracker);
+            }
+            if (deformerCloseMethod.equals(name)
+                    && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
+                return new PanelCloseMethodVisitor(
+                        delegate, tracker, MemoryLeakMitigationBridge.ON_DEFORMER_CLOSE_SLOT);
+            }
+            return delegate;
+        }
         switch (owner) {
             case MemoryLeakMitigationTarget.PARTS_PANEL_OWNER -> {
                 if (MemoryLeakMitigationTarget.PARTS_SET_TREE_METHOD.equals(name)
@@ -217,7 +257,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                 }
                 if (partsCloseMethod.equals(name)
                         && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
-                    return new PartsCloseMethodVisitor(delegate, tracker);
+                    return new PanelCloseMethodVisitor(
+                            delegate, tracker, MemoryLeakMitigationBridge.ON_PARTS_CLOSE_SLOT);
                 }
             }
             case MemoryLeakMitigationTarget.GL_BUFFER_FLOAT_OWNER, MemoryLeakMitigationTarget.GL_BUFFER_INT_OWNER -> {
@@ -508,13 +549,52 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         }
     }
 
-    private static final class PartsCloseMethodVisitor extends MethodVisitor {
+    private static final class DeformerUpdateMethodVisitor extends MethodVisitor {
         private final ClassRewriteTracker tracker;
-        private boolean instrumented;
 
-        private PartsCloseMethodVisitor(final MethodVisitor delegate, final ClassRewriteTracker tracker) {
+        private DeformerUpdateMethodVisitor(final MethodVisitor delegate, final ClassRewriteTracker tracker) {
             super(Opcodes.ASM9, delegate);
             this.tracker = tracker;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label fallback = new Label();
+            final Label continueHost = new Label();
+            SlotBridgeEmitter.emitPredicateConsult(mv, MemoryLeakMitigationBridge.TRY_REUSE_DEFORMER_SLOT, fallback);
+            mv.visitIntInsn(Opcodes.BIPUSH, DEFORMER_REUSE_ARRAY_SIZE);
+            mv.visitTypeInsn(Opcodes.ANEWARRAY, OBJECT_OWNER);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitInsn(Opcodes.ICONST_0);
+            mv.visitVarInsn(Opcodes.ALOAD, SLOT_THIS);
+            mv.visitInsn(Opcodes.AASTORE);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitInsn(Opcodes.ICONST_1);
+            mv.visitVarInsn(Opcodes.ILOAD, SLOT_ARG1);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, BOOLEAN_OWNER, BOOLEAN_VALUE_OF_METHOD, BOOLEAN_VALUE_OF_DESCRIPTOR, false);
+            mv.visitInsn(Opcodes.AASTORE);
+            SlotBridgeEmitter.emitTest(mv);
+            mv.visitJumpInsn(Opcodes.IFEQ, continueHost);
+            mv.visitInsn(Opcodes.RETURN);
+            mv.visitLabel(fallback);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(continueHost);
+            tracker.recordSite();
+        }
+    }
+
+    private static final class PanelCloseMethodVisitor extends MethodVisitor {
+        private final ClassRewriteTracker tracker;
+        private final String slotKey;
+        private boolean instrumented;
+
+        private PanelCloseMethodVisitor(
+                final MethodVisitor delegate, final ClassRewriteTracker tracker, final String slotKey) {
+            super(Opcodes.ASM9, delegate);
+            this.tracker = tracker;
+            this.slotKey = slotKey;
         }
 
         @Override
@@ -531,7 +611,7 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                     && MemoryLeakMitigationTarget.REMOVE_ALL_METHOD.equals(name)
                     && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
                 instrumented = true;
-                emitConsumerNotify(mv, MemoryLeakMitigationBridge.ON_PARTS_CLOSE_SLOT, SLOT_THIS);
+                emitConsumerNotify(mv, slotKey, SLOT_THIS);
                 tracker.recordSite();
             }
         }

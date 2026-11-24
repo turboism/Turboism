@@ -124,14 +124,27 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final int SZ_BITS = 8;
     private static final int VECTOR_BITS_COUNT = 9;
 
-    private static final int CACHE_SET_COUNT = 8192;
-    private static final int CACHE_WAY_SHIFT = 1;
-    private static final int CACHE_WAY_COUNT = 2;
+    private static final int CACHE_SET_COUNT = 4096;
+    private static final int CACHE_WAY_SHIFT = 2;
+    private static final int CACHE_WAY_COUNT = 4;
     private static final int CACHE_TOTAL_SLOTS = CACHE_SET_COUNT * CACHE_WAY_COUNT;
     private static final int CACHE_SET_MASK = CACHE_SET_COUNT - 1;
-    private static final byte WAY_0 = 0;
-    private static final byte WAY_1 = 1;
+    private static final int WAY_0 = 0;
+    private static final int WAY_1 = 1;
+    private static final int WAY_2 = 2;
+    private static final int WAY_3 = 3;
+    private static final int PLRU_RIGHT_MASK = 0x01;
+    private static final int PLRU_LEFT_SUB_MASK = 0x02;
+    private static final int PLRU_RIGHT_SUB_MASK = 0x04;
+    private static final int PLRU_SET_WAY0 = 0x03;
+    private static final int PLRU_SET_WAY1 = 0x01;
+    private static final int PLRU_CLEAR_WAY1 = ~0x02;
+    private static final int PLRU_SET_WAY2 = 0x04;
+    private static final int PLRU_CLEAR_WAY2 = ~0x01;
+    private static final int PLRU_CLEAR_WAY3 = ~0x05;
+    private static final int PLRU_BYTE_MASK = 0xFF;
     private static final int HASH_SHIFT = 16;
+    private static final int FIBONACCI_HASH_MULTIPLIER = 0x9e3779b9;
     private static final int MAX_CHAIN_DEPTH = 4096;
 
     private final Class<?> transformType;
@@ -515,7 +528,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
     }
 
     private static int mixHash(final int hash) {
-        return hash ^ (hash >>> HASH_SHIFT);
+        return (hash ^ (hash >>> HASH_SHIFT)) * FIBONACCI_HASH_MULTIPLIER;
     }
 
     private static Object compileHostAccessor(final ClassLoader loader, final Class<?> transformType) {
@@ -798,6 +811,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 writer.visitMethod(Opcodes.ACC_PUBLIC, "accept", "(L" + OBJECT_INTERNAL + ";)V", null, null);
         mv.visitCode();
 
+        // Always allocate an unshared GMatrix44 so callers mutating .a() cannot alias cached entries.
         mv.visitTypeInsn(Opcodes.NEW, MatrixScratchTransformer.MATRIX);
         mv.visitInsn(Opcodes.DUP);
         mv.visitMethodInsn(
@@ -1023,50 +1037,64 @@ public final class MatrixScratchBridge implements AutoCloseable {
     }
 
     /**
-     * Thread-confined two-way set-associative identity cache storing flat hashes and lazy slots.
+     * Thread-confined four-way PLRU identity cache preventing 2-way conflict thrashing.
      */
     private static final class LocalCache {
         private final TransformSlot[] slots = new TransformSlot[CACHE_TOTAL_SLOTS];
         private final int[] hashes = new int[CACHE_TOTAL_SLOTS];
-        private final byte[] mruWay = new byte[CACHE_SET_COUNT];
+        private final byte[] plruBits = new byte[CACHE_SET_COUNT];
 
         TransformSlot findOrBind(final Object transform) {
             final int rawHash = System.identityHashCode(transform);
             final int setIndex = mixHash(rawHash) & CACHE_SET_MASK;
             final int base = setIndex << CACHE_WAY_SHIFT;
 
-            if (hashes[base] == rawHash) {
-                final TransformSlot slot0 = slots[base];
-                if (slot0 != null && slot0.refersTo(transform)) {
-                    mruWay[setIndex] = WAY_0;
-                    return slot0;
+            for (int way = 0; way < CACHE_WAY_COUNT; way++) {
+                final int index = base + way;
+                if (hashes[index] == rawHash) {
+                    final TransformSlot slot = slots[index];
+                    if (slot != null && slot.refersTo(transform)) {
+                        markUsed(setIndex, way);
+                        return slot;
+                    }
                 }
             }
-            final int way1Index = base + WAY_1;
-            if (hashes[way1Index] == rawHash) {
-                final TransformSlot slot1 = slots[way1Index];
-                if (slot1 != null && slot1.refersTo(transform)) {
-                    mruWay[setIndex] = WAY_1;
-                    return slot1;
+            for (int way = 0; way < CACHE_WAY_COUNT; way++) {
+                final int index = base + way;
+                final TransformSlot slot = slots[index];
+                if (slot == null || slot.refersTo(null)) {
+                    return bindSlot(index, setIndex, way, rawHash, transform, slot);
                 }
             }
-            final TransformSlot slot0 = slots[base];
-            if (slot0 == null || slot0.refersTo(null)) {
-                return bindSlot(base, setIndex, WAY_0, rawHash, transform, slot0);
-            }
-            final TransformSlot slot1 = slots[way1Index];
-            if (slot1 == null || slot1.refersTo(null)) {
-                return bindSlot(way1Index, setIndex, WAY_1, rawHash, transform, slot1);
-            }
-            final byte victimWay = (byte) (mruWay[setIndex] ^ WAY_1);
+            final int victimWay = selectVictimWay(setIndex);
             final int victimIndex = base + victimWay;
             return bindSlot(victimIndex, setIndex, victimWay, rawHash, transform, slots[victimIndex]);
+        }
+
+        private void markUsed(final int setIndex, final int way) {
+            final int bits = plruBits[setIndex] & PLRU_BYTE_MASK;
+            final int next =
+                    switch (way) {
+                        case WAY_0 -> bits | PLRU_SET_WAY0;
+                        case WAY_1 -> (bits | PLRU_SET_WAY1) & PLRU_CLEAR_WAY1;
+                        case WAY_2 -> (bits & PLRU_CLEAR_WAY2) | PLRU_SET_WAY2;
+                        default -> bits & PLRU_CLEAR_WAY3;
+                    };
+            plruBits[setIndex] = (byte) next;
+        }
+
+        private int selectVictimWay(final int setIndex) {
+            final int bits = plruBits[setIndex] & PLRU_BYTE_MASK;
+            if ((bits & PLRU_RIGHT_MASK) == 0) {
+                return (bits & PLRU_LEFT_SUB_MASK) == 0 ? WAY_0 : WAY_1;
+            }
+            return (bits & PLRU_RIGHT_SUB_MASK) == 0 ? WAY_2 : WAY_3;
         }
 
         private TransformSlot bindSlot(
                 final int slotIndex,
                 final int setIndex,
-                final byte way,
+                final int way,
                 final int rawHash,
                 final Object transform,
                 final TransformSlot previous) {
@@ -1074,7 +1102,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
             final TransformSlot bound = new TransformSlot(transform, matrix);
             slots[slotIndex] = bound;
             hashes[slotIndex] = rawHash;
-            mruWay[setIndex] = way;
+            markUsed(setIndex, way);
             return bound;
         }
     }
