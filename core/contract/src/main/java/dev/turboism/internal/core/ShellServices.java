@@ -15,7 +15,9 @@ public record ShellServices(
         RuntimeLogReader logs,
         CoreUpdateService update,
         KeybindingService keybindings,
-        GuidePreferences guide) {
+        GuidePreferences guide,
+        UpdateNotesService updateNotes) {
+    /** Creates shell services with unavailable defaults for optional runtime capabilities. */
     public ShellServices(final RuntimeSettingsService settings, final CorePluginManagement plugins) {
         this(
                 settings,
@@ -27,7 +29,34 @@ public record ShellServices(
                 RuntimeLogReader.unavailable(),
                 CoreUpdateService.unavailable(),
                 KeybindingService.unavailable(),
-                GuidePreferences.unavailable());
+                GuidePreferences.unavailable(),
+                UpdateNotesService.unavailable());
+    }
+
+    /** Creates shell services without update-notes tracking, for legacy test callers. */
+    public ShellServices(
+            final RuntimeSettingsService settings,
+            final CubismJvmSettingsService cubismJvmSettings,
+            final OptimizationSettingsService optimizationSettings,
+            final dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
+            final CorePluginManagement plugins,
+            final FloatingPanelActions floatingPanelActions,
+            final RuntimeLogReader logs,
+            final CoreUpdateService update,
+            final KeybindingService keybindings,
+            final GuidePreferences guide) {
+        this(
+                settings,
+                cubismJvmSettings,
+                optimizationSettings,
+                settingsContributions,
+                plugins,
+                floatingPanelActions,
+                logs,
+                update,
+                keybindings,
+                guide,
+                UpdateNotesService.unavailable());
     }
 
     /** Runtime-supplied panel docking actions for the framework shell. */
@@ -60,5 +89,6 @@ public record ShellServices(
         update = Objects.requireNonNull(update, "update");
         keybindings = Objects.requireNonNull(keybindings, "keybindings");
         guide = Objects.requireNonNull(guide, "guide");
+        updateNotes = Objects.requireNonNull(updateNotes, "updateNotes");
     }
 }

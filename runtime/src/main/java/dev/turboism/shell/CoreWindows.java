@@ -67,6 +67,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog pluginDetailsDialog;
     private JDialog aboutDialog;
     private GuideWindow guideWindow;
+    private UpdateNotesWindow updateNotesWindow;
     private FrameworkUpdatesWindow updatesWindow;
     private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
             RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-plugin-details"));
@@ -201,6 +202,27 @@ final class CoreWindows implements AutoCloseable {
         return guideWindow;
     }
 
+    /**
+     * Opens the post-update release-notes card. {@code dismissed} runs once per user dismissal so the
+     * caller persists the seen version; shell teardown never triggers it.
+     */
+    void showUpdateNotes(
+            final dev.turboism.internal.core.UpdateNotesService.ReleaseNotes notes, final Runnable dismissed) {
+        Objects.requireNonNull(notes, "notes");
+        Objects.requireNonNull(dismissed, "dismissed");
+        CoreDialogs.onEdt(() -> {
+            if (closed.get()) return;
+            if (updateNotesWindow != null) updateNotesWindow.dispose();
+            updateNotesWindow = new UpdateNotesWindow(i18n, notes, dismissed);
+            updateNotesWindow.show();
+        });
+    }
+
+    /** Test seam: the release-notes window this shell owns, or {@code null} before it was first opened. */
+    UpdateNotesWindow updateNotesWindowForTesting() {
+        return updateNotesWindow;
+    }
+
     void showUpdates(final CoreUpdateService updates) {
         final Runnable observer = testUpdatesWindowObserver;
         if (observer != null) {
@@ -242,6 +264,7 @@ final class CoreWindows implements AutoCloseable {
             if (pluginDetailsDialog != null) pluginDetailsDialog.dispose();
             if (aboutDialog != null) aboutDialog.dispose();
             if (guideWindow != null) guideWindow.dispose();
+            if (updateNotesWindow != null) updateNotesWindow.dispose();
             settingsDialog = null;
             pluginsDialog = null;
             pluginDetailsDialog = null;

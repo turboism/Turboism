@@ -77,7 +77,7 @@ The authoritative project list is `settings.gradle.kts`.
   hook infrastructure, transactions, diagnostics, shared services, and the
   framework shell (`dev.turboism.shell`): the built-in Turboism menu,
   main-toolbar home entry, embedded panel, settings, logs, About, plugin
-  management, update hints, and the one-time product guide. The shell is runtime-owned framework code,
+  management, update hints, the one-time product guide, and post-update release notes. The shell is runtime-owned framework code,
   not a plugin; it consumes the same PluginContext surfaces plugins use
   under the reserved `turboism.core` identity, which external packages
   remain forbidden from declaring. Runtime production dependencies never include
