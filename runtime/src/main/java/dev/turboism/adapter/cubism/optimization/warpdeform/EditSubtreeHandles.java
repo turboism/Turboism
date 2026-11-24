@@ -415,6 +415,7 @@ final class EditSubtreeHandles {
     final MethodHandle warpDrawUpdate;
     final MethodHandle rotNormalDrawUpdate;
     final MethodHandle rotBoneDrawUpdate;
+    final Class<?> artMeshSelectionClass;
     final EditSubtreeCompiledAccessors.HostOps acc;
 
     private record UpdaterMatch(
@@ -496,7 +497,7 @@ final class EditSubtreeHandles {
         final Class<?> iMorphItemClass = tryOptionalLoad(loader, I_MORPH_ITEM_OWNER);
         final Class<?> morphConstraintSetClass = tryOptionalLoad(loader, MORPH_CONSTRAINT_SET_OWNER);
         final Class<?> keyFormMorphCompanionClass = tryOptionalLoad(loader, KEYFORM_MORPH_COMPANION_OWNER);
-        final Class<?> artMeshSelectionClass = tryOptionalLoad(loader, ART_MESH_SELECTION_OWNER);
+        this.artMeshSelectionClass = tryOptionalLoad(loader, ART_MESH_SELECTION_OWNER);
         final Class<?> selectionDrawMeshClass = tryOptionalLoad(loader, SELECTION_DRAW_MESH_OWNER);
         final Class<?> appSettingClass = HostHandles.load(loader, APP_SETTING_OWNER);
         final Class<?> drawSettingClass = HostHandles.load(loader, DRAW_SETTING_OWNER);

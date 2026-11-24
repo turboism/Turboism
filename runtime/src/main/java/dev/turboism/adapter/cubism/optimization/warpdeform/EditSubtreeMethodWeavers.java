@@ -495,6 +495,7 @@ final class EditSubtreeMethodWeavers {
         private final int flag1Local;
         private final int flag2Local;
         private final int skipLocal;
+        private final int meshElideMhLocal;
 
         private ArtMeshSelectionCallSiteAdapter(final MethodVisitor out, final int nextFreeLocal) {
             super(Opcodes.ASM9, out);
@@ -503,6 +504,32 @@ final class EditSubtreeMethodWeavers {
             this.flag1Local = nextFreeLocal + 2;
             this.flag2Local = nextFreeLocal + 3;
             this.skipLocal = nextFreeLocal + 4;
+            this.meshElideMhLocal = nextFreeLocal + 5;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            mv.visitInsn(Opcodes.ACONST_NULL);
+            mv.visitVarInsn(Opcodes.ASTORE, meshElideMhLocal);
+            final Label initStart = new Label();
+            final Label initEnd = new Label();
+            final Label initNotHandle = new Label();
+            final Label initHandler = new Label();
+            final Label initDone = new Label();
+            mv.visitTryCatchBlock(initStart, initEnd, initHandler, THROWABLE_OWNER);
+            mv.visitLabel(initStart);
+            SlotBridgeEmitter.emitMethodHandleConsult(
+                    mv, WarpDeformEditBridge.EDIT_SELECTION_MESH_ELIDE_PROPERTY, initNotHandle);
+            mv.visitVarInsn(Opcodes.ASTORE, meshElideMhLocal);
+            mv.visitJumpInsn(Opcodes.GOTO, initDone);
+            mv.visitLabel(initNotHandle);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(initEnd);
+            mv.visitJumpInsn(Opcodes.GOTO, initDone);
+            mv.visitLabel(initHandler);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(initDone);
         }
 
         @Override
@@ -515,7 +542,6 @@ final class EditSubtreeMethodWeavers {
                 final Label tryStart = new Label();
                 final Label tryEnd = new Label();
                 final Label handler = new Label();
-                final Label notHandle = new Label();
                 final Label afterTry = new Label();
                 final Label skipCall = new Label();
 
@@ -526,10 +552,11 @@ final class EditSubtreeMethodWeavers {
                 mv.visitInsn(Opcodes.ICONST_0);
                 mv.visitVarInsn(Opcodes.ISTORE, skipLocal);
 
+                mv.visitVarInsn(Opcodes.ALOAD, meshElideMhLocal);
+                mv.visitJumpInsn(Opcodes.IFNULL, afterTry);
                 mv.visitTryCatchBlock(tryStart, tryEnd, handler, THROWABLE_OWNER);
                 mv.visitLabel(tryStart);
-                SlotBridgeEmitter.emitMethodHandleConsult(
-                        mv, WarpDeformEditBridge.EDIT_SELECTION_MESH_ELIDE_PROPERTY, notHandle);
+                mv.visitVarInsn(Opcodes.ALOAD, meshElideMhLocal);
                 mv.visitVarInsn(Opcodes.ALOAD, entityLocal);
                 mv.visitVarInsn(Opcodes.ALOAD, packLocal);
                 mv.visitVarInsn(Opcodes.ILOAD, flag1Local);
@@ -541,9 +568,6 @@ final class EditSubtreeMethodWeavers {
                         MH_SELECTION_MESH_ELIDE_DESC,
                         false);
                 mv.visitVarInsn(Opcodes.ISTORE, skipLocal);
-                mv.visitJumpInsn(Opcodes.GOTO, afterTry);
-                mv.visitLabel(notHandle);
-                mv.visitInsn(Opcodes.POP);
                 mv.visitLabel(tryEnd);
                 mv.visitJumpInsn(Opcodes.GOTO, afterTry);
                 mv.visitLabel(handler);
@@ -565,7 +589,7 @@ final class EditSubtreeMethodWeavers {
 
         @Override
         public void visitMaxs(final int maxStack, final int maxLocals) {
-            super.visitMaxs(maxStack + 6, Math.max(maxLocals, skipLocal + 1));
+            super.visitMaxs(maxStack + 6, Math.max(maxLocals, meshElideMhLocal + 1));
         }
     }
 }

@@ -47,6 +47,10 @@ final class EditOverlayElisionCoordinator {
     private Set<?> cachedSelWSet;
     private Set<?> cachedSelXSet;
     private Set<Object> cachedSelGGuids = Set.of();
+    private boolean cachedSelHasHover;
+    private boolean cachedSelHasW;
+    private boolean cachedSelHasX;
+    private boolean cachedSelHasG;
 
     EditOverlayElisionCoordinator(final EditSubtreeHandles handles, final EditSubtreeCoordinator subtreeCoordinator) {
         this.h = handles;
@@ -64,7 +68,14 @@ final class EditOverlayElisionCoordinator {
         cachedFDeformers = Set.of();
         cachedGDeformers = Set.of();
         cachedSelMeshPack = null;
+        cachedSelHover = null;
+        cachedSelWSet = null;
+        cachedSelXSet = null;
         cachedSelGGuids = Set.of();
+        cachedSelHasHover = false;
+        cachedSelHasW = false;
+        cachedSelHasX = false;
+        cachedSelHasG = false;
     }
 
     /**
@@ -415,24 +426,29 @@ final class EditOverlayElisionCoordinator {
             return false;
         }
         try {
-            final SelectionDrawContext ctx = readSelectionDrawContext(viewHolder);
-            if (ctx == null) {
+            final SelectionDrawState state = selectionDrawStates.getOrCompute(viewHolder, SelectionDrawState::new);
+            state.pendingRecord = false;
+            state.pendingSceneGraph = null;
+            state.pendingModel = null;
+            state.pendingActionPack = null;
+            if (!populateSelectionContext(viewHolder, state)) {
+                state.valid = false;
                 return false;
             }
-            final SelectionDrawState state = selectionDrawStates.getOrCompute(viewHolder, SelectionDrawState::new);
             if (state.valid
-                    && state.lastActionPack == ctx.actionPack
-                    && state.lastModel == ctx.model
-                    && state.lastSig == ctx.sig
+                    && state.lastActionPack == state.pendingActionPack
+                    && state.lastModel == state.pendingModel
+                    && state.lastSig == state.pendingSig
                     && state.volatileEntities != null) {
                 for (final Object entity : state.volatileEntities) {
-                    h.sceneGraphSetVolatile.invokeExact(ctx.sceneGraph, entity);
+                    h.sceneGraphSetVolatile.invokeExact(state.pendingSceneGraph, entity);
                 }
                 selectionDrawElisions.increment();
                 return true;
             }
             state.valid = false;
-            state.capturePreWillRender(h.sceneGraphWillRenderField.get(ctx.sceneGraph));
+            state.capturePreWillRender(h.sceneGraphWillRenderField.get(state.pendingSceneGraph));
+            state.pendingRecord = true;
             cachedSelMeshPack = null;
             return false;
         } catch (Throwable failure) {
@@ -447,12 +463,16 @@ final class EditOverlayElisionCoordinator {
             return;
         }
         try {
-            final SelectionDrawContext ctx = readSelectionDrawContext(viewHolder);
-            if (ctx == null) {
+            final SelectionDrawState state = selectionDrawStates.get(viewHolder);
+            if (state == null || !state.pendingRecord || state.pendingSceneGraph == null) {
                 return;
             }
-            final SelectionDrawState state = selectionDrawStates.getOrCompute(viewHolder, SelectionDrawState::new);
-            state.recordAddedVolatiles(h.sceneGraphWillRenderField.get(ctx.sceneGraph), ctx);
+            final Object sceneGraph = state.pendingSceneGraph;
+            state.pendingRecord = false;
+            state.pendingSceneGraph = null;
+            state.recordAddedVolatiles(h.sceneGraphWillRenderField.get(sceneGraph));
+            state.pendingModel = null;
+            state.pendingActionPack = null;
             selectionDrawUpdates.increment();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -472,26 +492,39 @@ final class EditOverlayElisionCoordinator {
             return false;
         }
         try {
-            refreshSelMeshFrameCache(actionPack);
+            if (cachedSelMeshPack != actionPack) {
+                refreshSelMeshFrameCache(actionPack);
+            }
             final boolean active;
             if (cachedSelHide) {
                 active = false;
             } else if (isSelected || isGlued) {
                 active = true;
+            } else if (!cachedSelHasHover && !cachedSelHasW && !cachedSelHasX && !cachedSelHasG) {
+                active = false;
             } else {
                 final Object mesh = (Object) h.artMeshSelectionDrawGetMesh.invokeExact(drawEntity);
                 if (mesh == null) {
                     return false;
                 }
-                final Object guid = h.acc.meshGetGuid(mesh);
-                final Object src = h.acc.meshGetSource(mesh);
-                final Object selection = src == null ? null : (Object) h.meshSourceGetSelection.invokeExact(src);
-                final boolean hover = cachedSelHover != null && cachedSelHover.equals(selection);
-                final boolean inW = guid != null && cachedSelWSet != null && cachedSelWSet.contains(guid);
-                final boolean inX = guid != null && cachedSelXSet != null && cachedSelXSet.contains(guid);
-                final Object targetGuid = cachedSelGGuids.isEmpty() ? null : h.acc.meshGetTargetGuid(mesh);
-                final boolean underWarp = targetGuid != null && cachedSelGGuids.contains(targetGuid);
-                active = hover || inW || inX || underWarp;
+                boolean hit = false;
+                if (cachedSelHasHover) {
+                    final Object src = h.acc.meshGetSource(mesh);
+                    final Object selection = src == null ? null : (Object) h.meshSourceGetSelection.invokeExact(src);
+                    hit = cachedSelHover.equals(selection);
+                }
+                if (!hit && (cachedSelHasW || cachedSelHasX)) {
+                    final Object guid = h.acc.meshGetGuid(mesh);
+                    if (guid != null) {
+                        hit = (cachedSelHasW && cachedSelWSet.contains(guid))
+                                || (cachedSelHasX && cachedSelXSet.contains(guid));
+                    }
+                }
+                if (!hit && cachedSelHasG) {
+                    final Object targetGuid = h.acc.meshGetTargetGuid(mesh);
+                    hit = targetGuid != null && cachedSelGGuids.contains(targetGuid);
+                }
+                active = hit;
             }
             final ArtMeshSelectionState state =
                     artMeshSelectionStates.getOrCompute(drawEntity, ArtMeshSelectionState::new);
@@ -540,6 +573,11 @@ final class EditOverlayElisionCoordinator {
         } else {
             cachedSelGGuids = Set.of();
         }
+        cachedSelHasHover = cachedSelHover != null
+                && (h.artMeshSelectionClass == null || h.artMeshSelectionClass.isInstance(cachedSelHover));
+        cachedSelHasW = cachedSelWSet != null && !cachedSelWSet.isEmpty();
+        cachedSelHasX = cachedSelXSet != null && !cachedSelXSet.isEmpty();
+        cachedSelHasG = !cachedSelGGuids.isEmpty();
         cachedSelMeshPack = actionPack;
     }
 
@@ -561,39 +599,39 @@ final class EditOverlayElisionCoordinator {
                 && (h.actionPackGetQ != null || h.actionPackGetS != null);
     }
 
-    private SelectionDrawContext readSelectionDrawContext(final Object viewHolder) throws Throwable {
+    private boolean populateSelectionContext(final Object viewHolder, final SelectionDrawState state) throws Throwable {
         final Object modelingView = (Object) h.overlayViewGetModelingView.invokeExact(viewHolder);
         final Object completePack = (Object) h.overlayViewGetCompletePack.invokeExact(viewHolder);
         final Object model = (Object) h.overlayViewGetModel.invokeExact(viewHolder);
         if (modelingView == null || completePack == null || model == null) {
-            return null;
+            return false;
         }
         if (h.formAnimViewClass != null && h.formAnimViewClass.isInstance(modelingView)) {
-            return null;
+            return false;
         }
         final Object devSetting = (Object) h.modelingViewGetDevelopSetting.invokeExact(modelingView);
         if (devSetting == null || !(boolean) h.developSettingGetC.invokeExact(devSetting)) {
-            return null;
+            return false;
         }
         final Object appSettingView = (Object) h.modelingViewGetAppearanceSetting.invokeExact(modelingView);
         if (appSettingView == null || !(boolean) h.appearanceSettingGetA.invokeExact(appSettingView)) {
-            return null;
+            return false;
         }
         final Object actionPack = (Object) h.modelingViewGetLastActionPack.invokeExact(modelingView);
         if (actionPack == null || !h.actionPackClass.isInstance(actionPack)) {
-            return null;
+            return false;
         }
         final Object editMode = (Object) h.actionPackGetEditMode.invokeExact(actionPack);
         if (editMode == null || !h.editModeMainClass.isInstance(editMode)) {
-            return null;
+            return false;
         }
         final Object selector = (Object) h.editModeMainGetSelector.invokeExact(editMode);
         if (selector == null) {
-            return null;
+            return false;
         }
         final Object sceneGraph = (Object) h.modelingViewGetSceneGraph.invokeExact(modelingView);
         if (sceneGraph == null) {
-            return null;
+            return false;
         }
 
         final Object paramSet = h.acc.modelGetParameterSet(model);
@@ -735,7 +773,11 @@ final class EditOverlayElisionCoordinator {
                 sig = sig * HASH_PRIME + (int) h.pointGetY.invokeExact(pt);
             }
         }
-        return new SelectionDrawContext(model, actionPack, sceneGraph, sig);
+        state.pendingModel = model;
+        state.pendingActionPack = actionPack;
+        state.pendingSceneGraph = sceneGraph;
+        state.pendingSig = sig;
+        return true;
     }
 
     private float resolveCameraScale() throws Throwable {
@@ -976,8 +1018,6 @@ final class EditOverlayElisionCoordinator {
     private record FrameGlobalState(
             long globalSig, Object selector, Set<Object> rGuids, Set<Object> fDeformers, Set<Object> gDeformers) {}
 
-    private record SelectionDrawContext(Object model, Object actionPack, Object sceneGraph, long sig) {}
-
     private static final class SelectionDrawState {
         final IdentityHashMap<Object, Boolean> preWillRender = new IdentityHashMap<>();
         Object lastModel;
@@ -985,6 +1025,11 @@ final class EditOverlayElisionCoordinator {
         long lastSig;
         Object[] volatileEntities;
         boolean valid;
+        Object pendingModel;
+        Object pendingActionPack;
+        Object pendingSceneGraph;
+        long pendingSig;
+        boolean pendingRecord;
 
         void capturePreWillRender(final Object willRenderRaw) {
             preWillRender.clear();
@@ -997,7 +1042,7 @@ final class EditOverlayElisionCoordinator {
             }
         }
 
-        void recordAddedVolatiles(final Object willRenderRaw, final SelectionDrawContext ctx) {
+        void recordAddedVolatiles(final Object willRenderRaw) {
             if (!(willRenderRaw instanceof java.util.Collection<?> entities)) {
                 volatileEntities = null;
                 valid = false;
@@ -1019,9 +1064,9 @@ final class EditOverlayElisionCoordinator {
             }
             preWillRender.clear();
             this.volatileEntities = added;
-            this.lastModel = ctx.model;
-            this.lastActionPack = ctx.actionPack;
-            this.lastSig = ctx.sig;
+            this.lastModel = pendingModel;
+            this.lastActionPack = pendingActionPack;
+            this.lastSig = pendingSig;
             this.valid = true;
         }
     }

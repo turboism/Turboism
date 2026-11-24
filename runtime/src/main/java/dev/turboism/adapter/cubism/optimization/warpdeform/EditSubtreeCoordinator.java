@@ -785,8 +785,8 @@ final class EditSubtreeCoordinator {
             if (entryCount < 2) {
                 blendedMorph = lower;
             } else {
-                blendedMorph =
-                        evaluateMorphInterval(scratch, scratch.entries, entryCount, paramVal, lower, isWarp, acc);
+                blendedMorph = evaluateMorphInterval(
+                        scratch, scratch.entries, entryCount, paramVal, lower, isWarp, acc, h.copyInfoDefault);
             }
 
             float weight = UNIT_SCALE;
@@ -867,7 +867,8 @@ final class EditSubtreeCoordinator {
             final float paramVal,
             final Object lower,
             final boolean isWarp,
-            final EditSubtreeCompiledAccessors.HostOps acc) {
+            final EditSubtreeCompiledAccessors.HostOps acc,
+            final Object defaultCopyInfo) {
         MorphKeyEntry lowEntry = null;
         for (int i = count - 1; i >= 0; i--) {
             if (entries[i].keyValue <= paramVal) {
@@ -893,7 +894,7 @@ final class EditSubtreeCoordinator {
         }
         final float t = (paramVal - lowEntry.keyValue) / (highEntry.keyValue - lowEntry.keyValue);
         final float oneMinusT = UNIT_SCALE - t;
-        final Object blended = scratch.obtainBlendedForm(lowEntry.form, isWarp, acc);
+        final Object blended = scratch.obtainBlendedForm(lowEntry.form, isWarp, acc, defaultCopyInfo);
         acc.formZero(blended);
         acc.formBlend(blended, lowEntry.form, oneMinusT);
         acc.formBlend(blended, highEntry.form, t);
@@ -996,18 +997,24 @@ final class EditSubtreeCoordinator {
         }
 
         Object obtainBlendedForm(
-                final Object template, final boolean isWarp, final EditSubtreeCompiledAccessors.HostOps acc) {
+                final Object template,
+                final boolean isWarp,
+                final EditSubtreeCompiledAccessors.HostOps acc,
+                final Object defaultCopyInfo) {
+            if (defaultCopyInfo == null) {
+                throw new IllegalStateException("Missing default CopyInfo for morph blend copy.");
+            }
             if (isWarp) {
                 final float[] pos = acc.warpFormGetPositions(template);
                 final int len = pos == null ? -1 : pos.length;
                 if (blendedWarpForm == null || blendedWarpPosLen != len) {
-                    blendedWarpForm = acc.formDeepCopy(template, null);
+                    blendedWarpForm = acc.formDeepCopy(template, defaultCopyInfo);
                     blendedWarpPosLen = len;
                 }
                 return blendedWarpForm;
             }
             if (blendedRotForm == null) {
-                blendedRotForm = acc.formDeepCopy(template, null);
+                blendedRotForm = acc.formDeepCopy(template, defaultCopyInfo);
             }
             return blendedRotForm;
         }

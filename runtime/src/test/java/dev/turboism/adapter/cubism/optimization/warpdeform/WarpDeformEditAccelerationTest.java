@@ -1661,6 +1661,7 @@ class WarpDeformEditAccelerationTest {
         assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-warp-reinit-undo");
 
         // Fast drag resumes cleanly on depth-24 DAG after reinitInstance.
+        final long fallbackBeforeResume = bridge.snapshot().get("fallbackModelUpdates");
         final float[] resumedGrid = baseGrid.clone();
         resumedGrid[0] += 11.5f;
         dragWarpDeformer(origHarness.rootWarp, resumedGrid);
@@ -1669,6 +1670,7 @@ class WarpDeformEditAccelerationTest {
         rewHarness.invokeUpdate();
         assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-post-reinit-resume");
         assertEquals(beforeFast + 4L, bridge.snapshot().get("fastModelUpdates"));
+        assertEquals(fallbackBeforeResume, bridge.snapshot().get("fallbackModelUpdates"));
     }
 
     private static Object[] buildDeepDag24WithMorphTarget(final ClassLoader loader, final WarpDeformEditTarget target)
@@ -1806,9 +1808,28 @@ class WarpDeformEditAccelerationTest {
         final List<Object> mKfs =
                 (List<Object>) warpSrcCls.getMethod("getKeyforms").invoke(morphSrc);
         mKfs.add(morphFormA);
+        final Object morphFormB = warpFormCls
+                .getConstructor(
+                        warpSrcCls,
+                        Class.forName(WarpDeformEditTarget.WARP_DEFORMER_OWNER.replace('/', '.'), false, loader),
+                        coordCls)
+                .newInstance(morphSrc, null, coordLocal);
+        warpFormCls
+                .getMethod("setGuid", formGuidCls)
+                .invoke(
+                        morphFormB,
+                        formGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("mfB".getBytes())));
+        final float[] shiftedB = baseGrid.clone();
+        shiftedB[0] -= 6.0f;
+        shiftedB[5] += 4.5f;
+        warpFormCls.getMethod("setPositions", float[].class).invoke(morphFormB, shiftedB);
+        mKfs.add(morphFormB);
         final Object morphObj = morphCls.getConstructor(acFormCls, paramGuidCls, float.class)
                 .newInstance(morphFormA, paramCGuid, 20.0f);
+        final Object morphObjLow =
+                morphCls.getConstructor(acFormCls, paramGuidCls, float.class).newInstance(morphFormB, paramCGuid, 5.0f);
         final Object morphSet = warpSrcCls.getMethod("getKeyformMorphTargetSet").invoke(morphSrc);
+        morphSet.getClass().getMethod("add", morphCls).invoke(morphSet, morphObjLow);
         morphSet.getClass().getMethod("add", morphCls).invoke(morphSet, morphObj);
         final Object constraintSet =
                 morphSet.getClass().getMethod("getBlendWeightConstraintSet").invoke(morphSet);
@@ -1871,6 +1892,50 @@ class WarpDeformEditAccelerationTest {
                 final List<Object> rKfs =
                         (List<Object>) rotSrcCls.getMethod("getKeyforms").invoke(rs);
                 rKfs.add(rf);
+                if (depth == 3) {
+                    final Object rotMorphLow = rotFormCls
+                            .getConstructor(rotSrcCls, rotDefCls, coordCls)
+                            .newInstance(rs, null, coordLocal);
+                    rotFormCls
+                            .getMethod("setGuid", formGuidCls)
+                            .invoke(
+                                    rotMorphLow,
+                                    formGuidCls
+                                            .getConstructor(UUID.class)
+                                            .newInstance(UUID.nameUUIDFromBytes("cr-morph-low".getBytes())));
+                    rotFormCls.getMethod("setOriginX", float.class).invoke(rotMorphLow, 6.0f);
+                    rotFormCls.getMethod("setAngle", float.class).invoke(rotMorphLow, 4.0f);
+                    final Object rotMorphHigh = rotFormCls
+                            .getConstructor(rotSrcCls, rotDefCls, coordCls)
+                            .newInstance(rs, null, coordLocal);
+                    rotFormCls
+                            .getMethod("setGuid", formGuidCls)
+                            .invoke(
+                                    rotMorphHigh,
+                                    formGuidCls
+                                            .getConstructor(UUID.class)
+                                            .newInstance(UUID.nameUUIDFromBytes("cr-morph-high".getBytes())));
+                    rotFormCls.getMethod("setOriginX", float.class).invoke(rotMorphHigh, 1.5f);
+                    rotFormCls.getMethod("setAngle", float.class).invoke(rotMorphHigh, -7.0f);
+                    rKfs.add(rotMorphLow);
+                    rKfs.add(rotMorphHigh);
+                    final Object rMorphSet =
+                            rotSrcCls.getMethod("getKeyformMorphTargetSet").invoke(rs);
+                    rMorphSet
+                            .getClass()
+                            .getMethod("add", morphCls)
+                            .invoke(
+                                    rMorphSet,
+                                    morphCls.getConstructor(acFormCls, paramGuidCls, float.class)
+                                            .newInstance(rotMorphLow, paramCGuid, 5.0f));
+                    rMorphSet
+                            .getClass()
+                            .getMethod("add", morphCls)
+                            .invoke(
+                                    rMorphSet,
+                                    morphCls.getConstructor(acFormCls, paramGuidCls, float.class)
+                                            .newInstance(rotMorphHigh, paramCGuid, 20.0f));
+                }
                 final Object rKfGrid =
                         rotSrcCls.getMethod("getKeyformGridSource").invoke(rs);
                 rKfGrid.getClass().getMethod("setInitialKeyform", formGuidCls).invoke(rKfGrid, rfGuid);
