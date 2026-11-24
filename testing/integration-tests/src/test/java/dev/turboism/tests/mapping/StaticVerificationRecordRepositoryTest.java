@@ -185,7 +185,7 @@ class StaticVerificationRecordRepositoryTest {
                                     "Live2D_Cubism.jar",
                                     ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                                     ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                                    1121,
+                                    1122,
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     recordMethodAliases("build/generated/verification/cubism-5.2.03-editor-model.json"),
@@ -209,7 +209,7 @@ class StaticVerificationRecordRepositoryTest {
                                     EditorModelVerificationManifest.RECORD_5_3_02
                                             .artifact()
                                             .sha256(),
-                                    1157,
+                                    1158,
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     EditorModelVerificationManifest.cubism5302Aliases(),
                                     recordMethodAliases("build/generated/verification/cubism-5.3.02-editor-model.json"),
