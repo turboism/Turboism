@@ -25,6 +25,11 @@ import dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationTr
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.runtime.exec.RuntimeThreads;
+import java.awt.Toolkit;
+import java.awt.event.AWTEventListener;
+import java.awt.event.AWTEventListenerProxy;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeListenerProxy;
 import java.io.File;
 import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
@@ -41,7 +46,9 @@ import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -51,8 +58,13 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import javax.swing.LookAndFeel;
+import javax.swing.SwingUtilities;
+import javax.swing.UIDefaults;
+import javax.swing.UIManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
@@ -72,6 +84,9 @@ class WarpDeformEditAccelerationTest {
     private static final String BOOTCLASSPATH_ARG_PREFIX = "-Xbootclasspath/a:";
     private static final String CLASSPATH_FLAG = "-classpath";
     private static final String JAVA_CLASS_PATH_PROPERTY = "java.class.path";
+    private static final String UI_CLASS_LOADER_KEY = "ClassLoader";
+    private static final String APPLE_MENU_BAR_PROPERTY = "apple.laf.useScreenMenuBar";
+    private static final String FLATLAF_MENU_BAR_PROPERTY = "flatlaf.menuBarEmbedded";
     private static final Path LOCAL_ARTIFACTS_ROOT = Path.of(System.getProperty("user.home"), "cubism-host-artifacts");
     private static final Path LOCAL_REF_5305 = Path.of(
             System.getProperty("user.home"),
@@ -286,7 +301,8 @@ class WarpDeformEditAccelerationTest {
         try (RewrittenHostClassLoader origLoader =
                         new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader());
                 RewrittenHostClassLoader rewLoader =
-                        new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader())) {
+                        new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader());
+                SwingGlobalStateGuard ignored = SwingGlobalStateGuard.capture()) {
             origLoader.installOverrides(Map.of(), domain);
             rewLoader.installOverrides(overrides, domain);
 
@@ -432,7 +448,8 @@ class WarpDeformEditAccelerationTest {
         try (RewrittenHostClassLoader origLoader =
                         new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader());
                 RewrittenHostClassLoader rewLoader =
-                        new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader())) {
+                        new RewrittenHostClassLoader(jar, urls, getClass().getClassLoader());
+                SwingGlobalStateGuard ignored = SwingGlobalStateGuard.capture()) {
             rewLoader.installOverrides(composedOverrides, domain);
             for (final String owner : composedOverrides.keySet()) {
                 Class.forName(owner.replace('/', '.'), false, rewLoader);
@@ -3167,6 +3184,187 @@ class WarpDeformEditAccelerationTest {
         }
         assertTrue(process.waitFor(BOOTSTRAP_CHILD_TIMEOUT_SECONDS * 4L, TimeUnit.SECONDS), "-Xverify:all timed out");
         assertEquals(0, process.exitValue(), "-Xverify:all verification failed:\n" + output);
+    }
+
+    /**
+     * Snapshots and restores JVM-global Swing LookAndFeel and Toolkit listeners before closing host classloaders.
+     *
+     * <p>Host view initialization installs FlatLaf and Toolkit listeners from the temporary {@link
+     * RewrittenHostClassLoader}, which otherwise break later Swing UI tests once the loader closes.
+     */
+    private static final class SwingGlobalStateGuard implements AutoCloseable {
+
+        private final LookAndFeel previousLaf;
+        private final Object previousUiClassLoader;
+        private final Set<AWTEventListener> previousAwtListeners;
+        private final Set<PropertyChangeListener> previousToolkitPropertyListeners;
+        private final Set<PropertyChangeListener> previousUiManagerListeners;
+        private final Set<PropertyChangeListener> previousUiDefaultsListeners;
+        private final Set<PropertyChangeListener> previousLafDefaultsListeners;
+        private final String previousAppleMenuBar;
+        private final String previousFlatLafMenuBar;
+
+        private SwingGlobalStateGuard(
+                final LookAndFeel previousLaf,
+                final Object previousUiClassLoader,
+                final Set<AWTEventListener> previousAwtListeners,
+                final Set<PropertyChangeListener> previousToolkitPropertyListeners,
+                final Set<PropertyChangeListener> previousUiManagerListeners,
+                final Set<PropertyChangeListener> previousUiDefaultsListeners,
+                final Set<PropertyChangeListener> previousLafDefaultsListeners,
+                final String previousAppleMenuBar,
+                final String previousFlatLafMenuBar) {
+            this.previousLaf = previousLaf;
+            this.previousUiClassLoader = previousUiClassLoader;
+            this.previousAwtListeners = previousAwtListeners;
+            this.previousToolkitPropertyListeners = previousToolkitPropertyListeners;
+            this.previousUiManagerListeners = previousUiManagerListeners;
+            this.previousUiDefaultsListeners = previousUiDefaultsListeners;
+            this.previousLafDefaultsListeners = previousLafDefaultsListeners;
+            this.previousAppleMenuBar = previousAppleMenuBar;
+            this.previousFlatLafMenuBar = previousFlatLafMenuBar;
+        }
+
+        static SwingGlobalStateGuard capture() throws Exception {
+            final AtomicReference<SwingGlobalStateGuard> holder = new AtomicReference<>();
+            runOnEdtAndWait(() -> {
+                final Toolkit toolkit = Toolkit.getDefaultToolkit();
+                final UIDefaults uiDefaults = UIManager.getDefaults();
+                final UIDefaults lafDefaults = UIManager.getLookAndFeelDefaults();
+                holder.set(new SwingGlobalStateGuard(
+                        UIManager.getLookAndFeel(),
+                        uiDefaults.get(UI_CLASS_LOADER_KEY),
+                        snapshotAwtListeners(toolkit),
+                        snapshotPropertyListeners(toolkit.getPropertyChangeListeners()),
+                        snapshotPropertyListeners(UIManager.getPropertyChangeListeners()),
+                        snapshotPropertyListeners(uiDefaults.getPropertyChangeListeners()),
+                        snapshotPropertyListeners(lafDefaults.getPropertyChangeListeners()),
+                        System.getProperty(APPLE_MENU_BAR_PROPERTY),
+                        System.getProperty(FLATLAF_MENU_BAR_PROPERTY)));
+            });
+            return holder.get();
+        }
+
+        @Override
+        public void close() throws Exception {
+            try {
+                // Restore LookAndFeel while RewrittenHostClassLoader remains open so FlatLaf uninitializes cleanly.
+                runOnEdtAndWait(() -> {
+                    final Toolkit toolkit = Toolkit.getDefaultToolkit();
+                    final UIDefaults uiDefaults = UIManager.getDefaults();
+                    final UIDefaults lafDefaults = UIManager.getLookAndFeelDefaults();
+                    removeAddedAwtListeners(toolkit);
+                    removeAddedToolkitPropertyListeners(toolkit);
+                    // Remove FlatLaf UIScale UIManager/UIDefaults listeners before LookAndFeel reset fires events.
+                    removeAddedPropertyListeners(
+                            UIManager.getPropertyChangeListeners(),
+                            previousUiManagerListeners,
+                            UIManager::removePropertyChangeListener);
+                    removeAddedPropertyListeners(
+                            uiDefaults.getPropertyChangeListeners(),
+                            previousUiDefaultsListeners,
+                            uiDefaults::removePropertyChangeListener);
+                    removeAddedPropertyListeners(
+                            lafDefaults.getPropertyChangeListeners(),
+                            previousLafDefaultsListeners,
+                            lafDefaults::removePropertyChangeListener);
+                    if (UIManager.getLookAndFeel() != previousLaf) {
+                        UIManager.setLookAndFeel(previousLaf);
+                    }
+                    final Object currentUiClassLoader = uiDefaults.get(UI_CLASS_LOADER_KEY);
+                    if (previousUiClassLoader == null) {
+                        uiDefaults.remove(UI_CLASS_LOADER_KEY);
+                    } else if (currentUiClassLoader != previousUiClassLoader) {
+                        UIManager.put(UI_CLASS_LOADER_KEY, previousUiClassLoader);
+                    }
+                });
+                // Flush follow-up EDT runnables queued during LookAndFeel uninitialization before loader close.
+                runOnEdtAndWait(() -> {});
+            } finally {
+                restoreSystemProperty(APPLE_MENU_BAR_PROPERTY, previousAppleMenuBar);
+                restoreSystemProperty(FLATLAF_MENU_BAR_PROPERTY, previousFlatLafMenuBar);
+            }
+        }
+
+        private void removeAddedAwtListeners(final Toolkit toolkit) {
+            for (final AWTEventListener listener : toolkit.getAWTEventListeners()) {
+                final AWTEventListener raw = unwrapAwtListener(listener);
+                if (!previousAwtListeners.contains(raw)) {
+                    toolkit.removeAWTEventListener(raw);
+                }
+            }
+        }
+
+        private void removeAddedToolkitPropertyListeners(final Toolkit toolkit) {
+            for (final PropertyChangeListener listener : toolkit.getPropertyChangeListeners()) {
+                if (listener instanceof PropertyChangeListenerProxy proxy
+                        && !previousToolkitPropertyListeners.contains(proxy.getListener())) {
+                    toolkit.removePropertyChangeListener(proxy.getPropertyName(), proxy.getListener());
+                }
+            }
+        }
+
+        private static void removeAddedPropertyListeners(
+                final PropertyChangeListener[] listeners,
+                final Set<PropertyChangeListener> baseline,
+                final Consumer<PropertyChangeListener> remover) {
+            for (final PropertyChangeListener listener : listeners) {
+                final PropertyChangeListener raw = unwrapPropertyListener(listener);
+                if (!baseline.contains(raw)) {
+                    remover.accept(raw);
+                }
+            }
+        }
+
+        private static Set<AWTEventListener> snapshotAwtListeners(final Toolkit toolkit) {
+            final Set<AWTEventListener> snapshot = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (final AWTEventListener listener : toolkit.getAWTEventListeners()) {
+                snapshot.add(unwrapAwtListener(listener));
+            }
+            return snapshot;
+        }
+
+        private static Set<PropertyChangeListener> snapshotPropertyListeners(final PropertyChangeListener[] listeners) {
+            final Set<PropertyChangeListener> snapshot = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (final PropertyChangeListener listener : listeners) {
+                snapshot.add(unwrapPropertyListener(listener));
+            }
+            return snapshot;
+        }
+
+        private static AWTEventListener unwrapAwtListener(final AWTEventListener listener) {
+            return listener instanceof AWTEventListenerProxy proxy ? proxy.getListener() : listener;
+        }
+
+        private static PropertyChangeListener unwrapPropertyListener(final PropertyChangeListener listener) {
+            return listener instanceof PropertyChangeListenerProxy proxy ? proxy.getListener() : listener;
+        }
+
+        private static void runOnEdtAndWait(final ThrowingAction action) throws Exception {
+            if (SwingUtilities.isEventDispatchThread()) {
+                action.run();
+                return;
+            }
+            final AtomicReference<Exception> failure = new AtomicReference<>();
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    action.run();
+                } catch (final Exception exception) {
+                    failure.set(exception);
+                }
+            });
+            if (failure.get() != null) {
+                throw failure.get();
+            }
+        }
+
+        private static void restoreSystemProperty(final String key, final String previous) {
+            if (previous == null) {
+                System.clearProperty(key);
+            } else {
+                System.setProperty(key, previous);
+            }
+        }
     }
 
     /** Child entrypoint verifying all rewritten host classes across all JARs under {@code -Xverify:all}. */
