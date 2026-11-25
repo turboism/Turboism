@@ -45,6 +45,7 @@ include(
     "plugins:parameter-lock",
     "plugins:parameter-sync",
     "plugins:warp-deformer-alt-symmetry",
+    "plugins:warp-row-column-deform",
     "plugins:artmesh-mirror",
     "plugins:boundingbox-warp-mirror",
     "plugins:frame-animation-import",

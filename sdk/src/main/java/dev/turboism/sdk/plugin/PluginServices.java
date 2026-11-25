@@ -225,6 +225,7 @@ public final class PluginServices {
                     MESH_TOOLS,
                     AUTOMESH_ALGORITHMS,
                     MODELING_TOOLS,
+                    TEMPORARY_DEFORM_TOOLS,
                     EDITOR_COMMANDS,
                     ACTION_CATALOG,
                     BACKUP,

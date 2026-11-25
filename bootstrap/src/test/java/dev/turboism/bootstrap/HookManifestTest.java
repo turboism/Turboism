@@ -33,6 +33,7 @@ final class HookManifestTest {
                         MeshMirrorHookContributor.class,
                         MeshToolSessionHookContributor.class,
                         ModelingToolHookContributor.class,
+                        TemporaryDeformHookContributor.class,
                         WarpAltMirrorHookContributor.class,
                         MeshTriangulationHashHookContributor.class,
                         TextureAtlasLoadingHookContributor.class,

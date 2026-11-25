@@ -69,6 +69,8 @@ public final class CorePluginContext implements PluginContext {
             autoMeshAlgorithms = new CorePluginInstallableService<>("auto-mesh algorithms");
     private final CorePluginInstallableService<dev.turboism.sdk.cubism.modeling.ModelingToolRegistry> modelingTools =
             new CorePluginInstallableService<>("modeling tools");
+    private final CorePluginInstallableService<dev.turboism.sdk.cubism.temporarydeform.TemporaryDeformToolRegistry>
+            temporaryDeformTools = new CorePluginInstallableService<>("temporary deform tools");
     private final RuntimePluginServiceDirectory serviceDirectory = new RuntimePluginServiceDirectory();
 
     public CorePluginContext(final Dependencies dependencies) {
@@ -369,6 +371,9 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.installWhenPresent(
                 PluginService.MODELING_TOOLS, () -> disposableScope().isSealed() ? null : modelingTools.current());
         serviceDirectory.installWhenPresent(
+                PluginService.TEMPORARY_DEFORM_TOOLS,
+                () -> disposableScope().isSealed() ? null : temporaryDeformTools.current());
+        serviceDirectory.installWhenPresent(
                 PluginService.MESH_TOOLS, () -> disposableScope().isSealed() ? null : meshTools.current());
         serviceDirectory.installWhenPresent(
                 PluginService.AUTOMESH_ALGORITHMS,
@@ -449,6 +454,12 @@ public final class CorePluginContext implements PluginContext {
     /** Installs the independently verified, directory-only ordinary tool service once. */
     public void installModelingTools(final dev.turboism.sdk.cubism.modeling.ModelingToolRegistry service) {
         modelingTools.install(service, disposableScope());
+    }
+
+    /** Installs the directory-only temporary deform tool registry once for this plugin generation. */
+    public void installTemporaryDeformTools(
+            final dev.turboism.sdk.cubism.temporarydeform.TemporaryDeformToolRegistry service) {
+        temporaryDeformTools.install(service, disposableScope());
     }
     /** Runtime composition seam; installs the independently verified auto-mesh algorithm service once. */
     public void installAutoMeshAlgorithms(

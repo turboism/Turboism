@@ -86,6 +86,8 @@ final class HostSessionCoordinators {
             new dev.turboism.adapter.cubism.mesh.MeshToolCoordinator();
     private final dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator =
             new dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator();
+    private final dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinator temporaryDeformCoordinator =
+            new dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinator();
     private final RuntimeEditorUiHostLifecycle editorUiLifecycle = new RuntimeEditorUiHostLifecycle();
     private final EditorUiContributionAuthority editorUiContributions =
             new EditorUiContributionAuthority(editorUiLifecycle);
@@ -224,6 +226,10 @@ final class HostSessionCoordinators {
         return modelingToolCoordinator;
     }
 
+    dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinator temporaryDeformCoordinator() {
+        return temporaryDeformCoordinator;
+    }
+
     RuntimeEditorUiHostLifecycle editorUiLifecycle() {
         return editorUiLifecycle;
     }
@@ -294,6 +300,7 @@ final class HostSessionCoordinators {
         meshEditUiService.resetSession();
         meshMirrorAxisService.resetSession();
         modelingToolCoordinator.disconnect();
+        temporaryDeformCoordinator.disconnect();
         meshToolCoordinator.endSession();
         return Outcome.success();
     }
@@ -355,6 +362,7 @@ final class HostSessionCoordinators {
         outcome = outcome.combine(Outcome.attempt(meshEditUiService::resetSession));
         outcome = outcome.combine(Outcome.attempt(meshMirrorAxisService::resetSession));
         outcome = outcome.combine(Outcome.attempt(modelingToolCoordinator::close));
+        outcome = outcome.combine(Outcome.attempt(temporaryDeformCoordinator::close));
         outcome = outcome.combine(Outcome.attempt(meshToolCoordinator::close));
         outcome = outcome.combine(Outcome.attempt(editorUiPluginResources::close));
         outcome = outcome.combine(Outcome.attempt(editorUiActionRouter::close));
