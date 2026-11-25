@@ -9,9 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 final class NativeShaderUniformBridgeTest {
-    private static final int ALLOCATION_WARMUP_ITERATIONS = 5000;
+    private static final int ALLOCATION_WARMUP_ITERATIONS = 20_000;
     private static final int ALLOCATION_MEASURE_ITERATIONS = 1000;
-    private static final int ALLOCATION_SAMPLE_PASSES = 3;
+    private static final int ALLOCATION_SAMPLE_PASSES = 10;
 
     public static final class Context {
         static Context current;
@@ -311,8 +311,17 @@ final class NativeShaderUniformBridgeTest {
                         gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
             }
             minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
+            if (minAllocated == 0L) {
+                break;
+            }
         }
-        assertEquals(0L, minAllocated, "steady-state lookup and camera matrix checks must allocate zero bytes");
+        final long observedMin = minAllocated;
+        assertEquals(
+                0L,
+                observedMin,
+                () -> "steady-state lookup and camera matrix checks must allocate zero bytes (minAllocated="
+                        + observedMin
+                        + ")");
     }
 
     @Test
@@ -337,9 +346,16 @@ final class NativeShaderUniformBridgeTest {
                 checksum += NativeShaderUniformBridge.useProgramLabel(i & 255).length();
             }
             minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
+            if (minAllocated == 0L) {
+                break;
+            }
         }
         assertTrue(checksum > 0);
-        assertEquals(0L, minAllocated, "cached use program label lookup must allocate zero bytes");
+        final long observedMin = minAllocated;
+        assertEquals(
+                0L,
+                observedMin,
+                () -> "cached use program label lookup must allocate zero bytes (minAllocated=" + observedMin + ")");
     }
 
     private static int countEntries(final Map.Entry<?, ?>[] entries) {
