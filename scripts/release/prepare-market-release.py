@@ -542,13 +542,16 @@ def verify_release_roster_sync(repo_root: Path, manifest_path: Path, entries: li
                 )
 
 
-def select_publishable(prepared: list) -> list:
-    """Filter validated entries down to those the manifest approves for publication.
-
-    Withholding is per plugin, so approving one candidate cannot publish a sibling that
-    the manifest still marks as withheld.
-    """
-    return [item for item in prepared if item["entry"]["publication"] == "approved"]
+def select_publishable(prepared: list, project: str | None = None) -> list:
+    """Restrict publication to approved entries and honor an optional exact project."""
+    approved = [
+        item for item in prepared
+        if item["entry"]["publication"] == "approved"
+        and (project is None or item["entry"]["project"] == project)
+    ]
+    if project is not None and not approved:
+        raise MarketError(f"{project!r} is not approved for publication")
+    return approved
 
 
 def verify_withheld_dependencies(manifest_path: Path, prepared: list,
@@ -1231,12 +1234,12 @@ def is_channel_promotion(existing_channel: str, target_channel: str) -> bool:
 def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
           revision: str, *, catalog: str | None = None,
           catalog_sig: str | None = None,
-          release_channel: str | None = None) -> int:
+          release_channel: str | None = None, project: str | None = None) -> int:
     channel = _normalize_release_channel(release_channel)
     if channel == "nightly":
         return 0
     prepared = validate_selection(repo_root, manifest_path)
-    approved = select_publishable(prepared)
+    approved = select_publishable(prepared, project)
     if not approved:
         return 0
     if revision is None or not SOURCE_SHA.match(revision):
@@ -1308,11 +1311,12 @@ def stage(repo_root: Path, manifest_path: Path, build_root: Path, output: Path,
     return len(staged_items)
 
 
-def plan(repo_root: Path, manifest_path: Path, *, release_channel: str | None = None) -> int:
+def plan(repo_root: Path, manifest_path: Path, *,
+         release_channel: str | None = None, project: str | None = None) -> int:
     channel = _normalize_release_channel(release_channel)
     if channel == "nightly":
         return 0
-    return len(select_publishable(validate_selection(repo_root, manifest_path)))
+    return len(select_publishable(validate_selection(repo_root, manifest_path), project))
 
 
 # --------------------------------------------------------------------------
@@ -1347,6 +1351,7 @@ def parse_args(argv):
     parser.add_argument("--release-channel",
                         help="optional release channel (stable, beta, preview, nightly); "
                              "beta maps to catalog channel preview and nightly is skipped")
+    parser.add_argument("--project", help="only select this approved Gradle plugin project")
     operation = parser.add_mutually_exclusive_group()
     operation.add_argument("--verify-bundled", type=Path,
                            help="check the staged plugin directory against source and the catalog")
@@ -1359,6 +1364,7 @@ def parse_args(argv):
 def main(argv=None) -> int:
     args = parse_args(argv)
     manifest = args.manifest if args.manifest is not None else (args.repo_root / "packaging/market-plugins.json")
+    project = args.project or None
     try:
         if args.verify_bundled is not None:
             if args.catalog is None:
@@ -1367,12 +1373,12 @@ def main(argv=None) -> int:
             print(f"verified={count}")
             return 0
         if args.plan:
-            count = plan(args.repo_root, manifest, release_channel=args.release_channel)
+            count = plan(args.repo_root, manifest, release_channel=args.release_channel, project=project)
         else:
             count = stage(args.repo_root, manifest, args.build_root, args.output,
                           args.source_revision, catalog=args.catalog,
                           catalog_sig=args.catalog_sig,
-                          release_channel=args.release_channel)
+                          release_channel=args.release_channel, project=project)
     except (MarketError, OSError, KeyError, zipfile.BadZipFile) as failure:
         print(f"error: {failure}", file=sys.stderr)
         return 1

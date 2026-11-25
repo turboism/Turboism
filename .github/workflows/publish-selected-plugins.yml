@@ -22,6 +22,12 @@ on:
       - "settings.gradle.kts"
       - "gradle/**"
   workflow_dispatch:
+    inputs:
+      project:
+        description: Exact approved Gradle plugin project. Leave blank to select all approved projects.
+        type: string
+        required: false
+        default: ""
 
 concurrency:
   group: plugin-release-candidate-${{ github.ref }}
@@ -33,6 +39,8 @@ permissions:
 jobs:
   build-plugin-candidate:
     runs-on: ubuntu-22.04
+    env:
+      PLUGIN_PROJECT: ${{ inputs.project }}
     steps:
       - name: Check out exact event commit
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -56,6 +64,7 @@ jobs:
           OUTPUT="$(python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --manifest packaging/market-plugins.json \
+            --project "$PLUGIN_PROJECT" \
             --plan)"
           ELIGIBLE="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
           echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
@@ -84,6 +93,7 @@ jobs:
             --build-root build/worktree/market-publish \
             --output build/market-release \
             --source-revision "${{ github.sha }}" \
+            --project "$PLUGIN_PROJECT" \
             --catalog https://plugin.turboism.dev/api/v2/catalog.json)"
           printf '%s\n' "$OUTPUT"
           STAGED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"

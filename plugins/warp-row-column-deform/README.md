@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.warp-row-column-deform
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: deformer, warp, editing, temporary-deform
 turboismApi: "[0.70.3,)"
@@ -14,7 +14,7 @@ interface: none
 
 # Warp Row/Column Deform
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Adds a custom Temporary Deform Tool that lets you move an entire row or an entire column
 of Warp Deformer control points from outward edge handles or direct grid picks.
@@ -49,7 +49,10 @@ Full matrix: [compatibility matrix](../../compatibility/cubism/plugins.md)
 
 ## Install and enable
 
-Build or stage the plugin under Turboism's plugin directory. Once enabled, entries appear automatically in the Modeling Temporary Deform Tool submenu and Tool Details dropdown.
+Turboism bundles the plugin starting with 0.70.3-beta.4.
+If a compatible installation lacks the plugin, install it from the Plugin Market.
+Upgrade earlier Turboism builds to get the required temporary deform SDK.
+Enable the plugin to show it in the Modeling menu and Tool Details dropdown.
 
 ## How to use
 
@@ -74,7 +77,7 @@ Reads selected Warp Deformer grids on the local canvas only; stores nothing and 
 
 ## Status and limitations
 
-- Development status. Targets selected Warp Deformers only; ArtMesh and Rotation Deformers are not modified by this tool.
+- Preview. The tool targets selected Warp Deformers.
 
 ## Troubleshooting
 
