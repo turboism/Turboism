@@ -967,7 +967,7 @@
     {
       "project": ":plugins:warp-row-column-deform",
       "channel": "stable",
-      "publication": "withheld",
+      "publication": "approved",
       "cubismVersions": [
         "5.0.00",
         "5.0.01",
