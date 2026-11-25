@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.turbo-mesh
-version: 0.1.1
+version: 0.1.2
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: embedded
 
 | 항목 | 값 |
 |---|---|
-| 버전 | `0.1.1` |
+| 버전 | `0.1.2` |
 | 플러그인 ID | `dev.turboism.plugin.turbo-mesh` |
 | 카테고리 | `modeling` |
 | 태그 | mesh, artmesh, editing |

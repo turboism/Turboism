@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.artmesh-mirror
-version: 0.68.4
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Independent mirror editing for ArtMesh vertices in ordinary modeling mode. The a
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.4` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.artmesh-mirror` |
 | Category | `modeling` |
 | Tags | mesh, artmesh, editing, symmetry |
@@ -77,6 +77,10 @@ Preview. Matching searches within approximately 20 screen pixels of the reflecti
 If the axis is absent, enable the plugin and its canvas button, select an ArtMesh in ordinary modeling mode, and check runtime hook availability. If no counterpart moves, check that a corresponding vertex exists near the reflected position.
 
 ## Changelog
+
+### 0.68.5
+
+- Document axis lock and reset controls and clarify axis dragging.
 
 ### 0.68.4
 

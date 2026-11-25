@@ -14,11 +14,16 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Added
 
+- The SDK lets plugins register custom temporary deformation tools.
+- The canvas shows handles for moving mirror axes. ArtMesh Mirror adds axis lock and reset controls and uses a hollow circle for the pivot.
+- After an update, Turboism shows the release notes in the selected language.
 - ACP recognizes the agy CLI.
 - Settings -> Performance adds toggles for warp deformer and brush editing acceleration, interactive mesh editing acceleration, texture atlas canvas interaction acceleration, and Cubism memory and OpenGL resource leak mitigation. The Windows installer configuration merge accepts the four new fields, and the optimized preset enables all of them.
 
 ### Changed
 
+- Drag input runs with less latency. The editor defers OpenGL driver work, schedules independent deformation tasks together, and skips redundant palette updates.
+- The canvas context menu groups plugin actions.
 - Heavy deformer dragging runs faster by updating only affected subtrees, combining queued drag events, and deferring inspector rebuilds.
 - Performance groups have a checkbox that controls the entire group. The Balanced preset follows verified defaults. Warp position projection starts disabled.
 - Startup settings clarify the update channel and startup options, and the dialog has fewer actions.
@@ -35,6 +40,8 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Fixed
 
+- Mesh layout preserves geometry and toolbar selection. AutoMesh keeps the selected preset, and Turbo Mesh improves transparent bleed, region separation, and adaptive vertex placement.
+- ACP finds Antigravity more reliably and handles DeepSeek model selection.
 - Automatic mesh generation resolves the correct ArtMesh update bridge on Cubism 5.3.
 - ACP renders Markdown tables, improves code block contrast, shows transcript errors, and displays the context hint once.
 - The Cubism Parts panel initializes again after a document closes, and native and core logs stay in sync.

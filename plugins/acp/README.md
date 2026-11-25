@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.acp
-version: 0.68.8
+version: 0.68.9
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.8` |
+| Version | `0.68.9` |
 | Plugin ID | `dev.turboism.plugin.acp` |
 | Category | `integration` |
 | Tags | automation, acp, agent |
@@ -134,6 +134,10 @@ OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` an
 - **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
 
 ## Changelog
+
+### 0.68.9
+
+- Improve Antigravity discovery and DeepSeek model selection.
 
 ### 0.68.8
 
