@@ -5,13 +5,16 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
@@ -99,6 +102,29 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     /** {@code MethodHandle} slot: {@code (drawEntity, actionPack, selected, glued) -> boolean} mesh update elision. */
     public static final String EDIT_SELECTION_MESH_ELIDE_PROPERTY = "turboism.warp-deform-edit.selection-mesh-elide";
 
+    /** {@code MethodHandle} slot: {@code (artMesh, actionPack, selected, glued) -> boolean} lazy mesh create gate. */
+    public static final String EDIT_SELECTION_MESH_CREATE_ELIDE_PROPERTY =
+            "turboism.warp-deform-edit.selection-mesh-create-elide";
+
+    /** {@code MethodHandle} slot: {@code (drawEntity, actionPack, selected, glued) -> boolean} volatile elision. */
+    public static final String EDIT_SELECTION_SET_VOLATILE_ELIDE_PROPERTY =
+            "turboism.warp-deform-edit.selection-set-volatile-elide";
+
+    /** {@code AtomicLong} epoch slot incremented on {@code CArtMeshForm} keyform updates. */
+    public static final String MESH_KEYFORM_EPOCH_PROPERTY = "turboism.warp-deform-edit.mesh-keyform-epoch";
+
+    /** {@code AtomicLong} epoch slot incremented on {@code KeyformGridSource} and binding mutations. */
+    public static final String GRID_MUTATION_EPOCH_PROPERTY = "turboism.warp-deform-edit.grid-mutation-epoch";
+
+    /** {@code MethodHandle} slot: {@code (binding) -> List<Integer>} fast range key indices. */
+    public static final String KEYFORM_INDICES_IN_RANGE_PROPERTY = "turboism.warp-deform-edit.key-indices-in-range";
+
+    /** {@code MethodHandle} slot: {@code (gridSource, paramSet, searchTypeOrdinal) -> KeyformOnGrid}. */
+    public static final String KEYFORM_FIND_PROPERTY = "turboism.warp-deform-edit.find-keyform";
+
+    /** Sentinel object returned by {@link #KEYFORM_FIND_PROPERTY} to fall through to host code. */
+    public static final String KEYFORM_UNHANDLED_PROPERTY = "turboism.warp-deform-edit.keyform-unhandled";
+
     /** Diagnostic counter snapshot slot ({@code Supplier<Map<String, Long>>}). */
     public static final String STATS_PROPERTY = "turboism.warp-deform-edit.stats";
 
@@ -184,8 +210,22 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private static final String STAT_SELECTION_DRAW_ELISIONS = "selectionDrawElisions";
     private static final String STAT_SELECTION_DRAW_UPDATES = "selectionDrawUpdates";
     private static final String STAT_SELECTION_MESH_ELISIONS = "selectionMeshElisions";
+    private static final String STAT_SELECTION_MESH_CREATE_ELISIONS = "selectionMeshCreateElisions";
+    private static final String STAT_SELECTION_SET_VOLATILE_ELISIONS = "selectionSetVolatileElisions";
+    private static final String STAT_KEY_INDICES_FAST_CALLS = "keyIndicesInRangeFastCalls";
+    private static final String STAT_FIND_KEYFORM_FAST_CALLS = "findKeyformFastCalls";
     private static final String STAT_FAILURES = "failures";
     private static final int ROT_SCRATCH_SLOTS = 8;
+    private static final int SEARCH_EXACT_ORDINAL = -1;
+    private static final int SEARCH_EQUAL_ORDINAL = 0;
+    private static final int SEARCH_LESS_OR_EQUAL_ORDINAL = 1;
+    private static final int SEARCH_NEAREST_ORDINAL = 2;
+    private static final int REPEAT_SCRATCH_INIT_CAP = 32;
+    private static final int REPEAT_CANDIDATE_EXTRA = 2;
+    private static final int MAX_REPEAT_WALK_FACTOR = 4;
+    private static final int MAX_REPEAT_WALK_SLACK = 16;
+    private static final Object KEYFORM_UNHANDLED = new Object();
+    private static final ThreadLocal<KeyformScratch> KEYFORM_SCRATCH = ThreadLocal.withInitial(KeyformScratch::new);
 
     private static final ThreadLocal<double[]> DOUBLE2_SCRATCH = ThreadLocal.withInitial(() -> new double[2]);
     private static final ThreadLocal<float[]> FLOAT2_SCRATCH = ThreadLocal.withInitial(() -> new float[2]);
@@ -195,6 +235,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private static final ThreadLocal<float[][]> ROT_SCRATCH =
             ThreadLocal.withInitial(() -> new float[ROT_SCRATCH_SLOTS][2]);
 
+    private static final AtomicLong PREF_EPOCH = new AtomicLong();
+    private static final CopyOnWriteArraySet<WarpDeformEditBridge> LIVE_BRIDGES = new CopyOnWriteArraySet<>();
     private static volatile boolean configuredDefault = true;
 
     private final Class<?> warpFormClass;
@@ -301,10 +343,16 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final WeakIdentityCache<Object, WeightMapOverlayState> weightMapCache = new WeakIdentityCache<>();
     private final ClassLoader hostLoader;
     private final EditSubtreeHandles subtreeHandles;
+    private final EditSubtreeCompiledAccessors.OverlayOps overlayOps;
+    private final EditSubtreeCompiledAccessors.KeyformOps keyformOps;
+    private final AtomicLong meshKeyformEpoch = new AtomicLong();
+    private final AtomicLong gridMutationEpoch = new AtomicLong();
     private final SubtreeParallelExecutor parallelExecutor;
     private final EditSubtreeCoordinator editSubtreeCoordinator;
     private final EditOverlayElisionCoordinator editOverlayCoordinator;
 
+    private volatile boolean preferenceEnabled;
+    private volatile long lastObservedPrefEpoch = -1L;
     private final AtomicBoolean active = new AtomicBoolean();
     private final AtomicBoolean activeSlot = new AtomicBoolean();
     private final Map<String, Object> publishedSlots;
@@ -316,6 +364,8 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final LongAdder inverseQuadCalls = new LongAdder();
     private final LongAdder gridIsInsideCalls = new LongAdder();
     private final LongAdder bezierPointsCalls = new LongAdder();
+    private final LongAdder keyIndicesInRangeFastCalls = new LongAdder();
+    private final LongAdder findKeyformFastCalls = new LongAdder();
     private final LongAdder cornerTriangleCalls = new LongAdder();
     private final LongAdder majorLinesCalls = new LongAdder();
     private final LongAdder detailLinesCalls = new LongAdder();
@@ -331,6 +381,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     /** Sets the default enable state used when {@link #ENABLE_PROPERTY} is unset. */
     public static void setConfiguredDefault(final boolean enabled) {
         configuredDefault = enabled;
+        PREF_EPOCH.incrementAndGet();
+        for (final WarpDeformEditBridge bridge : LIVE_BRIDGES) {
+            bridge.isOperational();
+        }
     }
 
     /** Returns whether this optimization is enabled by explicit property or configured default. */
@@ -629,8 +683,15 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         final SubtreeParallelExecutor executor = new SubtreeParallelExecutor();
         try {
             subtreeHandles = EditSubtreeHandles.resolve(loader);
+            final EditSubtreeCompiledAccessors.OverlayOps compiledOverlay =
+                    EditSubtreeCompiledAccessors.tryCompileOverlay(loader);
+            overlayOps = compiledOverlay != null ? compiledOverlay : new FallbackOverlayOps();
+            final EditSubtreeCompiledAccessors.KeyformOps compiledKeyform =
+                    EditSubtreeCompiledAccessors.tryCompileKeyform(loader);
+            keyformOps = compiledKeyform != null ? compiledKeyform : tryCreateFallbackKeyformOps(loader);
             parallelExecutor = executor;
-            editSubtreeCoordinator = new EditSubtreeCoordinator(subtreeHandles, executor);
+            editSubtreeCoordinator =
+                    new EditSubtreeCoordinator(subtreeHandles, executor, meshKeyformEpoch, gridMutationEpoch);
             editOverlayCoordinator = new EditOverlayElisionCoordinator(subtreeHandles, editSubtreeCoordinator);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -641,7 +702,13 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             throw new ReflectiveOperationException("Failed resolving edit subtree handles", failure);
         }
 
+        refreshPreferenceEnabled();
         publishedSlots = buildSlotMap();
+    }
+
+    private void refreshPreferenceEnabled() {
+        lastObservedPrefEpoch = PREF_EPOCH.get();
+        preferenceEnabled = enabledByPreference();
     }
 
     /** Atomically publishes bridge callback slots into {@link System#getProperties()}. */
@@ -659,10 +726,13 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             try {
                 properties.putAll(publishedSlots);
                 installedProperties = properties;
-                activeSlot.set(enabledByPreference());
+                refreshPreferenceEnabled();
+                activeSlot.set(preferenceEnabled);
                 active.set(true);
+                LIVE_BRIDGES.add(this);
             } catch (RuntimeException | Error failure) {
                 FatalErrors.rethrowIfFatal(failure);
+                LIVE_BRIDGES.remove(this);
                 for (final Map.Entry<String, Object> entry : publishedSlots.entrySet()) {
                     properties.remove(entry.getKey(), entry.getValue());
                 }
@@ -673,6 +743,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        LIVE_BRIDGES.remove(this);
         activeSlot.set(false);
         if (!active.compareAndSet(true, false)) {
             clearCaches();
@@ -725,6 +796,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         counters.put(STAT_SELECTION_DRAW_ELISIONS, editOverlayCoordinator.selectionDrawElisions.sum());
         counters.put(STAT_SELECTION_DRAW_UPDATES, editOverlayCoordinator.selectionDrawUpdates.sum());
         counters.put(STAT_SELECTION_MESH_ELISIONS, editOverlayCoordinator.selectionMeshElisions.sum());
+        counters.put(STAT_SELECTION_MESH_CREATE_ELISIONS, editOverlayCoordinator.selectionMeshCreateElisions.sum());
+        counters.put(STAT_SELECTION_SET_VOLATILE_ELISIONS, editOverlayCoordinator.selectionSetVolatileElisions.sum());
+        counters.put(STAT_KEY_INDICES_FAST_CALLS, keyIndicesInRangeFastCalls.sum());
+        counters.put(STAT_FIND_KEYFORM_FAST_CALLS, findKeyformFastCalls.sum());
         counters.put(STAT_FAILURES, failures.sum());
         return Map.copyOf(counters);
     }
@@ -906,6 +981,32 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                         "tryElideArtMeshSelectionUpdate",
                         MethodType.methodType(
                                 boolean.class, Object.class, Object.class, boolean.class, boolean.class)));
+        slots.put(
+                EDIT_SELECTION_MESH_CREATE_ELIDE_PROPERTY,
+                lookup.bind(
+                        this,
+                        "canElideArtMeshSelectionCreate",
+                        MethodType.methodType(
+                                boolean.class, Object.class, Object.class, boolean.class, boolean.class)));
+        slots.put(
+                EDIT_SELECTION_SET_VOLATILE_ELIDE_PROPERTY,
+                lookup.bind(
+                        this,
+                        "shouldElideArtMeshSetVolatile",
+                        MethodType.methodType(
+                                boolean.class, Object.class, Object.class, boolean.class, boolean.class)));
+        slots.put(MESH_KEYFORM_EPOCH_PROPERTY, meshKeyformEpoch);
+        slots.put(GRID_MUTATION_EPOCH_PROPERTY, gridMutationEpoch);
+        slots.put(KEYFORM_UNHANDLED_PROPERTY, KEYFORM_UNHANDLED);
+        slots.put(
+                KEYFORM_INDICES_IN_RANGE_PROPERTY,
+                lookup.bind(this, "fastKeyIndicesInRange", MethodType.methodType(List.class, Object.class)));
+        slots.put(
+                KEYFORM_FIND_PROPERTY,
+                lookup.bind(
+                        this,
+                        "findKeyformFast",
+                        MethodType.methodType(Object.class, Object.class, Object.class, int.class)));
         slots.put(STATS_PROPERTY, statistics);
         return Map.copyOf(slots);
     }
@@ -917,6 +1018,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             final Object updCtx,
             final Object viewCtx,
             final Object ctx5) {
+        refreshPreferenceEnabled();
         if (!isOperational()) {
             return false;
         }
@@ -970,6 +1072,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     }
 
     private boolean tryElideLegacyDeformerOverlay(final Object viewOverlay) {
+        refreshPreferenceEnabled();
         if (!isOperational()) {
             return false;
         }
@@ -1017,6 +1120,7 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     }
 
     private boolean tryElideSelectionDraw(final Object viewHolder) {
+        refreshPreferenceEnabled();
         if (!isOperational()) {
             return false;
         }
@@ -1030,6 +1134,14 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         editOverlayCoordinator.recordSelectionDraw(viewHolder);
     }
 
+    private boolean canElideArtMeshSelectionCreate(
+            final Object artMesh, final Object actionPack, final boolean isSelected, final boolean isGlued) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editOverlayCoordinator.canElideArtMeshSelectionCreate(artMesh, actionPack, isSelected, isGlued);
+    }
+
     private boolean tryElideArtMeshSelectionUpdate(
             final Object drawEntity, final Object actionPack, final boolean isSelected, final boolean isGlued) {
         if (!isOperational()) {
@@ -1038,8 +1150,346 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         return editOverlayCoordinator.tryElideArtMeshSelectionUpdate(drawEntity, actionPack, isSelected, isGlued);
     }
 
+    private List<Integer> fastKeyIndicesInRange(final Object binding) {
+        if (!isOperational() || binding == null || keyformOps == null) {
+            return null;
+        }
+        try {
+            final List<?> keys = keyformOps.bindingGetKeys(binding);
+            final Object paramSrc = keyformOps.bindingGetParameter(binding);
+            if (keys == null || paramSrc == null) {
+                return null;
+            }
+            keyIndicesInRangeFastCalls.increment();
+            final int n = keys.size();
+            final ArrayList<Integer> out = new ArrayList<>(n);
+            final boolean repeat = keyformOps.paramSourceIsRepeat(paramSrc);
+            if (!repeat) {
+                for (int i = 0; i < n; i++) {
+                    if (!(keys.get(i) instanceof Number)) {
+                        return null;
+                    }
+                    out.add(Integer.valueOf(i));
+                }
+                return out;
+            }
+            final float min = keyformOps.paramSourceGetRangeMin(paramSrc);
+            final float max = keyformOps.paramSourceGetRangeMax(paramSrc);
+            for (int i = 0; i < n; i++) {
+                if (!(keys.get(i) instanceof Number num)) {
+                    return null;
+                }
+                final float v = num.floatValue();
+                if (min <= v && v <= max) {
+                    out.add(Integer.valueOf(i));
+                }
+            }
+            return out;
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            failures.increment();
+            return null;
+        }
+    }
+
+    private Object findKeyformFast(final Object gridSource, final Object paramSet, final int searchTypeOrdinal) {
+        if (!isOperational()
+                || gridSource == null
+                || paramSet == null
+                || keyformOps == null
+                || searchTypeOrdinal < SEARCH_EXACT_ORDINAL
+                || searchTypeOrdinal > SEARCH_NEAREST_ORDINAL) {
+            return KEYFORM_UNHANDLED;
+        }
+        try {
+            final List<?> bindings = keyformOps.gridGetKeyformBindings(gridSource);
+            final List<?> keyforms = keyformOps.gridGetKeyformsOnGrid(gridSource);
+            if (bindings == null || keyforms == null) {
+                return KEYFORM_UNHANDLED;
+            }
+            findKeyformFastCalls.increment();
+            final int nBindings = bindings.size();
+            int stride = 1;
+            int flatIndex = 0;
+            final KeyformScratch scratch = KEYFORM_SCRATCH.get();
+            for (int j = 0; j < nBindings; j++) {
+                final Object binding = bindings.get(j);
+                if (binding == null) {
+                    return KEYFORM_UNHANDLED;
+                }
+                final Object guid = keyformOps.bindingGetParameterGuid(binding);
+                if (guid == null) {
+                    return KEYFORM_UNHANDLED;
+                }
+                final Object param = keyformOps.paramSetGet(paramSet, guid);
+                if (param == null) {
+                    return null;
+                }
+                final List<?> keys = keyformOps.bindingGetKeys(binding);
+                if (keys == null) {
+                    return KEYFORM_UNHANDLED;
+                }
+                final float paramVal = keyformOps.paramGetValue(param);
+                final int keyIdx = resolveKeyIndex(binding, keys, paramVal, searchTypeOrdinal, scratch);
+                if (keyIdx == -2) {
+                    return KEYFORM_UNHANDLED;
+                }
+                if (keyIdx < 0) {
+                    return null;
+                }
+                flatIndex += keyIdx * stride;
+                stride *= keys.size();
+            }
+            if (flatIndex < 0 || flatIndex >= keyforms.size()) {
+                return null;
+            }
+            return keyforms.get(flatIndex);
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            failures.increment();
+            return KEYFORM_UNHANDLED;
+        }
+    }
+
+    // Returns matched key index, -1 for miss (return null), or -2 to delegate to host code.
+    private int resolveKeyIndex(
+            final Object binding,
+            final List<?> keys,
+            final float paramVal,
+            final int searchTypeOrdinal,
+            final KeyformScratch scratch) {
+        final int nKeys = keys.size();
+        if (searchTypeOrdinal == SEARCH_EXACT_ORDINAL) {
+            final int targetBits = Float.floatToIntBits(paramVal);
+            for (int i = 0; i < nKeys; i++) {
+                if (keys.get(i) instanceof Number num && Float.floatToIntBits(num.floatValue()) == targetBits) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        final Object paramSrc = keyformOps.bindingGetParameter(binding);
+        if (paramSrc == null) {
+            return -2;
+        }
+        if (nKeys == 0) {
+            // Host returns null on empty LESS_OR_EQUAL but throws IllegalStateException on EQUAL/NEAREST.
+            return searchTypeOrdinal == SEARCH_LESS_OR_EQUAL_ORDINAL ? -1 : -2;
+        }
+        final float snapEps = keyformOps.paramSourceGetSnapEpsilon(paramSrc);
+        if (Float.isNaN(paramVal) || Float.isNaN(snapEps)) {
+            return -2;
+        }
+        final boolean repeat = keyformOps.paramSourceIsRepeat(paramSrc);
+        if (!repeat) {
+            return resolveKeyIndexNonRepeat(keys, nKeys, paramVal, snapEps, searchTypeOrdinal);
+        }
+        final float rangeMin = keyformOps.paramSourceGetRangeMin(paramSrc);
+        final float rangeMax = keyformOps.paramSourceGetRangeMax(paramSrc);
+        final float rangeLen = rangeMax - rangeMin;
+        if (Float.isNaN(rangeMin) || Float.isNaN(rangeMax) || !(rangeLen > ZERO_F)) {
+            return -2;
+        }
+        return resolveKeyIndexRepeat(
+                keys, nKeys, paramVal, rangeMin, rangeMax, rangeLen, snapEps, searchTypeOrdinal, scratch);
+    }
+
+    private static int resolveKeyIndexNonRepeat(
+            final List<?> keys,
+            final int nKeys,
+            final float paramVal,
+            final float snapEps,
+            final int searchTypeOrdinal) {
+        if (searchTypeOrdinal == SEARCH_LESS_OR_EQUAL_ORDINAL) {
+            final float limit = paramVal + snapEps;
+            for (int i = nKeys - 1; i >= 0; i--) {
+                if (!(keys.get(i) instanceof Number num)) {
+                    return -2;
+                }
+                final float kVal = num.floatValue();
+                if (Float.isNaN(kVal)) {
+                    return -2;
+                }
+                if (kVal < limit) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        int bestIdx = -1;
+        float bestDist = Float.POSITIVE_INFINITY;
+        for (int i = 0; i < nKeys; i++) {
+            if (!(keys.get(i) instanceof Number num)) {
+                return -2;
+            }
+            final float kVal = num.floatValue();
+            if (Float.isNaN(kVal)) {
+                return -2;
+            }
+            final float dist = Math.abs(kVal - paramVal);
+            if (bestIdx < 0 || Float.compare(bestDist, dist) > 0) {
+                bestDist = dist;
+                bestIdx = i;
+            }
+        }
+        if (searchTypeOrdinal == SEARCH_EQUAL_ORDINAL && !(bestDist < snapEps)) {
+            return -1;
+        }
+        return bestIdx;
+    }
+
+    private static int resolveKeyIndexRepeat(
+            final List<?> keys,
+            final int nKeys,
+            final float paramVal,
+            final float rangeMin,
+            final float rangeMax,
+            final float rangeLen,
+            final float snapEps,
+            final int searchTypeOrdinal,
+            final KeyformScratch scratch) {
+        scratch.ensureCapacity(nKeys);
+        final float[] keyVals = scratch.keyVals;
+        final int[] inRange = scratch.inRange;
+        int rangeCount = 0;
+        for (int i = 0; i < nKeys; i++) {
+            if (!(keys.get(i) instanceof Number num)) {
+                return -2;
+            }
+            final float v = num.floatValue();
+            if (Float.isNaN(v)) {
+                return -2;
+            }
+            keyVals[i] = v;
+            if (rangeMin <= v && v <= rangeMax) {
+                inRange[rangeCount++] = i;
+            }
+        }
+        if (rangeCount == 0) {
+            return -1;
+        }
+        final float ratio = (paramVal - rangeMin) / rangeLen;
+        final int loopCount = ratio == ONE_F ? 0 : (int) (float) Math.floor((double) ratio);
+        if (searchTypeOrdinal == SEARCH_LESS_OR_EQUAL_ORDINAL) {
+            return findRepeatLessOrEqualIndex(keyVals, inRange, rangeCount, rangeLen, loopCount, paramVal, snapEps);
+        }
+        return findRepeatNearestIndex(
+                scratch, keyVals, inRange, rangeCount, rangeLen, loopCount, paramVal, snapEps, searchTypeOrdinal);
+    }
+
+    private static int findRepeatLessOrEqualIndex(
+            final float[] keyVals,
+            final int[] inRange,
+            final int rangeCount,
+            final float rangeLen,
+            final int loopCount,
+            final float paramVal,
+            final float snapEps) {
+        final int vStart = inRange[rangeCount - 1] + loopCount * rangeCount;
+        final float valStart = repeatVirtualVal(keyVals, inRange, rangeCount, rangeLen, vStart);
+        final float valStep = repeatVirtualVal(keyVals, inRange, rangeCount, rangeLen, vStart + 1);
+        int curV = valStep != valStart ? vStart + 1 : vStart;
+        final float limit = paramVal + snapEps;
+        final int maxSteps = rangeCount * MAX_REPEAT_WALK_FACTOR + MAX_REPEAT_WALK_SLACK;
+        for (int step = 0; step < maxSteps; step++) {
+            final float curVal = repeatVirtualVal(keyVals, inRange, rangeCount, rangeLen, curV);
+            if (curVal < limit) {
+                return repeatActualIdx(inRange, rangeCount, curV);
+            }
+            curV--;
+        }
+        return -2;
+    }
+
+    private static int findRepeatNearestIndex(
+            final KeyformScratch scratch,
+            final float[] keyVals,
+            final int[] inRange,
+            final int rangeCount,
+            final float rangeLen,
+            final int loopCount,
+            final float paramVal,
+            final float snapEps,
+            final int searchTypeOrdinal) {
+        final int[] candV = scratch.candV;
+        final float[] candVals = scratch.candVals;
+        for (int i = 0; i < rangeCount; i++) {
+            final int v = inRange[i] + loopCount * rangeCount;
+            candV[i] = v;
+            candVals[i] = repeatVirtualVal(keyVals, inRange, rangeCount, rangeLen, v);
+        }
+        int candCount = rangeCount;
+        final int prevV = candV[0] - 1;
+        final float prevVal = repeatVirtualVal(keyVals, inRange, rangeCount, rangeLen, prevV);
+        if (!containsFloat(candVals, candCount, prevVal)) {
+            candV[candCount] = prevV;
+            candVals[candCount++] = prevVal;
+        }
+        final int nextV = candV[rangeCount - 1] + 1;
+        final float nextVal = repeatVirtualVal(keyVals, inRange, rangeCount, rangeLen, nextV);
+        if (!containsFloat(candVals, candCount, nextVal)) {
+            candV[candCount] = nextV;
+            candVals[candCount++] = nextVal;
+        }
+        int bestV = candV[0];
+        float bestDist = Math.abs(candVals[0] - paramVal);
+        final boolean ascending = loopCount >= 0;
+        for (int k = 1; k < candCount; k++) {
+            final int cv = candV[k];
+            final float dist = Math.abs(candVals[k] - paramVal);
+            final int cmp = Float.compare(dist, bestDist);
+            if (cmp < 0 || (cmp == 0 && (ascending ? cv < bestV : cv > bestV))) {
+                bestDist = dist;
+                bestV = cv;
+            }
+        }
+        if (searchTypeOrdinal == SEARCH_EQUAL_ORDINAL && !(bestDist < snapEps)) {
+            return -1;
+        }
+        return repeatActualIdx(inRange, rangeCount, bestV);
+    }
+
+    private static float repeatVirtualVal(
+            final float[] keyVals, final int[] inRange, final int rangeCount, final float rangeLen, final int v) {
+        final int actualIdx = repeatActualIdx(inRange, rangeCount, v);
+        final int wrapLoop = (int) (float) Math.floor((double) ((float) v / (float) rangeCount));
+        return keyVals[actualIdx] + (float) wrapLoop * rangeLen;
+    }
+
+    private static int repeatActualIdx(final int[] inRange, final int rangeCount, final int virtualIdx) {
+        int mod = virtualIdx % rangeCount;
+        if (mod < 0) {
+            mod += rangeCount;
+        }
+        return inRange[mod];
+    }
+
+    private static boolean containsFloat(final float[] values, final int count, final float target) {
+        for (int i = 0; i < count; i++) {
+            if (values[i] == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean shouldElideArtMeshSetVolatile(
+            final Object drawEntity, final Object actionPack, final boolean isSelected, final boolean isGlued) {
+        if (!isOperational()) {
+            return false;
+        }
+        return editOverlayCoordinator.shouldElideArtMeshSetVolatile(drawEntity, actionPack, isSelected, isGlued);
+    }
+
+    boolean hasKeyformOps() {
+        return keyformOps != null;
+    }
+
     private boolean isOperational() {
-        final boolean enabled = active.get() && enabledByPreference();
+        if (lastObservedPrefEpoch != PREF_EPOCH.get()) {
+            refreshPreferenceEnabled();
+        }
+        final boolean enabled = active.get() && preferenceEnabled;
         if (activeSlot.get() != enabled) {
             activeSlot.set(enabled);
         }
@@ -1435,9 +1885,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             }
             final float sx = size * CORNER_SIZE_MULTIPLIER;
             final float sy = size * CORNER_SIZE_MULTIPLIER;
-            final float cr = (float) colorGetRed.invokeExact(color);
-            final float cg = (float) colorGetGreen.invokeExact(color);
-            final float cb = (float) colorGetBlue.invokeExact(color);
+            final float cr = overlayOps.colorGetRed(color);
+            final float cg = overlayOps.colorGetGreen(color);
+            final float cb = overlayOps.colorGetBlue(color);
 
             final boolean whiteOk = updateCornerEntity(
                     whiteEntity,
@@ -1476,15 +1926,15 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             final float blue,
             final float opacity)
             throws Throwable {
-        final Object transform = (Object) entityGetTransform.invokeExact(entity);
-        vec3SetZ.invokeExact((Object) transformGetPosition.invokeExact(transform), z);
-        final Object container = (Object) simpleMeshEntityGetContainer.invokeExact(entity);
-        final Object mesh = (Object) meshContainerGetMesh.invokeExact(container);
+        final Object transform = overlayOps.entityGetTransform(entity);
+        overlayOps.vec3SetZ(overlayOps.transformGetPosition(transform), z);
+        final Object container = overlayOps.simpleMeshEntityGetContainer(entity);
+        final Object mesh = overlayOps.meshContainerGetMesh(container);
         if (mesh == null || !gmesh2Class.isInstance(mesh)) {
             return false;
         }
-        final float[] meshPositions = (float[]) meshGetPositions.invokeExact(mesh);
-        final int[] meshIndices = (int[]) meshGetIndices.invokeExact(mesh);
+        final float[] meshPositions = overlayOps.meshGetPositions(mesh);
+        final int[] meshIndices = overlayOps.meshGetIndices(mesh);
         if (meshPositions == null
                 || meshPositions.length != CORNER_POSITION_FLOATS
                 || meshIndices == null
@@ -1501,16 +1951,16 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             for (int i = 0; i < CORNER_INDEX_COUNT; i++) {
                 meshIndices[i] = i;
             }
-            floatBufferUpload.invokeExact((Object) meshGetPositionsBuffer.invokeExact(mesh));
-            intBufferUpload.invokeExact((Object) meshGetIndicesBuffer.invokeExact(mesh));
+            overlayOps.floatBufferUpload(overlayOps.meshGetPositionsBuffer(mesh));
+            overlayOps.intBufferUpload(overlayOps.meshGetIndicesBuffer(mesh));
             cache.recordGeometry(meshPositions, meshIndices, scratch);
         } else {
             overlayUploadsElided.increment();
         }
 
         if (!cache.matchesColor(red, green, blue, opacity)) {
-            final Object renderer = (Object) simpleMeshEntityGetRenderer.invokeExact(entity);
-            final Object material = (Object) meshRendererGetMaterial.invokeExact(renderer);
+            final Object renderer = overlayOps.simpleMeshEntityGetRenderer(entity);
+            final Object material = overlayOps.rendererGetMaterial(renderer);
             if (material == null) {
                 return false;
             }
@@ -1638,13 +2088,13 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             final Object color,
             final boolean majorOnly)
             throws Throwable {
-        final Object renderer = (Object) simpleLinesEntityGetRenderer.invokeExact(entity);
-        lineRendererSetSortingLayer.invokeExact(renderer, sortingLayerNormal);
+        final Object renderer = overlayOps.simpleLinesEntityGetRenderer(entity);
+        overlayOps.rendererSetSortingLayer(renderer, sortingLayerNormal);
 
         final int expectedIndices = majorOnly ? 4 * row + 4 * col : 2 * (col + 1) * row + 2 * col * (row + 1);
-        final int step = (int) lineRendererGetStep.invokeExact(renderer);
-        final float[] existingPos = (float[]) lineRendererGetPositions.invokeExact(renderer);
-        final int[] existingIdx = (int[]) lineRendererGetIndices.invokeExact(renderer);
+        final int step = overlayOps.lineRendererGetStep(renderer);
+        final float[] existingPos = overlayOps.lineRendererGetPositions(renderer);
+        final int[] existingIdx = overlayOps.lineRendererGetIndices(renderer);
 
         boolean uploadedViaUpdateMeshData = false;
         if (step != STEP_2D
@@ -1652,36 +2102,36 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                 || existingPos.length != pos.length
                 || existingIdx == null
                 || existingIdx.length != expectedIndices) {
-            lineRendererSetPositions.invokeExact(renderer, pos);
-            lineRendererSetStep.invokeExact(renderer, STEP_2D);
+            overlayOps.lineRendererSetPositions(renderer, pos);
+            overlayOps.lineRendererSetStep(renderer, STEP_2D);
             final int[] indices = majorOnly
                     ? buildMajorLineIndices(col, row, expectedIndices)
                     : buildDetailLineIndices(col, row, expectedIndices);
-            lineRendererSetIndices.invokeExact(renderer, indices);
-            lineRendererUpdateMeshData.invokeExact(renderer);
+            overlayOps.lineRendererSetIndices(renderer, indices);
+            overlayOps.lineRendererUpdateMeshData(renderer);
             uploadedViaUpdateMeshData = true;
         } else if (existingPos != pos) {
-            lineRendererSetPositions.invokeExact(renderer, pos);
-            lineRendererUpdateMeshData.invokeExact(renderer);
+            overlayOps.lineRendererSetPositions(renderer, pos);
+            overlayOps.lineRendererUpdateMeshData(renderer);
             uploadedViaUpdateMeshData = true;
         }
 
         final LineOverlayState cache = lineCache.getOrCompute(entity, LineOverlayState::new);
         if (uploadedViaUpdateMeshData || !cache.matchesPositions(pos, col, row)) {
             if (!uploadedViaUpdateMeshData) {
-                floatBufferUpload.invokeExact((Object) lineRendererGetPositionsBuffer.invokeExact(renderer));
+                overlayOps.floatBufferUpload(overlayOps.lineRendererGetPositionsBuffer(renderer));
             }
             cache.recordPositions(pos, col, row);
         } else {
             overlayUploadsElided.increment();
         }
 
-        final float r = (float) colorGetRed.invokeExact(color);
-        final float g = (float) colorGetGreen.invokeExact(color);
-        final float b = (float) colorGetBlue.invokeExact(color);
-        final float a = (float) colorGetAlpha.invokeExact(color);
+        final float r = overlayOps.colorGetRed(color);
+        final float g = overlayOps.colorGetGreen(color);
+        final float b = overlayOps.colorGetBlue(color);
+        final float a = overlayOps.colorGetAlpha(color);
         if (!cache.matchesColor(r, g, b, a)) {
-            final Object material = (Object) lineRendererGetMaterial.invokeExact(renderer);
+            final Object material = overlayOps.rendererGetMaterial(renderer);
             if (material == null) {
                 return false;
             }
@@ -2248,6 +2698,467 @@ public final class WarpDeformEditBridge implements AutoCloseable {
             lastG = g;
             lastB = b;
             lastA = a;
+        }
+    }
+
+    private final class FallbackOverlayOps implements EditSubtreeCompiledAccessors.OverlayOps {
+        @Override
+        public Object entityGetTransform(final Object entity) {
+            return invokeObj(entityGetTransform, entity);
+        }
+
+        @Override
+        public Object transformGetPosition(final Object transform) {
+            return invokeObj(transformGetPosition, transform);
+        }
+
+        @Override
+        public void vec3SetZ(final Object vec3, final float z) {
+            try {
+                vec3SetZ.invokeExact(vec3, z);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public Object simpleMeshEntityGetContainer(final Object entity) {
+            return invokeObj(simpleMeshEntityGetContainer, entity);
+        }
+
+        @Override
+        public Object simpleMeshEntityGetRenderer(final Object entity) {
+            return invokeObj(simpleMeshEntityGetRenderer, entity);
+        }
+
+        @Override
+        public Object meshContainerGetMesh(final Object container) {
+            return invokeObj(meshContainerGetMesh, container);
+        }
+
+        @Override
+        public Object rendererGetMaterial(final Object renderer) {
+            return invokeObj(meshRendererGetMaterial, renderer);
+        }
+
+        @Override
+        public Object simpleLinesEntityGetRenderer(final Object entity) {
+            return invokeObj(simpleLinesEntityGetRenderer, entity);
+        }
+
+        @Override
+        public void rendererSetSortingLayer(final Object renderer, final Object layer) {
+            try {
+                lineRendererSetSortingLayer.invokeExact(renderer, layer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public int lineRendererGetStep(final Object renderer) {
+            try {
+                return (int) lineRendererGetStep.invokeExact(renderer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void lineRendererSetStep(final Object renderer, final int step) {
+            try {
+                lineRendererSetStep.invokeExact(renderer, step);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public float[] lineRendererGetPositions(final Object renderer) {
+            try {
+                return (float[]) lineRendererGetPositions.invokeExact(renderer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void lineRendererSetPositions(final Object renderer, final float[] positions) {
+            try {
+                lineRendererSetPositions.invokeExact(renderer, positions);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public int[] lineRendererGetIndices(final Object renderer) {
+            try {
+                return (int[]) lineRendererGetIndices.invokeExact(renderer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void lineRendererSetIndices(final Object renderer, final int[] indices) {
+            try {
+                lineRendererSetIndices.invokeExact(renderer, indices);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void lineRendererUpdateMeshData(final Object renderer) {
+            try {
+                lineRendererUpdateMeshData.invokeExact(renderer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public Object lineRendererGetPositionsBuffer(final Object renderer) {
+            return invokeObj(lineRendererGetPositionsBuffer, renderer);
+        }
+
+        @Override
+        public float[] meshGetPositions(final Object mesh) {
+            try {
+                return (float[]) meshGetPositions.invokeExact(mesh);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public int[] meshGetIndices(final Object mesh) {
+            try {
+                return (int[]) meshGetIndices.invokeExact(mesh);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public Object meshGetPositionsBuffer(final Object mesh) {
+            return invokeObj(meshGetPositionsBuffer, mesh);
+        }
+
+        @Override
+        public Object meshGetIndicesBuffer(final Object mesh) {
+            return invokeObj(meshGetIndicesBuffer, mesh);
+        }
+
+        @Override
+        public void floatBufferUpload(final Object buffer) {
+            try {
+                floatBufferUpload.invokeExact(buffer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void intBufferUpload(final Object buffer) {
+            try {
+                intBufferUpload.invokeExact(buffer);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public float colorGetRed(final Object color) {
+            return invokeFloat(colorGetRed, color);
+        }
+
+        @Override
+        public float colorGetGreen(final Object color) {
+            return invokeFloat(colorGetGreen, color);
+        }
+
+        @Override
+        public float colorGetBlue(final Object color) {
+            return invokeFloat(colorGetBlue, color);
+        }
+
+        @Override
+        public float colorGetAlpha(final Object color) {
+            return invokeFloat(colorGetAlpha, color);
+        }
+
+        private Object invokeObj(final MethodHandle mh, final Object arg) {
+            try {
+                return (Object) mh.invokeExact(arg);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        private float invokeFloat(final MethodHandle mh, final Object arg) {
+            try {
+                return (float) mh.invokeExact(arg);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        private RuntimeException propagate(final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            if (failure instanceof RuntimeException runtime) {
+                return runtime;
+            }
+            return new IllegalStateException("overlay fallback invocation failed", failure);
+        }
+    }
+
+    private static final class KeyformScratch {
+        private float[] keyVals = new float[REPEAT_SCRATCH_INIT_CAP];
+        private int[] inRange = new int[REPEAT_SCRATCH_INIT_CAP];
+        private int[] candV = new int[REPEAT_SCRATCH_INIT_CAP + REPEAT_CANDIDATE_EXTRA];
+        private float[] candVals = new float[REPEAT_SCRATCH_INIT_CAP + REPEAT_CANDIDATE_EXTRA];
+
+        private void ensureCapacity(final int needed) {
+            if (keyVals.length < needed) {
+                keyVals = new float[needed];
+                inRange = new int[needed];
+                candV = new int[needed + REPEAT_CANDIDATE_EXTRA];
+                candVals = new float[needed + REPEAT_CANDIDATE_EXTRA];
+            }
+        }
+    }
+
+    private static EditSubtreeCompiledAccessors.KeyformOps tryCreateFallbackKeyformOps(final ClassLoader loader) {
+        try {
+            final Class<?> gridClass =
+                    Class.forName(WarpDeformEditTarget.KEYFORM_GRID_SOURCE_OWNER.replace('/', '.'), false, loader);
+            final Class<?> bindingClass =
+                    Class.forName(WarpDeformEditTarget.KEYFORM_BINDING_SOURCE_OWNER.replace('/', '.'), false, loader);
+            final Class<?> paramSrcClass =
+                    Class.forName("com.live2d.cubism.doc.model.param.CParameterSource", false, loader);
+            final Class<?> paramSetClass =
+                    Class.forName("com.live2d.cubism.doc.model.param.CParameterSet", false, loader);
+            final Class<?> paramClass = Class.forName("com.live2d.cubism.doc.model.param.CParameter", false, loader);
+            final Class<?> paramGuidClass = Class.forName("com.live2d.type.CParameterGuid", false, loader);
+            final MethodType objUnary = MethodType.methodType(Object.class, Object.class);
+            final MethodType boolUnary = MethodType.methodType(boolean.class, Object.class);
+            final MethodType floatUnary = MethodType.methodType(float.class, Object.class);
+            final MethodType objBinary = MethodType.methodType(Object.class, Object.class, Object.class);
+            final MethodHandle gridBindings =
+                    HostHandles.virtual(gridClass, "getKeyformBindings", "()Ljava/util/List;", objUnary);
+            final MethodHandle gridKeyforms =
+                    HostHandles.virtual(gridClass, "getKeyformsOnGrid", "()Ljava/util/List;", objUnary);
+            final MethodHandle bindGuid = HostHandles.virtual(
+                    bindingClass,
+                    "getParameterGuid",
+                    "()L" + paramGuidClass.getName().replace('.', '/') + ";",
+                    objUnary);
+            final MethodHandle bindParam = HostHandles.virtual(
+                    bindingClass,
+                    "getParameter",
+                    "()L" + paramSrcClass.getName().replace('.', '/') + ";",
+                    objUnary);
+            final MethodHandle bindKeys = HostHandles.virtual(bindingClass, "getKeys", "()Ljava/util/List;", objUnary);
+            final MethodHandle srcRepeat = HostHandles.virtual(paramSrcClass, "isRepeat", "()Z", boolUnary);
+            final MethodHandle srcMin = HostHandles.virtual(paramSrcClass, "getRangeMin", "()F", floatUnary);
+            final MethodHandle srcMax = HostHandles.virtual(paramSrcClass, "getRangeMax", "()F", floatUnary);
+            final MethodHandle srcSnap = HostHandles.virtual(paramSrcClass, "getSnapEpsilon", "()F", floatUnary);
+            final MethodHandle setGet = HostHandles.virtual(
+                    paramSetClass,
+                    "get",
+                    "(L" + paramGuidClass.getName().replace('.', '/') + ";)L"
+                            + paramClass.getName().replace('.', '/') + ";",
+                    objBinary);
+            final MethodHandle paramVal = HostHandles.virtual(paramClass, "getValue", "()F", floatUnary);
+            return new FallbackKeyformOps(
+                    gridBindings,
+                    gridKeyforms,
+                    bindGuid,
+                    bindParam,
+                    bindKeys,
+                    srcRepeat,
+                    srcMin,
+                    srcMax,
+                    srcSnap,
+                    setGet,
+                    paramVal);
+        } catch (final Throwable unavailable) {
+            FatalErrors.rethrowIfFatal(unavailable);
+            return null;
+        }
+    }
+
+    private static final class FallbackKeyformOps implements EditSubtreeCompiledAccessors.KeyformOps {
+        private final MethodHandle gridBindings;
+        private final MethodHandle gridKeyforms;
+        private final MethodHandle bindGuid;
+        private final MethodHandle bindParam;
+        private final MethodHandle bindKeys;
+        private final MethodHandle srcRepeat;
+        private final MethodHandle srcMin;
+        private final MethodHandle srcMax;
+        private final MethodHandle srcSnap;
+        private final MethodHandle setGet;
+        private final MethodHandle paramVal;
+
+        private FallbackKeyformOps(
+                final MethodHandle gridBindings,
+                final MethodHandle gridKeyforms,
+                final MethodHandle bindGuid,
+                final MethodHandle bindParam,
+                final MethodHandle bindKeys,
+                final MethodHandle srcRepeat,
+                final MethodHandle srcMin,
+                final MethodHandle srcMax,
+                final MethodHandle srcSnap,
+                final MethodHandle setGet,
+                final MethodHandle paramVal) {
+            this.gridBindings = gridBindings;
+            this.gridKeyforms = gridKeyforms;
+            this.bindGuid = bindGuid;
+            this.bindParam = bindParam;
+            this.bindKeys = bindKeys;
+            this.srcRepeat = srcRepeat;
+            this.srcMin = srcMin;
+            this.srcMax = srcMax;
+            this.srcSnap = srcSnap;
+            this.setGet = setGet;
+            this.paramVal = paramVal;
+        }
+
+        @Override
+        public List<?> gridGetKeyformBindings(final Object grid) {
+            try {
+                return (List<?>) (Object) gridBindings.invokeExact(grid);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public List<?> gridGetKeyformsOnGrid(final Object grid) {
+            try {
+                return (List<?>) (Object) gridKeyforms.invokeExact(grid);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public Object bindingGetParameterGuid(final Object binding) {
+            try {
+                return (Object) bindGuid.invokeExact(binding);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public Object bindingGetParameter(final Object binding) {
+            try {
+                return (Object) bindParam.invokeExact(binding);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public List<?> bindingGetKeys(final Object binding) {
+            try {
+                return (List<?>) (Object) bindKeys.invokeExact(binding);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public boolean paramSourceIsRepeat(final Object paramSource) {
+            try {
+                return (boolean) srcRepeat.invokeExact(paramSource);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public float paramSourceGetRangeMin(final Object paramSource) {
+            try {
+                return (float) srcMin.invokeExact(paramSource);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public float paramSourceGetRangeMax(final Object paramSource) {
+            try {
+                return (float) srcMax.invokeExact(paramSource);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public float paramSourceGetSnapEpsilon(final Object paramSource) {
+            try {
+                return (float) srcSnap.invokeExact(paramSource);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public Object paramSetGet(final Object paramSet, final Object paramGuid) {
+            try {
+                return (Object) setGet.invokeExact(paramSet, paramGuid);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        @Override
+        public float paramGetValue(final Object param) {
+            try {
+                return (float) paramVal.invokeExact(param);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw fail(failure);
+            }
+        }
+
+        private static RuntimeException fail(final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            if (failure instanceof RuntimeException runtime) {
+                return runtime;
+            }
+            return new IllegalStateException("keyform fallback invocation failed", failure);
         }
     }
 }

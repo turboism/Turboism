@@ -216,12 +216,108 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     public static final String DRAW_ENTITY_ARTMESH_SELECTION_OWNER =
             "com/live2d/cubism/doc/model/drawable/artMesh/DrawEntity_ArtMesh_Selection";
 
+    /** Internal name of {@code CArtMesh}. */
+    public static final String ART_MESH_OWNER = "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh";
+
+    /** Method name of object constructors. */
+    public static final String INIT_METHOD = "<init>";
+
+    /** JVM descriptor of {@code DrawEntity_ArtMesh_Selection.<init>(CArtMesh)}. */
+    public static final String DRAW_ENTITY_ARTMESH_CTOR_DESCRIPTOR = "(L" + ART_MESH_OWNER + ";)V";
+
     /** Method name of {@code DrawEntity_ArtMesh_Selection.update}. */
     public static final String DRAW_ENTITY_ARTMESH_UPDATE_METHOD = "update";
 
     /** JVM descriptor of {@code DrawEntity_ArtMesh_Selection.update}. */
     public static final String DRAW_ENTITY_ARTMESH_UPDATE_DESCRIPTOR =
             "(Lcom/live2d/cubism/view/context/actionManager/b;ZZ)V";
+
+    /** Method name of {@code GSceneGraph.setVolatile}. */
+    public static final String SCENE_GRAPH_SET_VOLATILE_METHOD = "setVolatile";
+
+    /** JVM descriptor of {@code GSceneGraph.setVolatile(GEntity)}. */
+    public static final String SCENE_GRAPH_SET_VOLATILE_DESCRIPTOR = "(L" + GENTITY_OWNER + ";)V";
+
+    /** Host internal name for {@code ACForm}. */
+    public static final String ACFORM_OWNER = "com/live2d/cubism/doc/model/ACForm";
+
+    /** Host internal name for {@code CArtMeshForm}. */
+    public static final String CART_MESH_FORM_OWNER = "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm";
+
+    /** Backing entity field name on {@code ACForm}. */
+    public static final String ACFORM_INSTANCE_FIELD = "_instance";
+
+    /** Backing entity field descriptor on {@code ACForm}. */
+    public static final String ACFORM_INSTANCE_DESCRIPTOR = "Lcom/live2d/graphics3d/entity/GEntity;";
+
+    /** Method name of {@code ACForm.setUpdated}. */
+    public static final String SET_UPDATED_METHOD = "setUpdated";
+
+    /** JVM descriptor of {@code ACForm.setUpdated}. */
+    public static final String SET_UPDATED_DESCRIPTOR = "()V";
+
+    /** JVM descriptor of {@code ACForm/Keyform reinit(ICopyable, a)}. */
+    public static final String KEYFORM_REINIT_DESCRIPTOR = "(Lcom/live2d/core/ICopyable;Lcom/live2d/core/a;)V";
+
+    /** Host internal name for {@code KeyformBindingSource}. */
+    public static final String KEYFORM_BINDING_SOURCE_OWNER =
+            "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource";
+
+    /** Host internal name for {@code KeyformGridSource}. */
+    public static final String KEYFORM_GRID_SOURCE_OWNER = "com/live2d/cubism/doc/model/interpolator/KeyformGridSource";
+
+    /** Host internal name for {@code ParameterKeySearchType}. */
+    public static final String PARAMETER_KEY_SEARCH_TYPE_OWNER =
+            "com/live2d/cubism/doc/model/interpolator/ParameterKeySearchType";
+
+    /** Host internal name for {@code KeyformOnGrid}. */
+    public static final String KEYFORM_ON_GRID_OWNER = "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid";
+
+    /** Method name of {@code KeyformBindingSource.getKeyIndicesInRange}. */
+    public static final String GET_KEY_INDICES_IN_RANGE_METHOD = "getKeyIndicesInRange";
+
+    /** JVM descriptor of {@code KeyformBindingSource.getKeyIndicesInRange}. */
+    public static final String GET_KEY_INDICES_IN_RANGE_DESCRIPTOR = "()Ljava/util/List;";
+
+    /** Method name of {@code KeyformBindingSource.setKeys}. */
+    public static final String SET_KEYS_METHOD = "setKeys";
+
+    /** JVM descriptor of {@code KeyformBindingSource.setKeys}. */
+    public static final String SET_KEYS_DESCRIPTOR = "(Ljava/util/List;)V";
+
+    /** Method name of {@code KeyformGridSource.findKeyform}. */
+    public static final String FIND_KEYFORM_METHOD = "findKeyform";
+
+    /** JVM descriptor of {@code KeyformGridSource.findKeyform(CParameterSet)}. */
+    public static final String FIND_KEYFORM_DEFAULT_DESCRIPTOR =
+            "(Lcom/live2d/cubism/doc/model/param/CParameterSet;)L" + KEYFORM_ON_GRID_OWNER + ";";
+
+    /** JVM descriptor of {@code KeyformGridSource.findKeyform(CParameterSet, ParameterKeySearchType)}. */
+    public static final String FIND_KEYFORM_SEARCH_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/param/CParameterSet;L"
+            + PARAMETER_KEY_SEARCH_TYPE_OWNER
+            + ";)L"
+            + KEYFORM_ON_GRID_OWNER
+            + ";";
+
+    /** Exact mutator method names and descriptors on {@code KeyformGridSource}. */
+    public static final Map<String, String> KEYFORM_GRID_MUTATOR_DESCRIPTORS = Map.ofEntries(
+            Map.entry(REINIT_METHOD, KEYFORM_REINIT_DESCRIPTOR),
+            Map.entry("reverseKeyformsOnParameter", "(Lcom/live2d/type/CParameterGuid;)V"),
+            Map.entry(
+                    "rearrangeKeyformsOnParameter",
+                    "(Lcom/live2d/type/CParameterGuid;Ljava/util/List;Ljava/util/List;)V"),
+            Map.entry(
+                    "changeKeyformsOnParameter", "(Lcom/live2d/type/CParameterGuid;Lcom/live2d/type/CParameterGuid;)V"),
+            Map.entry(
+                    "addKey_internal",
+                    "(FLcom/live2d/type/CParameterGuid;Lcom/live2d/cubism/doc/model/interpolator/extendedInterpolation/CExtendedInterpolationExtension;)V"),
+            Map.entry("removeKey", "(FLcom/live2d/type/CParameterGuid;)V"),
+            Map.entry(
+                    "importCubism21",
+                    "(Lcom/live2d/cubism/doc/model/CModelSource;Ljava/util/List;Ljava/util/List;Lcom/live2d/cubism/doc/model/io/b/c;)V"),
+            Map.entry("import", "(Lcom/live2d/cubism/doc/model/CModelSource;Ljava/util/List;Ljava/util/List;)V"),
+            Map.entry("addKeyformBinding", "(L" + KEYFORM_BINDING_SOURCE_OWNER + ";)V"),
+            Map.entry("deserialize", "(Lorg/jdom/Element;Lcom/live2d/serialize/XmlReader;)V"));
 
     /** Reviewed overlay method name on {@code J} in 5.0.00–5.0.05 builds. */
     public static final String LEGACY_OVERLAY_METHOD_V500 = "E";

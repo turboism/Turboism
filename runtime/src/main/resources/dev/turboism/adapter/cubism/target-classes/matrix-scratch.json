@@ -1,7 +1,14 @@
 {
   "default": [
+    "com/live2d/graphics3d/GCamera",
+    "com/live2d/graphics3d/component/GLineRenderer",
+    "com/live2d/graphics3d/component/GMeshContainer",
+    "com/live2d/graphics3d/component/GMeshRenderer",
     "com/live2d/graphics3d/component/GTransform",
     "com/live2d/graphics3d/entity/GEntity",
+    "com/live2d/graphics3d/material/GMaterial",
+    "com/live2d/graphics3d/mesh/a",
+    "com/live2d/graphics3d/shader/GShader",
     "com/live2d/graphics3d/type/GMatrix44",
     "com/live2d/graphics3d/type/a"
   ]

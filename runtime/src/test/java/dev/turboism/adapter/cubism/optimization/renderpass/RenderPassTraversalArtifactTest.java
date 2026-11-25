@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTarget;
 import dev.turboism.adapter.cubism.optimization.clipmask.ClipMaskDeduplicationTransformer;
 import dev.turboism.adapter.cubism.performance.ClipMaskProbeMethodTransformer;
@@ -895,6 +896,370 @@ class RenderPassTraversalArtifactTest {
             checked++;
         }
         assertEquals(EXPECTED_REVIEWED_VERSIONS, checked, "expected every reviewed artifact under " + root);
+    }
+
+    @Test
+    void entityMaterialTransformerRewritesAllVersionsOptimizesClearValuesAndVerifiesStrict() throws Throwable {
+        final Path root = referenceRoot();
+        final Path jogl = joglArtifact(root);
+        final List<RenderPassTraversalTarget> targets = RenderPassTraversalTarget.all();
+        final List<Path> verifiedArtifacts = new ArrayList<>();
+
+        for (final RenderPassTraversalTarget target : targets) {
+            final Path artifact = resolveArtifact(root, target.version());
+            if (!Files.isRegularFile(artifact)) {
+                continue;
+            }
+            verifiedArtifacts.add(artifact);
+            final byte[] entityOrig = readClassBytes(artifact, RenderPassTraversalTarget.ENTITY_OWNER);
+            final byte[] materialOrig = readClassBytes(artifact, RenderEntityMaterialTransformer.MATERIAL_OWNER);
+            final boolean isCubism53OrNewer = target.hasRecursiveTraverseMethod();
+
+            try (HostClassLoader baselineLoader = hostLoader(artifact.getParent(), jogl);
+                    HostClassLoader transformLoader = hostLoader(artifact.getParent(), jogl);
+                    HostClassLoader rewrittenLoader = hostLoader(artifact.getParent(), jogl)) {
+                final ProtectionDomain domain = protectionDomain(artifact);
+                final byte[] matArg = isCubism53OrNewer ? materialOrig : null;
+                final RenderEntityMaterialTransformer guardCheck =
+                        new RenderEntityMaterialTransformer(transformLoader, artifact, entityOrig, matArg);
+                assertNull(guardCheck.transform(
+                        null, baselineLoader, RenderPassTraversalTarget.ENTITY_OWNER, null, domain, entityOrig));
+                assertNotNull(guardCheck.failure());
+                assertNull(guardCheck.transform(
+                        null, transformLoader, RenderPassTraversalTarget.ENTITY_OWNER, null, null, entityOrig));
+                assertNull(guardCheck.transform(
+                        null,
+                        transformLoader,
+                        RenderPassTraversalTarget.ENTITY_OWNER,
+                        null,
+                        domain,
+                        injectNop(entityOrig, GET_RENDERER_METHOD, "()Lcom/live2d/graphics3d/component/AGRenderer;")));
+                if (isCubism53OrNewer) {
+                    assertNull(guardCheck.transform(
+                            null,
+                            transformLoader,
+                            RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                            null,
+                            domain,
+                            injectNop(
+                                    materialOrig,
+                                    RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD,
+                                    RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR)));
+                } else {
+                    assertNull(
+                            guardCheck.transform(
+                                    null,
+                                    transformLoader,
+                                    RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                                    null,
+                                    domain,
+                                    materialOrig),
+                            target.version() + " must keep GMaterial clearValues disabled before 5.3.00");
+                }
+                assertEquals(0, guardCheck.matches(), target.version());
+
+                final RenderEntityMaterialTransformer transformer =
+                        new RenderEntityMaterialTransformer(transformLoader, artifact, entityOrig, matArg);
+                final byte[] entityPatched = transformer.transform(
+                        null, transformLoader, RenderPassTraversalTarget.ENTITY_OWNER, null, domain, entityOrig);
+                assertNotNull(entityPatched, target.version() + ": " + transformer.failure());
+                assertEquals(0, countEntityGetRendererAreEqual(entityPatched), target.version());
+                assertUnrelatedMethodsKeepShape(
+                        entityOrig,
+                        entityPatched,
+                        RenderPassTraversalTarget.ENTITY_OWNER,
+                        GET_RENDERER_METHOD,
+                        "()Lcom/live2d/graphics3d/component/AGRenderer;",
+                        target.version());
+
+                final String entityDot = GENTITY_DOT;
+                rewrittenLoader.installOverride(
+                        entityDot,
+                        entityPatched,
+                        Class.forName(entityDot, false, baselineLoader).getProtectionDomain());
+
+                byte[] materialPatched = null;
+                if (isCubism53OrNewer) {
+                    materialPatched = transformer.transform(
+                            null,
+                            transformLoader,
+                            RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                            null,
+                            domain,
+                            materialOrig);
+                    assertNotNull(materialPatched, target.version() + ": " + transformer.failure());
+                    assertEquals(0, countCollectionsToListInClearValues(materialPatched), target.version());
+                    assertUnrelatedMethodsKeepShape(
+                            materialOrig,
+                            materialPatched,
+                            RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                            RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD,
+                            RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR,
+                            target.version());
+                    rewrittenLoader.installOverride(
+                            GMATERIAL_DOT,
+                            materialPatched,
+                            Class.forName(GMATERIAL_DOT, false, baselineLoader).getProtectionDomain());
+                }
+                assertEquals(transformer.expectedMatches(), transformer.matches(), target.version());
+                assertEquals(transformer.expectedMatches(), transformer.sites(), target.version());
+
+                verifyEntityGetRendererParity(baselineLoader, rewrittenLoader, target.version());
+                if (materialPatched != null) {
+                    verifyMaterialClearValuesParityAndReducedAlloc(baselineLoader, rewrittenLoader, target.version());
+                }
+            }
+        }
+        assertEquals(
+                EXPECTED_REVIEWED_VERSIONS, verifiedArtifacts.size(), "expected every reviewed artifact under " + root);
+        verifyEntityMaterialStrictBytecode(verifiedArtifacts);
+    }
+
+    private static void verifyEntityGetRendererParity(
+            final ClassLoader baseLoader, final ClassLoader patLoader, final String version) throws Exception {
+        final Class<?> baseEntityClass = Class.forName(GENTITY_DOT, true, baseLoader);
+        final Class<?> patEntityClass = Class.forName(GENTITY_DOT, true, patLoader);
+        final Object baseEmpty = baseEntityClass.getConstructor().newInstance();
+        final Object patEmpty = patEntityClass.getConstructor().newInstance();
+        assertNull(baseEntityClass.getMethod(GET_RENDERER_METHOD).invoke(baseEmpty), version);
+        assertNull(patEntityClass.getMethod(GET_RENDERER_METHOD).invoke(patEmpty), version);
+        assertNull(patEntityClass.getMethod(GET_RENDERER_METHOD).invoke(patEmpty), version);
+
+        final Object baseWithRenderer = baseEntityClass.getConstructor().newInstance();
+        final Object patWithRenderer = patEntityClass.getConstructor().newInstance();
+        final Class<?> baseCompClass = Class.forName("com.live2d.graphics3d.component.GComponent", true, baseLoader);
+        final Class<?> patCompClass = Class.forName("com.live2d.graphics3d.component.GComponent", true, patLoader);
+        final Object baseMeshRenderer = Class.forName("com.live2d.graphics3d.component.GMeshRenderer", true, baseLoader)
+                .getConstructor()
+                .newInstance();
+        final Object patMeshRenderer = Class.forName("com.live2d.graphics3d.component.GMeshRenderer", true, patLoader)
+                .getConstructor()
+                .newInstance();
+        baseEntityClass.getMethod("unaryPlus", baseCompClass).invoke(baseWithRenderer, baseMeshRenderer);
+        patEntityClass.getMethod("unaryPlus", patCompClass).invoke(patWithRenderer, patMeshRenderer);
+        assertEquals(
+                baseEntityClass.getMethod(GET_RENDERER_METHOD).invoke(baseWithRenderer) != null,
+                patEntityClass.getMethod(GET_RENDERER_METHOD).invoke(patWithRenderer) != null,
+                version);
+        assertEquals(
+                patMeshRenderer, patEntityClass.getMethod(GET_RENDERER_METHOD).invoke(patWithRenderer), version);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void verifyMaterialClearValuesParityAndReducedAlloc(
+            final ClassLoader baseLoader, final ClassLoader patLoader, final String version) throws Throwable {
+        final Class<?> baseMatClass = Class.forName(GMATERIAL_DOT, true, baseLoader);
+        final Class<?> patMatClass = Class.forName(GMATERIAL_DOT, true, patLoader);
+        final Object baseMat = baseMatClass.getConstructor().newInstance();
+        final Object patMat = patMatClass.getConstructor().newInstance();
+        final Method baseGetMap = baseMatClass.getMethod("getUniformMap$core");
+        final Method patGetMap = patMatClass.getMethod("getUniformMap$core");
+        final Method baseClear = baseMatClass.getMethod("clearValues", kotlin.jvm.functions.Function2.class);
+        final Method patClear = patMatClass.getMethod("clearValues", kotlin.jvm.functions.Function2.class);
+
+        final var baseMap = (java.util.HashMap<kotlin.Pair<String, Integer>, Object>) baseGetMap.invoke(baseMat);
+        final var patMap = (java.util.HashMap<kotlin.Pair<String, Integer>, Object>) patGetMap.invoke(patMat);
+        for (int i = 0; i < 16; i++) {
+            final var key = new kotlin.Pair<>("u" + i, i - 8);
+            baseMap.put(key, i);
+            patMap.put(key, i);
+        }
+        final kotlin.jvm.functions.Function2<String, Integer, Boolean> removeNegative = (name, id) -> id < 0;
+        baseClear.invoke(baseMat, removeNegative);
+        patClear.invoke(patMat, removeNegative);
+        assertEquals(baseMap, patMap, version + " clearValues parity");
+
+        final var lookup = java.lang.invoke.MethodHandles.publicLookup();
+        final var clearType =
+                java.lang.invoke.MethodType.methodType(void.class, Object.class, kotlin.jvm.functions.Function2.class);
+        final java.lang.invoke.MethodHandle baseClearHandle =
+                lookup.unreflect(baseClear).asType(clearType);
+        final java.lang.invoke.MethodHandle patClearHandle =
+                lookup.unreflect(patClear).asType(clearType);
+        final kotlin.jvm.functions.Function2<String, Integer, Boolean> removeNegativeIds = (n, id) -> id < 0;
+        final List<kotlin.Pair<String, Integer>> keys = new ArrayList<>();
+        for (int i = 0; i < 24; i++) {
+            keys.add(new kotlin.Pair<>("u" + i, i - 12));
+        }
+
+        final com.sun.management.ThreadMXBean allocMx =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        final long tid = Thread.currentThread().getId();
+        for (int w = 0; w < 200; w++) {
+            baseMap.clear();
+            patMap.clear();
+            for (final var k : keys) {
+                baseMap.put(k, 1);
+                patMap.put(k, 1);
+            }
+            baseClearHandle.invokeExact(baseMat, removeNegativeIds);
+            patClearHandle.invokeExact(patMat, removeNegativeIds);
+        }
+        allocMx.getThreadAllocatedBytes(tid);
+        long baseAllocTotal = 0L;
+        long patAllocTotal = 0L;
+        for (int r = 0; r < 64; r++) {
+            baseMap.clear();
+            for (final var k : keys) baseMap.put(k, 1);
+            final long b0 = allocMx.getThreadAllocatedBytes(tid);
+            baseClearHandle.invokeExact(baseMat, removeNegativeIds);
+            baseAllocTotal += allocMx.getThreadAllocatedBytes(tid) - b0;
+
+            patMap.clear();
+            for (final var k : keys) patMap.put(k, 1);
+            final long p0 = allocMx.getThreadAllocatedBytes(tid);
+            patClearHandle.invokeExact(patMat, removeNegativeIds);
+            patAllocTotal += allocMx.getThreadAllocatedBytes(tid) - p0;
+        }
+        assertTrue(
+                patAllocTotal < baseAllocTotal,
+                version + " in-place clearValues must allocate less than CollectionsKt.toList baseline: pat="
+                        + patAllocTotal + " base=" + baseAllocTotal);
+    }
+
+    private static void verifyEntityMaterialStrictBytecode(final List<Path> artifacts) throws Exception {
+        final Path manifest = Files.createTempFile("entity-material-verify-all-", ".txt");
+        try {
+            Files.writeString(
+                    manifest,
+                    String.join(
+                            "\n",
+                            artifacts.stream()
+                                    .map(p -> p.toAbsolutePath().toString())
+                                    .toList()));
+            final String javaExe =
+                    Path.of(System.getProperty("java.home"), "bin", "java").toString();
+            final Process process = new ProcessBuilder(
+                            javaExe,
+                            "-Xverify:all",
+                            "-cp",
+                            System.getProperty("java.class.path"),
+                            StrictEntityMaterialVerifierMain.class.getName(),
+                            manifest.toString())
+                    .redirectErrorStream(true)
+                    .start();
+            final String output = new String(process.getInputStream().readAllBytes());
+            assertTrue(process.waitFor(90L, java.util.concurrent.TimeUnit.SECONDS), "-Xverify:all timed out");
+            assertEquals(0, process.exitValue(), "-Xverify:all failed:\n" + output);
+            assertTrue(output.contains("VERIFIED_ENTITY_MATERIAL=" + artifacts.size()), output);
+        } finally {
+            Files.deleteIfExists(manifest);
+        }
+    }
+
+    /** Child entrypoint verifying patched {@code GEntity} and {@code GMaterial} under {@code -Xverify:all}. */
+    public static final class StrictEntityMaterialVerifierMain {
+        public static void main(final String[] args) throws Exception {
+            final List<String> lines = Files.readAllLines(Path.of(args[0]));
+            int verified = 0;
+            for (final String line : lines) {
+                if (line.isBlank()) continue;
+                final Path artifact = Path.of(line.trim());
+                final RenderPassTraversalTarget target = RenderPassTraversalTarget.of(HostArtifactDigest.from(artifact))
+                        .orElseThrow();
+                final byte[] eOrig = readClassBytes(artifact, RenderPassTraversalTarget.ENTITY_OWNER);
+                final byte[] mOrig = readClassBytes(artifact, RenderEntityMaterialTransformer.MATERIAL_OWNER);
+                final byte[] mArg = target.hasRecursiveTraverseMethod() ? mOrig : null;
+                try (HostClassLoader tLoader = hostLoader(artifact.getParent());
+                        HostClassLoader runLoader = hostLoader(artifact.getParent())) {
+                    final ProtectionDomain dom = protectionDomain(artifact);
+                    final ProtectionDomain entitySignedDom =
+                            Class.forName(GENTITY_DOT, false, tLoader).getProtectionDomain();
+                    final RenderEntityMaterialTransformer transformer =
+                            new RenderEntityMaterialTransformer(tLoader, artifact, eOrig, mArg);
+                    final byte[] ePatched = transformer.transform(
+                            null, tLoader, RenderPassTraversalTarget.ENTITY_OWNER, null, dom, eOrig);
+                    if (ePatched == null) throw new AssertionError("GEntity failed " + artifact);
+                    runLoader.installOverride(GENTITY_DOT, ePatched, entitySignedDom);
+                    if (mArg != null) {
+                        final ProtectionDomain matSignedDom =
+                                Class.forName(GMATERIAL_DOT, false, tLoader).getProtectionDomain();
+                        final byte[] mPatched = transformer.transform(
+                                null, tLoader, RenderEntityMaterialTransformer.MATERIAL_OWNER, null, dom, mOrig);
+                        if (mPatched == null) throw new AssertionError("GMaterial failed " + artifact);
+                        runLoader.installOverride(GMATERIAL_DOT, mPatched, matSignedDom);
+                        Class.forName(GMATERIAL_DOT, true, runLoader);
+                    }
+                    Class.forName(GENTITY_DOT, true, runLoader);
+                }
+                verified++;
+            }
+            System.out.println("VERIFIED_ENTITY_MATERIAL=" + verified);
+        }
+    }
+
+    private static int countEntityGetRendererAreEqual(final byte[] bytes) {
+        final int[] count = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String desc, String sig, String[] ex) {
+                                if (!GET_RENDERER_METHOD.equals(name)) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int op, String owner, String called, String d, boolean itf) {
+                                        if ("kotlin/jvm/internal/Intrinsics".equals(owner)
+                                                && "areEqual".equals(called)) {
+                                            count[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        return count[0];
+    }
+
+    private static int countCollectionsToListInClearValues(final byte[] bytes) {
+        final int[] count = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String desc, String sig, String[] ex) {
+                                if (!RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD.equals(name)) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(
+                                            int op, String owner, String called, String d, boolean itf) {
+                                        if (COLLECTIONS_KT_OWNER.equals(owner) && "toList".equals(called)) {
+                                            count[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        return count[0];
+    }
+
+    private static void assertUnrelatedMethodsKeepShape(
+            final byte[] original,
+            final byte[] patched,
+            final String owner,
+            final String targetName,
+            final String targetDesc,
+            final String version) {
+        new ClassReader(original)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String desc, String sig, String[] ex) {
+                                if (!targetName.equals(name) || !targetDesc.equals(desc)) {
+                                    assertEquals(
+                                            ReviewedMethodShape.read(original, owner, name, desc),
+                                            ReviewedMethodShape.read(patched, owner, name, desc),
+                                            version + ":" + owner + "." + name);
+                                }
+                                return null;
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
     }
 
     private static int countNewType(

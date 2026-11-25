@@ -9,9 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 final class NativeShaderUniformBridgeTest {
-    private static final int ALLOCATION_WARMUP_ITERATIONS = 5000;
+    private static final int ALLOCATION_WARMUP_ITERATIONS = 20_000;
     private static final int ALLOCATION_MEASURE_ITERATIONS = 1000;
-    private static final int ALLOCATION_SAMPLE_PASSES = 3;
+    private static final int ALLOCATION_SAMPLE_PASSES = 10;
 
     public static final class Context {
         static Context current;
@@ -311,8 +311,51 @@ final class NativeShaderUniformBridgeTest {
                         gl, 3, shader, NativeShaderUniformBridge.MATRIX_KIND_PROJECTION, 5, projection));
             }
             minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
+            if (minAllocated == 0L) {
+                break;
+            }
         }
-        assertEquals(0L, minAllocated, "steady-state lookup and camera matrix checks must allocate zero bytes");
+        final long observedMin = minAllocated;
+        assertEquals(
+                0L,
+                observedMin,
+                () -> "steady-state lookup and camera matrix checks must allocate zero bytes (minAllocated="
+                        + observedMin
+                        + ")");
+    }
+
+    @Test
+    void useProgramLabelsAreCachedZeroAllocationAndExact() {
+        for (int id : new int[] {-1, 0, 1, 42, 255, 256, 1024}) {
+            assertEquals("use program " + id, NativeShaderUniformBridge.useProgramLabel(id));
+        }
+        for (int id = 0; id < 256; id++) {
+            assertSame(NativeShaderUniformBridge.useProgramLabel(id), NativeShaderUniformBridge.useProgramLabel(id));
+        }
+        final var allocMx = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+        int checksum = 0;
+        for (int i = 0; i < ALLOCATION_WARMUP_ITERATIONS; i++) {
+            checksum += NativeShaderUniformBridge.useProgramLabel(i & 255).length();
+        }
+        final long tid = Thread.currentThread().getId();
+        allocMx.getThreadAllocatedBytes(tid);
+        long minAllocated = Long.MAX_VALUE;
+        for (int pass = 0; pass < ALLOCATION_SAMPLE_PASSES; pass++) {
+            final long before = allocMx.getThreadAllocatedBytes(tid);
+            for (int i = 0; i < ALLOCATION_MEASURE_ITERATIONS; i++) {
+                checksum += NativeShaderUniformBridge.useProgramLabel(i & 255).length();
+            }
+            minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
+            if (minAllocated == 0L) {
+                break;
+            }
+        }
+        assertTrue(checksum > 0);
+        final long observedMin = minAllocated;
+        assertEquals(
+                0L,
+                observedMin,
+                () -> "cached use program label lookup must allocate zero bytes (minAllocated=" + observedMin + ")");
     }
 
     private static int countEntries(final Map.Entry<?, ?>[] entries) {

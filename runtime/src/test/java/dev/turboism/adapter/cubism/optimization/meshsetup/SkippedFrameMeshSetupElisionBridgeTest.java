@@ -249,4 +249,101 @@ class SkippedFrameMeshSetupElisionBridgeTest {
             assertTrue(host.consult(other), "its own context-generation baseline now exists");
         }
     }
+
+    @Test
+    void steadyStateHitAndCompleteDoNotAllocateOnHeap() throws Exception {
+        final com.sun.management.ThreadMXBean threadMx =
+                (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                threadMx != null && threadMx.isThreadAllocatedMemorySupported(),
+                "ThreadMXBean allocation tracking unavailable");
+        threadMx.setThreadAllocatedMemoryEnabled(true);
+        try (var host = new Host()) {
+            host.usable();
+            host.complete();
+            assertTrue(host.consult());
+            for (int i = 0; i < 5_000; i++) {
+                assertTrue(host.consult());
+                host.complete();
+            }
+            long minDelta = Long.MAX_VALUE;
+            final long tid = Thread.currentThread().getId();
+            for (int pass = 0; pass < 3; pass++) {
+                final long before = threadMx.getThreadAllocatedBytes(tid);
+                for (int i = 0; i < 2_000; i++) {
+                    if (!host.consult()) {
+                        throw new AssertionError("expected steady-state elision");
+                    }
+                    host.complete();
+                }
+                final long after = threadMx.getThreadAllocatedBytes(tid);
+                minDelta = Math.min(minDelta, after - before);
+            }
+            assertEquals(0L, minDelta, "steady-state mesh setup hit and completion must allocate zero bytes");
+        }
+    }
+
+    @Test
+    void transientMeshesAreGcCollectableAndSafeUnderConcurrentSnapshots() throws Exception {
+        try (var host = new Host()) {
+            host.usable();
+            final Class<?> meshType = host.loader.loadClass("com.live2d.graphics3d.mesh.GMesh2");
+            @SuppressWarnings("unchecked")
+            final var statsSupplier = (java.util.function.Supplier<java.util.Map<String, Long>>)
+                    System.getProperties().get(SkippedFrameMeshSetupElisionBridge.STATS_PROPERTY);
+            final int batch = 64;
+            final java.util.List<java.lang.ref.WeakReference<Object>> weakRefs = new java.util.ArrayList<>(batch);
+            for (int i = 0; i < batch; i++) {
+                Object transientMesh = meshType.getConstructor().newInstance();
+                weakRefs.add(new java.lang.ref.WeakReference<>(transientMesh));
+                host.complete(transientMesh);
+                assertTrue(host.consult(transientMesh));
+                transientMesh = null;
+            }
+            assertEquals((long) batch, statsSupplier.get().get("tracked"));
+
+            for (int attempt = 0; attempt < 25 && weakRefs.stream().anyMatch(ref -> ref.get() != null); attempt++) {
+                System.gc();
+                Thread.sleep(20L);
+            }
+            assertTrue(weakRefs.stream().allMatch(ref -> ref.get() == null), "dead meshes must be GC-collectable");
+            assertEquals(0L, statsSupplier.get().get("tracked"), "tracked count must exclude collected meshes");
+
+            final Object liveMesh = meshType.getConstructor().newInstance();
+            host.complete(liveMesh);
+            final java.util.concurrent.atomic.AtomicReference<Throwable> workerFailure =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            final var latch = new java.util.concurrent.CountDownLatch(1);
+            final Thread[] workers = new Thread[4];
+            for (int t = 0; t < workers.length; t++) {
+                final int id = t;
+                workers[t] = new Thread(() -> {
+                    try {
+                        latch.await();
+                        for (int iter = 0; iter < 500; iter++) {
+                            if (id == 0) {
+                                host.consult(liveMesh);
+                                host.complete(liveMesh);
+                            } else if (id == 1) {
+                                statsSupplier.get();
+                            } else {
+                                final Object ephemeral =
+                                        meshType.getConstructor().newInstance();
+                                host.complete(ephemeral);
+                                host.consult(ephemeral);
+                            }
+                        }
+                    } catch (Throwable problem) {
+                        workerFailure.compareAndSet(null, problem);
+                    }
+                });
+                workers[t].start();
+            }
+            latch.countDown();
+            for (final Thread worker : workers) {
+                worker.join(10_000L);
+            }
+            assertNull(workerFailure.get());
+        }
+    }
 }

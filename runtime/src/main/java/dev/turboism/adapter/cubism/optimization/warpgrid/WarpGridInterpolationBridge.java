@@ -6,7 +6,9 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.ref.WeakReference;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -34,6 +36,9 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     /** System property slot holding the {@link MethodHandle} out-of-bounds run handler. */
     public static final String OOB_PROPERTY = "turboism.warp-grid-interpolation.oob";
 
+    /** System property slot holding the {@link MethodHandle} border-grid inverse solver. */
+    public static final String BORDER_GRID_PROPERTY = "turboism.warp-grid-interpolation.border-grid";
+
     /** System property slot holding the {@link Supplier} counters snapshot. */
     public static final String STATS_PROPERTY = "turboism.warp-grid-interpolation.stats";
 
@@ -44,6 +49,11 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private static final float NEG_TWO_F = -2.0f;
     private static final float HALF_F = 0.5f;
     private static final float QUARTER_F = 0.25f;
+    private static final float BARYCENTRIC_EPS = 1.0e-6f;
+    private static final float NEG_BARYCENTRIC_EPS = ZERO_F - BARYCENTRIC_EPS;
+    private static final float ONE_PLUS_BARYCENTRIC_EPS = ONE_F + BARYCENTRIC_EPS;
+    private static final float AABB_PAD_RATIO = 1.0e-4f;
+    private static final float AABB_PAD_MIN = 1.0e-5f;
 
     private static final int ORIGIN_INDEX = 0;
     private static final int CELL_STEP = 1;
@@ -51,6 +61,25 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private static final int Y_OFFSET = 1;
     private static final int NEXT_X_OFFSET = 2;
     private static final int NEXT_Y_OFFSET = 3;
+    private static final int BORDER_QUAD_STRIDE = 16;
+    private static final int BORDER_CACHE_SLOTS = 4;
+    private static final int UV_SCRATCH_LENGTH = 2;
+    private static final int QUAD_P00_X = 0;
+    private static final int QUAD_P00_Y = 1;
+    private static final int QUAD_P10_X = 2;
+    private static final int QUAD_P10_Y = 3;
+    private static final int QUAD_P01_X = 4;
+    private static final int QUAD_P01_Y = 5;
+    private static final int QUAD_P11_X = 6;
+    private static final int QUAD_P11_Y = 7;
+    private static final int QUAD_U0 = 8;
+    private static final int QUAD_V0 = 9;
+    private static final int QUAD_U1 = 10;
+    private static final int QUAD_V1 = 11;
+    private static final int QUAD_MIN_X = 12;
+    private static final int QUAD_MAX_X = 13;
+    private static final int QUAD_MIN_Y = 14;
+    private static final int QUAD_MAX_Y = 15;
 
     private static final int BASIS_CX = 0;
     private static final int BASIS_CY = 1;
@@ -76,6 +105,9 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
             int.class,
             int.class,
             boolean.class);
+    private static final String BORDER_HANDLER_METHOD = "handleBorderGrid";
+    private static final MethodType BORDER_HANDLER_TYPE =
+            MethodType.methodType(float[].class, Object.class, float.class, float.class, Object.class, float[].class);
 
     private static final String ERROR_CALC_FORMAT = "error calc : %.4f , %.4f\t\t\t\t\t@@BDBoxGrid\n";
     private static final String STAT_OOB_TAIL_CALLS = "oobTailCalls";
@@ -90,7 +122,9 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private final Class<?> utilsClass;
     private final HostField singletonField;
     private final MethodHandle transformHandle;
+    private final BorderGridHandles borderHandles;
     private final MethodHandle oobHandle;
+    private final MethodHandle borderHandle;
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final Set<ThreadStats> threadStatsSet = ConcurrentHashMap.newKeySet();
     private final AtomicLong retiredOobTailCalls = new AtomicLong();
@@ -98,16 +132,25 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     private final AtomicLong retiredInBoundsFallbackPoints = new AtomicLong();
     private final AtomicLong retiredFailures = new AtomicLong();
     private final ThreadLocal<ThreadStats> threadStats = ThreadLocal.withInitial(this::registerThreadStats);
+    private final ThreadLocal<BorderCacheSlot[]> borderCache =
+            ThreadLocal.withInitial(() -> new BorderCacheSlot[BORDER_CACHE_SLOTS]);
     private final Supplier<Map<String, Long>> statsSupplier = this::snapshot;
 
     private WarpGridInterpolationBridge(
-            final Class<?> utilsClass, final HostField singletonField, final MethodHandle transformHandle) {
+            final Class<?> utilsClass,
+            final HostField singletonField,
+            final MethodHandle transformHandle,
+            final BorderGridHandles borderHandles) {
         this.utilsClass = Objects.requireNonNull(utilsClass, "utilsClass");
         this.singletonField = Objects.requireNonNull(singletonField, "singletonField");
         this.transformHandle = Objects.requireNonNull(transformHandle, "transformHandle");
+        this.borderHandles = Objects.requireNonNull(borderHandles, "borderHandles");
         try {
-            this.oobHandle = MethodHandles.lookup()
-                    .findVirtual(WarpGridInterpolationBridge.class, OOB_HANDLER_METHOD, OOB_HANDLER_TYPE)
+            final MethodHandles.Lookup lookup = MethodHandles.lookup();
+            this.oobHandle = lookup.findVirtual(WarpGridInterpolationBridge.class, OOB_HANDLER_METHOD, OOB_HANDLER_TYPE)
+                    .bindTo(this);
+            this.borderHandle = lookup.findVirtual(
+                            WarpGridInterpolationBridge.class, BORDER_HANDLER_METHOD, BORDER_HANDLER_TYPE)
                     .bindTo(this);
         } catch (final ReflectiveOperationException e) {
             throw new IllegalStateException(FAILED_BIND_OOB_ERROR, e);
@@ -141,7 +184,8 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
                             int.class,
                             boolean.class));
             verifyDeformerContracts(hostLoader);
-            return new WarpGridInterpolationBridge(utilsClass, singletonField, transformHandle);
+            final BorderGridHandles borderHandles = BorderGridHandles.bind(hostLoader);
+            return new WarpGridInterpolationBridge(utilsClass, singletonField, transformHandle, borderHandles);
         } catch (final Throwable t) {
             FatalErrors.rethrowIfFatal(t);
             throw new IllegalStateException(FAILED_BIND_HOST_ERROR, t);
@@ -202,6 +246,7 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         final Properties props = System.getProperties();
         props.put(ACTIVE_PROPERTY, active);
         props.put(OOB_PROPERTY, oobHandle);
+        props.put(BORDER_GRID_PROPERTY, borderHandle);
         props.put(STATS_PROPERTY, statsSupplier);
     }
 
@@ -210,9 +255,11 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
     public void close() {
         active.set(false);
         threadStats.remove();
+        borderCache.remove();
         final Properties props = System.getProperties();
         props.remove(ACTIVE_PROPERTY, active);
         props.remove(OOB_PROPERTY, oobHandle);
+        props.remove(BORDER_GRID_PROPERTY, borderHandle);
         props.remove(STATS_PROPERTY, statsSupplier);
     }
 
@@ -784,9 +831,350 @@ public final class WarpGridInterpolationBridge implements AutoCloseable {
         basis[BASIS_VY] = vy;
     }
 
+    @SuppressWarnings("unused")
+    private float[] handleBorderGrid(
+            final Object warpGridA, final float px, final float py, final Object targetPt, final float[] out) {
+        final ThreadStats stats = threadStats.get();
+        try {
+            return solveBorderGrid(warpGridA, px, py, targetPt, out, stats);
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            stats.failures++;
+            if (failure instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException(OOB_HANDLER_FAILED_ERROR, failure);
+        }
+    }
+
+    private float[] solveBorderGrid(
+            final Object warpGridA,
+            final float px,
+            final float py,
+            final Object targetPt,
+            final float[] out,
+            final ThreadStats stats)
+            throws Throwable {
+        final float[] packed = resolveBorderQuads(warpGridA);
+        final boolean hasTarget = targetPt != null;
+        final float targetX = hasTarget ? (float) borderHandles.vecGetX.invokeExact(targetPt) : ZERO_F;
+        final float targetY = hasTarget ? (float) borderHandles.vecGetY.invokeExact(targetPt) : ZERO_F;
+        final float[] cellUv = stats.uvScratch;
+        float bestU = Float.NaN;
+        float bestV = ZERO_F;
+        float bestDistSq = ZERO_F;
+
+        for (int base = 0; base < packed.length; base += BORDER_QUAD_STRIDE) {
+            if (!(px >= packed[base + QUAD_MIN_X]
+                    && px <= packed[base + QUAD_MAX_X]
+                    && py >= packed[base + QUAD_MIN_Y]
+                    && py <= packed[base + QUAD_MAX_Y])) {
+                continue;
+            }
+            if (!solveCellBarycentric(
+                    px,
+                    py,
+                    packed[base + QUAD_P00_X],
+                    packed[base + QUAD_P00_Y],
+                    packed[base + QUAD_P10_X],
+                    packed[base + QUAD_P10_Y],
+                    packed[base + QUAD_P01_X],
+                    packed[base + QUAD_P01_Y],
+                    packed[base + QUAD_P11_X],
+                    packed[base + QUAD_P11_Y],
+                    cellUv)) {
+                continue;
+            }
+            final float fVal = packed[base + QUAD_U0];
+            final float gVal = packed[base + QUAD_V0];
+            final float u = fVal + (packed[base + QUAD_U1] - fVal) * cellUv[0];
+            final float v = gVal + (packed[base + QUAD_V1] - gVal) * cellUv[1];
+            if (!hasTarget) {
+                out[0] = u;
+                out[1] = v;
+                return out;
+            }
+            final float dx = targetX - u;
+            final float dy = targetY - v;
+            final float distSq = dx * dx + dy * dy;
+            if (Float.isNaN(bestU) || bestDistSq > distSq) {
+                bestU = u;
+                bestV = v;
+                bestDistSq = distSq;
+            }
+        }
+        if (!Float.isNaN(bestU)) {
+            out[0] = bestU;
+            out[1] = bestV;
+            return out;
+        }
+        return solveAffineFallback(warpGridA, px, py, out);
+    }
+
+    private float[] resolveBorderQuads(final Object warpGridA) throws Throwable {
+        final List<?> items = (List<?>) (Object) borderHandles.borderListGetter.invokeExact(warpGridA);
+        final int count = items.size();
+        final long timestamp = (long) borderHandles.borderTimestampGetter.invokeExact(warpGridA);
+        final int steps = (int) borderHandles.borderStepsGetter.invokeExact(warpGridA);
+        final Object first = count > 0 ? items.get(0) : null;
+        final Object last = count > 0 ? items.get(count - 1) : null;
+
+        final BorderCacheSlot[] ring = borderCache.get();
+        for (int i = 0; i < ring.length; i++) {
+            final BorderCacheSlot slot = ring[i];
+            if (slot != null && slot.matches(items, count, timestamp, steps, first, last)) {
+                if (i > 0) {
+                    System.arraycopy(ring, 0, ring, 1, i);
+                    ring[0] = slot;
+                }
+                return slot.packedQuads;
+            }
+        }
+        final float[] packed = packBorderItems(items, count);
+        BorderCacheSlot recycled = ring[ring.length - 1];
+        System.arraycopy(ring, 0, ring, 1, ring.length - 1);
+        if (recycled == null) {
+            recycled = new BorderCacheSlot();
+        }
+        recycled.reset(items, count, timestamp, steps, first, last, packed);
+        ring[0] = recycled;
+        return packed;
+    }
+
+    private float[] packBorderItems(final List<?> items, final int count) throws Throwable {
+        final float[] packed = new float[count * BORDER_QUAD_STRIDE];
+        for (int k = 0; k < count; k++) {
+            final Object item = items.get(k);
+            final Object v0 = (Object) borderHandles.itemBGetter.invokeExact(item);
+            final Object v1 = (Object) borderHandles.itemCGetter.invokeExact(item);
+            final Object v2 = (Object) borderHandles.itemDGetter.invokeExact(item);
+            final Object v3 = (Object) borderHandles.itemEGetter.invokeExact(item);
+            final float x0 = (float) borderHandles.vecGetX.invokeExact(v0);
+            final float y0 = (float) borderHandles.vecGetY.invokeExact(v0);
+            final float x1 = (float) borderHandles.vecGetX.invokeExact(v1);
+            final float y1 = (float) borderHandles.vecGetY.invokeExact(v1);
+            final float x2 = (float) borderHandles.vecGetX.invokeExact(v2);
+            final float y2 = (float) borderHandles.vecGetY.invokeExact(v2);
+            final float x3 = (float) borderHandles.vecGetX.invokeExact(v3);
+            final float y3 = (float) borderHandles.vecGetY.invokeExact(v3);
+
+            float minX = Float.POSITIVE_INFINITY;
+            float maxX = Float.NEGATIVE_INFINITY;
+            if (x0 < minX) minX = x0;
+            if (x0 > maxX) maxX = x0;
+            if (x1 < minX) minX = x1;
+            if (x1 > maxX) maxX = x1;
+            if (x2 < minX) minX = x2;
+            if (x2 > maxX) maxX = x2;
+            if (x3 < minX) minX = x3;
+            if (x3 > maxX) maxX = x3;
+            final float padX = (maxX - minX) * AABB_PAD_RATIO + AABB_PAD_MIN;
+
+            float minY = Float.POSITIVE_INFINITY;
+            float maxY = Float.NEGATIVE_INFINITY;
+            if (y0 < minY) minY = y0;
+            if (y0 > maxY) maxY = y0;
+            if (y1 < minY) minY = y1;
+            if (y1 > maxY) maxY = y1;
+            if (y2 < minY) minY = y2;
+            if (y2 > maxY) maxY = y2;
+            if (y3 < minY) minY = y3;
+            if (y3 > maxY) maxY = y3;
+            final float padY = (maxY - minY) * AABB_PAD_RATIO + AABB_PAD_MIN;
+
+            final int base = k * BORDER_QUAD_STRIDE;
+            packed[base + QUAD_P00_X] = x0;
+            packed[base + QUAD_P00_Y] = y0;
+            packed[base + QUAD_P10_X] = x1;
+            packed[base + QUAD_P10_Y] = y1;
+            packed[base + QUAD_P01_X] = x2;
+            packed[base + QUAD_P01_Y] = y2;
+            packed[base + QUAD_P11_X] = x3;
+            packed[base + QUAD_P11_Y] = y3;
+            packed[base + QUAD_U0] = (float) borderHandles.itemFGetter.invokeExact(item);
+            packed[base + QUAD_V0] = (float) borderHandles.itemGGetter.invokeExact(item);
+            packed[base + QUAD_U1] = (float) borderHandles.itemHGetter.invokeExact(item);
+            packed[base + QUAD_V1] = (float) borderHandles.itemIGetter.invokeExact(item);
+            packed[base + QUAD_MIN_X] = minX - padX;
+            packed[base + QUAD_MAX_X] = maxX + padX;
+            packed[base + QUAD_MIN_Y] = minY - padY;
+            packed[base + QUAD_MAX_Y] = maxY + padY;
+        }
+        return packed;
+    }
+
+    private static boolean solveCellBarycentric(
+            final float px,
+            final float py,
+            final float x0,
+            final float y0,
+            final float x1,
+            final float y1,
+            final float x2,
+            final float y2,
+            final float x3,
+            final float y3,
+            final float[] outUv) {
+        float vx = x1 - x0;
+        float vy = y1 - y0;
+        float ux = x2 - x0;
+        float uy = y2 - y0;
+        float det = vx * uy - ux * vy;
+        if (det != ZERO_F) {
+            final float dx = px - x0;
+            final float dy = py - y0;
+            final float tx = (dx * uy - dy * ux) / det;
+            final float ty = (dy * vx - dx * vy) / det;
+            if (tx > NEG_BARYCENTRIC_EPS && ty > NEG_BARYCENTRIC_EPS && tx + ty < ONE_PLUS_BARYCENTRIC_EPS) {
+                outUv[0] = clamp01(tx);
+                outUv[1] = clamp01(ty);
+                return true;
+            }
+        }
+        vx = x2 - x3;
+        vy = y2 - y3;
+        ux = x1 - x3;
+        uy = y1 - y3;
+        det = vx * uy - ux * vy;
+        if (det != ZERO_F) {
+            final float dx = px - x3;
+            final float dy = py - y3;
+            final float tx = (dx * uy - dy * ux) / det;
+            final float ty = (dy * vx - dx * vy) / det;
+            if (tx > NEG_BARYCENTRIC_EPS && ty > NEG_BARYCENTRIC_EPS && tx + ty < ONE_PLUS_BARYCENTRIC_EPS) {
+                outUv[0] = clamp01(ONE_F - tx);
+                outUv[1] = clamp01(ONE_F - ty);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static float clamp01(final float value) {
+        if (value < ZERO_F) {
+            return ZERO_F;
+        }
+        return Math.min(value, ONE_F);
+    }
+
+    private float[] solveAffineFallback(final Object warpGridA, final float px, final float py, final float[] out)
+            throws Throwable {
+        final Object dVec = (Object) borderHandles.borderDGetter.invokeExact(warpGridA);
+        final Object eVec = (Object) borderHandles.borderEGetter.invokeExact(warpGridA);
+        final Object fVec = (Object) borderHandles.borderFGetter.invokeExact(warpGridA);
+        final float ex = (float) borderHandles.vecGetX.invokeExact(eVec);
+        final float ey = (float) borderHandles.vecGetY.invokeExact(eVec);
+        final float fx = (float) borderHandles.vecGetX.invokeExact(fVec);
+        final float fy = (float) borderHandles.vecGetY.invokeExact(fVec);
+        final float det = (-fx) * ey + fy * ex;
+        if (det == ZERO_F) {
+            return null;
+        }
+        final float dx = px - (float) borderHandles.vecGetX.invokeExact(dVec);
+        final float dy = py - (float) borderHandles.vecGetY.invokeExact(dVec);
+        out[0] = (dx * fy - dy * fx) / det;
+        out[1] = (dy * ex - dx * ey) / det;
+        return out;
+    }
+
+    private static final class BorderCacheSlot {
+        private WeakReference<List<?>> listRef;
+        private WeakReference<Object> firstRef;
+        private WeakReference<Object> lastRef;
+        private int count;
+        private long timestamp;
+        private int steps;
+        private float[] packedQuads;
+
+        private boolean matches(
+                final List<?> items,
+                final int count,
+                final long timestamp,
+                final int steps,
+                final Object first,
+                final Object last) {
+            return this.count == count
+                    && this.timestamp == timestamp
+                    && this.steps == steps
+                    && listRef != null
+                    && listRef.get() == items
+                    && (first == null ? firstRef == null : (firstRef != null && firstRef.get() == first))
+                    && (last == null ? lastRef == null : (lastRef != null && lastRef.get() == last));
+        }
+
+        private void reset(
+                final List<?> items,
+                final int count,
+                final long timestamp,
+                final int steps,
+                final Object first,
+                final Object last,
+                final float[] packedQuads) {
+            this.listRef = new WeakReference<>(items);
+            this.firstRef = first == null ? null : new WeakReference<>(first);
+            this.lastRef = last == null ? null : new WeakReference<>(last);
+            this.count = count;
+            this.timestamp = timestamp;
+            this.steps = steps;
+            this.packedQuads = packedQuads;
+        }
+    }
+
+    private record BorderGridHandles(
+            MethodHandle vecGetX,
+            MethodHandle vecGetY,
+            MethodHandle borderListGetter,
+            MethodHandle borderTimestampGetter,
+            MethodHandle borderStepsGetter,
+            MethodHandle borderDGetter,
+            MethodHandle borderEGetter,
+            MethodHandle borderFGetter,
+            MethodHandle itemBGetter,
+            MethodHandle itemCGetter,
+            MethodHandle itemDGetter,
+            MethodHandle itemEGetter,
+            MethodHandle itemFGetter,
+            MethodHandle itemGGetter,
+            MethodHandle itemHGetter,
+            MethodHandle itemIGetter) {
+
+        private static final String GVEC_DESC = "L" + WarpGridInterpolationTarget.GVECTOR2_OWNER + ";";
+        private static final MethodType OBJ_TO_OBJ = MethodType.methodType(Object.class, Object.class);
+        private static final MethodType OBJ_TO_FLOAT = MethodType.methodType(float.class, Object.class);
+        private static final MethodType OBJ_TO_INT = MethodType.methodType(int.class, Object.class);
+        private static final MethodType OBJ_TO_LONG = MethodType.methodType(long.class, Object.class);
+
+        private static BorderGridHandles bind(final ClassLoader loader) throws ReflectiveOperationException {
+            final Class<?> vecCls = HostHandles.load(loader, WarpGridInterpolationTarget.GVECTOR2_OWNER);
+            final Class<?> borderCls = HostHandles.load(loader, WarpGridInterpolationTarget.BORDER_GRID_OWNER);
+            final Class<?> itemCls = HostHandles.load(loader, WarpGridInterpolationTarget.BORDER_GRID_ITEM_OWNER);
+            return new BorderGridHandles(
+                    HostHandles.virtual(vecCls, "getX", "()F", OBJ_TO_FLOAT),
+                    HostHandles.virtual(vecCls, "getY", "()F", OBJ_TO_FLOAT),
+                    HostHandles.getter(borderCls, "i", "Ljava/util/ArrayList;", OBJ_TO_OBJ),
+                    HostHandles.getter(borderCls, "g", "J", OBJ_TO_LONG),
+                    HostHandles.getter(borderCls, "c", "I", OBJ_TO_INT),
+                    HostHandles.getter(borderCls, "d", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(borderCls, "e", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(borderCls, "f", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(itemCls, "b", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(itemCls, "c", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(itemCls, "d", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(itemCls, "e", GVEC_DESC, OBJ_TO_OBJ),
+                    HostHandles.getter(itemCls, "f", "F", OBJ_TO_FLOAT),
+                    HostHandles.getter(itemCls, "g", "F", OBJ_TO_FLOAT),
+                    HostHandles.getter(itemCls, "h", "F", OBJ_TO_FLOAT),
+                    HostHandles.getter(itemCls, "i", "F", OBJ_TO_FLOAT));
+        }
+    }
+
     private static final class ThreadStats {
         final Thread owner = Thread.currentThread();
         final float[] basis = new float[BASIS_LENGTH];
+        final float[] uvScratch = new float[UV_SCRATCH_LENGTH];
         long oobTailCalls;
         long oobPoints;
         long inBoundsFallbackPoints;

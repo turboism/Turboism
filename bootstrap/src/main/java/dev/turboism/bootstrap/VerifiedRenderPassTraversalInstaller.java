@@ -1,6 +1,8 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
+import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.renderpass.RenderEntityMaterialTransformer;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalBridge;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalTarget;
 import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalTransformer;
@@ -23,12 +25,13 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
 
     static final int EXPECTED_MATCHES = 1;
 
-    /** Maximum reviewed owners across Cubism 5.3.x: render system, GRenderTexture, and pool manager. */
-    static final int EXPECTED_OWNERS = 3;
+    /** Maximum reviewed owners: render system, GRenderTexture, pool manager, GEntity, and GMaterial. */
+    static final int EXPECTED_OWNERS = 5;
 
     private static final String FEATURE_NAME = "render pass traversal";
     private static final String SITES_PREFIX = "sites=";
     private static final String POOL_SITES_PREFIX = "pool-sites=";
+    private static final String ENTITY_MATERIAL_SITES_PREFIX = "entity-material-sites=";
     private static final String REFUSED_MESSAGE = "render pass traversal refused: host-not-supported-or-hook-disabled";
 
     static final WeaveSpec<RenderPassTraversalTarget> SPEC = new WeaveSpec<>(
@@ -100,6 +103,28 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
                 poolLeaseClass == null ? null : source.referenceBytes(poolLeaseClass));
         final int expectedPoolMatches = poolTransformer.expectedMatches();
 
+        final Class<?> entityClass = source.load(RenderPassTraversalTarget.ENTITY_OWNER);
+        final Class<?> materialClass = source.load(RenderEntityMaterialTransformer.MATERIAL_OWNER);
+        final byte[] materialReference = source.referenceBytes(materialClass);
+        final boolean declaresClearValues = ReviewedMethodShape.declaresMethod(
+                materialReference,
+                RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD,
+                RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR);
+        if (target.hasRecursiveTraverseMethod()) {
+            HostMemberVerifier.requireMethod(
+                    materialClass,
+                    RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD,
+                    RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR);
+        }
+        final boolean rewriteMaterial = target.hasRecursiveTraverseMethod() && declaresClearValues;
+        final RenderEntityMaterialTransformer entityMaterialTransformer = new RenderEntityMaterialTransformer(
+                source.loader(),
+                source.artifact(),
+                source.referenceBytes(entityClass),
+                rewriteMaterial ? materialReference : null);
+        final int expectedEntityMaterialMatches = entityMaterialTransformer.expectedMatches();
+
         final var targets = new java.util.ArrayList<WeaveTarget>();
         targets.add(WeaveTarget.single(
                 renderSystem, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
@@ -117,6 +142,20 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
                     poolTransformer::matches,
                     poolTransformer::failure));
         }
+        targets.add(new WeaveTarget(
+                entityClass,
+                entityMaterialTransformer,
+                expectedEntityMaterialMatches,
+                entityMaterialTransformer::matches,
+                entityMaterialTransformer::failure));
+        if (rewriteMaterial) {
+            targets.add(new WeaveTarget(
+                    materialClass,
+                    entityMaterialTransformer,
+                    expectedEntityMaterialMatches,
+                    entityMaterialTransformer::matches,
+                    entityMaterialTransformer::failure));
+        }
         return List.copyOf(targets);
     }
 
@@ -131,7 +170,16 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
         final RenderTextureColorPoolTransformer poolTransformer =
                 targets.get(1).transformer(RenderTextureColorPoolTransformer.class);
         final int poolSites = poolTransformer.sites();
-        return poolSites == poolTransformer.expectedMatches() ? null : POOL_SITES_PREFIX + poolSites;
+        if (poolSites != poolTransformer.expectedMatches()) {
+            return POOL_SITES_PREFIX + poolSites;
+        }
+        final int entityTargetIndex = poolTransformer.expectedMatches() > 1 ? 3 : 2;
+        final RenderEntityMaterialTransformer entityMaterialTransformer =
+                targets.get(entityTargetIndex).transformer(RenderEntityMaterialTransformer.class);
+        final int entityMaterialSites = entityMaterialTransformer.sites();
+        return entityMaterialSites == entityMaterialTransformer.expectedMatches()
+                ? null
+                : ENTITY_MATERIAL_SITES_PREFIX + entityMaterialSites;
     }
 
     @Override

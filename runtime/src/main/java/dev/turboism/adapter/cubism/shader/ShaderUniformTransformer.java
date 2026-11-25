@@ -62,6 +62,11 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
     private static final String BRIDGE_SHOULD_UPLOAD_MATRIX_DESC = "(Ljava/lang/Object;ILjava/lang/Object;II[F)Z";
     private static final String BRIDGE_RECORD_MATRIX = "recordCameraMatrix";
     private static final String BRIDGE_RECORD_MATRIX_DESC = "(Ljava/lang/Object;ILjava/lang/Object;II[F)V";
+    private static final String BRIDGE_USE_PROGRAM_LABEL = "useProgramLabel";
+    private static final String BRIDGE_USE_PROGRAM_LABEL_DESC = "(I)Ljava/lang/String;";
+    private static final String STRING_CONCAT_FACTORY_OWNER = "java/lang/invoke/StringConcatFactory";
+    private static final String MAKE_CONCAT_WITH_CONSTANTS = "makeConcatWithConstants";
+    private static final String USE_PROGRAM_TEMPLATE = "use program " + '\001';
 
     private static final String UNIFORM_PROJECTION_MATRIX = "projectionMatrix";
     private static final String UNIFORM_WORLD_TO_CAMERA_MATRIX = "worldToCameraMatrix";
@@ -612,7 +617,30 @@ public final class ShaderUniformTransformer implements ClassFileTransformer {
                 flushBuffer();
             }
             uniformFieldTrigger = 0;
+            if (isUseProgramConcat(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments)) {
+                super.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        BRIDGE_OWNER,
+                        BRIDGE_USE_PROGRAM_LABEL,
+                        BRIDGE_USE_PROGRAM_LABEL_DESC,
+                        false);
+                return;
+            }
             super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+        }
+
+        private static boolean isUseProgramConcat(
+                final String name,
+                final String descriptor,
+                final Handle bootstrapMethodHandle,
+                final Object[] bootstrapMethodArguments) {
+            return MAKE_CONCAT_WITH_CONSTANTS.equals(name)
+                    && BRIDGE_USE_PROGRAM_LABEL_DESC.equals(descriptor)
+                    && bootstrapMethodHandle != null
+                    && STRING_CONCAT_FACTORY_OWNER.equals(bootstrapMethodHandle.getOwner())
+                    && bootstrapMethodArguments != null
+                    && bootstrapMethodArguments.length == 1
+                    && USE_PROGRAM_TEMPLATE.equals(bootstrapMethodArguments[0]);
         }
 
         @Override

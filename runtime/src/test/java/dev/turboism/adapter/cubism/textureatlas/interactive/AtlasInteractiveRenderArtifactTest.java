@@ -538,7 +538,7 @@ class AtlasInteractiveRenderArtifactTest {
 
                             @Override
                             public void visitLdcInsn(final Object value) {
-                                if (AtlasInteractiveRenderBridge.OVERLAY_RENDER_PROPERTY.equals(value)) {
+                                if (referencesOverlaySlot(value)) {
                                     if (inBakeCopy) {
                                         sawOverlayInBakeCopy[0] = true;
                                     } else if (inNonBakeGuard) {
@@ -585,6 +585,20 @@ class AtlasInteractiveRenderArtifactTest {
                 version + ": overlay cache must stay strictly inside mode != f$c.c branch");
         assertTrue(sawFallbackFill[0] && sawFallbackDraw[0], version + ": fallback fill/draw must remain intact");
         assertFalse(sawOverlayOutsideGuard[0], version + ": overlay cache must not leak past mode != f$c.c guard");
+    }
+
+    private static boolean referencesOverlaySlot(final Object value) {
+        if (AtlasInteractiveRenderBridge.OVERLAY_RENDER_PROPERTY.equals(value)) {
+            return true;
+        }
+        if (value instanceof org.objectweb.asm.ConstantDynamic condy) {
+            for (int i = 0; i < condy.getBootstrapMethodArgumentCount(); i++) {
+                if (AtlasInteractiveRenderBridge.OVERLAY_RENDER_PROPERTY.equals(condy.getBootstrapMethodArgument(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void assertFailClosedRejections(

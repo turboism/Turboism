@@ -75,8 +75,9 @@ final class WeakIdentityMap<K, V> {
         while (entry != null) {
             final Entry<K, V> next = entry.next;
             if (entry.identityHash == hash && entry.get() == key) {
+                final V removed = entry.value;
                 unlink(index, prev, entry, next);
-                return entry.value;
+                return removed;
             }
             prev = entry;
             entry = next;

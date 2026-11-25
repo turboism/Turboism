@@ -87,7 +87,7 @@ class WeaveSpecTest {
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_MATCHES,
                 VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
         assertEquals(
-                1,
+                3,
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_MATCHES,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
@@ -163,7 +163,7 @@ class WeaveSpecTest {
                 VerifiedInspectorPropertyBypassInstaller.HOOK_ID);
         // The shader query plus the four lifecycle roles, and the one rewritten traversal.
         assertEquals(5, VerifiedUniformLocationInstaller.EXPECTED_OWNERS, VerifiedUniformLocationInstaller.HOOK_ID);
-        assertEquals(1, VerifiedMatrixScratchInstaller.EXPECTED_OWNERS, VerifiedMatrixScratchInstaller.HOOK_ID);
+        assertEquals(3, VerifiedMatrixScratchInstaller.EXPECTED_OWNERS, VerifiedMatrixScratchInstaller.HOOK_ID);
         assertEquals(
                 2,
                 VerifiedCursorValidationElisionInstaller.EXPECTED_OWNERS,
@@ -175,14 +175,14 @@ class WeaveSpecTest {
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_OWNERS,
                 VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
         assertEquals(
-                1,
+                3,
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_OWNERS,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
                 1, VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_OWNERS, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
-                3, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
+                5, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);
         assertEquals(
                 1,
                 VerifiedExtendedInterpolationSiblingInstaller.EXPECTED_OWNERS,

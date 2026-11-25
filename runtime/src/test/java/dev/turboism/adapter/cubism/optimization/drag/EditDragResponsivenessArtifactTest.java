@@ -130,6 +130,39 @@ final class EditDragResponsivenessArtifactTest {
         runStrictVerifySubprocess(manifestFile, manifestLines.size());
     }
 
+    @Test
+    void realCubism5305DeformerSelectorHandlesBindCleanlyWhenFullLibrariesPresent() throws Exception {
+        final Path libDir = Path.of(
+                System.getProperty("user.home"),
+                ARCH_REFERENCE_SUFFIX,
+                "5.3.05",
+                "proton",
+                "pfx",
+                "drive_c",
+                "Program Files",
+                "Live2D Cubism 5.3",
+                "app",
+                "lib");
+        final Path jdomJar = libDir.resolve("jdom-1.1.jar");
+        if (!Files.isRegularFile(libDir.resolve(JAR_NAME)) || !Files.isRegularFile(jdomJar)) {
+            return;
+        }
+        final List<URL> urls = new ArrayList<>();
+        try (var stream = Files.list(libDir)) {
+            for (final Path entry : stream.toList()) {
+                if (Files.isRegularFile(entry) && entry.getFileName().toString().endsWith(".jar")) {
+                    urls.add(entry.toUri().toURL());
+                }
+            }
+        }
+        try (URLClassLoader fullLoader =
+                        new URLClassLoader(urls.toArray(URL[]::new), ClassLoader.getPlatformClassLoader());
+                DeformerSelectorAccelerator accelerator = DeformerSelectorAccelerator.tryCreate(fullLoader)) {
+            assertNotNull(accelerator);
+            assertTrue(accelerator.isBound(), "5.3.05 DeformerSelectorAccelerator handles must bind cleanly");
+        }
+    }
+
     private static void writePatchedClass(final Path outDir, final String owner, final byte[] bytes)
             throws IOException {
         final Path outFile = outDir.resolve(owner + CLASS_SUFFIX);

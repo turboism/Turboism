@@ -60,8 +60,9 @@ public final class RedundantStateElisionBridge {
         properties.put(STATS_PROPERTY, (Supplier<Map<String, Long>>) () -> tracker.snapshot(tracker.armed()));
     }
 
-    /** Removes every published slot. */
+    /** Disarms elision and removes every published slot. */
     public void uninstall() {
+        tracker.setArmed(false);
         final Properties properties = System.getProperties();
         properties.remove(CONSULT_PROPERTY);
         properties.remove(INVALIDATE_PROPERTY);

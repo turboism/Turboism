@@ -5,11 +5,13 @@ import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.ref.WeakReference;
 import java.nio.IntBuffer;
 import java.util.Map;
 import java.util.Properties;
-import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -51,15 +53,36 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
     /** {@code getContext()} and {@code static getCurrent()} both answer {@code GLContext}. */
     private static final String GL_CONTEXT_DESCRIPTOR = "()Lcom/jogamp/opengl/GLContext;";
 
+    private static final long EMPTY_GENERATION = 0L;
+    private static final long INITIAL_GENERATION = 1L;
+    private static final int INITIAL_TABLE_CAPACITY = 64;
+
+    private static final int STAT_CALLS = 0;
+    private static final int STAT_SKIPPED_CALLS = 1;
+    private static final int STAT_ELIDED = 2;
+    private static final int STAT_PASSED = 3;
+    private static final int STAT_PASS_NOT_SKIPPED = 4;
+    private static final int STAT_PASS_CONTEXT = 5;
+    private static final int STAT_PASS_THREAD = 6;
+    private static final int STAT_PASS_NO_BASELINE = 7;
+    private static final int STAT_PASS_DIRTY = 8;
+    private static final int STAT_COMPLETIONS = 9;
+    private static final int STAT_FAILURES = 10;
+    private static final int STAT_OBSERVER_FAILURES = 11;
+    private static final int STAT_CONTEXT_CHANGES = 12;
+    private static final int STAT_THREAD_CHANGES = 13;
+    private static final int STAT_COUNT = 14;
+
     private final MethodHandle[] bufferGetters;
     private final MethodHandle nameHandle, dirtyHandle;
     private final MethodHandle frameGl, glContext, currentContext, contextCreated, contextHandle;
 
-    private final WeakHashMap<Object, Long> generations = new WeakHashMap<>();
-    private Object observedGl, observedContext;
-    private long observedHandle;
-    private long generation;
-    private Thread observedThread;
+    private final WeakGenerationTable generations = new WeakGenerationTable(INITIAL_TABLE_CAPACITY);
+    private final Object stateLock = new Object();
+    private volatile Object observedGl, observedContext;
+    private volatile long observedHandle;
+    private volatile long generation = INITIAL_GENERATION;
+    private volatile Thread observedThread;
 
     private final AtomicBoolean active = new AtomicBoolean();
     private final BiPredicate<Object, Object> predicate = this::test;
@@ -69,20 +92,7 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
     private volatile AtomicBoolean skippedFrameSlot;
     private Properties installedProperties;
 
-    private long calls,
-            skippedCalls,
-            elided,
-            passed,
-            passNotSkipped,
-            passContext,
-            passThread,
-            passNoBaseline,
-            passDirty,
-            completions,
-            failures,
-            observerFailures,
-            contextChanges,
-            threadChanges;
+    private final AtomicLongArray stats = new AtomicLongArray(STAT_COUNT);
 
     /**
      * Resolves every reviewed member on the admitted host loader.
@@ -159,85 +169,95 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
         }
     }
 
-    private synchronized boolean test(final Object mesh, final Object frame) {
+    private boolean test(final Object mesh, final Object frame) {
         if (!active.get()) return false;
-        calls++;
+        stats.getAndIncrement(STAT_CALLS);
         try {
             if (mesh == null || frame == null) {
                 observerFailed();
-                passed++;
+                stats.getAndIncrement(STAT_PASSED);
                 return false;
             }
             if (!frameSkipped()) {
-                passNotSkipped++;
-                passed++;
+                stats.getAndIncrement(STAT_PASS_NOT_SKIPPED);
+                stats.getAndIncrement(STAT_PASSED);
                 return false;
             }
-            skippedCalls++;
+            stats.getAndIncrement(STAT_SKIPPED_CALLS);
             final Thread current = Thread.currentThread();
-            if (observedThread == null) {
-                observedThread = current;
-            } else if (observedThread != current) {
-                observedThread = current;
-                threadChanges++;
-                observerFailures++;
-                clearInstances();
-                passThread++;
-                passed++;
+            if (observedThread != current && !claimOrSwitchThread(current)) {
+                stats.getAndIncrement(STAT_PASS_THREAD);
+                stats.getAndIncrement(STAT_PASSED);
                 return false;
             }
             if (!validContext(frame)) {
-                passContext++;
-                passed++;
+                stats.getAndIncrement(STAT_PASS_CONTEXT);
+                stats.getAndIncrement(STAT_PASSED);
                 return false;
             }
-            final Long known = generations.get(mesh);
-            if (known == null || known.longValue() != generation) {
-                passNoBaseline++;
-                passed++;
+            final long currentGeneration = generation;
+            if (generations.get(mesh) != currentGeneration) {
+                stats.getAndIncrement(STAT_PASS_NO_BASELINE);
+                stats.getAndIncrement(STAT_PASSED);
                 return false;
             }
             for (final MethodHandle getter : bufferGetters) {
                 final Object wrapper = (Object) getter.invokeExact(mesh);
                 if (wrapper == null) {
                     observerFailed();
-                    passed++;
+                    stats.getAndIncrement(STAT_PASSED);
                     return false;
                 }
                 if ((boolean) dirtyHandle.invokeExact(wrapper)) {
                     final IntBuffer names = (IntBuffer) nameHandle.invokeExact(wrapper);
                     if (names == null || names.capacity() < 1) {
                         observerFailed();
-                        passed++;
+                        stats.getAndIncrement(STAT_PASSED);
                         return false;
                     }
                     if (names.get(0) > 0) {
-                        passDirty++;
-                        passed++;
+                        stats.getAndIncrement(STAT_PASS_DIRTY);
+                        stats.getAndIncrement(STAT_PASSED);
                         return false;
                     }
                 }
             }
-            elided++;
+            stats.getAndIncrement(STAT_ELIDED);
             return true;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             observerFailed();
-            passed++;
+            stats.getAndIncrement(STAT_PASSED);
+            return false;
+        }
+    }
+
+    private boolean claimOrSwitchThread(final Thread current) {
+        synchronized (stateLock) {
+            final Thread owner = observedThread;
+            if (owner == null) {
+                observedThread = current;
+                return true;
+            }
+            if (owner == current) {
+                return true;
+            }
+            observedThread = current;
+            stats.getAndIncrement(STAT_THREAD_CHANGES);
+            observerFailedLocked();
             return false;
         }
     }
 
     /** Records one successful native setup for the current context generation. */
-    private synchronized void complete(final Object mesh) {
+    private void complete(final Object mesh) {
         if (!active.get() || mesh == null) return;
         try {
-            if (observedThread != null && observedThread != Thread.currentThread()) return;
-            final Long existing = generations.get(mesh);
-            if (existing == null || existing.longValue() != generation) {
-                generations.put(mesh, generation);
-            }
-            completions++;
+            final Thread owner = observedThread;
+            if (owner != null && owner != Thread.currentThread()) return;
+            final long currentGeneration = generation;
+            generations.put(mesh, currentGeneration);
+            stats.getAndIncrement(STAT_COMPLETIONS);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             observerFailed();
@@ -245,19 +265,26 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
     }
 
     /** Removes an instance whose pointer/value refresh failed; the next setup runs natively. */
-    private synchronized void failed(final Object mesh) {
+    private void failed(final Object mesh) {
         if (!active.get()) return;
-        failures++;
+        stats.getAndIncrement(STAT_FAILURES);
         if (mesh != null) generations.remove(mesh);
     }
 
     private void observerFailed() {
-        observerFailures++;
-        clearInstances();
+        synchronized (stateLock) {
+            observerFailedLocked();
+        }
     }
 
-    private void clearInstances() {
-        generations.clear();
+    private void observerFailedLocked() {
+        stats.getAndIncrement(STAT_OBSERVER_FAILURES);
+        advanceGenerationLocked();
+    }
+
+    private void advanceGenerationLocked() {
+        final long next = generation + 1L;
+        generation = next == EMPTY_GENERATION ? INITIAL_GENERATION : next;
     }
 
     /**
@@ -276,17 +303,25 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
         final long handle = (long) contextHandle.invokeExact(context);
         if (handle == 0L) return false;
         if (observedGl != gl || observedContext != context || observedHandle != handle) {
+            recordContextChange(gl, context, handle);
+        }
+        return true;
+    }
+
+    private void recordContextChange(final Object gl, final Object context, final long handle) {
+        synchronized (stateLock) {
+            if (observedGl == gl && observedContext == context && observedHandle == handle) {
+                return;
+            }
             final boolean hadPrevious = observedGl != null;
             observedGl = gl;
             observedContext = context;
             observedHandle = handle;
             if (hadPrevious) {
-                generation++;
-                contextChanges++;
-                clearInstances();
+                stats.getAndIncrement(STAT_CONTEXT_CHANGES);
+                advanceGenerationLocked();
             }
         }
-        return true;
     }
 
     private boolean frameSkipped() {
@@ -304,23 +339,23 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
     }
 
     /** Work counts and live state only; no interaction benefit is inferred from them. */
-    public synchronized Map<String, Long> snapshot() {
+    public Map<String, Long> snapshot() {
         final Map<String, Long> result = new java.util.LinkedHashMap<>();
-        result.put("calls", calls);
-        result.put("skippedCalls", skippedCalls);
-        result.put("elided", elided);
-        result.put("passed", passed);
-        result.put("passNotSkipped", passNotSkipped);
-        result.put("passContext", passContext);
-        result.put("passThread", passThread);
-        result.put("passNoBaseline", passNoBaseline);
-        result.put("passDirty", passDirty);
-        result.put("completions", completions);
-        result.put("failures", failures);
-        result.put("observerFailures", observerFailures);
-        result.put("contextChanges", contextChanges);
-        result.put("threadChanges", threadChanges);
-        result.put("tracked", (long) generations.size());
+        result.put("calls", stats.get(STAT_CALLS));
+        result.put("skippedCalls", stats.get(STAT_SKIPPED_CALLS));
+        result.put("elided", stats.get(STAT_ELIDED));
+        result.put("passed", stats.get(STAT_PASSED));
+        result.put("passNotSkipped", stats.get(STAT_PASS_NOT_SKIPPED));
+        result.put("passContext", stats.get(STAT_PASS_CONTEXT));
+        result.put("passThread", stats.get(STAT_PASS_THREAD));
+        result.put("passNoBaseline", stats.get(STAT_PASS_NO_BASELINE));
+        result.put("passDirty", stats.get(STAT_PASS_DIRTY));
+        result.put("completions", stats.get(STAT_COMPLETIONS));
+        result.put("failures", stats.get(STAT_FAILURES));
+        result.put("observerFailures", stats.get(STAT_OBSERVER_FAILURES));
+        result.put("contextChanges", stats.get(STAT_CONTEXT_CHANGES));
+        result.put("threadChanges", stats.get(STAT_THREAD_CHANGES));
+        result.put("tracked", (long) generations.countLive(generation));
         result.put("active", active.get() ? 1L : 0L);
         return Map.copyOf(result);
     }
@@ -330,12 +365,14 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
     public synchronized void close() {
         active.set(false);
         skippedFrameSlot = null;
-        observedThread = null;
-        observedGl = null;
-        observedContext = null;
-        observedHandle = 0L;
-        generation = 0L;
-        clearInstances();
+        synchronized (stateLock) {
+            observedThread = null;
+            observedGl = null;
+            observedContext = null;
+            observedHandle = 0L;
+            advanceGenerationLocked();
+        }
+        generations.clear();
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null)
@@ -345,5 +382,241 @@ public final class SkippedFrameMeshSetupElisionBridge implements AutoCloseable {
                 properties.remove(FAILURE_PROPERTY, failed);
                 properties.remove(STATS_PROPERTY, statistics);
             }
+    }
+
+    /** Open-addressed identity weak-key table mapping live meshes to primitive generation stamps. */
+    private static final class WeakGenerationTable {
+
+        private static final int LOAD_DENOMINATOR = 2;
+        private static final int GROW_THRESHOLD_DENOMINATOR = 4;
+        private static final int IDENTITY_HASH_SHIFT = 16;
+        private static final int GOLDEN_RATIO_MIX = 0x9E3779B9;
+        private static final WeakKey DEAD_KEY = new WeakKey(null, 0, EMPTY_GENERATION);
+        private static final WeakKey MOVED_KEY = new WeakKey(null, 0, EMPTY_GENERATION);
+
+        private final int initialCapacity;
+        private final Object writeLock = new Object();
+        private volatile BucketTable currentTable;
+
+        WeakGenerationTable(final int initialCapacity) {
+            this.initialCapacity = initialCapacity;
+            this.currentTable = new BucketTable(initialCapacity);
+        }
+
+        long get(final Object mesh) {
+            final int hash = smearIdentityHash(mesh);
+            BucketTable table = this.currentTable;
+            for (; ; ) {
+                final AtomicReferenceArray<WeakKey> slots = table.slots;
+                final int mask = table.mask;
+                boolean moved = false;
+                for (int idx = hash & mask, step = 0; step <= mask; idx = (idx + 1) & mask, step++) {
+                    final WeakKey key = slots.get(idx);
+                    if (key == null) {
+                        return EMPTY_GENERATION;
+                    }
+                    if (key == MOVED_KEY) {
+                        table = advanceTable(table);
+                        moved = true;
+                        break;
+                    }
+                    if (key != DEAD_KEY && key.identityHash == hash && key.get() == mesh) {
+                        return key.generation;
+                    }
+                }
+                if (!moved) {
+                    return EMPTY_GENERATION;
+                }
+            }
+        }
+
+        void put(final Object mesh, final long gen) {
+            final int hash = smearIdentityHash(mesh);
+            BucketTable table = this.currentTable;
+            for (; ; ) {
+                final AtomicReferenceArray<WeakKey> slots = table.slots;
+                final int mask = table.mask;
+                boolean moved = false;
+                for (int idx = hash & mask, step = 0; step <= mask; idx = (idx + 1) & mask, step++) {
+                    final WeakKey key = slots.get(idx);
+                    if (key == null) {
+                        break;
+                    }
+                    if (key == MOVED_KEY) {
+                        table = advanceTable(table);
+                        moved = true;
+                        break;
+                    }
+                    if (key != DEAD_KEY && key.identityHash == hash && key.get() == mesh) {
+                        key.generation = gen;
+                        return;
+                    }
+                }
+                if (!moved) {
+                    break;
+                }
+            }
+            insertOrUpdateLocked(mesh, hash, gen);
+        }
+
+        void remove(final Object mesh) {
+            final int hash = smearIdentityHash(mesh);
+            synchronized (writeLock) {
+                final BucketTable table = this.currentTable;
+                final AtomicReferenceArray<WeakKey> slots = table.slots;
+                final int mask = table.mask;
+                for (int idx = hash & mask, step = 0; step <= mask; idx = (idx + 1) & mask, step++) {
+                    final WeakKey key = slots.get(idx);
+                    if (key == null) {
+                        return;
+                    }
+                    if (key != DEAD_KEY && key != MOVED_KEY && key.identityHash == hash && key.get() == mesh) {
+                        key.generation = EMPTY_GENERATION;
+                        slots.set(idx, DEAD_KEY);
+                        return;
+                    }
+                }
+            }
+        }
+
+        void clear() {
+            synchronized (writeLock) {
+                final BucketTable oldTable = this.currentTable;
+                final BucketTable emptyTable = new BucketTable(initialCapacity);
+                oldTable.next = emptyTable;
+                for (int i = 0; i <= oldTable.mask; i++) {
+                    oldTable.slots.set(i, MOVED_KEY);
+                }
+                this.currentTable = emptyTable;
+            }
+        }
+
+        int countLive(final long expectedGeneration) {
+            final BucketTable table = this.currentTable;
+            final AtomicReferenceArray<WeakKey> slots = table.slots;
+            int live = 0;
+            for (int i = 0; i <= table.mask; i++) {
+                final WeakKey key = slots.get(i);
+                if (key != null
+                        && key != DEAD_KEY
+                        && key != MOVED_KEY
+                        && key.generation == expectedGeneration
+                        && key.get() != null) {
+                    live++;
+                }
+            }
+            return live;
+        }
+
+        private void insertOrUpdateLocked(final Object mesh, final int hash, final long gen) {
+            synchronized (writeLock) {
+                BucketTable table = this.currentTable;
+                for (; ; ) {
+                    final AtomicReferenceArray<WeakKey> slots = table.slots;
+                    final int mask = table.mask;
+                    int firstReusable = -1;
+                    boolean exhausted = true;
+                    for (int idx = hash & mask, step = 0; step <= mask; idx = (idx + 1) & mask, step++) {
+                        final WeakKey key = slots.get(idx);
+                        if (key == null) {
+                            if (firstReusable >= 0) {
+                                slots.set(firstReusable, new WeakKey(mesh, hash, gen));
+                                return;
+                            }
+                            if ((table.used + 1) * LOAD_DENOMINATOR > mask + 1) {
+                                exhausted = false;
+                                break;
+                            }
+                            slots.set(idx, new WeakKey(mesh, hash, gen));
+                            table.used++;
+                            return;
+                        }
+                        if (key == DEAD_KEY || key.get() == null) {
+                            if (firstReusable < 0) {
+                                firstReusable = idx;
+                            }
+                            continue;
+                        }
+                        if (key.identityHash == hash && key.get() == mesh) {
+                            key.generation = gen;
+                            return;
+                        }
+                    }
+                    if (exhausted && firstReusable >= 0) {
+                        slots.set(firstReusable, new WeakKey(mesh, hash, gen));
+                        return;
+                    }
+                    table = rehashLocked(table);
+                }
+            }
+        }
+
+        private BucketTable rehashLocked(final BucketTable oldTable) {
+            final int capacity = oldTable.mask + 1;
+            int live = 0;
+            for (int i = 0; i <= oldTable.mask; i++) {
+                final WeakKey key = oldTable.slots.get(i);
+                if (key != null && key != DEAD_KEY && key != MOVED_KEY && key.get() != null) {
+                    live++;
+                }
+            }
+            final int nextCapacity = live * GROW_THRESHOLD_DENOMINATOR >= capacity ? capacity << 1 : capacity;
+            final BucketTable nextTable = new BucketTable(Math.max(initialCapacity, nextCapacity));
+            oldTable.next = nextTable;
+            for (int i = 0; i <= oldTable.mask; i++) {
+                final WeakKey key = oldTable.slots.getAndSet(i, MOVED_KEY);
+                if (key != null && key != DEAD_KEY && key != MOVED_KEY && key.get() != null) {
+                    insertMigrated(nextTable, key);
+                }
+            }
+            this.currentTable = nextTable;
+            return nextTable;
+        }
+
+        private static void insertMigrated(final BucketTable target, final WeakKey key) {
+            final int mask = target.mask;
+            for (int idx = key.identityHash & mask; ; idx = (idx + 1) & mask) {
+                if (target.slots.get(idx) == null) {
+                    target.slots.set(idx, key);
+                    target.used++;
+                    return;
+                }
+            }
+        }
+
+        private BucketTable advanceTable(final BucketTable table) {
+            final BucketTable next = table.next;
+            return next != null ? next : this.currentTable;
+        }
+
+        private static int smearIdentityHash(final Object mesh) {
+            final int raw = System.identityHashCode(mesh) * GOLDEN_RATIO_MIX;
+            return raw ^ (raw >>> IDENTITY_HASH_SHIFT);
+        }
+
+        private static final class BucketTable {
+
+            final int mask;
+            final AtomicReferenceArray<WeakKey> slots;
+            int used;
+            volatile BucketTable next;
+
+            BucketTable(final int capacity) {
+                this.mask = capacity - 1;
+                this.slots = new AtomicReferenceArray<>(capacity);
+            }
+        }
+
+        private static final class WeakKey extends WeakReference<Object> {
+
+            final int identityHash;
+            volatile long generation;
+
+            WeakKey(final Object referent, final int identityHash, final long generation) {
+                super(referent);
+                this.identityHash = identityHash;
+                this.generation = generation;
+            }
+        }
     }
 }

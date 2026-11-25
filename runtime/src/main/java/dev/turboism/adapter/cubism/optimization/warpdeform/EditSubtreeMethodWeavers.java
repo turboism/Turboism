@@ -97,8 +97,14 @@ final class EditSubtreeMethodWeavers {
         return new RotationScratchAdapter(out, slotIndices, tmpLocal);
     }
 
-    /** Creates the {@code updateSelectionDraw} entry/tail gate plus inactive ArtMesh elision adapter. */
-    static MethodVisitor selectionDrawAdapter(final MethodVisitor out, final int nextFreeLocal) {
+    /** Creates the {@code updateSelectionDraw} entry/tail gate plus lazy create and volatile/mesh elision adapter. */
+    static MethodVisitor selectionDrawAdapter(
+            final MethodVisitor out,
+            final int srcMeshSlot,
+            final int srcPackSlot,
+            final int srcSelectedSlot,
+            final int srcGluedSlot,
+            final int nextFreeLocal) {
         final MethodVisitor headTail = new HeadGateAndReturnTailAdapter(
                 out,
                 WarpDeformEditBridge.EDIT_SELECTION_DRAW_ELIDE_PROPERTY,
@@ -107,7 +113,8 @@ final class EditSubtreeMethodWeavers {
                 MH_SELECTION_DRAW_RECORD_DESC,
                 mv -> mv.visitVarInsn(Opcodes.ALOAD, 0),
                 mv -> mv.visitVarInsn(Opcodes.ALOAD, 0));
-        return new ArtMeshSelectionCallSiteAdapter(headTail, nextFreeLocal);
+        return new ArtMeshSelectionCallSiteAdapter(
+                headTail, srcMeshSlot, srcPackSlot, srcSelectedSlot, srcGluedSlot, nextFreeLocal);
     }
 
     private static void pushCoreUpdateArgs(final MethodVisitor mv) {
@@ -490,28 +497,146 @@ final class EditSubtreeMethodWeavers {
     }
 
     private static final class ArtMeshSelectionCallSiteAdapter extends MethodVisitor {
+        private final int srcMeshSlot;
+        private final int srcPackSlot;
+        private final int srcSelectedSlot;
+        private final int srcGluedSlot;
         private final int entityLocal;
         private final int packLocal;
         private final int flag1Local;
         private final int flag2Local;
         private final int skipLocal;
         private final int meshElideMhLocal;
+        private final int createElideMhLocal;
+        private final int setVolElideMhLocal;
+        private final int setVolSceneTmpLocal;
+        private final int setVolEntityTmpLocal;
+        private final Label postArtMeshSetVolatileLabel = new Label();
+        private boolean sawArtMeshCreate;
+        private boolean awaitingArtMeshSetVolatile;
 
-        private ArtMeshSelectionCallSiteAdapter(final MethodVisitor out, final int nextFreeLocal) {
+        private ArtMeshSelectionCallSiteAdapter(
+                final MethodVisitor out,
+                final int srcMeshSlot,
+                final int srcPackSlot,
+                final int srcSelectedSlot,
+                final int srcGluedSlot,
+                final int nextFreeLocal) {
             super(Opcodes.ASM9, out);
+            this.srcMeshSlot = srcMeshSlot;
+            this.srcPackSlot = srcPackSlot;
+            this.srcSelectedSlot = srcSelectedSlot;
+            this.srcGluedSlot = srcGluedSlot;
             this.entityLocal = nextFreeLocal;
             this.packLocal = nextFreeLocal + 1;
             this.flag1Local = nextFreeLocal + 2;
             this.flag2Local = nextFreeLocal + 3;
             this.skipLocal = nextFreeLocal + 4;
             this.meshElideMhLocal = nextFreeLocal + 5;
+            this.createElideMhLocal = nextFreeLocal + 6;
+            this.setVolElideMhLocal = nextFreeLocal + 7;
+            this.setVolSceneTmpLocal = nextFreeLocal + 8;
+            this.setVolEntityTmpLocal = nextFreeLocal + 9;
         }
 
         @Override
         public void visitCode() {
             super.visitCode();
+            emitConsultOptionalHandle(mv, WarpDeformEditBridge.EDIT_SELECTION_MESH_ELIDE_PROPERTY, meshElideMhLocal);
+            emitConsultOptionalHandle(
+                    mv, WarpDeformEditBridge.EDIT_SELECTION_MESH_CREATE_ELIDE_PROPERTY, createElideMhLocal);
+            emitConsultOptionalHandle(
+                    mv, WarpDeformEditBridge.EDIT_SELECTION_SET_VOLATILE_ELIDE_PROPERTY, setVolElideMhLocal);
+        }
+
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
+            if (!sawArtMeshCreate
+                    && opcode == Opcodes.NEW
+                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(type)) {
+                sawArtMeshCreate = true;
+                final Label proceedCreate = new Label();
+                // Skip lazy creation when selected, glued, hovered, or flagged overlays require the entity.
+                mv.visitVarInsn(Opcodes.ILOAD, srcSelectedSlot);
+                mv.visitJumpInsn(Opcodes.IFNE, proceedCreate);
+                mv.visitVarInsn(Opcodes.ILOAD, srcGluedSlot);
+                mv.visitJumpInsn(Opcodes.IFNE, proceedCreate);
+                mv.visitVarInsn(Opcodes.ALOAD, createElideMhLocal);
+                mv.visitJumpInsn(Opcodes.IFNULL, proceedCreate);
+                emitElidePredicateCheck(
+                        mv, createElideMhLocal, srcMeshSlot, srcPackSlot, srcSelectedSlot, srcGluedSlot, skipLocal);
+                mv.visitVarInsn(Opcodes.ILOAD, skipLocal);
+                mv.visitJumpInsn(Opcodes.IFNE, postArtMeshSetVolatileLabel);
+                mv.visitLabel(proceedCreate);
+            }
+            super.visitTypeInsn(opcode, type);
+        }
+
+        @Override
+        public void visitMethodInsn(
+                final int opcode, final String owner, final String name, final String desc, final boolean itf) {
+            if (opcode == Opcodes.INVOKEVIRTUAL
+                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(owner)
+                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_METHOD.equals(name)
+                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_DESCRIPTOR.equals(desc)) {
+                final Label skipCall = new Label();
+                mv.visitVarInsn(Opcodes.ISTORE, flag2Local);
+                mv.visitVarInsn(Opcodes.ISTORE, flag1Local);
+                mv.visitVarInsn(Opcodes.ASTORE, packLocal);
+                mv.visitVarInsn(Opcodes.ASTORE, entityLocal);
+                mv.visitInsn(Opcodes.ICONST_0);
+                mv.visitVarInsn(Opcodes.ISTORE, skipLocal);
+
+                final Label afterCheck = new Label();
+                mv.visitVarInsn(Opcodes.ALOAD, meshElideMhLocal);
+                mv.visitJumpInsn(Opcodes.IFNULL, afterCheck);
+                emitElidePredicateCheck(
+                        mv, meshElideMhLocal, entityLocal, packLocal, flag1Local, flag2Local, skipLocal);
+                mv.visitLabel(afterCheck);
+                mv.visitVarInsn(Opcodes.ILOAD, skipLocal);
+                mv.visitJumpInsn(Opcodes.IFNE, skipCall);
+                mv.visitVarInsn(Opcodes.ALOAD, entityLocal);
+                mv.visitVarInsn(Opcodes.ALOAD, packLocal);
+                mv.visitVarInsn(Opcodes.ILOAD, flag1Local);
+                mv.visitVarInsn(Opcodes.ILOAD, flag2Local);
+                super.visitMethodInsn(opcode, owner, name, desc, itf);
+                mv.visitLabel(skipCall);
+                awaitingArtMeshSetVolatile = true;
+                return;
+            }
+            if (awaitingArtMeshSetVolatile
+                    && opcode == Opcodes.INVOKEVIRTUAL
+                    && WarpDeformEditTarget.SCENE_GRAPH_SET_VOLATILE_METHOD.equals(name)
+                    && WarpDeformEditTarget.SCENE_GRAPH_SET_VOLATILE_DESCRIPTOR.equals(desc)) {
+                awaitingArtMeshSetVolatile = false;
+                final Label callSetVolatile = new Label();
+                // Spill [sceneGraph, entity] before the try/catch predicate so operand stack stays empty across try.
+                mv.visitVarInsn(Opcodes.ASTORE, setVolEntityTmpLocal);
+                mv.visitVarInsn(Opcodes.ASTORE, setVolSceneTmpLocal);
+                mv.visitVarInsn(Opcodes.ILOAD, flag1Local);
+                mv.visitJumpInsn(Opcodes.IFNE, callSetVolatile);
+                mv.visitVarInsn(Opcodes.ILOAD, flag2Local);
+                mv.visitJumpInsn(Opcodes.IFNE, callSetVolatile);
+                mv.visitVarInsn(Opcodes.ALOAD, setVolElideMhLocal);
+                mv.visitJumpInsn(Opcodes.IFNULL, callSetVolatile);
+                emitElidePredicateCheck(
+                        mv, setVolElideMhLocal, entityLocal, packLocal, flag1Local, flag2Local, skipLocal);
+                mv.visitVarInsn(Opcodes.ILOAD, skipLocal);
+                mv.visitJumpInsn(Opcodes.IFNE, postArtMeshSetVolatileLabel);
+                mv.visitLabel(callSetVolatile);
+                mv.visitVarInsn(Opcodes.ALOAD, setVolSceneTmpLocal);
+                mv.visitVarInsn(Opcodes.ALOAD, setVolEntityTmpLocal);
+                super.visitMethodInsn(opcode, owner, name, desc, itf);
+                mv.visitLabel(postArtMeshSetVolatileLabel);
+                return;
+            }
+            super.visitMethodInsn(opcode, owner, name, desc, itf);
+        }
+
+        private static void emitConsultOptionalHandle(
+                final MethodVisitor mv, final String propertyKey, final int dstLocal) {
             mv.visitInsn(Opcodes.ACONST_NULL);
-            mv.visitVarInsn(Opcodes.ASTORE, meshElideMhLocal);
+            mv.visitVarInsn(Opcodes.ASTORE, dstLocal);
             final Label initStart = new Label();
             final Label initEnd = new Label();
             final Label initNotHandle = new Label();
@@ -519,9 +644,8 @@ final class EditSubtreeMethodWeavers {
             final Label initDone = new Label();
             mv.visitTryCatchBlock(initStart, initEnd, initHandler, THROWABLE_OWNER);
             mv.visitLabel(initStart);
-            SlotBridgeEmitter.emitMethodHandleConsult(
-                    mv, WarpDeformEditBridge.EDIT_SELECTION_MESH_ELIDE_PROPERTY, initNotHandle);
-            mv.visitVarInsn(Opcodes.ASTORE, meshElideMhLocal);
+            SlotBridgeEmitter.emitMethodHandleConsult(mv, propertyKey, initNotHandle);
+            mv.visitVarInsn(Opcodes.ASTORE, dstLocal);
             mv.visitJumpInsn(Opcodes.GOTO, initDone);
             mv.visitLabel(initNotHandle);
             mv.visitInsn(Opcodes.POP);
@@ -532,64 +656,194 @@ final class EditSubtreeMethodWeavers {
             mv.visitLabel(initDone);
         }
 
-        @Override
-        public void visitMethodInsn(
-                final int opcode, final String owner, final String name, final String desc, final boolean itf) {
-            if (opcode == Opcodes.INVOKEVIRTUAL
-                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(owner)
-                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_METHOD.equals(name)
-                    && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_DESCRIPTOR.equals(desc)) {
-                final Label tryStart = new Label();
-                final Label tryEnd = new Label();
-                final Label handler = new Label();
-                final Label afterTry = new Label();
-                final Label skipCall = new Label();
-
-                mv.visitVarInsn(Opcodes.ISTORE, flag2Local);
-                mv.visitVarInsn(Opcodes.ISTORE, flag1Local);
-                mv.visitVarInsn(Opcodes.ASTORE, packLocal);
-                mv.visitVarInsn(Opcodes.ASTORE, entityLocal);
-                mv.visitInsn(Opcodes.ICONST_0);
-                mv.visitVarInsn(Opcodes.ISTORE, skipLocal);
-
-                mv.visitVarInsn(Opcodes.ALOAD, meshElideMhLocal);
-                mv.visitJumpInsn(Opcodes.IFNULL, afterTry);
-                mv.visitTryCatchBlock(tryStart, tryEnd, handler, THROWABLE_OWNER);
-                mv.visitLabel(tryStart);
-                mv.visitVarInsn(Opcodes.ALOAD, meshElideMhLocal);
-                mv.visitVarInsn(Opcodes.ALOAD, entityLocal);
-                mv.visitVarInsn(Opcodes.ALOAD, packLocal);
-                mv.visitVarInsn(Opcodes.ILOAD, flag1Local);
-                mv.visitVarInsn(Opcodes.ILOAD, flag2Local);
-                mv.visitMethodInsn(
-                        Opcodes.INVOKEVIRTUAL,
-                        METHOD_HANDLE_OWNER,
-                        INVOKE_EXACT_METHOD,
-                        MH_SELECTION_MESH_ELIDE_DESC,
-                        false);
-                mv.visitVarInsn(Opcodes.ISTORE, skipLocal);
-                mv.visitLabel(tryEnd);
-                mv.visitJumpInsn(Opcodes.GOTO, afterTry);
-                mv.visitLabel(handler);
-                mv.visitInsn(Opcodes.POP);
-
-                mv.visitLabel(afterTry);
-                mv.visitVarInsn(Opcodes.ILOAD, skipLocal);
-                mv.visitJumpInsn(Opcodes.IFNE, skipCall);
-                mv.visitVarInsn(Opcodes.ALOAD, entityLocal);
-                mv.visitVarInsn(Opcodes.ALOAD, packLocal);
-                mv.visitVarInsn(Opcodes.ILOAD, flag1Local);
-                mv.visitVarInsn(Opcodes.ILOAD, flag2Local);
-                super.visitMethodInsn(opcode, owner, name, desc, itf);
-                mv.visitLabel(skipCall);
-                return;
-            }
-            super.visitMethodInsn(opcode, owner, name, desc, itf);
+        private static void emitElidePredicateCheck(
+                final MethodVisitor mv,
+                final int mhLocal,
+                final int targetLocal,
+                final int actionPackLocal,
+                final int selLocal,
+                final int glueLocal,
+                final int outBoolLocal) {
+            final Label tryStart = new Label();
+            final Label tryEnd = new Label();
+            final Label handler = new Label();
+            final Label afterTry = new Label();
+            mv.visitInsn(Opcodes.ICONST_0);
+            mv.visitVarInsn(Opcodes.ISTORE, outBoolLocal);
+            mv.visitTryCatchBlock(tryStart, tryEnd, handler, THROWABLE_OWNER);
+            mv.visitLabel(tryStart);
+            mv.visitVarInsn(Opcodes.ALOAD, mhLocal);
+            mv.visitVarInsn(Opcodes.ALOAD, targetLocal);
+            mv.visitVarInsn(Opcodes.ALOAD, actionPackLocal);
+            mv.visitVarInsn(Opcodes.ILOAD, selLocal);
+            mv.visitVarInsn(Opcodes.ILOAD, glueLocal);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    METHOD_HANDLE_OWNER,
+                    INVOKE_EXACT_METHOD,
+                    MH_SELECTION_MESH_ELIDE_DESC,
+                    false);
+            mv.visitVarInsn(Opcodes.ISTORE, outBoolLocal);
+            mv.visitLabel(tryEnd);
+            mv.visitJumpInsn(Opcodes.GOTO, afterTry);
+            mv.visitLabel(handler);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(afterTry);
         }
 
         @Override
         public void visitMaxs(final int maxStack, final int maxLocals) {
-            super.visitMaxs(maxStack + 6, Math.max(maxLocals, meshElideMhLocal + 1));
+            super.visitMaxs(maxStack + 8, Math.max(maxLocals, setVolEntityTmpLocal + 1));
+        }
+    }
+
+    private static void emitActiveGuard(final MethodVisitor mv, final Label skipLabel) {
+        final String atomicBooleanOwner = "java/util/concurrent/atomic/AtomicBoolean";
+        final Label castOk = new Label();
+        SlotBridgeEmitter.emitGetSlot(mv, WarpDeformEditBridge.ACTIVE_PROPERTY);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, atomicBooleanOwner);
+        mv.visitJumpInsn(Opcodes.IFNE, castOk);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitJumpInsn(Opcodes.GOTO, skipLabel);
+        mv.visitLabel(castOk);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, atomicBooleanOwner);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, atomicBooleanOwner, "get", "()Z", false);
+        mv.visitJumpInsn(Opcodes.IFEQ, skipLabel);
+    }
+
+    /**
+     * Increments an {@code AtomicLong} epoch slot on method entry, optionally filtered to ArtMesh keyform instances.
+     */
+    static final class EpochIncrementEntryAdapter extends MethodVisitor {
+
+        private static final String ATOMIC_LONG_OWNER = "java/util/concurrent/atomic/AtomicLong";
+        private static final String INCREMENT_METHOD = "incrementAndGet";
+        private static final String INCREMENT_DESC = "()J";
+
+        private final String epochSlotProperty;
+        private final boolean artMeshKeyformOnly;
+
+        EpochIncrementEntryAdapter(
+                final MethodVisitor delegate, final String epochSlotProperty, final boolean artMeshKeyformOnly) {
+            super(Opcodes.ASM9, delegate);
+            this.epochSlotProperty = epochSlotProperty;
+            this.artMeshKeyformOnly = artMeshKeyformOnly;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label done = new Label();
+            final Label popSkip = new Label();
+            if (artMeshKeyformOnly) {
+                mv.visitVarInsn(Opcodes.ALOAD, 0);
+                mv.visitTypeInsn(Opcodes.INSTANCEOF, WarpDeformEditTarget.CART_MESH_FORM_OWNER);
+                mv.visitJumpInsn(Opcodes.IFEQ, done);
+                mv.visitVarInsn(Opcodes.ALOAD, 0);
+                mv.visitFieldInsn(
+                        Opcodes.GETFIELD,
+                        WarpDeformEditTarget.ACFORM_OWNER,
+                        WarpDeformEditTarget.ACFORM_INSTANCE_FIELD,
+                        WarpDeformEditTarget.ACFORM_INSTANCE_DESCRIPTOR);
+                mv.visitJumpInsn(Opcodes.IFNONNULL, done);
+            }
+            emitActiveGuard(mv, done);
+            SlotBridgeEmitter.emitGetSlot(mv, epochSlotProperty);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_LONG_OWNER);
+            mv.visitJumpInsn(Opcodes.IFEQ, popSkip);
+            mv.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_LONG_OWNER);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ATOMIC_LONG_OWNER, INCREMENT_METHOD, INCREMENT_DESC, false);
+            mv.visitInsn(Opcodes.POP2);
+            mv.visitJumpInsn(Opcodes.GOTO, done);
+            mv.visitLabel(popSkip);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(done);
+        }
+    }
+
+    /**
+     * Entry fast path for {@code KeyformBindingSource.getKeyIndicesInRange()}.
+     */
+    static final class KeyIndicesInRangeAdapter extends MethodVisitor {
+
+        private static final String MH_DESC = "(Ljava/lang/Object;)Ljava/util/List;";
+
+        KeyIndicesInRangeAdapter(final MethodVisitor delegate) {
+            super(Opcodes.ASM9, delegate);
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label original = new Label();
+            final Label popOriginal = new Label();
+            emitActiveGuard(mv, original);
+            SlotBridgeEmitter.emitMethodHandleConsult(
+                    mv, WarpDeformEditBridge.KEYFORM_INDICES_IN_RANGE_PROPERTY, popOriginal);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, MH_DESC, false);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitJumpInsn(Opcodes.IFNULL, popOriginal);
+            mv.visitInsn(Opcodes.ARETURN);
+            mv.visitLabel(popOriginal);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(original);
+        }
+    }
+
+    /**
+     * Entry fast path for {@code KeyformGridSource.findKeyform(...)}.
+     */
+    static final class FindKeyformAdapter extends MethodVisitor {
+
+        private static final String MH_DESC = "(Ljava/lang/Object;Ljava/lang/Object;I)Ljava/lang/Object;";
+        private static final String ORDINAL_METHOD = "ordinal";
+        private static final String ORDINAL_DESC = "()I";
+
+        private final boolean hasSearchType;
+
+        FindKeyformAdapter(final MethodVisitor delegate, final boolean hasSearchType) {
+            super(Opcodes.ASM9, delegate);
+            this.hasSearchType = hasSearchType;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label original = new Label();
+            final Label popOriginal = new Label();
+            emitActiveGuard(mv, original);
+            mv.visitVarInsn(Opcodes.ALOAD, 1);
+            mv.visitJumpInsn(Opcodes.IFNULL, original);
+            if (hasSearchType) {
+                mv.visitVarInsn(Opcodes.ALOAD, 2);
+                mv.visitJumpInsn(Opcodes.IFNULL, original);
+            }
+            SlotBridgeEmitter.emitMethodHandleConsult(mv, WarpDeformEditBridge.KEYFORM_FIND_PROPERTY, popOriginal);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitVarInsn(Opcodes.ALOAD, 1);
+            if (hasSearchType) {
+                mv.visitVarInsn(Opcodes.ALOAD, 2);
+                mv.visitMethodInsn(
+                        Opcodes.INVOKEVIRTUAL,
+                        WarpDeformEditTarget.PARAMETER_KEY_SEARCH_TYPE_OWNER,
+                        ORDINAL_METHOD,
+                        ORDINAL_DESC,
+                        false);
+            } else {
+                mv.visitInsn(Opcodes.ICONST_M1);
+            }
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, MH_DESC, false);
+            mv.visitInsn(Opcodes.DUP);
+            SlotBridgeEmitter.emitGetSlot(mv, WarpDeformEditBridge.KEYFORM_UNHANDLED_PROPERTY);
+            mv.visitJumpInsn(Opcodes.IF_ACMPEQ, popOriginal);
+            mv.visitTypeInsn(Opcodes.CHECKCAST, WarpDeformEditTarget.KEYFORM_ON_GRID_OWNER);
+            mv.visitInsn(Opcodes.ARETURN);
+            mv.visitLabel(popOriginal);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(original);
         }
     }
 }

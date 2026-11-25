@@ -132,8 +132,10 @@ class ModelInstanceCoalesceTransformerTest {
                     .put(ModelInstanceCoalesceBridge.UPDATE_CALLBACK_PROPERTY, (Predicate<Object>) ignored -> false);
             System.getProperties()
                     .put(ModelInstanceCoalesceBridge.AFTER_UPDATE_PROPERTY, (Consumer<Object>) completed::add);
-            update.invoke(type.getDeclaredConstructor().newInstance());
-            assertEquals(1, type.getField("calls").getInt(null));
+            final Class<?> nextType = new Loader(artifact).define(SOURCE, output);
+            nextType.getMethod(ModelInstanceCoalesceTarget.UPDATE_METHOD)
+                    .invoke(nextType.getDeclaredConstructor().newInstance());
+            assertEquals(1, nextType.getField("calls").getInt(null));
             assertEquals(1, completed.size());
         } finally {
             clearSlots();

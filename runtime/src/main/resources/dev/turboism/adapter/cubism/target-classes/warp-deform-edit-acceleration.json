@@ -14,7 +14,10 @@
     "com/live2d/cubism/view/context/action/N$c",
     "com/live2d/cubism/view/ay",
     "com/live2d/cubism/view/context/K",
-    "com/live2d/cubism/view/context/K$b"
+    "com/live2d/cubism/view/context/K$b",
+    "com/live2d/cubism/doc/model/ACForm",
+    "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+    "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
   ],
   "overrides": {
     "5.0.00": [
@@ -30,7 +33,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/aj",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.0.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -45,7 +51,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/aj",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.0.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -60,7 +69,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/aj",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.0.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -75,7 +87,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ak",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.0.04": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -90,7 +105,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ak",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.0.05": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -105,7 +123,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ak",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.0.06": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -120,7 +141,10 @@
       "com/live2d/cubism/view/context/action/y$c",
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/al",
-      "com/live2d/cubism/view/context/J"
+      "com/live2d/cubism/view/context/J",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.1.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -136,7 +160,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ao",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.1.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -152,7 +179,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ao",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.1.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -168,7 +198,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ao",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.1.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -184,7 +217,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/ao",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.2.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -200,7 +236,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/at",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.2.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -216,7 +255,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/at",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.2.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -232,7 +274,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/at",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.2.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -248,7 +293,10 @@
       "com/live2d/cubism/view/context/action/y$d",
       "com/live2d/cubism/view/au",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.3.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -265,7 +313,10 @@
       "com/live2d/cubism/view/context/action/C$c",
       "com/live2d/cubism/view/ay",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.3.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -282,7 +333,10 @@
       "com/live2d/cubism/view/context/action/C$c",
       "com/live2d/cubism/view/ay",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.3.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -299,7 +353,10 @@
       "com/live2d/cubism/view/context/action/C$c",
       "com/live2d/cubism/view/ay",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ],
     "5.3.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -316,7 +373,10 @@
       "com/live2d/cubism/view/context/action/C$c",
       "com/live2d/cubism/view/ay",
       "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b"
+      "com/live2d/cubism/view/context/K$b",
+      "com/live2d/cubism/doc/model/ACForm",
+      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
     ]
   }
 }

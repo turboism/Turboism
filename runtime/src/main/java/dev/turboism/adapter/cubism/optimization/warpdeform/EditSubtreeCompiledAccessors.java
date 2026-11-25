@@ -21,7 +21,10 @@ public final class EditSubtreeCompiledAccessors {
     private static final String GENERATED_PACKAGE_PREFIX =
             EditSubtreeCompiledAccessors.class.getPackageName().replace('.', '/') + "/";
     private static final String GENERATED_CLASS_PREFIX = GENERATED_PACKAGE_PREFIX + "CompiledHostOps_";
+    private static final String OVERLAY_CLASS_PREFIX = GENERATED_PACKAGE_PREFIX + "CompiledOverlayOps_";
     private static final String OPS_INTERNAL = HostOps.class.getName().replace('.', '/');
+    private static final String OVERLAY_OPS_INTERNAL =
+            OverlayOps.class.getName().replace('.', '/');
     private static final String OBJECT_INTERNAL = "java/lang/Object";
     private static final String LIST_INTERNAL = "java/util/List";
     private static final String OBJECT_CTORS_DESC = "()V";
@@ -56,6 +59,8 @@ public final class EditSubtreeCompiledAccessors {
     private static final String IBLENDABLE = "com/live2d/core/IBlendable";
     private static final String TRANSFORM_D = "com/live2d/doc/selection/d";
     private static final String KEYFORM_GRID_SRC = "com/live2d/cubism/doc/model/interpolator/KeyformGridSource";
+    private static final String KEYFORM_BINDING_SRC = "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource";
+    private static final String CPART_GUID = "com/live2d/type/CPartGuid";
     private static final String MORPH_SET = "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet";
     private static final String EXT_MORPH_SET =
             "com/live2d/cubism/doc/model/morphTarget/extendedInterpolation/ExtendedKeyFormMorphTargetSet";
@@ -64,6 +69,19 @@ public final class EditSubtreeCompiledAccessors {
     private static final String CPARAM_GUID = "com/live2d/type/CParameterGuid";
     private static final String GMESH_CONTAINER = "com/live2d/graphics3d/component/GMeshContainer";
     private static final String GMESH_BASE = "com/live2d/graphics3d/mesh/a";
+    private static final String GENTITY = "com/live2d/graphics3d/entity/GEntity";
+    private static final String GTRANSFORM = "com/live2d/graphics3d/component/GTransform";
+    private static final String GVECTOR3 = "com/live2d/graphics3d/type/GVector3";
+    private static final String GSIMPLE_MESH_ENTITY = "com/live2d/graphics3d/geometry/GSimpleMeshEntity";
+    private static final String GSIMPLE_LINES_ENTITY = "com/live2d/graphics3d/geometry/GSimpleLinesEntity";
+    private static final String AG_RENDERER = "com/live2d/graphics3d/component/AGRenderer";
+    private static final String GMESH_RENDERER = "com/live2d/graphics3d/component/GMeshRenderer";
+    private static final String GLINE_RENDERER = "com/live2d/graphics3d/component/GLineRenderer";
+    private static final String GMATERIAL = "com/live2d/graphics3d/material/GMaterial";
+    private static final String SORTING_LAYER = "com/live2d/graphics3d/component/a/c";
+    private static final String FLOAT_BUFFER = "com/live2d/graphics3d/mesh/a/b";
+    private static final String INT_BUFFER = "com/live2d/graphics3d/mesh/a/c";
+    private static final String CCOLOR = "com/live2d/type/CColor";
     private static final String COPY_INFO = "com/live2d/core/a";
     private static final String CARRAY_LIST = "com/live2d/type/CArrayList";
 
@@ -74,7 +92,12 @@ public final class EditSubtreeCompiledAccessors {
     private static final String DESC_OBJ_TO_FLOAT = "(Ljava/lang/Object;)F";
     private static final String DESC_OBJ_TO_BOOL = "(Ljava/lang/Object;)Z";
     private static final String DESC_OBJ_TO_FLOATS = "(Ljava/lang/Object;)[F";
+    private static final String DESC_OBJ_TO_INTS = "(Ljava/lang/Object;)[I";
+    private static final String DESC_OBJ_VOID = "(Ljava/lang/Object;)V";
     private static final String DESC_OBJ_OBJ_VOID = "(Ljava/lang/Object;Ljava/lang/Object;)V";
+    private static final String DESC_OBJ_INT_VOID = "(Ljava/lang/Object;I)V";
+    private static final String DESC_OBJ_FLOATS_VOID = "(Ljava/lang/Object;[F)V";
+    private static final String DESC_OBJ_INTS_VOID = "(Ljava/lang/Object;[I)V";
     private static final String DESC_OBJ_BOOL_VOID = "(Ljava/lang/Object;Z)V";
     private static final String DESC_OBJ_FLOAT_VOID = "(Ljava/lang/Object;F)V";
     private static final String DESC_OBJ_LONG_VOID = "(Ljava/lang/Object;J)V";
@@ -144,6 +167,148 @@ public final class EditSubtreeCompiledAccessors {
     /** Creates a fallback {@link HostOps} delegating every call to {@link EditSubtreeHandles}. */
     static HostOps fallback(final EditSubtreeHandles handles) {
         return new FallbackHostOps(handles);
+    }
+
+    /**
+     * Compiles a monomorphic {@link OverlayOps} accessor class against {@code hostLoader}.
+     * Returns {@code null} when overlay host types are absent, allowing {@link FallbackHostOps}
+     * or MethodHandle fallback.
+     */
+    static OverlayOps tryCompileOverlay(final ClassLoader hostLoader) {
+        if (hostLoader == null || !hasAllRequiredOverlayClasses(hostLoader)) {
+            return null;
+        }
+        try {
+            final long id = CLASS_SEQ.incrementAndGet();
+            final String internalName = OVERLAY_CLASS_PREFIX + id;
+            final byte[] bytecode = generateOverlayBytecode(internalName, hostLoader);
+            final AccessorClassLoader defineLoader =
+                    new AccessorClassLoader(hostLoader, OverlayOps.class.getClassLoader());
+            final Class<?> generated = defineLoader.define(internalName.replace('/', '.'), bytecode);
+            return (OverlayOps) generated.getDeclaredConstructor().newInstance();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
+    private static boolean hasAllRequiredOverlayClasses(final ClassLoader loader) {
+        final String[][] checks = {
+            {GENTITY, "getTransform"},
+            {GTRANSFORM, "getPosition"},
+            {GVECTOR3, "setZ"},
+            {GSIMPLE_MESH_ENTITY, "getMeshContainer"},
+            {GSIMPLE_LINES_ENTITY, "getLineRenderer"},
+            {AG_RENDERER, "setSortingLayer"},
+            {GLINE_RENDERER, "updateMeshData"},
+            {GMESH_CONTAINER, "getMesh"},
+            {GMESH_BASE, "getIndices"},
+            {FLOAT_BUFFER, "l"},
+            {INT_BUFFER, "l"},
+            {CCOLOR, "getRed"}
+        };
+        for (final String[] check : checks) {
+            try {
+                final Class<?> type = Class.forName(check[0].replace('/', '.'), false, loader);
+                boolean found = false;
+                for (final Method method : type.getMethods()) {
+                    if (method.getName().equals(check[1])) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static byte[] generateOverlayBytecode(final String internalName, final ClassLoader hostLoader) {
+        final ClassWriter cw = HostClassWriters.newFrameWriter(hostLoader);
+        cw.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                internalName,
+                null,
+                OBJECT_INTERNAL,
+                new String[] {OVERLAY_OPS_INTERNAL});
+        emitDefaultConstructor(cw);
+        emitUnaryVirtual(cw, "entityGetTransform", DESC_OBJ_TO_OBJ, GENTITY, "getTransform", "()L" + GTRANSFORM + ";");
+        emitUnaryVirtual(
+                cw, "transformGetPosition", DESC_OBJ_TO_OBJ, GTRANSFORM, "getPosition", "()L" + GVECTOR3 + ";");
+        emitSetterFloatVirtual(cw, "vec3SetZ", GVECTOR3, "setZ");
+        emitUnaryVirtual(
+                cw,
+                "simpleMeshEntityGetContainer",
+                DESC_OBJ_TO_OBJ,
+                GSIMPLE_MESH_ENTITY,
+                "getMeshContainer",
+                "()L" + GMESH_CONTAINER + ";");
+        emitUnaryVirtual(
+                cw,
+                "simpleMeshEntityGetRenderer",
+                DESC_OBJ_TO_OBJ,
+                GSIMPLE_MESH_ENTITY,
+                "getMeshRenderer",
+                "()L" + GMESH_RENDERER + ";");
+        emitUnaryVirtual(
+                cw, "meshContainerGetMesh", DESC_OBJ_TO_OBJ, GMESH_CONTAINER, "getMesh", "()L" + GMESH_BASE + ";");
+        emitUnaryVirtual(
+                cw, "rendererGetMaterial", DESC_OBJ_TO_OBJ, AG_RENDERER, "getMaterial", "()L" + GMATERIAL + ";");
+        emitUnaryVirtual(
+                cw,
+                "simpleLinesEntityGetRenderer",
+                DESC_OBJ_TO_OBJ,
+                GSIMPLE_LINES_ENTITY,
+                "getLineRenderer",
+                "()L" + GLINE_RENDERER + ";");
+        emitBinaryVoidVirtual(
+                cw,
+                "rendererSetSortingLayer",
+                AG_RENDERER,
+                "setSortingLayer",
+                "(L" + SORTING_LAYER + ";)V",
+                SORTING_LAYER);
+        emitUnaryVirtual(cw, "lineRendererGetStep", DESC_OBJ_TO_INT, GLINE_RENDERER, "getStep", "()I", Opcodes.IRETURN);
+        emitSetterIntVirtual(cw, "lineRendererSetStep", GLINE_RENDERER, "setStep");
+        emitUnaryVirtual(cw, "lineRendererGetPositions", DESC_OBJ_TO_FLOATS, GLINE_RENDERER, "getPositions", "()[F");
+        emitBinaryVoidVirtual(
+                cw, "lineRendererSetPositions", DESC_OBJ_FLOATS_VOID, GLINE_RENDERER, "setPositions", "([F)V", null);
+        emitUnaryVirtual(cw, "lineRendererGetIndices", DESC_OBJ_TO_INTS, GLINE_RENDERER, "getIndices", "()[I");
+        emitBinaryVoidVirtual(
+                cw, "lineRendererSetIndices", DESC_OBJ_INTS_VOID, GLINE_RENDERER, "setIndices", "([I)V", null);
+        emitVoidVirtual(cw, "lineRendererUpdateMeshData", GLINE_RENDERER, "updateMeshData", "()V");
+        emitUnaryVirtual(
+                cw,
+                "lineRendererGetPositionsBuffer",
+                DESC_OBJ_TO_OBJ,
+                GLINE_RENDERER,
+                "getPositionsBuffer",
+                "()L" + FLOAT_BUFFER + ";");
+        emitUnaryVirtual(cw, "meshGetPositions", DESC_OBJ_TO_FLOATS, GMESH_BASE, "getPositions", "()[F");
+        emitUnaryVirtual(cw, "meshGetIndices", DESC_OBJ_TO_INTS, GMESH_BASE, "getIndices", "()[I");
+        emitUnaryVirtual(
+                cw,
+                "meshGetPositionsBuffer",
+                DESC_OBJ_TO_OBJ,
+                GMESH_BASE,
+                "getPositionsBuffer",
+                "()L" + FLOAT_BUFFER + ";");
+        emitUnaryVirtual(
+                cw, "meshGetIndicesBuffer", DESC_OBJ_TO_OBJ, GMESH_BASE, "getIndicesBuffer", "()L" + INT_BUFFER + ";");
+        emitVoidVirtual(cw, "floatBufferUpload", FLOAT_BUFFER, "l", "()V");
+        emitVoidVirtual(cw, "intBufferUpload", INT_BUFFER, "l", "()V");
+        emitUnaryVirtual(cw, "colorGetRed", DESC_OBJ_TO_FLOAT, CCOLOR, "getRed", "()F", Opcodes.FRETURN);
+        emitUnaryVirtual(cw, "colorGetGreen", DESC_OBJ_TO_FLOAT, CCOLOR, "getGreen", "()F", Opcodes.FRETURN);
+        emitUnaryVirtual(cw, "colorGetBlue", DESC_OBJ_TO_FLOAT, CCOLOR, "getBlue", "()F", Opcodes.FRETURN);
+        emitUnaryVirtual(cw, "colorGetAlpha", DESC_OBJ_TO_FLOAT, CCOLOR, "getAlpha", "()F", Opcodes.FRETURN);
+        cw.visitEnd();
+        return cw.toByteArray();
     }
 
     private static boolean hasAllRequiredHostClasses(final ClassLoader loader) {
@@ -348,15 +513,20 @@ public final class EditSubtreeCompiledAccessors {
                 "()L" + CDEFORMER_GUID + ";");
         emitDeformerSetDeformedForm(cw);
         emitUnaryVirtual(cw, "warpFormGetPositions", DESC_OBJ_TO_FLOATS, WARP_FORM, "getPositions", "()[F");
-        emitBinaryVoidVirtual(cw, "warpFormSetPositions", WARP_FORM, "setPositions", "([F)V", "[F");
+        emitBinaryVoidVirtual(
+                cw, "warpFormSetPositions", DESC_OBJ_FLOATS_VOID, WARP_FORM, "setPositions", "([F)V", null);
         emitUnaryVirtual(cw, "rotFormGetOriginX", DESC_OBJ_TO_FLOAT, ROT_FORM, "getOriginX", "()F", Opcodes.FRETURN);
         emitUnaryVirtual(cw, "rotFormGetOriginY", DESC_OBJ_TO_FLOAT, ROT_FORM, "getOriginY", "()F", Opcodes.FRETURN);
         emitUnaryVirtual(cw, "rotFormGetScale", DESC_OBJ_TO_FLOAT, ROT_FORM, "getScale", "()F", Opcodes.FRETURN);
         emitUnaryVirtual(cw, "rotFormGetAngle", DESC_OBJ_TO_FLOAT, ROT_FORM, "getAngle", "()F", Opcodes.FRETURN);
         emitUnaryVirtual(cw, "rotFormIsReflectX", DESC_OBJ_TO_BOOL, ROT_FORM, "isReflectX", "()Z", Opcodes.IRETURN);
         emitUnaryVirtual(cw, "rotFormIsReflectY", DESC_OBJ_TO_BOOL, ROT_FORM, "isReflectY", "()Z", Opcodes.IRETURN);
+        emitSetterFloatVirtual(cw, "rotFormSetOriginX", ROT_FORM, "setOriginX");
+        emitSetterFloatVirtual(cw, "rotFormSetOriginY", ROT_FORM, "setOriginY");
         emitSetterFloatVirtual(cw, "rotFormSetScale", ROT_FORM, "setScale");
         emitSetterFloatVirtual(cw, "rotFormSetAngle", ROT_FORM, "setAngle");
+        emitSetterBoolVirtual(cw, "rotFormSetReflectX", ROT_FORM, "setReflectX");
+        emitSetterBoolVirtual(cw, "rotFormSetReflectY", ROT_FORM, "setReflectY");
         emitUnaryVirtual(
                 cw,
                 "sourceGetKeyforms",
@@ -429,6 +599,20 @@ public final class EditSubtreeCompiledAccessors {
                 "isVisibleInHierarchy",
                 "()Z",
                 Opcodes.IRETURN);
+        emitUnaryVirtual(
+                cw,
+                "controllableSourceGetParent",
+                DESC_OBJ_TO_OBJ,
+                AC_CONTROLLABLE_SRC,
+                "getParent",
+                "()L" + CPART_SRC + ";");
+        emitUnaryVirtual(
+                cw,
+                "controllableSourceGetParentGuid",
+                DESC_OBJ_TO_OBJ,
+                AC_CONTROLLABLE_SRC,
+                "getParentGuid",
+                "()L" + CPART_GUID + ";");
     }
 
     private static void emitMeshAccessors(final ClassWriter cw) {
@@ -604,6 +788,13 @@ public final class EditSubtreeCompiledAccessors {
                 "getScreenColor",
                 "()" + CFLOAT_COLOR_DESC);
         emitSetterFloatVirtual(cw, "deformerFormSetOpacity", AC_DEFORMER_FORM, "setOpacity");
+        emitUnaryVirtual(
+                cw,
+                "deformerFormGetCoordType",
+                DESC_OBJ_TO_OBJ,
+                AC_DEFORMER_FORM,
+                "getCoordType",
+                "()L" + COORD_TYPE + ";");
         emitBinaryVoidVirtual(
                 cw,
                 "deformerFormSetCoordType",
@@ -1047,13 +1238,51 @@ public final class EditSubtreeCompiledAccessors {
             final String targetMethod,
             final String targetDesc,
             final String argType) {
-        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, name, DESC_OBJ_OBJ_VOID, null, null);
+        emitBinaryVoidVirtual(cw, name, DESC_OBJ_OBJ_VOID, owner, targetMethod, targetDesc, argType);
+    }
+
+    private static void emitBinaryVoidVirtual(
+            final ClassWriter cw,
+            final String name,
+            final String methodDesc,
+            final String owner,
+            final String targetMethod,
+            final String targetDesc,
+            final String argType) {
+        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, name, methodDesc, null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 1);
         mv.visitTypeInsn(Opcodes.CHECKCAST, owner);
         mv.visitVarInsn(Opcodes.ALOAD, 2);
-        mv.visitTypeInsn(Opcodes.CHECKCAST, argType);
+        if (argType != null) {
+            mv.visitTypeInsn(Opcodes.CHECKCAST, argType);
+        }
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, targetMethod, targetDesc, false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitVoidVirtual(
+            final ClassWriter cw, final String name, final String owner, final String targetMethod, final String desc) {
+        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, name, DESC_OBJ_VOID, null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, owner);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, targetMethod, desc, false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitSetterIntVirtual(
+            final ClassWriter cw, final String name, final String owner, final String targetMethod) {
+        final MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, name, DESC_OBJ_INT_VOID, null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, owner);
+        mv.visitVarInsn(Opcodes.ILOAD, 2);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, targetMethod, "(I)V", false);
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();
@@ -1242,11 +1471,23 @@ public final class EditSubtreeCompiledAccessors {
         /** Checks vertical reflection flag on rotation deformer {@code form}. */
         boolean rotFormIsReflectY(Object form);
 
+        /** Writes origin X coordinate of rotation deformer {@code form}. */
+        void rotFormSetOriginX(Object form, float originX);
+
+        /** Writes origin Y coordinate of rotation deformer {@code form}. */
+        void rotFormSetOriginY(Object form, float originY);
+
         /** Writes the local scale of rotation deformer {@code form}. */
         void rotFormSetScale(Object form, float scale);
 
         /** Writes the local angle of rotation deformer {@code form}. */
         void rotFormSetAngle(Object form, float angle);
+
+        /** Writes horizontal reflection flag on rotation deformer {@code form}. */
+        void rotFormSetReflectX(Object form, boolean reflectX);
+
+        /** Writes vertical reflection flag on rotation deformer {@code form}. */
+        void rotFormSetReflectY(Object form, boolean reflectY);
 
         /** Returns keyforms stored on {@code source}. */
         List<?> sourceGetKeyforms(Object source);
@@ -1277,6 +1518,12 @@ public final class EditSubtreeCompiledAccessors {
 
         /** Checks hierarchical visibility on controllable {@code source}. */
         boolean controllableSourceIsVisibleHierarchy(Object source);
+
+        /** Returns enclosing parent {@code CPartSource} of {@code source}, or {@code null}. */
+        Object controllableSourceGetParent(Object source);
+
+        /** Returns enclosing parent {@code CPartGuid} of {@code source}, or {@code null}. */
+        Object controllableSourceGetParentGuid(Object source);
 
         /** Checks runtime invisibility on {@code mesh}. */
         boolean meshIsInvisible(Object mesh);
@@ -1437,6 +1684,9 @@ public final class EditSubtreeCompiledAccessors {
         /** Writes opacity on deformer {@code form}. */
         void deformerFormSetOpacity(Object form, float opacity);
 
+        /** Reads coordinate type on deformer {@code form}. */
+        Object deformerFormGetCoordType(Object form);
+
         /** Writes coordinate type on deformer {@code form}. */
         void deformerFormSetCoordType(Object form, Object coordType);
 
@@ -1466,6 +1716,246 @@ public final class EditSubtreeCompiledAccessors {
 
         /** Ensures buffer compatibility and transforms {@code mesh} through {@code parent}. */
         void prepareAndTransformArtMesh(Object mesh, Object parent, Object canvasCoordType);
+    }
+
+    /**
+     * Compiled monomorphic host accessor contract for hot deformer corner and grid-line overlays.
+     */
+    public interface OverlayOps {
+
+        /** Returns the {@code GTransform} component on {@code entity}. */
+        Object entityGetTransform(Object entity);
+
+        /** Returns the position {@code GVector3} on {@code transform}. */
+        Object transformGetPosition(Object transform);
+
+        /** Writes the Z coordinate on position {@code vec3}. */
+        void vec3SetZ(Object vec3, float z);
+
+        /** Returns the mesh container component on {@code entity}. */
+        Object simpleMeshEntityGetContainer(Object entity);
+
+        /** Returns the mesh renderer component on {@code entity}. */
+        Object simpleMeshEntityGetRenderer(Object entity);
+
+        /** Returns the underlying {@code GMesh} from {@code container}. */
+        Object meshContainerGetMesh(Object container);
+
+        /** Returns the {@code GMaterial} on {@code renderer}. */
+        Object rendererGetMaterial(Object renderer);
+
+        /** Returns the line renderer component on {@code entity}. */
+        Object simpleLinesEntityGetRenderer(Object entity);
+
+        /** Assigns {@code layer} onto line or mesh {@code renderer}. */
+        void rendererSetSortingLayer(Object renderer, Object layer);
+
+        /** Reads geometry step on line {@code renderer}. */
+        int lineRendererGetStep(Object renderer);
+
+        /** Sets geometry step on line {@code renderer}. */
+        void lineRendererSetStep(Object renderer, int step);
+
+        /** Returns position vertices on line {@code renderer}. */
+        float[] lineRendererGetPositions(Object renderer);
+
+        /** Sets position vertices on line {@code renderer}. */
+        void lineRendererSetPositions(Object renderer, float[] positions);
+
+        /** Returns index buffer values on line {@code renderer}. */
+        int[] lineRendererGetIndices(Object renderer);
+
+        /** Sets index buffer values on line {@code renderer}. */
+        void lineRendererSetIndices(Object renderer, int[] indices);
+
+        /** Rebuilds line mesh buffers on {@code renderer}. */
+        void lineRendererUpdateMeshData(Object renderer);
+
+        /** Returns position GPU buffer wrapper on line {@code renderer}. */
+        Object lineRendererGetPositionsBuffer(Object renderer);
+
+        /** Returns vertex position array on {@code mesh}. */
+        float[] meshGetPositions(Object mesh);
+
+        /** Returns index array on {@code mesh}. */
+        int[] meshGetIndices(Object mesh);
+
+        /** Returns float position GPU buffer wrapper on {@code mesh}. */
+        Object meshGetPositionsBuffer(Object mesh);
+
+        /** Returns int index GPU buffer wrapper on {@code mesh}. */
+        Object meshGetIndicesBuffer(Object mesh);
+
+        /** Uploads modified float GPU buffer contents. */
+        void floatBufferUpload(Object buffer);
+
+        /** Uploads modified int GPU buffer contents. */
+        void intBufferUpload(Object buffer);
+
+        /** Reads red channel on {@code color}. */
+        float colorGetRed(Object color);
+
+        /** Reads green channel on {@code color}. */
+        float colorGetGreen(Object color);
+
+        /** Reads blue channel on {@code color}. */
+        float colorGetBlue(Object color);
+
+        /** Reads alpha channel on {@code color}. */
+        float colorGetAlpha(Object color);
+    }
+
+    /**
+     * Compiled monomorphic host accessor contract for hot keyform grid and binding lookups.
+     */
+    public interface KeyformOps {
+
+        /** Returns the list of parameter bindings on {@code grid}. */
+        List<?> gridGetKeyformBindings(Object grid);
+
+        /** Returns the flat list of keyforms on {@code grid}. */
+        List<?> gridGetKeyformsOnGrid(Object grid);
+
+        /** Returns the parameter guid bound to {@code binding}. */
+        Object bindingGetParameterGuid(Object binding);
+
+        /** Returns the parameter source bound to {@code binding}. */
+        Object bindingGetParameter(Object binding);
+
+        /** Returns the list of key values on {@code binding}. */
+        List<?> bindingGetKeys(Object binding);
+
+        /** Returns whether {@code paramSource} enables repeat wrapping. */
+        boolean paramSourceIsRepeat(Object paramSource);
+
+        /** Returns the minimum range limit on {@code paramSource}. */
+        float paramSourceGetRangeMin(Object paramSource);
+
+        /** Returns the maximum range limit on {@code paramSource}. */
+        float paramSourceGetRangeMax(Object paramSource);
+
+        /** Returns the key snap epsilon on {@code paramSource}. */
+        float paramSourceGetSnapEpsilon(Object paramSource);
+
+        /** Looks up a parameter instance in {@code paramSet} by {@code paramGuid}. */
+        Object paramSetGet(Object paramSet, Object paramGuid);
+
+        /** Reads the current scalar value on {@code param}. */
+        float paramGetValue(Object param);
+    }
+
+    private static final String[][] REQUIRED_KEYFORM_ZERO_ARG_METHODS = {
+        {KEYFORM_GRID_SRC, "getKeyformBindings"},
+        {KEYFORM_GRID_SRC, "getKeyformsOnGrid"},
+        {KEYFORM_BINDING_SRC, "getParameterGuid"},
+        {KEYFORM_BINDING_SRC, "getParameter"},
+        {KEYFORM_BINDING_SRC, "getKeys"},
+        {CPARAM_SRC, "isRepeat"},
+        {CPARAM_SRC, "getRangeMin"},
+        {CPARAM_SRC, "getRangeMax"},
+        {CPARAM_SRC, "getSnapEpsilon"},
+        {CPARAM, "getValue"},
+    };
+
+    static KeyformOps tryCompileKeyform(final ClassLoader hostLoader) {
+        if (hostLoader == null) {
+            return null;
+        }
+        try {
+            for (final String[] req : REQUIRED_KEYFORM_ZERO_ARG_METHODS) {
+                final Class<?> cls = Class.forName(req[0].replace('/', '.'), false, hostLoader);
+                cls.getMethod(req[1]);
+            }
+            final Class<?> paramSetCls = Class.forName(CPARAM_SET.replace('/', '.'), false, hostLoader);
+            final Class<?> paramGuidCls = Class.forName(CPARAM_GUID.replace('/', '.'), false, hostLoader);
+            paramSetCls.getMethod("get", paramGuidCls);
+
+            final String internalName = GENERATED_PACKAGE_PREFIX + "CompiledKeyformOps_" + CLASS_SEQ.incrementAndGet();
+            final ClassWriter cw = HostClassWriters.newFrameWriter(hostLoader);
+            final String iface = KeyformOps.class.getName().replace('.', '/');
+            cw.visit(
+                    Opcodes.V17,
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                    internalName,
+                    null,
+                    OBJECT_INTERNAL,
+                    new String[] {iface});
+            emitDefaultConstructor(cw);
+
+            emitUnaryVirtual(
+                    cw,
+                    "gridGetKeyformBindings",
+                    DESC_OBJ_TO_LIST,
+                    KEYFORM_GRID_SRC,
+                    "getKeyformBindings",
+                    "()Ljava/util/List;");
+            emitUnaryVirtual(
+                    cw,
+                    "gridGetKeyformsOnGrid",
+                    DESC_OBJ_TO_LIST,
+                    KEYFORM_GRID_SRC,
+                    "getKeyformsOnGrid",
+                    "()Ljava/util/List;");
+            emitUnaryVirtual(
+                    cw,
+                    "bindingGetParameterGuid",
+                    DESC_OBJ_TO_OBJ,
+                    KEYFORM_BINDING_SRC,
+                    "getParameterGuid",
+                    "()L" + CPARAM_GUID + ";");
+            emitUnaryVirtual(
+                    cw,
+                    "bindingGetParameter",
+                    DESC_OBJ_TO_OBJ,
+                    KEYFORM_BINDING_SRC,
+                    "getParameter",
+                    "()L" + CPARAM_SRC + ";");
+            emitUnaryVirtual(
+                    cw, "bindingGetKeys", DESC_OBJ_TO_LIST, KEYFORM_BINDING_SRC, "getKeys", "()Ljava/util/List;");
+            emitUnaryVirtual(
+                    cw, "paramSourceIsRepeat", DESC_OBJ_TO_BOOL, CPARAM_SRC, "isRepeat", "()Z", Opcodes.IRETURN);
+            emitUnaryVirtual(
+                    cw, "paramSourceGetRangeMin", DESC_OBJ_TO_FLOAT, CPARAM_SRC, "getRangeMin", "()F", Opcodes.FRETURN);
+            emitUnaryVirtual(
+                    cw, "paramSourceGetRangeMax", DESC_OBJ_TO_FLOAT, CPARAM_SRC, "getRangeMax", "()F", Opcodes.FRETURN);
+            emitUnaryVirtual(
+                    cw,
+                    "paramSourceGetSnapEpsilon",
+                    DESC_OBJ_TO_FLOAT,
+                    CPARAM_SRC,
+                    "getSnapEpsilon",
+                    "()F",
+                    Opcodes.FRETURN);
+
+            final MethodVisitor paramSetGetMv = cw.visitMethod(
+                    Opcodes.ACC_PUBLIC,
+                    "paramSetGet",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                    null,
+                    null);
+            paramSetGetMv.visitCode();
+            paramSetGetMv.visitVarInsn(Opcodes.ALOAD, 1);
+            paramSetGetMv.visitTypeInsn(Opcodes.CHECKCAST, CPARAM_SET);
+            paramSetGetMv.visitVarInsn(Opcodes.ALOAD, 2);
+            paramSetGetMv.visitTypeInsn(Opcodes.CHECKCAST, CPARAM_GUID);
+            paramSetGetMv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, CPARAM_SET, "get", "(L" + CPARAM_GUID + ";)L" + CPARAM + ";", false);
+            paramSetGetMv.visitInsn(Opcodes.ARETURN);
+            paramSetGetMv.visitMaxs(2, 3);
+            paramSetGetMv.visitEnd();
+
+            emitUnaryVirtual(cw, "paramGetValue", DESC_OBJ_TO_FLOAT, CPARAM, "getValue", "()F", Opcodes.FRETURN);
+            cw.visitEnd();
+
+            final byte[] bytecode = cw.toByteArray();
+            final AccessorClassLoader defineLoader =
+                    new AccessorClassLoader(hostLoader, KeyformOps.class.getClassLoader());
+            final Class<?> generated = defineLoader.define(internalName.replace('/', '.'), bytecode);
+            return (KeyformOps) generated.getDeclaredConstructor().newInstance();
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
     }
 
     private static final class FallbackHostOps implements HostOps {
@@ -1870,6 +2360,32 @@ public final class EditSubtreeCompiledAccessors {
         }
 
         @Override
+        public void rotFormSetOriginX(final Object form, final float originX) {
+            if (h.rotFormSetOriginX == null) {
+                return;
+            }
+            try {
+                h.rotFormSetOriginX.invokeExact(form, originX);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void rotFormSetOriginY(final Object form, final float originY) {
+            if (h.rotFormSetOriginY == null) {
+                return;
+            }
+            try {
+                h.rotFormSetOriginY.invokeExact(form, originY);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
         public void rotFormSetScale(final Object form, final float scale) {
             if (h.rotFormSetScale == null) {
                 return;
@@ -1889,6 +2405,32 @@ public final class EditSubtreeCompiledAccessors {
             }
             try {
                 h.rotFormSetAngle.invokeExact(form, angle);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void rotFormSetReflectX(final Object form, final boolean reflectX) {
+            if (h.rotFormSetReflectX == null) {
+                return;
+            }
+            try {
+                h.rotFormSetReflectX.invokeExact(form, reflectX);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public void rotFormSetReflectY(final Object form, final boolean reflectY) {
+            if (h.rotFormSetReflectY == null) {
+                return;
+            }
+            try {
+                h.rotFormSetReflectY.invokeExact(form, reflectY);
             } catch (final Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 throw propagate(failure);
@@ -1998,6 +2540,32 @@ public final class EditSubtreeCompiledAccessors {
         public boolean controllableSourceIsVisibleHierarchy(final Object source) {
             try {
                 return (boolean) h.sourceIsVisibleHierarchy.invokeExact(source);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public Object controllableSourceGetParent(final Object source) {
+            if (h.controllableSourceGetParent == null) {
+                return null;
+            }
+            try {
+                return (Object) h.controllableSourceGetParent.invokeExact(source);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public Object controllableSourceGetParentGuid(final Object source) {
+            if (h.controllableSourceGetParentGuid == null) {
+                return null;
+            }
+            try {
+                return (Object) h.controllableSourceGetParentGuid.invokeExact(source);
             } catch (final Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 throw propagate(failure);
@@ -2555,6 +3123,19 @@ public final class EditSubtreeCompiledAccessors {
             }
             try {
                 h.deformerFormSetOpacity.invokeExact(form, opacity);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw propagate(failure);
+            }
+        }
+
+        @Override
+        public Object deformerFormGetCoordType(final Object form) {
+            if (h.deformerFormGetCoordType == null) {
+                return null;
+            }
+            try {
+                return (Object) h.deformerFormGetCoordType.invokeExact(form);
             } catch (final Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 throw propagate(failure);

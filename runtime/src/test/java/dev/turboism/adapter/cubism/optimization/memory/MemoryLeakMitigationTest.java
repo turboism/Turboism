@@ -18,6 +18,7 @@ import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -817,6 +818,97 @@ class MemoryLeakMitigationTest {
     }
 
     @Test
+    void observeTextureAllocatesZeroBytesInSteadyStateAndUpdatesOnContextSwitch() throws Exception {
+        final Path fakeJar = Files.createTempFile("memory-leak-observe-tex", ".jar");
+        try {
+            final SyntheticHost host = weaveAndBootBridge(fakeJar);
+            final Class<?> ctxCls = host.load("com/jogamp/opengl/GLContext");
+            final Field currentCtxField = ctxCls.getField("CURRENT");
+            final Object ctx1 = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Object ctx2 = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Class<?> glImplCls = host.load("TestGL3");
+            final Object gl1 = glImplCls.getConstructor(ctxCls).newInstance(ctx1);
+            final Object gl2 = glImplCls.getConstructor(ctxCls).newInstance(ctx2);
+
+            final Object graphicsA = host.load("com/live2d/graphics3d/a")
+                    .getConstructor(host.load("com/jogamp/opengl/GL3"))
+                    .newInstance(gl1);
+            assertNotNull(graphicsA);
+            final Class<?> resCls = host.load(MemoryLeakMitigationTarget.IMAGE_RESOURCE_OWNER);
+            final Object res = resCls.getConstructor().newInstance();
+            final Object tex2d = host.load(MemoryLeakMitigationTarget.G_TEXTURE_2D_OWNER)
+                    .getConstructor(resCls)
+                    .newInstance(res);
+            final Field texNameField = tex2d.getClass().getField("glTextureName");
+            final Field samplerNameField = tex2d.getClass().getField("glSamplerName");
+            texNameField.setInt(tex2d, 101);
+            samplerNameField.setInt(tex2d, 202);
+
+            final MemoryLeakMitigationTarget target = MemoryLeakMitigationTarget.of(ReviewedHostArtifacts.CUBISM_5_3_04)
+                    .orElseThrow();
+            final java.util.concurrent.atomic.AtomicInteger texturesQueued =
+                    new java.util.concurrent.atomic.AtomicInteger();
+            final GlDeleteQueue.StatsRecorder countingRecorder = new GlDeleteQueue.StatsRecorder() {
+                @Override
+                public void onVboReused() {}
+
+                @Override
+                public void onVboQueued() {}
+
+                @Override
+                public void onVboDeleted(final int count) {}
+
+                @Override
+                public void onTextureQueued() {
+                    texturesQueued.incrementAndGet();
+                }
+
+                @Override
+                public void onContextPruned() {}
+            };
+            final GlDeleteQueue queue = new GlDeleteQueue(host.loader, target, countingRecorder);
+            try {
+                currentCtxField.set(null, ctx1);
+                final com.sun.management.ThreadMXBean allocMx =
+                        (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+                final long tid = Thread.currentThread().getId();
+                for (int i = 0; i < 5_000; i++) {
+                    queue.observeTexture(tex2d, gl1);
+                }
+                allocMx.getThreadAllocatedBytes(tid);
+                long minAllocated = Long.MAX_VALUE;
+                for (int pass = 0; pass < 3; pass++) {
+                    final long before = allocMx.getThreadAllocatedBytes(tid);
+                    for (int i = 0; i < 1_000; i++) {
+                        queue.observeTexture(tex2d, gl1);
+                    }
+                    minAllocated = Math.min(minAllocated, allocMx.getThreadAllocatedBytes(tid) - before);
+                }
+                assertEquals(0L, minAllocated, "steady-state observeTexture must allocate zero bytes");
+
+                // Context and handle updates still propagate into tracked texture deletion state.
+                texNameField.setInt(tex2d, 303);
+                samplerNameField.setInt(tex2d, 404);
+                queue.observeTexture(tex2d, gl2);
+                currentCtxField.set(null, null);
+                queue.onTextureDisposing(tex2d);
+                assertEquals(2, texturesQueued.get());
+                currentCtxField.set(null, ctx1);
+                queue.drainForGl(gl1);
+                assertEquals(0, glImplCls.getField("texDeletes").getInt(gl1));
+                currentCtxField.set(null, ctx2);
+                queue.drainForGl(gl2);
+                assertTrue(glImplCls.getField("texDeletes").getInt(gl2) > 0);
+            } finally {
+                currentCtxField.set(null, null);
+                queue.close();
+            }
+        } finally {
+            Files.deleteIfExists(fakeJar);
+        }
+    }
+
+    @Test
     void undoLimitDocumentCloseStaticHoldersImageCacheFlushInspectorAndAwtRenameAreFixed() throws Exception {
         final Path fakeJar = Files.createTempFile("memory-leak-lifecycle", ".jar");
         try {
@@ -1012,16 +1104,23 @@ class MemoryLeakMitigationTest {
         final String prop = System.getProperty(
                 "turboism.test.cubismRefDir", System.getenv().getOrDefault("TURBOISM_CUBISM_REF", ""));
         final Path root = !prop.isBlank() ? Path.of(prop) : DEFAULT_LOCAL_ARTIFACTS;
-        if (!Files.isDirectory(root)) {
-            return List.of();
+        final List<Path> jars = new ArrayList<>();
+        if (Files.isDirectory(root)) {
+            try (var stream = Files.list(root)) {
+                stream.filter(Files::isDirectory)
+                        .sorted()
+                        .map(dir -> dir.resolve("Live2D_Cubism.jar"))
+                        .filter(Files::isRegularFile)
+                        .forEach(jars::add);
+            }
         }
-        try (var stream = Files.list(root)) {
-            return stream.filter(Files::isDirectory)
-                    .sorted()
-                    .map(dir -> dir.resolve("Live2D_Cubism.jar"))
-                    .filter(Files::isRegularFile)
-                    .toList();
+        final Path win5305 = Path.of(
+                System.getProperty("user.home"),
+                ".local/share/cubism-reference/5.3.05/proton/pfx/drive_c/Program Files/Live2D Cubism 5.3/app/lib/Live2D_Cubism.jar");
+        if (Files.isRegularFile(win5305) && !jars.contains(win5305)) {
+            jars.add(win5305);
         }
+        return List.copyOf(jars);
     }
 
     private static URLClassLoader openHostJarLoader(final Path jarPath) throws IOException {
@@ -2418,6 +2517,7 @@ class MemoryLeakMitigationTest {
                     .visitEnd();
             impl.visitField(ACC_PUBLIC, "gens", "I", null, null).visitEnd();
             impl.visitField(ACC_PUBLIC, "deletes", "I", null, null).visitEnd();
+            impl.visitField(ACC_PUBLIC, "texDeletes", "I", null, null).visitEnd();
             impl.visitField(ACC_PUBLIC, "nextId", "I", null, 1).visitEnd();
             final MethodVisitor ic2 =
                     impl.visitMethod(ACC_PUBLIC, "<init>", "(Lcom/jogamp/opengl/GLContext;)V", null, null);
@@ -2447,7 +2547,18 @@ class MemoryLeakMitigationTest {
             g3.visitInsn(ARETURN);
             g3.visitMaxs(0, 0);
             g3.visitEnd();
-            emitVoidMethod(impl, "glDeleteTextures", "(I[II)V");
+            // glDeleteTextures(I[II)V -> texDeletes++
+            final MethodVisitor dtArr = impl.visitMethod(ACC_PUBLIC, "glDeleteTextures", "(I[II)V", null, null);
+            dtArr.visitCode();
+            dtArr.visitVarInsn(ALOAD, 0);
+            dtArr.visitInsn(DUP);
+            dtArr.visitFieldInsn(GETFIELD, "TestGL3", "texDeletes", "I");
+            dtArr.visitInsn(ICONST_1);
+            dtArr.visitInsn(IADD);
+            dtArr.visitFieldInsn(PUTFIELD, "TestGL3", "texDeletes", "I");
+            dtArr.visitInsn(RETURN);
+            dtArr.visitMaxs(0, 0);
+            dtArr.visitEnd();
             emitVoidMethod(impl, "glDeleteSamplers", "(I[II)V");
             // glDeleteBuffers(I[II)V -> deletes++
             final MethodVisitor dbArr = impl.visitMethod(ACC_PUBLIC, "glDeleteBuffers", "(I[II)V", null, null);

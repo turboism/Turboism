@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.warpdeform;
 
+import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -21,6 +22,7 @@ final class EditOverlayElisionCoordinator {
     private static final long BOOL_TRUE_HASH = 1231L;
     private static final long BOOL_FALSE_HASH = 1237L;
     private static final long NULL_SENTINEL_HASH = 17L;
+    private static final long UNINIT_LAZY_HASH = -19937L;
     private static final String SELECTION_DRAW_KEY = WarpDeformEditTarget.SELECTION_DRAW_KEY;
 
     private final EditSubtreeHandles h;
@@ -34,6 +36,8 @@ final class EditOverlayElisionCoordinator {
     final LongAdder selectionDrawElisions = new LongAdder();
     final LongAdder selectionDrawUpdates = new LongAdder();
     final LongAdder selectionMeshElisions = new LongAdder();
+    final LongAdder selectionMeshCreateElisions = new LongAdder();
+    final LongAdder selectionSetVolatileElisions = new LongAdder();
 
     private long cachedGlobalActionHash = Long.MIN_VALUE;
     private boolean cachedGlobalValid;
@@ -51,6 +55,19 @@ final class EditOverlayElisionCoordinator {
     private boolean cachedSelHasW;
     private boolean cachedSelHasX;
     private boolean cachedSelHasG;
+    private Object lastSelEvalEntity;
+    private Object lastSelEvalPack;
+    private boolean lastSelEvalSelected;
+    private boolean lastSelEvalGlued;
+    private boolean lastSelEvalActive;
+    private Object memoActionPack;
+    private Object memoEditMode;
+    private boolean memoHideSelected;
+    private boolean memoIsDeformerVisible;
+    private Object memoRotMode;
+    private long memoActionSig;
+    private long memoNonActionSig;
+    private FrameGlobalState memoFrameGlobalState;
 
     EditOverlayElisionCoordinator(final EditSubtreeHandles handles, final EditSubtreeCoordinator subtreeCoordinator) {
         this.h = handles;
@@ -67,6 +84,18 @@ final class EditOverlayElisionCoordinator {
         cachedRGuids = Set.of();
         cachedFDeformers = Set.of();
         cachedGDeformers = Set.of();
+        invalidateFrameGlobalMemo();
+        resetSelMeshFrameCache();
+    }
+
+    private void invalidateFrameGlobalMemo() {
+        memoActionPack = null;
+        memoEditMode = null;
+        memoRotMode = null;
+        memoFrameGlobalState = null;
+    }
+
+    private void resetSelMeshFrameCache() {
         cachedSelMeshPack = null;
         cachedSelHover = null;
         cachedSelWSet = null;
@@ -76,6 +105,11 @@ final class EditOverlayElisionCoordinator {
         cachedSelHasW = false;
         cachedSelHasX = false;
         cachedSelHasG = false;
+        lastSelEvalEntity = null;
+        lastSelEvalPack = null;
+        lastSelEvalSelected = false;
+        lastSelEvalGlued = false;
+        lastSelEvalActive = false;
     }
 
     /**
@@ -405,6 +439,16 @@ final class EditOverlayElisionCoordinator {
         nonActionSig = nonActionSig * HASH_PRIME + (showChildUnderWarp ? BOOL_TRUE_HASH : BOOL_FALSE_HASH);
         nonActionSig = nonActionSig * HASH_PRIME + Float.floatToRawIntBits(cameraScale);
 
+        if (memoFrameGlobalState != null
+                && memoActionPack == actionPack
+                && memoEditMode == editMode
+                && memoHideSelected == hideSelected
+                && memoIsDeformerVisible == isDeformerVisible
+                && memoRotMode == rotMode
+                && memoActionSig == actionSig
+                && memoNonActionSig == nonActionSig) {
+            return memoFrameGlobalState;
+        }
         if (!cachedGlobalValid || cachedGlobalActionHash != actionSig) {
             cachedRGuids = extractTargetGuids(rRaw);
             cachedFDeformers = toIdentitySet(fRaw);
@@ -413,7 +457,17 @@ final class EditOverlayElisionCoordinator {
             cachedGlobalValid = true;
         }
         final long combined = actionSig * HASH_PRIME + nonActionSig;
-        return new FrameGlobalState(combined, selector, cachedRGuids, cachedFDeformers, cachedGDeformers);
+        final FrameGlobalState built =
+                new FrameGlobalState(combined, selector, cachedRGuids, cachedFDeformers, cachedGDeformers);
+        memoActionPack = actionPack;
+        memoEditMode = editMode;
+        memoHideSelected = hideSelected;
+        memoIsDeformerVisible = isDeformerVisible;
+        memoRotMode = rotMode;
+        memoActionSig = actionSig;
+        memoNonActionSig = nonActionSig;
+        memoFrameGlobalState = built;
+        return built;
     }
 
     /**
@@ -449,7 +503,8 @@ final class EditOverlayElisionCoordinator {
             state.valid = false;
             state.capturePreWillRender(h.sceneGraphWillRenderField.get(state.pendingSceneGraph));
             state.pendingRecord = true;
-            cachedSelMeshPack = null;
+            invalidateFrameGlobalMemo();
+            resetSelMeshFrameCache();
             return false;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -476,6 +531,30 @@ final class EditOverlayElisionCoordinator {
             selectionDrawUpdates.increment();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
+        } finally {
+            invalidateFrameGlobalMemo();
+            resetSelMeshFrameCache();
+        }
+    }
+
+    /**
+     * Lazy creation gate for {@code new DrawEntity_ArtMesh_Selection(artMesh)} when the overlay is inactive.
+     * Returns {@code true} only when all active-overlay predicates are off.
+     */
+    boolean canElideArtMeshSelectionCreate(
+            final Object artMesh, final Object actionPack, final boolean isSelected, final boolean isGlued) {
+        if (isSelected || isGlued || artMesh == null || actionPack == null || h.meshSourceGetSelection == null) {
+            return false;
+        }
+        try {
+            if (isArtMeshOverlayActiveByMesh(artMesh, actionPack, false, false)) {
+                return false;
+            }
+            selectionMeshCreateElisions.increment();
+            return true;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
         }
     }
 
@@ -492,40 +571,8 @@ final class EditOverlayElisionCoordinator {
             return false;
         }
         try {
-            if (cachedSelMeshPack != actionPack) {
-                refreshSelMeshFrameCache(actionPack);
-            }
-            final boolean active;
-            if (cachedSelHide) {
-                active = false;
-            } else if (isSelected || isGlued) {
-                active = true;
-            } else if (!cachedSelHasHover && !cachedSelHasW && !cachedSelHasX && !cachedSelHasG) {
-                active = false;
-            } else {
-                final Object mesh = (Object) h.artMeshSelectionDrawGetMesh.invokeExact(drawEntity);
-                if (mesh == null) {
-                    return false;
-                }
-                boolean hit = false;
-                if (cachedSelHasHover) {
-                    final Object src = h.acc.meshGetSource(mesh);
-                    final Object selection = src == null ? null : (Object) h.meshSourceGetSelection.invokeExact(src);
-                    hit = cachedSelHover.equals(selection);
-                }
-                if (!hit && (cachedSelHasW || cachedSelHasX)) {
-                    final Object guid = h.acc.meshGetGuid(mesh);
-                    if (guid != null) {
-                        hit = (cachedSelHasW && cachedSelWSet.contains(guid))
-                                || (cachedSelHasX && cachedSelXSet.contains(guid));
-                    }
-                }
-                if (!hit && cachedSelHasG) {
-                    final Object targetGuid = h.acc.meshGetTargetGuid(mesh);
-                    hit = targetGuid != null && cachedSelGGuids.contains(targetGuid);
-                }
-                active = hit;
-            }
+            final boolean active = isArtMeshOverlayActiveForEntity(drawEntity, actionPack, isSelected, isGlued);
+            recordLastSelEval(drawEntity, actionPack, isSelected, isGlued, active);
             final ArtMeshSelectionState state =
                     artMeshSelectionStates.getOrCompute(drawEntity, ArtMeshSelectionState::new);
             if (!state.initialized) {
@@ -543,6 +590,114 @@ final class EditOverlayElisionCoordinator {
             FatalErrors.rethrowIfFatal(failure);
             return false;
         }
+    }
+
+    /**
+     * Volatile-registration gate for {@code DrawEntity_ArtMesh_Selection} strictly using inactive-overlay predicates.
+     * Never checks {@code !entity.getEnabled()}, because {@code preRender()} disables volatile entities before {@code K.E()}.
+     */
+    boolean shouldElideArtMeshSetVolatile(
+            final Object drawEntity, final Object actionPack, final boolean isSelected, final boolean isGlued) {
+        if (isSelected
+                || isGlued
+                || drawEntity == null
+                || actionPack == null
+                || h.artMeshSelectionDrawGetMesh == null
+                || h.meshSourceGetSelection == null) {
+            return false;
+        }
+        try {
+            final boolean active;
+            if (lastSelEvalEntity == drawEntity
+                    && lastSelEvalPack == actionPack
+                    && !lastSelEvalSelected
+                    && !lastSelEvalGlued) {
+                active = lastSelEvalActive;
+            } else {
+                active = isArtMeshOverlayActiveForEntity(drawEntity, actionPack, false, false);
+            }
+            if (!active) {
+                selectionSetVolatileElisions.increment();
+                return true;
+            }
+            return false;
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    private void recordLastSelEval(
+            final Object drawEntity,
+            final Object actionPack,
+            final boolean isSelected,
+            final boolean isGlued,
+            final boolean active) {
+        lastSelEvalEntity = drawEntity;
+        lastSelEvalPack = actionPack;
+        lastSelEvalSelected = isSelected;
+        lastSelEvalGlued = isGlued;
+        lastSelEvalActive = active;
+    }
+
+    private boolean isArtMeshOverlayActiveForEntity(
+            final Object drawEntity, final Object actionPack, final boolean isSelected, final boolean isGlued)
+            throws Throwable {
+        if (cachedSelMeshPack != actionPack) {
+            refreshSelMeshFrameCache(actionPack);
+        }
+        if (cachedSelHide) {
+            return false;
+        }
+        if (isSelected || isGlued) {
+            return true;
+        }
+        if (!cachedSelHasHover && !cachedSelHasW && !cachedSelHasX && !cachedSelHasG) {
+            return false;
+        }
+        final Object mesh = (Object) h.artMeshSelectionDrawGetMesh.invokeExact(drawEntity);
+        return mesh == null || isMeshMatchedByOverlaySets(mesh);
+    }
+
+    private boolean isArtMeshOverlayActiveByMesh(
+            final Object mesh, final Object actionPack, final boolean isSelected, final boolean isGlued)
+            throws Throwable {
+        if (cachedSelMeshPack != actionPack) {
+            refreshSelMeshFrameCache(actionPack);
+        }
+        if (cachedSelHide) {
+            return false;
+        }
+        if (isSelected || isGlued) {
+            return true;
+        }
+        if (!cachedSelHasHover && !cachedSelHasW && !cachedSelHasX && !cachedSelHasG) {
+            return false;
+        }
+        return isMeshMatchedByOverlaySets(mesh);
+    }
+
+    private boolean isMeshMatchedByOverlaySets(final Object mesh) throws Throwable {
+        if (cachedSelHasHover) {
+            final Object src = h.acc.meshGetSource(mesh);
+            final Object selection = src == null ? null : (Object) h.meshSourceGetSelection.invokeExact(src);
+            if (cachedSelHover.equals(selection)) {
+                return true;
+            }
+        }
+        if (cachedSelHasW || cachedSelHasX) {
+            final Object guid = h.acc.meshGetGuid(mesh);
+            if (guid != null
+                    && ((cachedSelHasW && cachedSelWSet.contains(guid))
+                            || (cachedSelHasX && cachedSelXSet.contains(guid)))) {
+                return true;
+            }
+        }
+        if (cachedSelHasG) {
+            final Object targetGuid = h.acc.meshGetTargetGuid(mesh);
+            return targetGuid != null && cachedSelGGuids.contains(targetGuid);
+        }
+        return false;
     }
 
     private void refreshSelMeshFrameCache(final Object actionPack) throws Throwable {
@@ -693,14 +848,18 @@ final class EditOverlayElisionCoordinator {
         sig = sig * HASH_PRIME + System.identityHashCode(hovering);
         sig = sig * HASH_PRIME + (int) h.selectorGetSelectedCount.invokeExact(selector);
         sig = sig * HASH_PRIME + listIdentityHash((Object) h.selectorGetSelectedObjects.invokeExact(selector));
-        if (h.actionPackGetQ != null) {
-            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetQ.invokeExact(actionPack));
+        if (!h.actionPackQIsAbstract && h.actionPackGetQ != null) {
+            sig = sig * HASH_PRIME + hashLazyActionList(actionPack, h.actionPackLazyEField, h.actionPackGetQ);
         }
         if (h.actionPackGetS != null) {
-            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetS.invokeExact(actionPack));
+            final HostHandles.HostField sLazy =
+                    h.actionPackQIsAbstract ? h.actionPackLazyEField : h.actionPackLazyGField;
+            sig = sig * HASH_PRIME + hashLazyActionList(actionPack, sLazy, h.actionPackGetS);
         }
         if (h.actionPackGetU != null) {
-            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetU.invokeExact(actionPack));
+            final HostHandles.HostField uLazy =
+                    h.actionPackQIsAbstract ? h.actionPackLazyGField : h.actionPackLazyIField;
+            sig = sig * HASH_PRIME + hashLazyActionList(actionPack, uLazy, h.actionPackGetU);
         }
         sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetF.invokeExact(actionPack));
         sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetG.invokeExact(actionPack));
@@ -708,13 +867,13 @@ final class EditOverlayElisionCoordinator {
             sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetDeformers.invokeExact(actionPack));
         }
         if (h.actionPackGetK != null) {
-            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetK.invokeExact(actionPack));
+            sig = sig * HASH_PRIME + hashLazyActionList(actionPack, h.actionPackLazyAField, h.actionPackGetK);
         }
         if (h.actionPackGetD != null) {
-            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetD.invokeExact(actionPack));
+            sig = sig * HASH_PRIME + hashLazyActionList(actionPack, h.actionPackLazyQField, h.actionPackGetD);
         }
         if (h.actionPackGetLList != null) {
-            sig = sig * HASH_PRIME + listIdentityHash((Object) h.actionPackGetLList.invokeExact(actionPack));
+            sig = sig * HASH_PRIME + hashLazyActionList(actionPack, h.actionPackLazyBField, h.actionPackGetLList);
         }
         if (h.actionPackGetAm != null) {
             sig = sig * HASH_PRIME + System.identityHashCode((Object) h.actionPackGetAm.invokeExact(actionPack));
@@ -778,6 +937,20 @@ final class EditOverlayElisionCoordinator {
         state.pendingSceneGraph = sceneGraph;
         state.pendingSig = sig;
         return true;
+    }
+
+    private long hashLazyActionList(
+            final Object actionPack, final HostHandles.HostField lazyField, final java.lang.invoke.MethodHandle getter)
+            throws Throwable {
+        if (lazyField != null && h.kotlinLazyClass != null && h.lazyIsInitialized != null) {
+            final Object lazyObj = lazyField.get(actionPack);
+            if (lazyObj != null
+                    && h.kotlinLazyClass.isInstance(lazyObj)
+                    && !(boolean) h.lazyIsInitialized.invokeExact(lazyObj)) {
+                return UNINIT_LAZY_HASH;
+            }
+        }
+        return listIdentityHash((Object) getter.invokeExact(actionPack));
     }
 
     private float resolveCameraScale() throws Throwable {

@@ -21,6 +21,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.ToLongBiFunction;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -35,15 +36,38 @@ public final class MatrixScratchBridge implements AutoCloseable {
     /** Property key publishing the {@code Function<Object, Object>} world-matrix resolver. */
     public static final String CALLBACK_PROPERTY = "turboism.matrix-scratch.callback";
 
+    /** Property key publishing the {@code Function<Object, Object>} render-scratch matrix resolver. */
+    public static final String RENDER_CALLBACK_PROPERTY = "turboism.matrix-scratch.render-callback";
+
+    /** Property key publishing the {@code ToLongBiFunction<Object, Object>} sorting-Z resolver. */
+    public static final String SORTING_CALLBACK_PROPERTY = "turboism.matrix-scratch.sorting-callback";
+
     /** Property key exposing cache telemetry counters. */
     public static final String STATS_PROPERTY = "turboism.matrix-scratch.stats";
 
     private static final String STAT_ACTIVE = "active";
     private static final String STAT_CALLS = "calls";
     private static final String STAT_CACHE_HITS = "cacheHits";
+    private static final String STAT_IDENTITY_HITS = "identityHits";
     private static final String STAT_CACHE_MISSES = "cacheMisses";
     private static final String STAT_STATIC_HITS = "staticHits";
     private static final String STAT_FAILURES = "failures";
+
+    private static final String CAMERA_CACHE_GET_PROPERTY = "turboism.camera-matrix.get";
+    private static final String MESH_CONTAINER_OWNER = "com/live2d/graphics3d/component/GMeshContainer";
+    private static final String MESH_OWNER = "com/live2d/graphics3d/mesh/a";
+    private static final String CAMERA_OWNER = "com/live2d/graphics3d/GCamera";
+    private static final String GET_MESH_CONTAINER_METHOD = "getMeshContainer";
+    private static final String GET_MESH_CONTAINER_DESCRIPTOR = "()L" + MESH_CONTAINER_OWNER + ";";
+    private static final String GET_MESH_METHOD = "getMesh";
+    private static final String GET_MESH_DESCRIPTOR = "()L" + MESH_OWNER + ";";
+    private static final String GET_POSITIONS_METHOD = "getPositions";
+    private static final String FLOAT_ARRAY_GETTER_DESCRIPTOR = "()[F";
+    private static final String GET_STEP_METHOD = "getStep";
+    private static final String INT_GETTER_DESCRIPTOR = "()I";
+    private static final String MATRIX_INVERT_METHOD = "b";
+    private static final String MATRIX_INVERT_DESCRIPTOR =
+            "(L" + MatrixScratchTransformer.MATRIX + ";)L" + MatrixScratchTransformer.MATRIX + ";";
 
     private static final String ENTITY_OWNER = "com/live2d/graphics3d/entity/GEntity";
     private static final String VECTOR3_OWNER = "com/live2d/graphics3d/type/GVector3";
@@ -146,23 +170,57 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final int HASH_SHIFT = 16;
     private static final int FIBONACCI_HASH_MULTIPLIER = 0x9e3779b9;
     private static final int MAX_CHAIN_DEPTH = 4096;
+    private static final int ABS_INT_MASK = 0x7fffffff;
+    private static final int EXPONENT_MASK = 0x7f800000;
+    private static final int NEGATIVE_ZERO_BITS = 0x80000000;
+    private static final int FLOAT_ONE_BITS = 0x3f800000;
+    private static final long SORTING_VALID_BIT = 1L << 32;
+    private static final long SORTING_FALLBACK = 0L;
+    private static final long FLOAT_BITS_MASK = 0xffffffffL;
+    private static final int MESH_STEP_2D = 2;
+    private static final int POS_X_INDEX = 0;
+    private static final int POS_Y_INDEX = 1;
+    private static final int POS_Z_INDEX = 2;
+    private static final int MATRIX_IDX_X0 = 0;
+    private static final int MATRIX_IDX_Y0 = 1;
+    private static final int MATRIX_IDX_Z0 = 2;
+    private static final int MATRIX_IDX_X1 = 4;
+    private static final int MATRIX_IDX_Y1 = 5;
+    private static final int MATRIX_IDX_Z1 = 6;
+    private static final int MATRIX_IDX_X2 = 8;
+    private static final int MATRIX_IDX_Y2 = 9;
+    private static final int MATRIX_IDX_Z2 = 10;
+    private static final int MATRIX_IDX_TX = 12;
+    private static final int MATRIX_IDX_TY = 13;
+    private static final int MATRIX_IDX_TZ = 14;
+    private static final float[] IDENTITY_MATRIX_DATA = {
+        ONE_F, ZERO_F, ZERO_F, ZERO_F,
+        ZERO_F, ONE_F, ZERO_F, ZERO_F,
+        ZERO_F, ZERO_F, ONE_F, ZERO_F,
+        ZERO_F, ZERO_F, ZERO_F, ONE_F
+    };
 
     private final Class<?> transformType;
     private final AtomicBoolean admission;
     private final BiPredicate<Object, Object> selfReader;
     private final BiFunction<Object, Object, Object> parentReader;
     private final Consumer<Object> matrixAllocator;
+    private final MethodHandle matrixDataHandle;
+    private final RenderAccessors renderAccessors;
 
     private final AtomicBoolean active = new AtomicBoolean();
     private final Set<ThreadState> threadStates = ConcurrentHashMap.newKeySet();
     private final AtomicLong retiredCalls = new AtomicLong();
     private final AtomicLong retiredCacheHits = new AtomicLong();
+    private final AtomicLong retiredIdentityHits = new AtomicLong();
     private final AtomicLong retiredCacheMisses = new AtomicLong();
     private final AtomicLong retiredStaticHits = new AtomicLong();
     private final AtomicLong retiredFailures = new AtomicLong();
     private final ThreadLocal<ThreadState> threadState = ThreadLocal.withInitial(this::registerThreadState);
 
     private final Function<Object, Object> callback = this::resolveWorldMatrix;
+    private final Function<Object, Object> renderCallback = this::resolveRenderMatrix;
+    private final ToLongBiFunction<Object, Object> sortingCallback = this::resolveSortingZOrder;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
 
     /**
@@ -211,6 +269,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 MethodType.methodType(float[].class, Object.class));
         final MethodHandle staticMatrixHandle =
                 HostHandles.getter(transformType, STATIC_MATRIX_FIELD, STATIC_MATRIX_DESCRIPTOR, objectUnary);
+        this.matrixDataHandle = matrixDataHandle;
+        this.renderAccessors = resolveRenderAccessors(loader, matrixType, getTransformHandle);
 
         final Object compiled = compileHostAccessor(loader, transformType);
         if (compiled != null) {
@@ -252,15 +312,31 @@ public final class MatrixScratchBridge implements AutoCloseable {
         return callback;
     }
 
+    /** Returns the non-escaping render scratch callback registered under {@link #RENDER_CALLBACK_PROPERTY}. */
+    public Function<Object, Object> renderCallback() {
+        return renderCallback;
+    }
+
+    /** Returns the scalar sorting-Z callback registered under {@link #SORTING_CALLBACK_PROPERTY}. */
+    public ToLongBiFunction<Object, Object> sortingCallback() {
+        return sortingCallback;
+    }
+
     /** Returns the counter snapshot supplier registered under {@link #STATS_PROPERTY}. */
     public Supplier<Map<String, Long>> statistics() {
         return statistics;
+    }
+
+    /** Returns whether optional renderer and camera fast-path accessors resolved on this loader. */
+    public boolean supportsRenderFastPaths() {
+        return renderAccessors != null;
     }
 
     /** Returns an immutable snapshot of bridge telemetry counters across all threads. */
     public Map<String, Long> snapshot() {
         long totalCalls = retiredCalls.get();
         long totalHits = retiredCacheHits.get();
+        long totalIdentityHits = retiredIdentityHits.get();
         long totalMisses = retiredCacheMisses.get();
         long totalStatic = retiredStaticHits.get();
         long totalFailures = retiredFailures.get();
@@ -269,12 +345,14 @@ public final class MatrixScratchBridge implements AutoCloseable {
             final ThreadState state = iterator.next();
             totalCalls += state.calls;
             totalHits += state.cacheHits;
+            totalIdentityHits += state.identityHits;
             totalMisses += state.cacheMisses;
             totalStatic += state.staticHits;
             totalFailures += state.failures;
             if (!state.owner.isAlive()) {
                 retiredCalls.addAndGet(state.calls);
                 retiredCacheHits.addAndGet(state.cacheHits);
+                retiredIdentityHits.addAndGet(state.identityHits);
                 retiredCacheMisses.addAndGet(state.cacheMisses);
                 retiredStaticHits.addAndGet(state.staticHits);
                 retiredFailures.addAndGet(state.failures);
@@ -285,6 +363,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 STAT_ACTIVE, active.get() ? 1L : 0L,
                 STAT_CALLS, totalCalls,
                 STAT_CACHE_HITS, totalHits,
+                STAT_IDENTITY_HITS, totalIdentityHits,
                 STAT_CACHE_MISSES, totalMisses,
                 STAT_STATIC_HITS, totalStatic,
                 STAT_FAILURES, totalFailures);
@@ -309,67 +388,20 @@ public final class MatrixScratchBridge implements AutoCloseable {
         final ThreadState state = threadState.get();
         state.calls++;
         try {
-            final Object[] packet = state.packet;
-            if (!selfReader.test(transform, packet)) {
+            final float[] worldData = resolveWorldData(transform, state, state.staticHolder, state.scratchC, false);
+            if (worldData == null) {
                 return null;
             }
-            Object parentEntity = packet[PACKET_PARENT_INDEX];
-            if (parentEntity == null) {
-                // Return the static matrix instance directly to match root ownership in host code.
-                final Object staticMatrix = packet[PACKET_STATIC_MATRIX_INDEX];
-                if (staticMatrix != null) {
-                    state.staticHits++;
-                    return staticMatrix;
-                }
-                final float[] selfData = resolveCachedLocalToParent(transform, state);
-                matrixAllocator.accept(state.matrixOutHolder);
-                final float[] out = (float[]) state.matrixOutHolder[HOLDER_ARRAY_INDEX];
-                if (out == null || out.length < MATRIX_LENGTH) {
-                    return null;
-                }
-                System.arraycopy(selfData, 0, out, 0, MATRIX_LENGTH);
-                return state.matrixOutHolder[HOLDER_MATRIX_INDEX];
+            if (state.staticHolder[0] != null) {
+                return state.staticHolder[0];
             }
-
-            final float[] current = resolveNodeData(transform, packet, state);
-            if (current == null) {
+            matrixAllocator.accept(state.matrixOutHolder);
+            final float[] out = (float[]) state.matrixOutHolder[HOLDER_ARRAY_INDEX];
+            if (out == null || out.length < MATRIX_LENGTH) {
                 return null;
             }
-            Object parentTransform = parentReader.apply(parentEntity, packet);
-            if (parentTransform == null) {
-                return null;
-            }
-            float[] left = resolveNodeData(parentTransform, packet, state);
-            if (left == null) {
-                return null;
-            }
-            Object nextParent = packet[PACKET_PARENT_INDEX];
-            if (nextParent == null) {
-                return allocateProduct(left, current, state);
-            }
-
-            float[] acc = state.scratchA;
-            multiplyGeneral(left, current, acc);
-            parentEntity = nextParent;
-            for (int depth = 1; depth < MAX_CHAIN_DEPTH; depth++) {
-                parentTransform = parentReader.apply(parentEntity, packet);
-                if (parentTransform == null) {
-                    return null;
-                }
-                left = resolveNodeData(parentTransform, packet, state);
-                if (left == null) {
-                    return null;
-                }
-                nextParent = packet[PACKET_PARENT_INDEX];
-                if (nextParent == null) {
-                    return allocateProduct(left, acc, state);
-                }
-                final float[] dest = acc == state.scratchA ? state.scratchB : state.scratchA;
-                multiplyGeneral(left, acc, dest);
-                acc = dest;
-                parentEntity = nextParent;
-            }
-            return null;
+            System.arraycopy(worldData, 0, out, 0, MATRIX_LENGTH);
+            return state.matrixOutHolder[HOLDER_MATRIX_INDEX];
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             state.failures++;
@@ -377,14 +409,293 @@ public final class MatrixScratchBridge implements AutoCloseable {
         }
     }
 
-    private Object allocateProduct(final float[] left, final float[] right, final ThreadState state) {
-        matrixAllocator.accept(state.matrixOutHolder);
-        final float[] out = (float[]) state.matrixOutHolder[HOLDER_ARRAY_INDEX];
-        if (out == null || out.length < MATRIX_LENGTH) {
+    private Object resolveRenderMatrix(final Object transform) {
+        if (!active.get() || !admission.get() || transform == null || transform.getClass() != transformType) {
             return null;
         }
-        multiplyGeneral(left, right, out);
-        return state.matrixOutHolder[HOLDER_MATRIX_INDEX];
+        final ThreadState state = threadState.get();
+        state.calls++;
+        try {
+            final float[] worldData = resolveWorldData(transform, state, state.staticHolder, state.scratchC, false);
+            if (worldData == null) {
+                return null;
+            }
+            if (state.staticHolder[0] != null) {
+                return state.staticHolder[0];
+            }
+            if (!ensureScratchMatrix(state, state.renderScratch)) {
+                return null;
+            }
+            System.arraycopy(worldData, 0, state.renderScratch.data, 0, MATRIX_LENGTH);
+            return state.renderScratch.instance;
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            state.failures++;
+            return null;
+        }
+    }
+
+    private long resolveSortingZOrder(final Object meshRenderer, final Object camera) {
+        if (!active.get() || !admission.get() || renderAccessors == null || meshRenderer == null) {
+            return SORTING_FALLBACK;
+        }
+        if (meshRenderer.getClass() != renderAccessors.meshRendererType()
+                || (camera != null && camera.getClass() != renderAccessors.cameraType())) {
+            return SORTING_FALLBACK;
+        }
+        final ThreadState state = threadState.get();
+        state.calls++;
+        try {
+            final Object container = (Object) renderAccessors.getMeshContainer().invokeExact(meshRenderer);
+            if (container == null) {
+                return encodeValidFloat(ZERO_F);
+            }
+            final Object mesh = (Object) renderAccessors.getMesh().invokeExact(container);
+            if (mesh == null) {
+                return encodeValidFloat(ZERO_F);
+            }
+            final float[] positions = (float[]) renderAccessors.getPositions().invokeExact(mesh);
+            if (positions.length == 0) {
+                return encodeValidFloat(ZERO_F);
+            }
+            final float vx = positions[POS_X_INDEX];
+            final float vy = positions[POS_Y_INDEX];
+            final float vz =
+                    (int) renderAccessors.getStep().invokeExact(mesh) == MESH_STEP_2D ? ZERO_F : positions[POS_Z_INDEX];
+
+            final Object entity = (Object) renderAccessors.rendererGetEntity().invokeExact(meshRenderer);
+            if (entity == null) {
+                return SORTING_FALLBACK;
+            }
+            final Object transform =
+                    (Object) renderAccessors.entityGetTransform().invokeExact(entity);
+            if (transform == null) {
+                return SORTING_FALLBACK;
+            }
+            final float[] world = resolveWorldData(transform, state, null, state.scratchC, false);
+            if (world == null) {
+                return SORTING_FALLBACK;
+            }
+            final float wz = transformZ(world, vx, vy, vz);
+            if (camera == null) {
+                return encodeValidFloat(wz);
+            }
+            final float wx = transformX(world, vx, vy, vz);
+            final float wy = transformY(world, vx, vy, vz);
+
+            final float[] cameraData = resolveWorldToCameraData(camera, state);
+            if (cameraData == null) {
+                return SORTING_FALLBACK;
+            }
+            return encodeValidFloat(transformZ(cameraData, wx, wy, wz));
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            // Let native bytecode reproduce ArrayIndexOutOfBoundsException or NoninvertibleTransformException.
+            state.failures++;
+            return SORTING_FALLBACK;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private float[] resolveWorldToCameraData(final Object camera, final ThreadState state) throws Throwable {
+        final Object camCacheFn = System.getProperties().get(CAMERA_CACHE_GET_PROPERTY);
+        if (camCacheFn instanceof Function<?, ?> getter) {
+            final Object cachedMatrix = ((Function<Object, Object>) getter).apply(camera);
+            if (cachedMatrix != null) {
+                final float[] cachedData = (float[]) matrixDataHandle.invokeExact(cachedMatrix);
+                if (cachedData != null && cachedData.length >= MATRIX_LENGTH) {
+                    return cachedData;
+                }
+            }
+        }
+        final Object camTransform =
+                (Object) renderAccessors.cameraGetTransform().invokeExact(camera);
+        if (camTransform == null) {
+            return null;
+        }
+        final float[] camWorld = resolveWorldData(camTransform, state, null, state.scratchC, false);
+        if (camWorld == null
+                || !ensureScratchMatrix(state, state.cameraWorldScratch)
+                || !ensureScratchMatrix(state, state.cameraInverseScratch)) {
+            return null;
+        }
+        System.arraycopy(camWorld, 0, state.cameraWorldScratch.data, 0, MATRIX_LENGTH);
+        final Object inverted = (Object) renderAccessors
+                .matrixInvertInto()
+                .invokeExact(state.cameraWorldScratch.instance, state.cameraInverseScratch.instance);
+        return inverted == null ? null : state.cameraInverseScratch.data;
+    }
+
+    private float[] resolveWorldData(
+            final Object transform,
+            final ThreadState state,
+            final Object[] outStaticMatrixHolder,
+            final float[] scratchFinal,
+            final boolean destRequired) {
+        final Object[] packet = state.packet;
+        if (!selfReader.test(transform, packet)) {
+            return null;
+        }
+        if (outStaticMatrixHolder != null) {
+            outStaticMatrixHolder[0] = null;
+        }
+        Object parentEntity = packet[PACKET_PARENT_INDEX];
+        if (parentEntity == null) {
+            // Return the static matrix instance directly to match root ownership in host code.
+            final Object staticMatrix = packet[PACKET_STATIC_MATRIX_INDEX];
+            if (staticMatrix != null) {
+                state.staticHits++;
+                if (outStaticMatrixHolder != null) {
+                    outStaticMatrixHolder[0] = staticMatrix;
+                }
+                final float[] data = (float[]) packet[PACKET_STATIC_DATA_INDEX];
+                return data != null && data.length >= MATRIX_LENGTH ? data : null;
+            }
+            return resolveCachedLocalToParent(transform, state);
+        }
+
+        final float[] current = resolveNodeData(transform, packet, state);
+        if (current == null) {
+            return null;
+        }
+        Object parentTransform = parentReader.apply(parentEntity, packet);
+        if (parentTransform == null) {
+            return null;
+        }
+        float[] left = resolveNodeData(parentTransform, packet, state);
+        if (left == null) {
+            return null;
+        }
+        Object nextParent = packet[PACKET_PARENT_INDEX];
+        if (nextParent == null) {
+            return combineOrMultiply(left, current, scratchFinal, state, destRequired);
+        }
+
+        float[] acc = combineOrMultiply(left, current, state.scratchA, state, false);
+        parentEntity = nextParent;
+        for (int depth = 1; depth < MAX_CHAIN_DEPTH; depth++) {
+            parentTransform = parentReader.apply(parentEntity, packet);
+            if (parentTransform == null) {
+                return null;
+            }
+            left = resolveNodeData(parentTransform, packet, state);
+            if (left == null) {
+                return null;
+            }
+            nextParent = packet[PACKET_PARENT_INDEX];
+            if (nextParent == null) {
+                return combineOrMultiply(left, acc, scratchFinal, state, destRequired);
+            }
+            final float[] dest = acc == state.scratchA ? state.scratchB : state.scratchA;
+            acc = combineOrMultiply(left, acc, dest, state, false);
+            parentEntity = nextParent;
+        }
+        return null;
+    }
+
+    private static float[] combineOrMultiply(
+            final float[] left,
+            final float[] right,
+            final float[] dest,
+            final ThreadState state,
+            final boolean destRequired) {
+        if (left == IDENTITY_MATRIX_DATA && right == IDENTITY_MATRIX_DATA) {
+            if (!destRequired) {
+                return IDENTITY_MATRIX_DATA;
+            }
+            System.arraycopy(IDENTITY_MATRIX_DATA, 0, dest, 0, MATRIX_LENGTH);
+            return dest;
+        }
+        if (left == IDENTITY_MATRIX_DATA && canSkipIdentityMultiply(right)) {
+            // Avoid aliasing a PLRU cache slot into the accumulator across subsequent lookups.
+            if (!destRequired
+                    && (right == state.scratchA || right == state.scratchB || right == IDENTITY_MATRIX_DATA)) {
+                return right;
+            }
+            System.arraycopy(right, 0, dest, 0, MATRIX_LENGTH);
+            return dest;
+        }
+        if (right == IDENTITY_MATRIX_DATA && canSkipIdentityMultiply(left)) {
+            if (!destRequired && (left == state.scratchA || left == state.scratchB || left == IDENTITY_MATRIX_DATA)) {
+                return left;
+            }
+            System.arraycopy(left, 0, dest, 0, MATRIX_LENGTH);
+            return dest;
+        }
+        multiplyGeneral(left, right, dest);
+        return dest;
+    }
+
+    private static boolean canSkipIdentityMultiply(final float[] other) {
+        for (int i = 0; i < MATRIX_LENGTH; i++) {
+            final int bits = Float.floatToRawIntBits(other[i]);
+            // Signed negative zero flips to +0.0f on addition, and 0 * Inf/NaN yields NaN.
+            if (bits == NEGATIVE_ZERO_BITS || (bits & EXPONENT_MASK) == EXPONENT_MASK) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean ensureScratchMatrix(final ThreadState state, final ScratchMatrix slot) {
+        if (slot.data != null) {
+            return true;
+        }
+        matrixAllocator.accept(state.matrixOutHolder);
+        final float[] data = (float[]) state.matrixOutHolder[HOLDER_ARRAY_INDEX];
+        final Object instance = state.matrixOutHolder[HOLDER_MATRIX_INDEX];
+        if (data == null || data.length < MATRIX_LENGTH || instance == null) {
+            return false;
+        }
+        slot.data = data;
+        slot.instance = instance;
+        return true;
+    }
+
+    private static float transformX(final float[] m, final float x, final float y, final float z) {
+        return ((m[MATRIX_IDX_X0] * x + m[MATRIX_IDX_X1] * y) + m[MATRIX_IDX_X2] * z) + m[MATRIX_IDX_TX];
+    }
+
+    private static float transformY(final float[] m, final float x, final float y, final float z) {
+        return ((m[MATRIX_IDX_Y0] * x + m[MATRIX_IDX_Y1] * y) + m[MATRIX_IDX_Y2] * z) + m[MATRIX_IDX_TY];
+    }
+
+    private static float transformZ(final float[] m, final float x, final float y, final float z) {
+        return ((m[MATRIX_IDX_Z0] * x + m[MATRIX_IDX_Z1] * y) + m[MATRIX_IDX_Z2] * z) + m[MATRIX_IDX_TZ];
+    }
+
+    private static long encodeValidFloat(final float value) {
+        return SORTING_VALID_BIT | (Float.floatToRawIntBits(value) & FLOAT_BITS_MASK);
+    }
+
+    private static RenderAccessors resolveRenderAccessors(
+            final ClassLoader loader, final Class<?> matrixType, final MethodHandle entityGetTransform) {
+        try {
+            final Class<?> meshRendererType = Class.forName(RenderMatrixTransformer.MESH_RENDERER_DOT, false, loader);
+            final Class<?> containerType = Class.forName(MESH_CONTAINER_OWNER.replace('/', '.'), false, loader);
+            final Class<?> meshType = Class.forName(MESH_OWNER.replace('/', '.'), false, loader);
+            final Class<?> cameraType = Class.forName(CAMERA_OWNER.replace('/', '.'), false, loader);
+
+            final MethodType objectUnary = MethodType.methodType(Object.class, Object.class);
+            final MethodType floatArrayUnary = MethodType.methodType(float[].class, Object.class);
+            final MethodType intUnary = MethodType.methodType(int.class, Object.class);
+            final MethodType objectBinary = MethodType.methodType(Object.class, Object.class, Object.class);
+
+            return new RenderAccessors(
+                    meshRendererType,
+                    cameraType,
+                    HostHandles.virtual(
+                            meshRendererType, GET_MESH_CONTAINER_METHOD, GET_MESH_CONTAINER_DESCRIPTOR, objectUnary),
+                    HostHandles.virtual(containerType, GET_MESH_METHOD, GET_MESH_DESCRIPTOR, objectUnary),
+                    HostHandles.virtual(meshType, GET_POSITIONS_METHOD, FLOAT_ARRAY_GETTER_DESCRIPTOR, floatArrayUnary),
+                    HostHandles.virtual(meshType, GET_STEP_METHOD, INT_GETTER_DESCRIPTOR, intUnary),
+                    HostHandles.virtual(meshRendererType, GET_ENTITY_METHOD, GET_ENTITY_DESCRIPTOR, objectUnary),
+                    entityGetTransform,
+                    HostHandles.virtual(cameraType, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, objectUnary),
+                    HostHandles.virtual(matrixType, MATRIX_INVERT_METHOD, MATRIX_INVERT_DESCRIPTOR, objectBinary));
+        } catch (final ReflectiveOperationException optionalMissing) {
+            return null;
+        }
     }
 
     private static float[] resolveNodeData(final Object transform, final Object[] packet, final ThreadState state) {
@@ -407,6 +718,15 @@ public final class MatrixScratchBridge implements AutoCloseable {
         final int sxBits = b[SX_BITS];
         final int syBits = b[SY_BITS];
         final int szBits = b[SZ_BITS];
+
+        // Short-circuit exact identity transforms before PLRU cache lookup; -0.0f translates to +0.0f.
+        if (((pxBits | pyBits | pzBits | exBits | eyBits | ezBits) & ABS_INT_MASK) == 0
+                && sxBits == FLOAT_ONE_BITS
+                && syBits == FLOAT_ONE_BITS
+                && szBits == FLOAT_ONE_BITS) {
+            state.identityHits++;
+            return IDENTITY_MATRIX_DATA;
+        }
 
         final TransformSlot slot = state.cache.findOrBind(transform);
         if (slot.valid && slot.matches(pxBits, pyBits, pzBits, exBits, eyBits, ezBits, sxBits, syBits, szBits)) {
@@ -955,18 +1275,41 @@ public final class MatrixScratchBridge implements AutoCloseable {
         }
     }
 
+    private record RenderAccessors(
+            Class<?> meshRendererType,
+            Class<?> cameraType,
+            MethodHandle getMeshContainer,
+            MethodHandle getMesh,
+            MethodHandle getPositions,
+            MethodHandle getStep,
+            MethodHandle rendererGetEntity,
+            MethodHandle entityGetTransform,
+            MethodHandle cameraGetTransform,
+            MethodHandle matrixInvertInto) {}
+
+    private static final class ScratchMatrix {
+        Object instance;
+        float[] data;
+    }
+
     private static final class ThreadState {
         final Thread owner = Thread.currentThread();
         long calls;
         long cacheHits;
+        long identityHits;
         long cacheMisses;
         long staticHits;
         long failures;
         final int[] bits = new int[VECTOR_BITS_COUNT];
         final Object[] packet = new Object[PACKET_SIZE];
         final Object[] matrixOutHolder = new Object[HOLDER_SIZE];
+        final Object[] staticHolder = new Object[1];
         final float[] scratchA = new float[MATRIX_LENGTH];
         final float[] scratchB = new float[MATRIX_LENGTH];
+        final float[] scratchC = new float[MATRIX_LENGTH];
+        final ScratchMatrix renderScratch = new ScratchMatrix();
+        final ScratchMatrix cameraWorldScratch = new ScratchMatrix();
+        final ScratchMatrix cameraInverseScratch = new ScratchMatrix();
         final LocalCache cache = new LocalCache();
 
         ThreadState() {
