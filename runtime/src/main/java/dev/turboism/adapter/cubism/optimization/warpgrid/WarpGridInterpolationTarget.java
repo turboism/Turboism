@@ -32,6 +32,36 @@ public record WarpGridInterpolationTarget(HostArtifactDigest digest, String vers
     /** Static singleton field name on {@code o}. */
     public static final String SINGLETON_FIELD = "a";
 
+    /** Internal name of {@code CSimpleGrid}. */
+    public static final String SIMPLE_GRID_OWNER = "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid";
+
+    /** Extended normalized inverse-lookup method on {@code CSimpleGrid}. */
+    public static final String SIMPLE_GRID_GET01_EX_METHOD = "get01_ex";
+
+    /** Descriptor of {@code CSimpleGrid.get01_ex(float, float, GVector2, float[])}. */
+    public static final String SIMPLE_GRID_GET01_EX_DESCRIPTOR = "(FFLcom/live2d/graphics3d/type/GVector2;[F)[F";
+
+    /** Internal name of {@code warp.grid.a} border grid inverse evaluator. */
+    public static final String BORDER_GRID_OWNER = "com/live2d/cubism/doc/model/deformer/warp/grid/a";
+
+    /** Internal name of {@code warp.grid.a$b} border cell entry. */
+    public static final String BORDER_GRID_ITEM_OWNER = "com/live2d/cubism/doc/model/deformer/warp/grid/a$b";
+
+    /** Method name of extended border-grid lookup on {@code warp.grid.a}. */
+    public static final String BORDER_GRID_METHOD = "a";
+
+    /** Descriptor of {@code warp.grid.a.a(float, float, GVector2, float[])}. */
+    public static final String BORDER_GRID_DESCRIPTOR = "(FFLcom/live2d/graphics3d/type/GVector2;[F)[F";
+
+    /** Descriptor of {@link WarpGridInterpolationBridge} border-grid solver slot. */
+    public static final String BORDER_GRID_SOLVE_DESCRIPTOR = "(Ljava/lang/Object;FFLjava/lang/Object;[F)[F";
+
+    /** Internal name of {@code GRectF}. */
+    public static final String GRECTF_OWNER = "com/live2d/graphics3d/type/GRectF";
+
+    /** Internal name of {@code GVector2}. */
+    public static final String GVECTOR2_OWNER = "com/live2d/graphics3d/type/GVector2";
+
     /** Internal name of {@code CWarpDeformer}. */
     public static final String WARP_DEFORMER_OWNER = "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformer";
 

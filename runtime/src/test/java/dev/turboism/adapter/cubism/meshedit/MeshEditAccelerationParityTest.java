@@ -155,6 +155,90 @@ final class MeshEditAccelerationParityTest {
                 .isEmpty());
     }
 
+    @Test
+    void singlePointQueriesDeferGridBuildUntilRepeatedWhileBatchBuildsEagerly() throws Throwable {
+        final SyntheticHostLoader host = new SyntheticHostLoader(MeshEditAccelerationParityTest.class.getClassLoader());
+        final Class<?> vecCls = host.defineVector2();
+        final Constructor<?> vecCtor = vecCls.getConstructor(float.class, float.class);
+        final Class<?> pitdCls = host.definePointInTriangle(PITD_INTERNAL, "D");
+        final Class<?> pitCls = host.definePointInTriangle(PIT_INTERNAL, "F");
+        assertNotNull(pitdCls);
+        assertNotNull(pitCls);
+
+        final MeshFixture strictFixture = buildGridMesh(GRID_COLS, GRID_ROWS, STRIDE_XY);
+        final Object queryInside = vecCtor.newInstance(2.25f, 2.75f);
+        final Object queryOutside = vecCtor.newInstance(OUTSIDE_OFFSET + 2.25f, OUTSIDE_OFFSET + 2.75f);
+        final int[] outTri = new int[TRI_STRIDE];
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY));
+        assertEquals(
+                1,
+                PointInTriangleAccelerator.findStrictTriangle(
+                        strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY, queryInside, outTri));
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY));
+        assertEquals(
+                0,
+                PointInTriangleAccelerator.findStrictTriangle(
+                        strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY, queryOutside, outTri));
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY));
+        assertEquals(
+                1,
+                PointInTriangleAccelerator.findStrictTriangle(
+                        strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY, queryInside, outTri));
+        assertTrue(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                strictFixture.srcPos(), strictFixture.indices(), STRIDE_XY));
+
+        final MeshFixture floatFixture = buildGridMesh(GRID_COLS, GRID_ROWS, STRIDE_XY);
+        final Object float1 = PointInTriangleAccelerator.findFloat(
+                queryInside, floatFixture.srcPos(), floatFixture.indices(), STRIDE_XY, false);
+        assertNotNull(float1);
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                floatFixture.srcPos(), floatFixture.indices(), STRIDE_XY));
+        assertSame(
+                PointInTriangleAccelerator.NULL_SENTINEL,
+                PointInTriangleAccelerator.findFloat(
+                        queryOutside, floatFixture.srcPos(), floatFixture.indices(), STRIDE_XY, true));
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                floatFixture.srcPos(), floatFixture.indices(), STRIDE_XY));
+        final Object float3 = PointInTriangleAccelerator.findFloat(
+                queryInside, floatFixture.srcPos(), floatFixture.indices(), STRIDE_XY, false);
+        assertNotNull(float3);
+        assertTrue(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                floatFixture.srcPos(), floatFixture.indices(), STRIDE_XY));
+        assertBarycentricReconstructs(floatFixture.srcPos(), STRIDE_XY, float3, 2.25f, 2.75f, false);
+
+        final MeshFixture doubleFixture = buildGridMesh(GRID_COLS, GRID_ROWS, STRIDE_XY);
+        final Object dbl1 = PointInTriangleAccelerator.findDouble(
+                queryInside, doubleFixture.srcPos(), doubleFixture.indices(), STRIDE_XY, false);
+        assertNotNull(dbl1);
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                doubleFixture.srcPos(), doubleFixture.indices(), STRIDE_XY));
+        assertNotNull(PointInTriangleAccelerator.findDouble(
+                queryInside, doubleFixture.srcPos(), doubleFixture.indices(), STRIDE_XY, false));
+        assertFalse(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                doubleFixture.srcPos(), doubleFixture.indices(), STRIDE_XY));
+        final Object dbl3 = PointInTriangleAccelerator.findDouble(
+                queryInside, doubleFixture.srcPos(), doubleFixture.indices(), STRIDE_XY, false);
+        assertNotNull(dbl3);
+        assertTrue(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                doubleFixture.srcPos(), doubleFixture.indices(), STRIDE_XY));
+        assertBarycentricReconstructs(doubleFixture.srcPos(), STRIDE_XY, dbl3, 2.25f, 2.75f, true);
+
+        final MeshFixture batchFixture = buildGridMesh(GRID_COLS, GRID_ROWS, STRIDE_XY);
+        final float[] batchOut = new float[2];
+        assertNotNull(PointInTriangleAccelerator.tryTransformBatch(
+                batchFixture.srcPos(),
+                batchFixture.dstPos(),
+                batchFixture.indices(),
+                STRIDE_XY,
+                new float[] {2.25f, 2.75f},
+                batchOut));
+        assertTrue(PointInTriangleAccelerator.hasCachedGridForCurrentThread(
+                batchFixture.srcPos(), batchFixture.indices(), STRIDE_XY));
+    }
+
     private static void assertBarycentricReconstructs(
             final float[] pos,
             final int step,

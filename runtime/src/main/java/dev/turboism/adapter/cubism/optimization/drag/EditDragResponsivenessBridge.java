@@ -108,6 +108,7 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
     private static volatile boolean configuredDefault;
 
     private final HostBindings host;
+    private final DeformerSelectorAccelerator selectorAccelerator;
     private final Supplier<EventQueue> eventQueueSupplier;
     private final LongSupplier clockNanos;
     private final BooleanSupplier dispatchThreadCheck;
@@ -138,7 +139,10 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
     private MouseEvent lastPressEvent;
     private MouseEvent lastAppliedDragEvent;
     private Object lastPumpedDragListener;
-    private MouseEvent lastPumpedDragEvent;
+    private boolean hasLastPumpedDrag;
+    private long lastPumpedDragWhen;
+    private int lastPumpedDragX;
+    private int lastPumpedDragY;
     private Object suppressedRepaintWidget;
     private int preRenderPumpDepth;
     private long lastDragActivityNanos;
@@ -165,6 +169,8 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
     private long inspectorDeferred;
     private long inspectorApplyDeferred;
     private long deformerSelectorDeferred;
+    private long deformerSelectorSkipped;
+    private long deformerSelectorRebuilt;
     private long deformerPaletteDeferred;
     private long flushesExecuted;
     private long cursorCalls;
@@ -183,12 +189,13 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                 ReflectiveHostBindings.resolve(Objects.requireNonNull(loader, "loader")),
                 EditDragResponsivenessBridge::systemEventQueue,
                 System::nanoTime,
-                EventQueue::isDispatchThread);
+                EventQueue::isDispatchThread,
+                DeformerSelectorAccelerator.tryCreate(loader));
     }
 
     EditDragResponsivenessBridge(
             final HostBindings host, final Supplier<EventQueue> eventQueueSupplier, final LongSupplier clockNanos) {
-        this(host, eventQueueSupplier, clockNanos, () -> true);
+        this(host, eventQueueSupplier, clockNanos, () -> true, null);
     }
 
     EditDragResponsivenessBridge(
@@ -196,7 +203,17 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
             final Supplier<EventQueue> eventQueueSupplier,
             final LongSupplier clockNanos,
             final BooleanSupplier dispatchThreadCheck) {
+        this(host, eventQueueSupplier, clockNanos, dispatchThreadCheck, null);
+    }
+
+    EditDragResponsivenessBridge(
+            final HostBindings host,
+            final Supplier<EventQueue> eventQueueSupplier,
+            final LongSupplier clockNanos,
+            final BooleanSupplier dispatchThreadCheck,
+            final DeformerSelectorAccelerator selectorAccelerator) {
         this.host = Objects.requireNonNull(host, "host");
+        this.selectorAccelerator = selectorAccelerator;
         this.eventQueueSupplier = Objects.requireNonNull(eventQueueSupplier, "eventQueueSupplier");
         this.clockNanos = Objects.requireNonNull(clockNanos, "clockNanos");
         this.dispatchThreadCheck = Objects.requireNonNull(dispatchThreadCheck, "dispatchThreadCheck");
@@ -396,8 +413,15 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
         lastPressEvent = null;
         lastAppliedDragEvent = null;
         lastPumpedDragListener = null;
-        lastPumpedDragEvent = null;
+        clearLastPumpedDragLocked();
         suppressedRepaintWidget = null;
+    }
+
+    private void clearLastPumpedDragLocked() {
+        hasLastPumpedDrag = false;
+        lastPumpedDragWhen = 0L;
+        lastPumpedDragX = 0;
+        lastPumpedDragY = 0;
     }
 
     boolean onMousePressed(final Object listener, final Object eventObj) {
@@ -413,7 +437,7 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                     lastPressEvent = eventObj instanceof MouseEvent press ? press : null;
                     lastAppliedDragEvent = null;
                     lastPumpedDragListener = null;
-                    lastPumpedDragEvent = null;
+                    clearLastPumpedDragLocked();
                 }
             }
         } catch (final Throwable failure) {
@@ -435,22 +459,26 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                 synchronized (stateLock) {
                     if (preRenderPumpDepth > 0
                             && listener == lastPumpedDragListener
-                            && eventObj == lastPumpedDragEvent) {
+                            && hasLastPumpedDrag
+                            && isCoveredByDragCoordinates(
+                                    incoming, lastPumpedDragWhen, lastPumpedDragX, lastPumpedDragY)) {
                         dragPassed++;
                         return false;
                     }
-                    if (preRenderPumpDepth == 0
-                            && listener == lastPumpedDragListener
-                            && eventObj == lastPumpedDragEvent) {
-                        // EventQueue is now delivering the exact drag already pumped right before render.
+                    if (preRenderPumpDepth == 0 && listener == lastPumpedDragListener && hasLastPumpedDrag) {
+                        if (isCoveredByDragCoordinates(
+                                incoming, lastPumpedDragWhen, lastPumpedDragX, lastPumpedDragY)) {
+                            // Deduplicate identical or older drag deliveries already dispatched before render.
+                            preRenderDragDeduplicated++;
+                            dragCoalesced++;
+                            return true;
+                        }
                         lastPumpedDragListener = null;
-                        lastPumpedDragEvent = null;
-                        preRenderDragDeduplicated++;
-                        dragCoalesced++;
-                        return true;
+                        clearLastPumpedDragLocked();
+                    } else if (preRenderPumpDepth == 0) {
+                        lastPumpedDragListener = null;
+                        clearLastPumpedDragLocked();
                     }
-                    lastPumpedDragListener = null;
-                    lastPumpedDragEvent = null;
                 }
             }
             if (host.isCanvasListener(listener)) {
@@ -513,7 +541,10 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
             final Object listener;
             final MouseEvent priorDrag;
             final MouseEvent priorPress;
-            final MouseEvent priorPumped;
+            final boolean hasPriorPumped;
+            final long priorPumpedWhen;
+            final int priorPumpedX;
+            final int priorPumpedY;
             synchronized (stateLock) {
                 if (!canvasDragging || preRenderPumpDepth > 0 || insideReleaseDepth > 0) {
                     return false;
@@ -521,7 +552,10 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                 listener = activeCanvasListener.get();
                 priorDrag = lastAppliedDragEvent;
                 priorPress = lastPressEvent;
-                priorPumped = lastPumpedDragEvent;
+                hasPriorPumped = hasLastPumpedDrag;
+                priorPumpedWhen = lastPumpedDragWhen;
+                priorPumpedX = lastPumpedDragX;
+                priorPumpedY = lastPumpedDragY;
             }
             if (listener == null || !host.hasOpenDragSession(listener)) {
                 return false;
@@ -536,25 +570,57 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
             if (queue == null || hasPendingBoundaryEvent(queue)) {
                 return false;
             }
-            final AWTEvent peeked = queue.peekEvent(MouseEvent.MOUSE_DRAGGED);
-            if (!(peeked instanceof MouseEvent pendingDrag) || pendingDrag == priorPumped) {
-                return false;
+            // Drain consecutive pumpable head drags directly without reordering past non-drag events.
+            MouseEvent latestHeadDrag = null;
+            int drainedCount = 0;
+            AWTEvent head;
+            while ((head = queue.peekEvent()) instanceof MouseEvent candidate
+                    && isPumpableDrag(latestHeadDrag != null ? latestHeadDrag : priorDrag, priorPress, candidate)) {
+                final AWTEvent pulled = queue.getNextEvent();
+                if (pulled instanceof MouseEvent pulledDrag) {
+                    latestHeadDrag = pulledDrag;
+                    drainedCount++;
+                } else {
+                    break;
+                }
             }
-            if (!isPumpableDrag(priorDrag, priorPress, pendingDrag)) {
-                return false;
+            final MouseEvent pendingDrag;
+            final boolean drainedFromHead;
+            if (latestHeadDrag != null) {
+                pendingDrag = latestHeadDrag;
+                drainedFromHead = true;
+            } else {
+                final AWTEvent peeked = queue.peekEvent(MouseEvent.MOUSE_DRAGGED);
+                if (!(peeked instanceof MouseEvent peekedDrag) || !isPumpableDrag(priorDrag, priorPress, peekedDrag)) {
+                    return false;
+                }
+                pendingDrag = peekedDrag;
+                drainedFromHead = false;
             }
-            if (priorDrag != null
-                    && pendingDrag.getWhen() <= priorDrag.getWhen()
-                    && pendingDrag.getX() == priorDrag.getX()
-                    && pendingDrag.getY() == priorDrag.getY()) {
+            if ((hasPriorPumped && isCoveredByDragCoordinates(pendingDrag, priorPumpedWhen, priorPumpedX, priorPumpedY))
+                    || (priorDrag != null
+                            && isCoveredByDragCoordinates(
+                                    pendingDrag, priorDrag.getWhen(), priorDrag.getX(), priorDrag.getY()))) {
+                if (drainedFromHead) {
+                    synchronized (stateLock) {
+                        preRenderDragDeduplicated += drainedCount;
+                        dragCoalesced += drainedCount;
+                    }
+                }
                 return false;
             }
             synchronized (stateLock) {
                 if (!canvasDragging || preRenderPumpDepth > 0 || insideReleaseDepth > 0) {
                     return false;
                 }
+                if (drainedCount > 1) {
+                    dragCoalesced += drainedCount - 1L;
+                }
                 lastPumpedDragListener = listener;
-                lastPumpedDragEvent = pendingDrag;
+                hasLastPumpedDrag = true;
+                lastPumpedDragWhen = pendingDrag.getWhen();
+                lastPumpedDragX = pendingDrag.getX();
+                lastPumpedDragY = pendingDrag.getY();
                 lastAppliedDragEvent = pendingDrag;
                 lastDragActivityNanos = clockNanos.getAsLong();
                 preRenderPumpDepth++;
@@ -583,13 +649,45 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
         if (closed || !active.get() || !armed || !enabledByPreference() || widget == null) {
             return false;
         }
+        final Object suppressedCanvas;
         synchronized (stateLock) {
-            if (preRenderPumpDepth > 0 && insideReleaseDepth == 0 && widget == suppressedRepaintWidget) {
+            if (preRenderPumpDepth <= 0 || insideReleaseDepth != 0 || suppressedRepaintWidget == null) {
+                return false;
+            }
+            if (widget == suppressedRepaintWidget) {
                 repaintElided++;
                 return true;
             }
+            suppressedCanvas = suppressedRepaintWidget;
+        }
+        try {
+            // CEUpdateManager.repaintCanvas targets canvasCtrl.j() rather than GLJPanelWrapper directly.
+            final Component canvasComp = host.componentOfWidget(suppressedCanvas);
+            final Component widgetComp = host.componentOfWidget(widget);
+            if (canvasComp != null && widgetComp != null && SwingUtilities.isDescendingFrom(canvasComp, widgetComp)) {
+                synchronized (stateLock) {
+                    if (preRenderPumpDepth > 0
+                            && insideReleaseDepth == 0
+                            && suppressedRepaintWidget == suppressedCanvas) {
+                        repaintElided++;
+                        return true;
+                    }
+                }
+            }
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            observerFailures++;
         }
         return false;
+    }
+
+    private static boolean isCoveredByDragCoordinates(
+            final MouseEvent candidate, final long refWhen, final int refX, final int refY) {
+        final long when = candidate.getWhen();
+        if (when < refWhen) {
+            return true;
+        }
+        return when == refWhen && candidate.getX() == refX && candidate.getY() == refY;
     }
 
     private static boolean isPumpableDrag(
@@ -729,16 +827,33 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
         try {
             final boolean dragging = isCanvasDragging();
             synchronized (stateLock) {
-                if (!dragging || !canvasDragging) {
-                    if (pendingDeformerSelector.get() == selectorFactory) {
-                        pendingDeformerSelector = new WeakReference<>(null);
-                    }
-                    return false;
+                if (dragging && canvasDragging) {
+                    pendingDeformerSelector = new WeakReference<>(selectorFactory);
+                    deformerSelectorDeferred++;
+                    return true;
                 }
-                pendingDeformerSelector = new WeakReference<>(selectorFactory);
-                deformerSelectorDeferred++;
+                if (pendingDeformerSelector.get() == selectorFactory) {
+                    pendingDeformerSelector = new WeakReference<>(null);
+                }
+            }
+            if (selectorAccelerator == null) {
+                return false;
+            }
+            final DeformerSelectorAccelerator.UpdateOutcome outcome =
+                    selectorAccelerator.tryUpdateWidget(selectorFactory);
+            if (outcome == DeformerSelectorAccelerator.UpdateOutcome.SKIPPED) {
+                synchronized (stateLock) {
+                    deformerSelectorSkipped++;
+                }
                 return true;
             }
+            if (outcome == DeformerSelectorAccelerator.UpdateOutcome.REBUILT) {
+                synchronized (stateLock) {
+                    deformerSelectorRebuilt++;
+                }
+                return true;
+            }
+            return false;
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             observerFailures++;
@@ -946,6 +1061,8 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
         result.put("inspectorDeferred", inspectorDeferred);
         result.put("inspectorApplyDeferred", inspectorApplyDeferred);
         result.put("deformerSelectorDeferred", deformerSelectorDeferred);
+        result.put("deformerSelectorSkipped", deformerSelectorSkipped);
+        result.put("deformerSelectorRebuilt", deformerSelectorRebuilt);
         result.put("deformerPaletteDeferred", deformerPaletteDeferred);
         result.put("flushesExecuted", flushesExecuted);
         result.put("cursorCalls", cursorCalls);
@@ -978,6 +1095,9 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
         }
         lastCursorComponent = new WeakReference<>(null);
         lastCursorWindow = new WeakReference<>(null);
+        if (selectorAccelerator != null) {
+            selectorAccelerator.close();
+        }
         final Properties properties = installedProperties;
         installedProperties = null;
         if (properties != null) {
@@ -1035,6 +1155,7 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
     private static final class ReflectiveHostBindings implements HostBindings {
 
         private final Class<?> canvasWidgetClass;
+        private final Class<?> widgetClass;
         private final HostHandles.HostField listenerDelegateField;
         private final HostHandles.HostField listenerSessionField;
         private final MethodHandle delegateWidgetHandle;
@@ -1048,6 +1169,7 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
 
         private ReflectiveHostBindings(
                 final Class<?> canvasWidgetClass,
+                final Class<?> widgetClass,
                 final HostHandles.HostField listenerDelegateField,
                 final HostHandles.HostField listenerSessionField,
                 final MethodHandle delegateWidgetHandle,
@@ -1059,6 +1181,7 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
                 final MethodHandle selectorUpdateHandle,
                 final MethodHandle deformerCtrlUpdateHandle) {
             this.canvasWidgetClass = canvasWidgetClass;
+            this.widgetClass = widgetClass;
             this.listenerDelegateField = listenerDelegateField;
             this.listenerSessionField = listenerSessionField;
             this.delegateWidgetHandle = delegateWidgetHandle;
@@ -1133,6 +1256,7 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
 
             return new ReflectiveHostBindings(
                     canvasClass,
+                    widgetClass,
                     listenerDelegateField,
                     listenerSessionField,
                     delegateWidgetHandle,
@@ -1171,7 +1295,13 @@ public final class EditDragResponsivenessBridge implements AutoCloseable {
 
         @Override
         public Component componentOfWidget(final Object widget) throws Throwable {
-            return (JComponent) widgetComponentHandle.invoke(widget);
+            if (widget == null) {
+                return null;
+            }
+            if (widget instanceof Component component) {
+                return component;
+            }
+            return widgetClass.isInstance(widget) ? (JComponent) widgetComponentHandle.invoke(widget) : null;
         }
 
         @Override

@@ -21,11 +21,11 @@ final class VerifiedWarpGridInterpolationInstaller implements VerifiedHookInstal
     /** The frozen admission row for this hook. */
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.ANY);
 
-    /** Single rewritten helper method site expected on retransformation. */
-    static final int EXPECTED_MATCHES = 1;
+    /** Three rewritten helper/grid method sites expected on retransformation. */
+    static final int EXPECTED_MATCHES = 3;
 
-    /** Single rewritten helper class owner restored on close. */
-    static final int EXPECTED_OWNERS = 1;
+    /** Three rewritten host owners restored on close. */
+    static final int EXPECTED_OWNERS = 3;
 
     private static final String FEATURE_NAME = "warp grid interpolation";
     private static final String DEP_SOURCE_MISMATCH = "warp grid dependency loader/source mismatch";
@@ -64,6 +64,11 @@ final class VerifiedWarpGridInterpolationInstaller implements VerifiedHookInstal
     private static List<WeaveTarget> targets(final WarpGridInterpolationTarget target, final WeaveSource source)
             throws Exception {
         final Class<?> owner = source.load(WarpGridInterpolationTarget.OWNER);
+        final Class<?> simpleGridOwner = source.load(WarpGridInterpolationTarget.SIMPLE_GRID_OWNER);
+        final Class<?> borderGridOwner = source.load(WarpGridInterpolationTarget.BORDER_GRID_OWNER);
+        source.load(WarpGridInterpolationTarget.BORDER_GRID_ITEM_OWNER);
+        source.load(WarpGridInterpolationTarget.GRECTF_OWNER);
+        source.load(WarpGridInterpolationTarget.GVECTOR2_OWNER);
         for (final WarpGridInterpolationTarget.Dep dep : target.dependencies()) {
             final Class<?> depOwner = source.load(dep.owner());
             VerifiedHookInstallerSupport.attestClassSource(
@@ -71,9 +76,18 @@ final class VerifiedWarpGridInterpolationInstaller implements VerifiedHookInstal
             HostMemberVerifier.requireMethod(depOwner, dep.name(), dep.descriptor());
         }
         final WarpGridInterpolationTransformer transformer = new WarpGridInterpolationTransformer(
-                source.loader(), source.artifact(), source.referenceBytes(owner), target);
+                source.loader(),
+                source.artifact(),
+                source.referenceBytes(owner),
+                source.referenceBytes(simpleGridOwner),
+                source.referenceBytes(borderGridOwner),
+                target);
         return List.of(
-                WeaveTarget.single(owner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
+                WeaveTarget.single(owner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
+                WeaveTarget.single(
+                        simpleGridOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure),
+                WeaveTarget.single(
+                        borderGridOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
     }
 
     @Override

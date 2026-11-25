@@ -36,6 +36,8 @@ final class GlDeleteQueue {
     private static final int SCRATCH_RETAIN_CAP = 8192;
     private static final int MAX_SUBTREE_DEPTH = 8;
     private static final int MAX_OBJECT_GRAPH_DEPTH = 6;
+    private static final String INT_DESCRIPTOR = "I";
+    private static final MethodType OBJECT_INT_GETTER = MethodType.methodType(int.class, Object.class);
 
     private static final String GL_INTERFACE = "com/jogamp/opengl/GL";
     private static final String GL2ES2_INTERFACE = "com/jogamp/opengl/GL2ES2";
@@ -84,6 +86,8 @@ final class GlDeleteQueue {
     // GTexture / GTexture2D fields & accessors
     private final HostHandles.HostField texNameField;
     private final HostHandles.HostField samplerNameField;
+    private final MethodHandle texNameIntGetter;
+    private final MethodHandle samplerNameIntGetter;
     private final HostHandles.HostField reinitTexField;
     private final HostHandles.HostField reinitSamplerField;
     private final HostHandles.HostField initializedGlField;
@@ -187,6 +191,8 @@ final class GlDeleteQueue {
         final Class<?> gTexClass = HostHandles.load(loader, G_TEXTURE_CLASS);
         texNameField = HostHandles.field(gTexClass, "glTextureName");
         samplerNameField = HostHandles.field(gTexClass, "glSamplerName");
+        texNameIntGetter = HostHandles.getter(gTexClass, "glTextureName", INT_DESCRIPTOR, OBJECT_INT_GETTER);
+        samplerNameIntGetter = HostHandles.getter(gTexClass, "glSamplerName", INT_DESCRIPTOR, OBJECT_INT_GETTER);
         reinitTexField = HostHandles.field(gTexClass, "reinitTextureLater");
         reinitSamplerField = HostHandles.field(gTexClass, "reinitSamplerLater");
         final Class<?> gTex2dClass = HostHandles.load(loader, G_TEXTURE_2D_CLASS);
@@ -381,10 +387,18 @@ final class GlDeleteQueue {
         }
         try {
             final Object ctx = safeGetContext(gl);
-            final int texId = ((Number) texNameField.get(texture)).intValue();
-            final int samplerId = ((Number) samplerNameField.get(texture)).intValue();
+            final int texId = (int) texNameIntGetter.invokeExact(texture);
+            final int samplerId = (int) samplerNameIntGetter.invokeExact(texture);
             final TextureSlot slot = getOrCreateTextureSlot(texture);
-            slot.ctxRef.set(ctx == null ? null : new WeakReference<>(ctx));
+            final WeakReference<Object> existingRef = slot.ctxRef.get();
+            if (ctx == null) {
+                if (existingRef != null) {
+                    slot.ctxRef.set(null);
+                }
+            } else if (existingRef == null || existingRef.get() != ctx) {
+                // Reuse the existing WeakReference when the context identity stays unchanged.
+                slot.ctxRef.set(new WeakReference<>(ctx));
+            }
             slot.texId.set(Math.max(0, texId));
             slot.samplerId.set(Math.max(0, samplerId));
         } catch (final Throwable failure) {

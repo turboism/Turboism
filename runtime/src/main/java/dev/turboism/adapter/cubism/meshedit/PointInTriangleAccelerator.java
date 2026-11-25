@@ -19,6 +19,7 @@ public final class PointInTriangleAccelerator {
     private static final int MIN_STEP = 2;
     private static final int SENTINEL_INDEX = -1;
     private static final int MIN_TRIS_FOR_GRID = 24;
+    private static final int GRID_PROMOTION_THRESHOLD = 3;
     private static final int MAX_CELLS_PER_TRIANGLE = 32;
     private static final int THREAD_CACHE_SLOTS = 4;
     private static final int FALLBACK_STATUS = -1;
@@ -62,6 +63,8 @@ public final class PointInTriangleAccelerator {
 
     private static final ThreadLocal<GridCacheEntry[]> GRID_CACHE =
             ThreadLocal.withInitial(() -> new GridCacheEntry[THREAD_CACHE_SLOTS]);
+    private static final ThreadLocal<PendingGridSlot[]> PENDING_CACHE =
+            ThreadLocal.withInitial(() -> new PendingGridSlot[THREAD_CACHE_SLOTS]);
 
     private PointInTriangleAccelerator() {}
 
@@ -166,10 +169,7 @@ public final class PointInTriangleAccelerator {
             final float px = (float) vec.getX.invoke(queryPoint);
             final float py = (float) vec.getY.invoke(queryPoint);
             final int triCount = indices.length / TRI_INDICES_STRIDE;
-            final TriangleGrid grid = triCount >= MIN_TRIS_FOR_GRID ? resolveGrid(positions, indices, step) : null;
-            final int hitTri = grid != null
-                    ? queryFirstTriangle(px, py, positions, indices, step, grid, true)
-                    : scanFirstTriangle(px, py, positions, indices, step, triCount, true);
+            final int hitTri = findSinglePointTriangle(px, py, positions, indices, step, triCount, true);
             if (hitTri == Integer.MIN_VALUE) {
                 return FALLBACK_STATUS;
             }
@@ -308,13 +308,7 @@ public final class PointInTriangleAccelerator {
             final MethodHandle ctor)
             throws Throwable {
         final int triCount = indices.length / TRI_INDICES_STRIDE;
-        final TriangleGrid grid = triCount >= MIN_TRIS_FOR_GRID ? resolveGrid(positions, indices, step) : null;
-        if (triCount >= MIN_TRIS_FOR_GRID && grid == null) {
-            return null;
-        }
-        final int hit = grid != null
-                ? queryFirstTriangle(px, py, positions, indices, step, grid, false)
-                : scanFirstTriangle(px, py, positions, indices, step, triCount, false);
+        final int hit = findSinglePointTriangle(px, py, positions, indices, step, triCount, false);
         if (hit == Integer.MIN_VALUE) {
             return null;
         }
@@ -365,13 +359,7 @@ public final class PointInTriangleAccelerator {
             final MethodHandle ctor)
             throws Throwable {
         final int triCount = indices.length / TRI_INDICES_STRIDE;
-        final TriangleGrid grid = triCount >= MIN_TRIS_FOR_GRID ? resolveGrid(positions, indices, step) : null;
-        if (triCount >= MIN_TRIS_FOR_GRID && grid == null) {
-            return null;
-        }
-        final int hit = grid != null
-                ? queryFirstTriangle(px, py, positions, indices, step, grid, false)
-                : scanFirstTriangle(px, py, positions, indices, step, triCount, false);
+        final int hit = findSinglePointTriangle(px, py, positions, indices, step, triCount, false);
         if (hit == Integer.MIN_VALUE) {
             return null;
         }
@@ -530,25 +518,26 @@ public final class PointInTriangleAccelerator {
             final int p0 = i0 * step;
             final int p1 = i1 * step;
             final int p2 = i2 * step;
+            final float ax = positions[p0];
+            final float ay = positions[p0 + 1];
+            final float bx = positions[p1];
+            final float by = positions[p1 + 1];
+            final float cx = positions[p2];
+            final float cy = positions[p2 + 1];
+            // Skip triangles whose axis-aligned bounds exclude the query point before cross products.
+            final float minX = Math.min(ax, Math.min(bx, cx));
+            final float maxX = Math.max(ax, Math.max(bx, cx));
+            if (!(px >= minX && px <= maxX)) {
+                continue;
+            }
+            final float minY = Math.min(ay, Math.min(by, cy));
+            final float maxY = Math.max(ay, Math.max(by, cy));
+            if (!(py >= minY && py <= maxY)) {
+                continue;
+            }
             final boolean inside = strict
-                    ? isInTriangleStrict(
-                            px,
-                            py,
-                            positions[p0],
-                            positions[p0 + 1],
-                            positions[p1],
-                            positions[p1 + 1],
-                            positions[p2],
-                            positions[p2 + 1])
-                    : isInTriangleInclusive(
-                            px,
-                            py,
-                            positions[p0],
-                            positions[p0 + 1],
-                            positions[p1],
-                            positions[p1 + 1],
-                            positions[p2],
-                            positions[p2 + 1]);
+                    ? isInTriangleStrict(px, py, ax, ay, bx, by, cx, cy)
+                    : isInTriangleInclusive(px, py, ax, ay, bx, by, cx, cy);
             if (inside) {
                 return t;
             }
@@ -719,8 +708,97 @@ public final class PointInTriangleAccelerator {
         return true;
     }
 
+    private static int findSinglePointTriangle(
+            final float px,
+            final float py,
+            final float[] positions,
+            final int[] indices,
+            final int step,
+            final int triCount,
+            final boolean strict) {
+        final TriangleGrid grid =
+                triCount >= MIN_TRIS_FOR_GRID ? resolveSinglePointGrid(positions, indices, step) : null;
+        return grid != null
+                ? queryFirstTriangle(px, py, positions, indices, step, grid, strict)
+                : scanFirstTriangle(px, py, positions, indices, step, triCount, strict);
+    }
+
+    static boolean hasCachedGridForCurrentThread(final float[] positions, final int[] indices, final int step) {
+        final long digest = MeshArrayFingerprint.fingerprint(positions, indices, step);
+        return findCachedGrid(positions, indices, step, digest) != null;
+    }
+
+    private static TriangleGrid resolveSinglePointGrid(final float[] positions, final int[] indices, final int step) {
+        final long digest = MeshArrayFingerprint.fingerprint(positions, indices, step);
+        final TriangleGrid cached = findCachedGrid(positions, indices, step, digest);
+        if (cached != null) {
+            return cached;
+        }
+        // Single-shot point queries must not pay spatial-grid build cost until repeated hits occur.
+        final PendingGridSlot[] pendingRing = PENDING_CACHE.get();
+        for (int i = 0; i < pendingRing.length; i++) {
+            final PendingGridSlot slot = pendingRing[i];
+            if (slot != null
+                    && slot.posRef != null
+                    && slot.idxRef != null
+                    && slot.posRef.get() == positions
+                    && slot.idxRef.get() == indices) {
+                if (slot.step != step || slot.digest != digest) {
+                    slot.step = step;
+                    slot.digest = digest;
+                    slot.queries = 1;
+                    movePendingToFront(pendingRing, i, slot);
+                    return null;
+                }
+                final int queries = slot.queries + 1;
+                if (queries < GRID_PROMOTION_THRESHOLD) {
+                    slot.queries = queries;
+                    movePendingToFront(pendingRing, i, slot);
+                    return null;
+                }
+                removePendingSlot(pendingRing, i);
+                return buildAndCacheGrid(positions, indices, step, digest);
+            }
+        }
+        PendingGridSlot recycled = pendingRing[pendingRing.length - 1];
+        System.arraycopy(pendingRing, 0, pendingRing, 1, pendingRing.length - 1);
+        if (recycled == null) {
+            recycled = new PendingGridSlot();
+        }
+        recycled.reset(positions, indices, step, digest);
+        pendingRing[0] = recycled;
+        return null;
+    }
+
+    private static void movePendingToFront(final PendingGridSlot[] ring, final int index, final PendingGridSlot slot) {
+        if (index > 0) {
+            System.arraycopy(ring, 0, ring, 1, index);
+            ring[0] = slot;
+        }
+    }
+
+    private static void removePendingSlot(final PendingGridSlot[] ring, final int index) {
+        final PendingGridSlot evicted = ring[index];
+        if (index < ring.length - 1) {
+            System.arraycopy(ring, index + 1, ring, index, ring.length - 1 - index);
+        }
+        if (evicted != null) {
+            evicted.clear();
+        }
+        ring[ring.length - 1] = evicted;
+    }
+
     private static TriangleGrid resolveGrid(final float[] positions, final int[] indices, final int step) {
         final long digest = MeshArrayFingerprint.fingerprint(positions, indices, step);
+        final TriangleGrid cached = findCachedGrid(positions, indices, step, digest);
+        if (cached != null) {
+            return cached;
+        }
+        return buildAndCacheGrid(positions, indices, step, digest);
+    }
+
+    private static TriangleGrid findCachedGrid(
+            final float[] positions, final int[] indices, final int step, final long digest) {
         final GridCacheEntry[] ring = GRID_CACHE.get();
         for (int i = 0; i < ring.length; i++) {
             final GridCacheEntry entry = ring[i];
@@ -736,10 +814,16 @@ public final class PointInTriangleAccelerator {
                 return entry.grid;
             }
         }
+        return null;
+    }
+
+    private static TriangleGrid buildAndCacheGrid(
+            final float[] positions, final int[] indices, final int step, final long digest) {
         final TriangleGrid built = buildGrid(positions, indices, step);
         if (built == null) {
             return null;
         }
+        final GridCacheEntry[] ring = GRID_CACHE.get();
         System.arraycopy(ring, 0, ring, 1, ring.length - 1);
         ring[0] = new GridCacheEntry(positions, indices, step, digest, built);
         return built;
@@ -999,6 +1083,28 @@ public final class PointInTriangleAccelerator {
             } catch (final ReflectiveOperationException failure) {
                 throw new IllegalStateException("Failed to bind vector coordinate accessors for " + type, failure);
             }
+        }
+    }
+
+    private static final class PendingGridSlot {
+        private WeakReference<float[]> posRef;
+        private WeakReference<int[]> idxRef;
+        private int step;
+        private long digest;
+        private int queries;
+
+        private void reset(final float[] positions, final int[] indices, final int step, final long digest) {
+            this.posRef = new WeakReference<>(positions);
+            this.idxRef = new WeakReference<>(indices);
+            this.step = step;
+            this.digest = digest;
+            this.queries = 1;
+        }
+
+        private void clear() {
+            this.posRef = null;
+            this.idxRef = null;
+            this.queries = 0;
         }
     }
 

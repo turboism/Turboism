@@ -87,7 +87,7 @@ class WeaveSpecTest {
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_MATCHES,
                 VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
         assertEquals(
-                1,
+                3,
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_MATCHES,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
@@ -175,7 +175,7 @@ class WeaveSpecTest {
                 VerifiedWarpNormalPointElisionInstaller.EXPECTED_OWNERS,
                 VerifiedWarpNormalPointElisionInstaller.HOOK_ID);
         assertEquals(
-                1,
+                3,
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_OWNERS,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
