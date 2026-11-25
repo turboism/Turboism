@@ -184,6 +184,19 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                                                 "eraserDeleteActionEntered",
                                                 "()V",
                                                 false);
+                                    } else if (kind == Kind.AXIS_INPUT) {
+                                        visitVarInsn(Opcodes.ALOAD, 0);
+                                        visitVarInsn(Opcodes.ALOAD, 1);
+                                        visitMethodInsn(
+                                                Opcodes.INVOKESTATIC,
+                                                BRIDGE,
+                                                "axisInput",
+                                                "(Ljava/lang/Object;Ljava/lang/Object;)Z",
+                                                false);
+                                        final org.objectweb.asm.Label continueLabel = new org.objectweb.asm.Label();
+                                        visitJumpInsn(Opcodes.IFEQ, continueLabel);
+                                        visitInsn(Opcodes.RETURN);
+                                        visitLabel(continueLabel);
                                     } else if (kind == Kind.DRAW) {
                                         visitVarInsn(Opcodes.ALOAD, 0);
                                         visitVarInsn(Opcodes.FLOAD, 1);
@@ -524,6 +537,9 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
     }
 
     private Kind kind(final String owner, final String name, final String descriptor) {
+        if (MeshMirrorHostProfile.INPUT_OWNER.equals(owner)
+                && MeshMirrorHostProfile.INPUT_METHOD.equals(name)
+                && MeshMirrorHostProfile.INPUT_DESCRIPTOR.equals(descriptor)) return Kind.AXIS_INPUT;
         if (owner.equals(profile.meshEditorOwner())) {
             if (name.equals(profile.mirrorPointMethod()) && descriptor.equals(profile.mirrorPointDescriptor()))
                 return Kind.POINT;
@@ -581,7 +597,8 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
     }
 
     private boolean isTargetOwner(final String owner) {
-        if (profile.meshEditorOwner().equals(owner)
+        if (MeshMirrorHostProfile.INPUT_OWNER.equals(owner)
+                || profile.meshEditorOwner().equals(owner)
                 || profile.mirrorWidgetOwner().equals(owner)
                 || (profile.mirrorAxisDrawOwner() != null
                         && profile.mirrorAxisDrawOwner().equals(owner))) return true;
@@ -630,6 +647,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         HIT,
         TOOL_ELIGIBILITY,
         WIDGET,
+        AXIS_INPUT,
         DRAW,
         LEGACY_DRAW,
         SELECTED_POINT_MOVE,

@@ -1,14 +1,18 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.cubism.mesh.MeshEditContributionSurface.MirrorAxisAngleControl;
+import java.awt.event.MouseEvent;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.JPanel;
 import javax.tools.ToolProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +68,106 @@ final class NativeMeshMirrorAxisDrawingTest {
         }
     }
 
+    @Test
+    void canvasHandlesMoveTheNativePositionAndRotateAroundTheMovedCenter() throws Exception {
+        try (URLClassLoader loader = host()) {
+            final Object draw =
+                    loader.loadClass("fixture.Draw").getConstructor().newInstance();
+            final Object view = draw.getClass().getMethod("a").invoke(draw);
+            final Object drawer = draw.getClass().getMethod("drawer").invoke(draw);
+            final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
+            final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+            ui.contributeMirrorAxisAngleControl(
+                    new MirrorAxisAngleControl("angle", "Angle", "", -180, 180, 0.1f, axis::setCurrentAngleDegrees));
+            final GesturePanel panel = new GesturePanel();
+            final GestureMirror mirror = new GestureMirror();
+            NativeMeshMirrorBridge.install(axis, ui);
+            NativeMeshMirrorBridge.attachControl(new Object(), panel);
+            NativeMeshMirrorBridge.mirrorForTesting(mirror);
+
+            assertTrue(NativeMeshMirrorBridge.drawAxis(draw, 200, true, 1, "axis"));
+            assertEquals(9, drawer.getClass().getField("calls").getInt(drawer));
+            assertFalse(mouse(view, MouseEvent.MOUSE_PRESSED, 300, 410));
+            assertTrue(mouse(view, MouseEvent.MOUSE_PRESSED, 200, 400));
+            assertTrue(mouse(view, MouseEvent.MOUSE_DRAGGED, 220, 410));
+            assertTrue(mouse(view, MouseEvent.MOUSE_RELEASED, 220, 410));
+            assertEquals(220, mirror.c(), 0.001f);
+            assertEquals(220, panel.getAxisSlidable().getValue(), 0.001f);
+
+            assertTrue(NativeMeshMirrorBridge.drawAxis(draw, mirror.c(), true, 1, "axis"));
+            assertTrue(mouse(view, MouseEvent.MOUSE_PRESSED, 220, 474));
+            assertTrue(mouse(view, MouseEvent.MOUSE_DRAGGED, 284, 410));
+            assertTrue(mouse(view, MouseEvent.MOUSE_RELEASED, 284, 410));
+            assertEquals(-90, axis.currentAngleDegrees(), 0.001f);
+            assertEquals(new MeshMirrorGeometry.Point(220, 410), axis.handleCenter(axis.guideLine()));
+            assertEquals(
+                    410,
+                    MeshMirrorGeometry.project(axis.resolveLine(), 300, 500).y(),
+                    0.001f);
+
+            mirror.enabled = false;
+            assertFalse(mouse(view, MouseEvent.MOUSE_PRESSED, 220, 410));
+        }
+    }
+
+    private static boolean mouse(final Object view, final int id, final int x, final int y) throws Exception {
+        final MouseEvent raw = new MouseEvent(
+                new JPanel(),
+                id,
+                0,
+                0,
+                x,
+                y,
+                1,
+                false,
+                id == MouseEvent.MOUSE_DRAGGED ? MouseEvent.NOBUTTON : MouseEvent.BUTTON1);
+        final Object event = view.getClass()
+                .getClassLoader()
+                .loadClass("fixture.Draw$Input")
+                .getConstructor(MouseEvent.class)
+                .newInstance(raw);
+        return NativeMeshMirrorBridge.axisInput(view, event);
+    }
+
+    public static final class GesturePanel {
+        public final NativeMeshMirrorBridgeTest.ToolMode toolMode =
+                new NativeMeshMirrorBridgeTest.Panel(800, 800).toolMode;
+        private final Position position = new Position();
+
+        public Position getAxisSlidable() {
+            return position;
+        }
+    }
+
+    public static final class Position {
+        private float value = 200;
+
+        public void setValue(final float next) {
+            value = next;
+        }
+
+        public float getValue() {
+            return value;
+        }
+    }
+
+    public static final class GestureMirror {
+        private float position = 200;
+        private boolean enabled = true;
+
+        public float c() {
+            return position;
+        }
+
+        public void a(final float next) {
+            position = next;
+        }
+
+        public boolean a(final Object editMode) {
+            return enabled;
+        }
+    }
+
     private static void assertCoverage(
             final MeshMirrorGeometry.Line line, final Object drawer, final float zoom, final float pan)
             throws Exception {
@@ -102,6 +206,7 @@ final class NativeMeshMirrorAxisDrawingTest {
                 package fixture;
                 import com.live2d.type.CPoint;
                 import com.live2d.graphics3d.type.GVector2;
+                import java.awt.event.MouseEvent;
                 public class Draw {
                     final View view=new View(); final Drawer drawer=new Drawer();
                     public View a(){return view;} public Pack b(){return new Pack();}
@@ -112,7 +217,16 @@ final class NativeMeshMirrorAxisDrawingTest {
                         public Scene getSceneGraph(){return new Scene();}
                         public Area getViewArea(){return new Area();}
                         public View getCameraManager(){return this;}
+                        public View getCurrentEditMode(){return this;}
+                        public boolean isSafeEditOnPlaneXY(){return true;}
+                        public void repaintCanvas(){}
                         public GVector2 componentToDocument(CPoint p){return new GVector2(p.getX()/zoom+pan,p.getY()/zoom+pan);}
+                        public GVector2 documentToComponent(GVector2 p){
+                            return new GVector2((p.getX()-pan)*zoom,(p.getY()-pan)*zoom);
+                        }
+                    }
+                    public record Input(MouseEvent f) {
+                        public CPoint K(){return new CPoint(f.getX(), f.getY());}
                     }
                     public class Render {public Drawer b(){return drawer;}}
                     public static class Scene {public Object getObjectsOnCanvas(){return this;}}
@@ -122,9 +236,11 @@ final class NativeMeshMirrorAxisDrawingTest {
                     public static class Pack {public Panel getMainViewPanel(){return new Panel();}}
                     public static class Panel {public Panel getRect(){return this;} public int getH(){return 0;}}
                     public static class Drawer {
-                        public GVector2 start,end; public Object color; public int flags;
+                        public GVector2 start,end; public Object color; public int flags, calls;
                         public void a(Object ignored){}
-                        public void a(GVector2 s,GVector2 e,Object c,float width,float other){start=s;end=e;color=c;}
+                        public void a(GVector2 s,GVector2 e,Object c,float width,float other){
+                            start=s;end=e;color=c;calls++;
+                        }
                         public static void a(Drawer d,GVector2 s,GVector2 e,Object c,float f,float second,int flags,Object defaults){
                             d.a(s,e,c,f,second); d.flags=flags;
                         }

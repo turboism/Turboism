@@ -2,6 +2,7 @@
   "default": [
     "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
     "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+    "com/live2d/cubism/view/context/CEViewContext",
     "com/live2d/cubism/view/context/J",
     "com/live2d/cubism/view/context/action/action_meshEditor/d",
     "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -16,6 +17,7 @@
     "5.1.00": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -29,6 +31,7 @@
     "5.1.01": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -42,6 +45,7 @@
     "5.1.02": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -55,6 +59,7 @@
     "5.1.03": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -68,6 +73,7 @@
     "5.2.00": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -80,6 +86,7 @@
     "5.2.01": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -92,6 +99,7 @@
     "5.2.02": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -104,6 +112,7 @@
     "5.2.03": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/action/action_meshEditor/d",
       "com/live2d/cubism/view/context/action/action_meshEditor/d$g",
@@ -116,31 +125,37 @@
     "5.3.00": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K"
     ],
     "5.3.01": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K"
     ],
     "5.3.02": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K"
     ],
     "5.3.03": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K"
     ],
     "5.3.04": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K"
     ],
     "5.3.05": [
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/g",
       "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "com/live2d/cubism/view/context/CEViewContext",
       "com/live2d/cubism/view/context/K"
     ]
   }
