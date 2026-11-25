@@ -171,12 +171,20 @@ class InspectorPropertyBypassTransformerTest {
 
             System.getProperties()
                     .put(InspectorPropertyBypassBridge.BYPASS_CALLBACK_PROPERTY, (Predicate<Object>) ignored -> false);
-            method.invoke(
-                    setter,
-                    loader.loadClass(ALPHA.replace('/', '.'))
-                            .getDeclaredConstructor()
-                            .newInstance());
-            assertEquals(1, sourceType.getField("calls").getInt(null));
+            final Loader nextLoader = new Loader(artifact);
+            nextLoader.define(SOURCE, source());
+            nextLoader.define(ALPHA, marker(ALPHA));
+            nextLoader.define(COLOR, marker(COLOR));
+            final Class<?> nextType = nextLoader.define(seam.owner(), output);
+            final Class<?> nextSourceType = nextLoader.loadClass(SOURCE.replace('/', '.'));
+            nextType.getMethod(seam.method(), nextLoader.loadClass(ALPHA.replace('/', '.')))
+                    .invoke(
+                            nextType.getDeclaredConstructor().newInstance(),
+                            nextLoader
+                                    .loadClass(ALPHA.replace('/', '.'))
+                                    .getDeclaredConstructor()
+                                    .newInstance());
+            assertEquals(1, nextSourceType.getField("calls").getInt(null));
         } finally {
             clearSlots();
         }

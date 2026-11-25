@@ -212,4 +212,74 @@ class HostCodeSourceTest {
             };
         }
     }
+
+    @Test
+    void hostClassWriterEmitsConstantDynamicOnJava17AndPropertiesFallbackOnJava8() throws Exception {
+        final String key = "turboism.test.condy-emission";
+        final String owner = "dev/turboism/test/CondyEmissionSample";
+        try {
+            System.getProperties().put(key, "value-17");
+            final byte[] v17Bytes = emitSlotReaderClass(owner, Opcodes.V17, key);
+            assertTrue(containsConstantDynamic(v17Bytes), "Java 17 writer must emit ConstantDynamic");
+            final Class<?> v17Class = defineInTempLoader(owner, v17Bytes);
+            assertEquals("value-17", v17Class.getMethod("read").invoke(null));
+
+            final byte[] v8Bytes = emitSlotReaderClass(owner, Opcodes.V1_8, key);
+            assertFalse(containsConstantDynamic(v8Bytes), "Java 8 writer must use Properties.get fallback");
+            final Class<?> v8Class = defineInTempLoader(owner, v8Bytes);
+            assertEquals("value-17", v8Class.getMethod("read").invoke(null));
+            System.getProperties().put(key, "value-8-updated");
+            assertEquals("value-8-updated", v8Class.getMethod("read").invoke(null));
+        } finally {
+            System.getProperties().remove(key);
+        }
+    }
+
+    private static byte[] emitSlotReaderClass(final String owner, final int version, final String key) {
+        final ClassWriter writer = HostClassWriters.newFrameWriter(HostCodeSourceTest.class.getClassLoader());
+        writer.visit(version, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
+        final MethodVisitor mv =
+                writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "read", "()Ljava/lang/Object;", null, null);
+        mv.visitCode();
+        SlotBridgeEmitter.emitGetSlot(mv, key);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static boolean containsConstantDynamic(final byte[] bytes) {
+        final boolean[] found = {false};
+        new ClassReader(bytes)
+                .accept(
+                        new org.objectweb.asm.ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        if (value instanceof org.objectweb.asm.ConstantDynamic) {
+                                            found[0] = true;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        return found[0];
+    }
+
+    private static Class<?> defineInTempLoader(final String owner, final byte[] bytes) {
+        return new ClassLoader(HostCodeSourceTest.class.getClassLoader()) {
+            Class<?> define() {
+                return defineClass(owner.replace('/', '.'), bytes, 0, bytes.length);
+            }
+        }.define();
+    }
 }

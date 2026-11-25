@@ -124,9 +124,9 @@ public class CanvasCompositeElisionTransformerTest {
         // The JDK dispatcher: bootstrap attestation (null loader, null domain).
         byte[] paintOut = transformer.transform(null, null, PAINT, null, null, paintManager(false));
         assertNotNull(paintOut, transformer.failure());
-        Class<?> pm = new Loader(flatlaf).define(PAINT, paintOut);
-        Object dispatcher = pm.getDeclaredConstructor().newInstance();
-        Method paint = pm.getMethod(
+        Class<?> pmAbsent = new Loader(flatlaf).define(PAINT, paintOut);
+        Object dispatcherAbsent = pmAbsent.getDeclaredConstructor().newInstance();
+        Method paintAbsent = pmAbsent.getMethod(
                 "paint",
                 javax.swing.JComponent.class,
                 javax.swing.JComponent.class,
@@ -135,27 +135,59 @@ public class CanvasCompositeElisionTransformerTest {
                 int.class,
                 int.class,
                 int.class);
-        assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1), "no slot → buffered path unchanged");
+        assertEquals(
+                true,
+                paintAbsent.invoke(dispatcherAbsent, null, null, null, 0, 0, 1, 1),
+                "no slot → buffered path unchanged");
+
         System.getProperties().put(CanvasCompositeElisionBridge.PAINT_PROPERTY, (Predicate<Object>) c -> true);
+        Class<?> pmTrue = new Loader(flatlaf).define(PAINT, paintOut);
+        Object dispatcherTrue = pmTrue.getDeclaredConstructor().newInstance();
+        Method paintTrue = pmTrue.getMethod(
+                "paint",
+                javax.swing.JComponent.class,
+                javax.swing.JComponent.class,
+                java.awt.Graphics.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class);
         assertEquals(
                 false,
-                paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1),
+                paintTrue.invoke(dispatcherTrue, null, null, null, 0, 0, 1, 1),
                 "armed consult selects the direct-paint fallback");
+
         System.getProperties().put(CanvasCompositeElisionBridge.PAINT_PROPERTY, (Predicate<Object>) c -> false);
-        assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1));
+        Class<?> pmFalse = new Loader(flatlaf).define(PAINT, paintOut);
+        Object dispatcherFalse = pmFalse.getDeclaredConstructor().newInstance();
+        Method paintFalse = pmFalse.getMethod(
+                "paint",
+                javax.swing.JComponent.class,
+                javax.swing.JComponent.class,
+                java.awt.Graphics.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class);
+        assertEquals(true, paintFalse.invoke(dispatcherFalse, null, null, null, 0, 0, 1, 1));
 
         // The FlatLaf fill: host loader + exact code source.
         byte[] fillOut = transformer.transform(null, loader, FILL, null, loader.domain, flatPanel(false, false));
         assertNotNull(fillOut, transformer.failure());
-        Class<?> fp = loader.define(FILL, fillOut);
-        Object panel = fp.getDeclaredConstructor().newInstance();
-        Method update = fp.getMethod("update", java.awt.Graphics.class, javax.swing.JComponent.class);
-        update.invoke(panel, null, null);
-        assertEquals(1, fp.getField("fills").getInt(panel));
+        Class<?> fpAbsent = loader.define(FILL, fillOut);
+        Object panelAbsent = fpAbsent.getDeclaredConstructor().newInstance();
+        fpAbsent.getMethod("update", java.awt.Graphics.class, javax.swing.JComponent.class)
+                .invoke(panelAbsent, null, null);
+        assertEquals(1, fpAbsent.getField("fills").getInt(panelAbsent));
+
         System.getProperties()
                 .put(CanvasCompositeElisionBridge.FILL_PROPERTY, (BiPredicate<Object, Object>) (g, c) -> true);
-        update.invoke(panel, null, null);
-        assertEquals(1, fp.getField("fills").getInt(panel), "armed fill consult must skip the background fill");
+        Class<?> fpArmed = new Loader(flatlaf).define(FILL, fillOut);
+        Object panelArmed = fpArmed.getDeclaredConstructor().newInstance();
+        fpArmed.getMethod("update", java.awt.Graphics.class, javax.swing.JComponent.class)
+                .invoke(panelArmed, null, null);
+        assertEquals(
+                0, fpArmed.getField("fills").getInt(panelArmed), "armed fill consult must skip the background fill");
 
         assertEquals(2, transformer.matches());
         assertEquals(2, transformer.sites());

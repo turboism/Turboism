@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
@@ -62,6 +63,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
      * frame-end deferred check armed (host-equivalent error reporting), or null.
      */
     public static final String DEFER_REPORT_PROPERTY = "turboism.deferred-error.report";
+    /** Published {@link AtomicBoolean} guarding the inline deferred {@code glGetError()} fast path. */
+    public static final String DEFER_ACTIVE_PROPERTY = "turboism.deferred-error.active";
     /** Loader-neutral supplier of scalar diagnostics. */
     public static final String STATS_PROPERTY = "turboism.uniform-location.stats";
 
@@ -130,6 +133,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     private final FrameUniformLocationCache cache = new FrameUniformLocationCache(4096);
     private final MethodHandle frameToGl, glToContext, currentContext, contextShared, contextCreated;
     private final DeferredAccessors deferredAccessors;
+    private final AtomicBoolean deferredActive = new AtomicBoolean();
     private final Map<String, Object> callbacks = new LinkedHashMap<>();
     private final Map<Long, Thread> mutations = new LinkedHashMap<>();
     private long nextMutation;
@@ -263,6 +267,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                     DEFER_REPORT_PROPERTY,
                     lookup.findVirtual(getClass(), "consumeReport", MethodType.methodType(Object.class))
                             .bindTo(this));
+            callbacks.put(DEFER_ACTIVE_PROPERTY, deferredActive);
             callbacks.put(STATS_PROPERTY, (Supplier<Map<String, Long>>) this::statistics);
         } catch (ReflectiveOperationException impossible) {
             throw new IllegalStateException("uniform callback signatures unavailable", impossible);
@@ -299,6 +304,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 MUTATION_END_PROPERTY,
                 DEFER_QUERY_PROPERTY,
                 DEFER_REPORT_PROPERTY,
+                DEFER_ACTIVE_PROPERTY,
                 STATS_PROPERTY);
     }
 
@@ -361,6 +367,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
                 if (properties.containsKey(key)) {
                     throw new IllegalStateException("uniform callback slot occupied: " + key);
                 }
+            deferredActive.set(false);
             properties.putAll(callbacks);
             installed = true;
         }
@@ -368,6 +375,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Opens an explicitly scoped render invocation; zero means no nested ownership. */
     public synchronized long begin(Object frame) {
         SkippedFrameUploadElisionBridge.invalidateUploads();
+        deferredActive.set(false);
         if (!installed || closed || retired) return 0L;
         // A report armed by an aborted frame must not be consumed by a nested
         // or later render3d return; any new scope entry disarms it.
@@ -413,6 +421,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Releases only the matching render token and its retained host references. */
     public synchronized void end(long scope) {
         if (frameOwner != Thread.currentThread() || scope == 0L || scope != token) return;
+        deferredActive.set(false);
         // Deferred error checking: the frame's checkpoints skipped their native
         // queries, so this frame boundary performs the one real glGetError the
         // host would have consumed at its first deferred checkpoint. A clean
@@ -535,6 +544,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     /** Observes an existing error result from the current frame's exact GL context. */
     public synchronized void error(Object gl, int error) {
         if (error != 0) {
+            deferredActive.set(false);
             frameContextValid = false;
         }
         if (error != 0
@@ -614,6 +624,8 @@ public final class UniformLocationHookBridge implements AutoCloseable {
             deferredContext = context;
             deferredThrowSite = throwing;
         }
+        // Enable inline fast-path deferral after the first checkpoint opens this frame.
+        deferredActive.set(true);
         return 0;
     }
     /**
@@ -648,6 +660,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Conservatively retires the current frame on any covered program mutation. */
     public synchronized void invalidate() {
+        deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
         dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
         cache.invalidate();
@@ -659,6 +672,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     }
     /** Permanently disables reuse after a failed lifecycle transform or callback. */
     public synchronized void retire() {
+        deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
         dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
         cache.invalidate();
@@ -699,6 +713,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
         closed = true;
         installed = false;

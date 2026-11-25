@@ -53,22 +53,44 @@ class ImageArchiveReuseTransformerTest {
                 }
             }) {
                 System.getProperties().put(KEY, bad);
-                resource = resourceType.getConstructor().newInstance();
-                image = decoded.invoke(resource);
-                archive.invoke(resource);
+                var badLoader = new FixtureLoader();
+                badLoader.define(IMAGE, imageBytes());
+                var badTransformer = new ImageArchiveReuseTransformer(badLoader, null);
+                byte[] badTransformed =
+                        badTransformer.transform(null, badLoader, RESOURCE, null, null, resourceBytes());
+                assertNotNull(badTransformed);
+                var badResourceType = badLoader.define(RESOURCE, badTransformed);
+                var badDecoded = badResourceType.getDeclaredMethod("getImage_exe");
+                badDecoded.setAccessible(true);
+                var badArchive = badResourceType.getMethod("archive");
+                resource = badResourceType.getConstructor().newInstance();
+                image = badDecoded.invoke(resource);
+                badArchive.invoke(resource);
                 assertEquals(1, image.getClass().getField("encodes").getInt(image));
                 assertArrayEquals(
                         new byte[] {7},
-                        ((ByteArrayOutputStream) resourceType.getField("output").get(resource)).toByteArray());
-                assertTrue(resourceType.getField("cleanup").getBoolean(resource));
+                        ((ByteArrayOutputStream)
+                                        badResourceType.getField("output").get(resource))
+                                .toByteArray());
+                assertTrue(badResourceType.getField("cleanup").getBoolean(resource));
                 assertFalse(
-                        resourceType.getField("nativeFailure").getBoolean(resource),
+                        badResourceType.getField("nativeFailure").getBoolean(resource),
                         "callback guard must precede the native outer catch");
             }
             System.getProperties().remove(KEY);
-            resource = resourceType.getConstructor().newInstance();
-            image = decoded.invoke(resource);
-            archive.invoke(resource);
+            var absentLoader = new FixtureLoader();
+            absentLoader.define(IMAGE, imageBytes());
+            var absentTransformer = new ImageArchiveReuseTransformer(absentLoader, null);
+            byte[] absentTransformed =
+                    absentTransformer.transform(null, absentLoader, RESOURCE, null, null, resourceBytes());
+            assertNotNull(absentTransformed);
+            var absentResourceType = absentLoader.define(RESOURCE, absentTransformed);
+            var absentDecoded = absentResourceType.getDeclaredMethod("getImage_exe");
+            absentDecoded.setAccessible(true);
+            var absentArchive = absentResourceType.getMethod("archive");
+            resource = absentResourceType.getConstructor().newInstance();
+            image = absentDecoded.invoke(resource);
+            absentArchive.invoke(resource);
             assertEquals(1, image.getClass().getField("encodes").getInt(image));
         } finally {
             if (original == null) System.getProperties().remove(KEY);

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -86,7 +87,7 @@ public final class ExtendedInterpolationSetupTarget {
 
                                     @Override
                                     public void visitLdcInsn(final Object value) {
-                                        if (ExtendedInterpolationSetupBridge.CONSULT_PROPERTY.equals(value)) {
+                                        if (referencesSlot(value, ExtendedInterpolationSetupBridge.CONSULT_PROPERTY)) {
                                             wovenSlots[0]++;
                                         }
                                     }
@@ -140,5 +141,19 @@ public final class ExtendedInterpolationSetupTarget {
             problems.add("class already woven (" + wovenSlots[0] + " consult slots)");
         }
         return List.copyOf(problems);
+    }
+
+    private static boolean referencesSlot(final Object ldcValue, final String propertyKey) {
+        if (propertyKey.equals(ldcValue)) {
+            return true;
+        }
+        if (ldcValue instanceof ConstantDynamic condy) {
+            for (int i = 0; i < condy.getBootstrapMethodArgumentCount(); i++) {
+                if (propertyKey.equals(condy.getBootstrapMethodArgument(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

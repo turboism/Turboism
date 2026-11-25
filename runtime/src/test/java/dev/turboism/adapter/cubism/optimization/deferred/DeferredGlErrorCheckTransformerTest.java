@@ -539,4 +539,54 @@ class DeferredGlErrorCheckTransformerTest {
                     null, loader, DeferredGlErrorCheckTarget.ERROR_OWNER, null, domain, errorReference);
         }
     }
+
+    @Test
+    void deferredActiveCondyFastPathSkipsMethodHandleAndFallsBackWhenClearedOrWrongType() throws Exception {
+        final var active = new java.util.concurrent.atomic.AtomicBoolean(true);
+        final var queries = new java.util.concurrent.atomic.AtomicInteger();
+        System.getProperties().put(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY, active);
+        System.getProperties()
+                .put(
+                        UniformLocationHookBridge.DEFER_QUERY_PROPERTY,
+                        java.lang.invoke.MethodHandles.lookup()
+                                .findStatic(
+                                        DeferredGlErrorCheckTransformerTest.class,
+                                        "countFallbackDeferQuery",
+                                        java.lang.invoke.MethodType.methodType(
+                                                int.class,
+                                                java.util.concurrent.atomic.AtomicInteger.class,
+                                                Object.class,
+                                                String.class,
+                                                boolean.class))
+                                .bindTo(queries));
+        try {
+            final Fixture fastHost = new Fixture();
+            assertEquals(0, fastHost.runError());
+            assertEquals(0, fastHost.errorQueries, "active AtomicBoolean must bypass native glGetError");
+            assertEquals(0, queries.get(), "active AtomicBoolean must bypass DEFER_QUERY_PROPERTY MethodHandle");
+
+            active.set(false);
+            assertEquals(1282, fastHost.runError());
+            assertEquals(1, queries.get(), "inactive AtomicBoolean must fall back through DEFER_QUERY_PROPERTY");
+            assertEquals(1, fastHost.errorQueries, "fallback sentinel must run real glGetError");
+
+            System.getProperties().put(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY, "wrong-type");
+            final Fixture mistypedHost = new Fixture();
+            assertEquals(1282, mistypedHost.runError());
+            assertEquals(2, queries.get(), "mistyped active slot must fail closed to slow path");
+            assertEquals(1, mistypedHost.errorQueries);
+        } finally {
+            System.getProperties().remove(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY);
+            System.getProperties().remove(UniformLocationHookBridge.DEFER_QUERY_PROPERTY);
+        }
+    }
+
+    private static int countFallbackDeferQuery(
+            final java.util.concurrent.atomic.AtomicInteger counter,
+            final Object gl,
+            final String context,
+            final boolean throwing) {
+        counter.incrementAndGet();
+        return UniformLocationHookBridge.DEFERRED_FALLBACK;
+    }
 }

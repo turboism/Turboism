@@ -396,9 +396,19 @@ public class SkippedFrameUploadElisionTransformerTest {
                     observed.incrementAndGet();
                     throw new IllegalStateException("observer bug");
                 });
-        upload.invoke(instance, gl, 0);
+        Loader throwingLoader = new Loader(artifact);
+        Class<?> throwingGlType = throwingLoader.define(GL, glInterface());
+        Class<?> throwingImpl = throwingLoader.define(IMPL, glImpl());
+        Class<?> throwingType = throwingLoader.define(FLOAT, output);
+        Object throwingGl = throwingImpl.getDeclaredConstructor().newInstance();
+        Method throwingUpload = throwingType.getDeclaredMethod("b", throwingGlType, int.class);
+        throwingUpload.setAccessible(true);
+        throwingUpload.invoke(throwingType.getDeclaredConstructor().newInstance(), throwingGl, 0);
         assertEquals(1, observed.get());
-        assertEquals(2, impl.getField("subs").getInt(gl), "throwing predicate falls through to the native upload");
+        assertEquals(
+                1,
+                throwingImpl.getField("subs").getInt(throwingGl),
+                "throwing predicate falls through to the native upload");
     }
 
     @Test

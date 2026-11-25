@@ -137,19 +137,35 @@ public class InputPathElisionTransformerTest {
         final Properties properties = System.getProperties();
         properties.put(InputPathElisionBridge.FOCUS_PROPERTY, (Predicate<Object>) w -> true);
         properties.put(InputPathElisionBridge.CURSOR_PROPERTY, (BiPredicate<Object, Object>) (w, c) -> true);
-        focus.invoke(instance);
-        setCursor.invoke(instance, new Object[] {null});
+        Loader armedLoader = new Loader(artifact);
+        armedLoader.define(CCURSOR, cursorStub());
+        Class<?> armedType = armedLoader.define(OWNER, output);
+        Object armedInstance = armedType.getDeclaredConstructor().newInstance();
+        armedType.getMethod("requestFocus").invoke(armedInstance);
+        armedType
+                .getMethod("setCursor", armedLoader.loadClass(CCURSOR.replace('/', '.')))
+                .invoke(armedInstance, new Object[] {null});
         assertEquals(
-                1, type.getField("focusCalls").getInt(instance), "armed focus consult must skip the native forward");
+                0,
+                armedType.getField("focusCalls").getInt(armedInstance),
+                "armed focus consult must skip the native forward");
         assertEquals(
-                0, type.getField("cursorCalls").getInt(instance), "armed cursor consult must skip the native forward");
+                0,
+                armedType.getField("cursorCalls").getInt(armedInstance),
+                "armed cursor consult must skip the native forward");
 
         properties.put(InputPathElisionBridge.FOCUS_PROPERTY, (Predicate<Object>) w -> false);
         properties.put(InputPathElisionBridge.CURSOR_PROPERTY, (BiPredicate<Object, Object>) (w, c) -> false);
-        focus.invoke(instance);
-        setCursor.invoke(instance, new Object[] {null});
-        assertEquals(2, type.getField("focusCalls").getInt(instance));
-        assertEquals(1, type.getField("cursorCalls").getInt(instance));
+        Loader passthroughLoader = new Loader(artifact);
+        passthroughLoader.define(CCURSOR, cursorStub());
+        Class<?> passthroughType = passthroughLoader.define(OWNER, output);
+        Object passthroughInstance = passthroughType.getDeclaredConstructor().newInstance();
+        passthroughType.getMethod("requestFocus").invoke(passthroughInstance);
+        passthroughType
+                .getMethod("setCursor", passthroughLoader.loadClass(CCURSOR.replace('/', '.')))
+                .invoke(passthroughInstance, new Object[] {null});
+        assertEquals(1, passthroughType.getField("focusCalls").getInt(passthroughInstance));
+        assertEquals(1, passthroughType.getField("cursorCalls").getInt(passthroughInstance));
     }
 
     @Test

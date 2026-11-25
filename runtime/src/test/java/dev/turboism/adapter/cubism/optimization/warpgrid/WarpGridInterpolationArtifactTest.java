@@ -36,6 +36,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ConstantDynamic;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -791,12 +793,31 @@ class WarpGridInterpolationArtifactTest {
                 }
 
                 @Override
+                public void visitLdcInsn(final Object value) {
+                    if (value instanceof ConstantDynamic condy && isPropertiesLookupCondy(condy)) {
+                        propertyLookups++;
+                    }
+                }
+
+                @Override
                 public void visitTypeInsn(final int opcode, final String type) {
                     if (opcode == Opcodes.ANEWARRAY) {
                         objectArrayAllocs++;
                     }
                 }
             };
+        }
+
+        private static boolean isPropertiesLookupCondy(final ConstantDynamic condy) {
+            for (int i = 0; i < condy.getBootstrapMethodArgumentCount(); i++) {
+                final Object arg = condy.getBootstrapMethodArgument(i);
+                if (arg instanceof Handle handle
+                        && PROPERTIES_INTERNAL.equals(handle.getOwner())
+                        && PROPERTIES_GET_METHOD.equals(handle.getName())) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

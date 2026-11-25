@@ -118,9 +118,24 @@ final class ClipMaskDeduplicationTransformerTest {
         assertEquals(0, records.get(), "Record must not be called when entry returns true");
 
         // 2. Verify dedupe miss falls through and calls record
+        final TestLoader missLoader = new TestLoader(artifact);
+        missLoader.define(
+                "com/live2d/graphics3d/component/AGRenderer", plainClass("com/live2d/graphics3d/component/AGRenderer"));
+        missLoader.define("com/live2d/graphics3d/a", plainClass("com/live2d/graphics3d/a"));
+        missLoader.define("com/live2d/type/CRect", plainClass("com/live2d/type/CRect"));
+        missLoader.define(GL3, glInterface());
+        missLoader.define(FAKE_GL, fakeGl());
+        final Class<?> missSystemClass = missLoader.define(RENDER_SYSTEM, transformedSystem);
+        final Object missSystem = missSystemClass.getConstructor().newInstance();
+        final Class<?> missAgRendererClass = missLoader.loadClass("com.live2d.graphics3d.component.AGRenderer");
+        final Class<?> missGraphicsAClass = missLoader.loadClass("com.live2d.graphics3d.a");
+        final Class<?> missCRectClass = missLoader.loadClass("com.live2d.type.CRect");
         System.getProperties()
                 .put(ClipMaskDeduplicationBridge.DEDUPE_PROPERTY, (BiPredicate<Object, Object>) (sys, rend) -> false);
-        maskMethod.invoke(system, agRendererClass.getConstructor().newInstance(), null, null);
+        final java.lang.reflect.Method missMaskMethod =
+                missSystemClass.getDeclaredMethod("a", missAgRendererClass, missGraphicsAClass, missCRectClass);
+        missMaskMethod.setAccessible(true);
+        missMaskMethod.invoke(missSystem, missAgRendererClass.getConstructor().newInstance(), null, null);
         assertEquals(1, records.get(), "Record must be called on miss completion");
 
         // 3. Verify endClipping release suppression

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
@@ -31,6 +32,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
     private final MethodHandle contextCreated;
     private final UniformLocationHookBridge.DeferredAccessors deferredAccessors;
     private final Class<?> supportedGlType;
+    private final AtomicBoolean deferredActive = new AtomicBoolean();
     private final Map<String, Object> callbacks = new LinkedHashMap<>();
 
     private boolean installed;
@@ -102,6 +104,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
                     UniformLocationHookBridge.DEFER_REPORT_PROPERTY,
                     lookup.findVirtual(getClass(), "consumeReport", MethodType.methodType(Object.class))
                             .bindTo(this));
+            callbacks.put(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY, deferredActive);
             callbacks.put(UniformLocationHookBridge.STATS_PROPERTY, (Supplier<Map<String, Long>>) this::statistics);
         } catch (ReflectiveOperationException impossible) {
             throw new IllegalStateException("deferred error callback signatures unavailable", impossible);
@@ -135,6 +138,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
                     throw new IllegalStateException("deferred error callback slot occupied: " + key);
                 }
             }
+            deferredActive.set(false);
             properties.putAll(callbacks);
             installed = true;
         }
@@ -156,6 +160,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
             // Preserve the outer render scope on re-entrant render3d calls.
             return 0L;
         }
+        deferredActive.set(false);
         try {
             final Object gl = (Object) frameToGl.invokeExact(frame);
             final Object context = gl == null ? null : (Object) glToContext.invokeExact(gl);
@@ -197,6 +202,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
         if (frameOwner != Thread.currentThread() || scope == 0L || scope != token) {
             return;
         }
+        deferredActive.set(false);
         if (deferredQueries > 0) {
             try {
                 final int observed = (int) deferredAccessors.glGetError().invokeExact(frameGl);
@@ -255,6 +261,8 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
             deferredContext = context;
             deferredThrowSite = throwing;
         }
+        // Enable inline fast-path deferral after the first checkpoint opens this frame.
+        deferredActive.set(true);
         return 0;
     }
 
@@ -292,6 +300,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
     }
 
     private void retire() {
+        deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
         dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
         frameContextValid = false;
@@ -301,6 +310,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
         closed = true;
         installed = false;

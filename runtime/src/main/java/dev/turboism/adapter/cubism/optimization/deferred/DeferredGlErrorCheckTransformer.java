@@ -72,6 +72,9 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
     private static final String GL_OWNER = "com/jogamp/opengl/GL";
     private static final String GL_METHOD = "glGetError";
     private static final String GL_DESCRIPTOR = "()I";
+    private static final String ATOMIC_BOOLEAN_OWNER = "java/util/concurrent/atomic/AtomicBoolean";
+    private static final String ATOMIC_BOOLEAN_GET_METHOD = "get";
+    private static final String BOOLEAN_DESCRIPTOR = "()Z";
     private static final String METHOD_HANDLE_OWNER = "java/lang/invoke/MethodHandle";
     private static final String BEGIN_DESCRIPTOR = "(Ljava/lang/Object;)J";
     private static final String END_DESCRIPTOR = "(J)V";
@@ -424,6 +427,20 @@ public final class DeferredGlErrorCheckTransformer implements ClassFileTransform
             }
             // Stack: [gl]. Park it so the callback arguments order (mh, gl, ctx, z).
             super.visitVarInsn(Opcodes.ASTORE, deferredLocal);
+            final Label inactive = new Label(), slowPath = new Label();
+            SlotBridgeEmitter.emitGetSlot(this, UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY);
+            super.visitInsn(Opcodes.DUP);
+            super.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_BOOLEAN_OWNER);
+            super.visitJumpInsn(Opcodes.IFEQ, inactive);
+            super.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_BOOLEAN_OWNER);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, ATOMIC_BOOLEAN_OWNER, ATOMIC_BOOLEAN_GET_METHOD, BOOLEAN_DESCRIPTOR, false);
+            super.visitJumpInsn(Opcodes.IFEQ, slowPath);
+            super.visitInsn(Opcodes.ICONST_0);
+            super.visitInsn(Opcodes.IRETURN);
+            super.visitLabel(inactive);
+            super.visitInsn(Opcodes.POP);
+            super.visitLabel(slowPath);
             final Label start = new Label(),
                     end = new Label(),
                     miss = new Label(),

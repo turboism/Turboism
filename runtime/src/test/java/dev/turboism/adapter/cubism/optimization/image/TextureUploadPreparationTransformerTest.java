@@ -96,10 +96,45 @@ class TextureUploadPreparationTransformerTest {
                                     (a, b) -> new BufferedImage(2, 2, BufferedImage.TYPE_INT_ARGB),
                                     (a, b) -> "wrong type")) {
                         System.getProperties().put(TextureUploadPreparationBridge.CALLBACK_PROPERTY, broken);
-                        pair = create.invoke(factory, graphics, image, 0, "test");
-                        assertNotNull(pair, "callback exception must not reach the native outer handler");
-                        texture = pair.getClass().getField("first").get(pair);
-                        assertSame(source, texture.getClass().getField("image").get(texture));
+                        try (var brokenLoader =
+                                new URLClassLoader(
+                                        new java.net.URL[] {root.toUri().toURL()},
+                                        getClass().getClassLoader()) {
+                                    @Override
+                                    protected Class<?> loadClass(String name, boolean resolve)
+                                            throws ClassNotFoundException {
+                                        synchronized (getClassLoadingLock(name)) {
+                                            Class<?> type = findLoadedClass(name);
+                                            if (type == null)
+                                                type = fixtureClasses.contains(name)
+                                                        ? findClass(name)
+                                                        : super.loadClass(name, false);
+                                            if (resolve) resolveClass(type);
+                                            return type;
+                                        }
+                                    }
+                                }) {
+                            Class<?> bProfileType = brokenLoader.loadClass("com.jogamp.opengl.GLProfile");
+                            Object bProfile =
+                                    bProfileType.getConstructor(boolean.class).newInstance(true);
+                            Class<?> bGraphicsType = brokenLoader.loadClass("com.live2d.graphics3d.a");
+                            Object bGraphics =
+                                    bGraphicsType.getConstructor(bProfileType).newInstance(bProfile);
+                            Class<?> bImageType = brokenLoader.loadClass("com.live2d.graphics.CWritableImage");
+                            Object bImage = bImageType
+                                    .getConstructor(BufferedImage.class)
+                                    .newInstance(source);
+                            Class<?> bFactoryType = brokenLoader.loadClass(
+                                    TextureUploadPreparationTransformer.TARGET.replace('/', '.'));
+                            Object bFactory = bFactoryType.getConstructor().newInstance();
+                            var bCreate =
+                                    bFactoryType.getMethod("a", bGraphicsType, bImageType, int.class, String.class);
+                            pair = bCreate.invoke(bFactory, bGraphics, bImage, 0, "test");
+                            assertNotNull(pair, "callback exception must not reach the native outer handler");
+                            texture = pair.getClass().getField("first").get(pair);
+                            assertSame(
+                                    source, texture.getClass().getField("image").get(texture));
+                        }
                     }
                 } finally {
                     System.getProperties().put(TextureUploadPreparationBridge.CALLBACK_PROPERTY, callback);
