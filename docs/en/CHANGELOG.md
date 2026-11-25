@@ -23,6 +23,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Changed
 
+- Rendering, deformer editing, and interactive mesh editing run faster with zero-allocation render matrix and material passes, reused morph buffers, elided inactive selection overlays, primitive bezier grid and keyform lookup fast paths, lock-free mesh setup tracking, and ConstantDynamic optimization slot dispatch.
 - Drag input runs with less latency. The editor defers OpenGL driver work, schedules independent deformation tasks together, and skips redundant palette updates.
 - The canvas context menu groups plugin actions.
 - Heavy deformer dragging runs faster by updating only affected subtrees, combining queued drag events, and deferring inspector rebuilds.
