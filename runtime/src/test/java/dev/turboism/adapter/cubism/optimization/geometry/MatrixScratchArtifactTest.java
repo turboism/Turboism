@@ -41,9 +41,13 @@ class MatrixScratchArtifactTest {
     private static final float[] EDGE_FLOATS = {0f, -0f, 1.5f, -2.25f, 45f, -90f, 180f, 360f};
     private static final String KEY_CALLS = "calls";
     private static final String KEY_CACHE_HITS = "cacheHits";
+    private static final String KEY_IDENTITY_HITS = "identityHits";
     private static final String KEY_CACHE_MISSES = "cacheMisses";
     private static final String KEY_STATIC_HITS = "staticHits";
     private static final String KEY_FAILURES = "failures";
+    private static final int ALLOCATION_WARMUP = 5000;
+    private static final int ALLOCATION_ITERS = 1000;
+    private static final int ALLOCATION_PASSES = 3;
     private static final String JAR_SUFFIX = ".jar";
     private static final String KOTLIN_STDLIB_PREFIX = "kotlin-stdlib";
     private static final String KOTLIN_MARKER_CLASS = "kotlin.jvm.internal.markers.KMappedMarker";
@@ -151,7 +155,7 @@ class MatrixScratchArtifactTest {
         Set<String> versions = ReviewedHostArtifacts.reviewedCubismVersions();
         int verified = 0;
         for (String version : versions) {
-            Path artifact = root.resolve(version).resolve(CUBISM_JAR);
+            Path artifact = resolveArtifact(root, version);
             if (!Files.isRegularFile(artifact)) {
                 continue;
             }
@@ -159,6 +163,23 @@ class MatrixScratchArtifactTest {
             verified++;
         }
         assertEquals(versions.size(), verified, "missing reviewed artifacts under " + root);
+    }
+
+    @Test
+    void renderMatrixTransformerVerifiesParityZeroAllocAndStrictVerifyAllAcrossAllArtifacts() throws Throwable {
+        final Path root = referenceRoot();
+        final Set<String> versions = ReviewedHostArtifacts.reviewedCubismVersions();
+        final List<Path> verifiedArtifacts = new ArrayList<>();
+        for (final String version : versions) {
+            final Path artifact = resolveArtifact(root, version);
+            if (!Files.isRegularFile(artifact)) {
+                continue;
+            }
+            verifyRenderMatrixArtifact(version, artifact);
+            verifiedArtifacts.add(artifact);
+        }
+        assertEquals(versions.size(), verifiedArtifacts.size(), "missing reviewed artifacts under " + root);
+        verifyStrictBytecodeAcrossAll(verifiedArtifacts);
     }
 
     private static void verifyArtifactVersion(String version, Path artifact) throws Exception {
@@ -243,6 +264,30 @@ class MatrixScratchArtifactTest {
         unpatched.clearStaticMatrix(unpatchedNodes[2]);
         patched.clearStaticMatrix(patchedNodes[2]);
         rawEquals(unpatched.worldArray(unpatchedLeaf), patched.worldArray(patchedLeaf));
+
+        // Verify identity chain short-circuit skips both PLRU cache lookup and computeLocalToParentMatrix.
+        Object[] unpatchedIdentity = unpatched.createHierarchy(HIERARCHY_DEPTH);
+        Object[] patchedIdentity = patched.createHierarchy(HIERARCHY_DEPTH);
+        for (int i = 0; i < HIERARCHY_DEPTH; i++) {
+            float signedZero = (i % 2 == 0) ? 0f : -0f;
+            unpatched.setVectors(unpatchedIdentity[i], signedZero, 0f, signedZero, 0f, signedZero, 0f, 1f, 1f, 1f);
+            patched.setVectors(patchedIdentity[i], signedZero, 0f, signedZero, 0f, signedZero, 0f, 1f, 1f, 1f);
+        }
+        Map<String, Long> beforeIdentity = bridge.snapshot();
+        rawEquals(
+                unpatched.worldArray(unpatchedIdentity[HIERARCHY_DEPTH - 1]),
+                patched.worldArray(patchedIdentity[HIERARCHY_DEPTH - 1]));
+        Map<String, Long> afterIdentity = bridge.snapshot();
+        assertTrue(afterIdentity.get(KEY_IDENTITY_HITS) >= beforeIdentity.get(KEY_IDENTITY_HITS) + HIERARCHY_DEPTH);
+        assertEquals(beforeIdentity.get(KEY_CACHE_MISSES), afterIdentity.get(KEY_CACHE_MISSES), version);
+        assertEquals(beforeIdentity.get(KEY_CACHE_HITS), afterIdentity.get(KEY_CACHE_HITS), version);
+
+        // Verify identity child with -0.0f scaled parent preserves exact IEEE +0.0f multiplication result.
+        unpatched.mutateScaleX(unpatchedIdentity[1], -0f);
+        patched.mutateScaleX(patchedIdentity[1], -0f);
+        rawEquals(
+                unpatched.worldArray(unpatchedIdentity[HIERARCHY_DEPTH - 1]),
+                patched.worldArray(patchedIdentity[HIERARCHY_DEPTH - 1]));
     }
 
     private static void assertUnmodifiedOtherMethods(byte[] original, byte[] rewritten, String version) {
@@ -431,6 +476,468 @@ class MatrixScratchArtifactTest {
             Object matrix = getWorld.invoke(transform);
             return (float[]) matrixArray.invoke(matrix);
         }
+    }
+
+    private static void verifyRenderMatrixArtifact(final String version, final Path artifact) throws Throwable {
+        final URL[] urls = jarUrls(artifact.getParent());
+        final byte[] transformBytes = readClassBytes(artifact, MatrixScratchTransformer.OWNER);
+        final byte[] meshRendererBytes = readClassBytes(artifact, RenderMatrixTransformer.MESH_RENDERER_OWNER);
+        final byte[] lineRendererBytes = readClassBytes(artifact, RenderMatrixTransformer.LINE_RENDERER_OWNER);
+        final ProtectionDomain domain =
+                new ProtectionDomain(new CodeSource(artifact.toUri().toURL(), (Certificate[]) null), null);
+
+        try (URLClassLoader baseLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
+                URLClassLoader guardLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
+            final RenderMatrixTransformer guardCheck =
+                    new RenderMatrixTransformer(guardLoader, artifact, meshRendererBytes, lineRendererBytes);
+            assertNull(guardCheck.transform(
+                    null, baseLoader, RenderMatrixTransformer.MESH_RENDERER_OWNER, null, domain, meshRendererBytes));
+            assertNotNull(guardCheck.failure());
+            assertNull(guardCheck.transform(
+                    null, guardLoader, RenderMatrixTransformer.MESH_RENDERER_OWNER, null, null, meshRendererBytes));
+            assertNull(guardCheck.transform(
+                    null,
+                    guardLoader,
+                    RenderMatrixTransformer.MESH_RENDERER_OWNER,
+                    null,
+                    domain,
+                    injectNop(
+                            meshRendererBytes,
+                            RenderMatrixTransformer.SORTING_Z_METHOD,
+                            RenderMatrixTransformer.SORTING_Z_DESCRIPTOR)));
+            assertNull(guardCheck.transform(
+                    null,
+                    guardLoader,
+                    RenderMatrixTransformer.LINE_RENDERER_OWNER,
+                    null,
+                    domain,
+                    injectNop(
+                            lineRendererBytes,
+                            RenderMatrixTransformer.RENDER_METHOD,
+                            RenderMatrixTransformer.RENDER_DESCRIPTOR)));
+            assertEquals(0, guardCheck.matches(), version);
+
+            final RenderMatrixTransformer transformer =
+                    new RenderMatrixTransformer(baseLoader, artifact, meshRendererBytes, lineRendererBytes);
+            final byte[] patchedMeshRenderer = transformer.transform(
+                    null, baseLoader, RenderMatrixTransformer.MESH_RENDERER_OWNER, null, domain, meshRendererBytes);
+            final byte[] patchedLineRenderer = transformer.transform(
+                    null, baseLoader, RenderMatrixTransformer.LINE_RENDERER_OWNER, null, domain, lineRendererBytes);
+            assertNotNull(patchedMeshRenderer, version + ": " + transformer.failure());
+            assertNotNull(patchedLineRenderer, version + ": " + transformer.failure());
+            assertEquals(RenderMatrixTransformer.EXPECTED_MATCHES, transformer.matches(), version);
+            assertOtherMethodsUnchanged(
+                    meshRendererBytes,
+                    patchedMeshRenderer,
+                    RenderMatrixTransformer.MESH_RENDERER_OWNER,
+                    Set.of(RenderMatrixTransformer.SORTING_Z_METHOD, RenderMatrixTransformer.RENDER_METHOD),
+                    version);
+            assertOtherMethodsUnchanged(
+                    lineRendererBytes,
+                    patchedLineRenderer,
+                    RenderMatrixTransformer.LINE_RENDERER_OWNER,
+                    Set.of(RenderMatrixTransformer.RENDER_METHOD),
+                    version);
+
+            final MatrixScratchTransformer scratchTransformer =
+                    new MatrixScratchTransformer(baseLoader, artifact, transformBytes);
+            final byte[] patchedTransform = scratchTransformer.transform(
+                    null, baseLoader, MatrixScratchTransformer.OWNER, null, domain, transformBytes);
+            assertNotNull(patchedTransform, version + ": " + scratchTransformer.failure());
+
+            try (MultiOverrideLoader patchedLoader = new MultiOverrideLoader(
+                    urls,
+                    Map.of(
+                            MatrixScratchTransformer.OWNER.replace('/', '.'), patchedTransform,
+                            RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), patchedMeshRenderer,
+                            RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'), patchedLineRenderer),
+                    domain)) {
+                final AtomicBoolean admission = new AtomicBoolean(true);
+                System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, Boolean.TRUE.toString());
+                System.getProperties().put(MatrixScratchTransformer.ADMISSION_PROPERTY, admission);
+                try (MatrixScratchBridge bridge = new MatrixScratchBridge(patchedLoader, admission)) {
+                    assertTrue(bridge.supportsRenderFastPaths(), version);
+                    bridge.activate();
+                    System.getProperties().put(MatrixScratchBridge.CALLBACK_PROPERTY, bridge.callback());
+                    System.getProperties().put(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY, bridge.renderCallback());
+                    System.getProperties().put(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY, bridge.sortingCallback());
+
+                    verifySortingZAndRenderScratchParity(
+                            baseLoader,
+                            patchedLoader,
+                            bridge,
+                            version,
+                            "5.3.05".equals(version) || "5.0.00".equals(version));
+                } finally {
+                    System.getProperties().remove(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY);
+                    System.getProperties().remove(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY);
+                    System.getProperties().remove(MatrixScratchBridge.CALLBACK_PROPERTY);
+                    System.getProperties().remove(MatrixScratchTransformer.ADMISSION_PROPERTY);
+                    System.clearProperty(MatrixScratchTransformer.ENABLE_PROPERTY);
+                }
+            }
+        }
+    }
+
+    private static void verifySortingZAndRenderScratchParity(
+            final ClassLoader unpatchedLoader,
+            final ClassLoader patchedLoader,
+            final MatrixScratchBridge bridge,
+            final String version,
+            final boolean measureAllocations)
+            throws Throwable {
+        final Object[] baseScene = createSortingTestScene(unpatchedLoader);
+        final Object[] patchedScene = createSortingTestScene(patchedLoader);
+        // [0]=renderer, [1]=container, [2]=mesh2d, [3]=mesh3d, [4]=camera, [5]=leafTransform, [6]=camZeroDet
+        final Method baseSort = baseScene[0]
+                .getClass()
+                .getMethod(
+                        RenderMatrixTransformer.SORTING_Z_METHOD,
+                        Class.forName(RenderMatrixTransformer.CAMERA_OWNER.replace('/', '.'), true, unpatchedLoader));
+        final Method patSort = patchedScene[0]
+                .getClass()
+                .getMethod(
+                        RenderMatrixTransformer.SORTING_Z_METHOD,
+                        Class.forName(RenderMatrixTransformer.CAMERA_OWNER.replace('/', '.'), true, patchedLoader));
+
+        // 1. Null mesh -> 0f
+        assertEquals(0f, (float) patSort.invoke(patchedScene[0], new Object[] {null}), version);
+        // 2. step == 2 mesh with null camera and transformed hierarchy camera
+        baseScene[1]
+                .getClass()
+                .getMethod(
+                        "setMesh",
+                        Class.forName(RenderMatrixTransformer.MESH_OWNER.replace('/', '.'), true, unpatchedLoader))
+                .invoke(baseScene[1], baseScene[2]);
+        patchedScene[1]
+                .getClass()
+                .getMethod(
+                        "setMesh",
+                        Class.forName(RenderMatrixTransformer.MESH_OWNER.replace('/', '.'), true, patchedLoader))
+                .invoke(patchedScene[1], patchedScene[2]);
+        assertRawFloatEquals(
+                (float) baseSort.invoke(baseScene[0], new Object[] {null}),
+                (float) patSort.invoke(patchedScene[0], new Object[] {null}),
+                version + " mesh2 null-cam");
+        assertRawFloatEquals(
+                (float) baseSort.invoke(baseScene[0], baseScene[4]),
+                (float) patSort.invoke(patchedScene[0], patchedScene[4]),
+                version + " mesh2 cam");
+
+        // 3. step == 3 mesh with camera & empty positions
+        baseScene[1]
+                .getClass()
+                .getMethod(
+                        "setMesh",
+                        Class.forName(RenderMatrixTransformer.MESH_OWNER.replace('/', '.'), true, unpatchedLoader))
+                .invoke(baseScene[1], baseScene[3]);
+        patchedScene[1]
+                .getClass()
+                .getMethod(
+                        "setMesh",
+                        Class.forName(RenderMatrixTransformer.MESH_OWNER.replace('/', '.'), true, patchedLoader))
+                .invoke(patchedScene[1], patchedScene[3]);
+        assertRawFloatEquals(
+                (float) baseSort.invoke(baseScene[0], new Object[] {null}),
+                (float) patSort.invoke(patchedScene[0], new Object[] {null}),
+                version + " mesh3 null-cam");
+        assertRawFloatEquals(
+                (float) baseSort.invoke(baseScene[0], baseScene[4]),
+                (float) patSort.invoke(patchedScene[0], patchedScene[4]),
+                version + " mesh3 cam");
+
+        // 4. Zero-determinant camera propagates NoninvertibleTransformException cleanly
+        final var baseEx = assertThrows(Exception.class, () -> baseSort.invoke(baseScene[0], baseScene[6]));
+        final var patEx = assertThrows(Exception.class, () -> patSort.invoke(patchedScene[0], patchedScene[6]));
+        assertEquals(
+                baseEx.getCause().getClass().getName(),
+                patEx.getCause().getClass().getName(),
+                version);
+
+        // 5. Render scratch non-aliasing & re-entrancy with GTransform.getLocalToWorldMatrix()
+        final Class<?> patMatrixClass =
+                Class.forName(MatrixScratchTransformer.MATRIX.replace('/', '.'), true, patchedLoader);
+        final Class<?> baseMatrixClass =
+                Class.forName(MatrixScratchTransformer.MATRIX.replace('/', '.'), true, unpatchedLoader);
+        final Method patMatArray = patMatrixClass.getMethod("a");
+        final Method baseMatArray = baseMatrixClass.getMethod("a");
+        final float[] expectedWorld = (float[]) baseMatArray.invoke(baseScene[5]
+                .getClass()
+                .getMethod(MatrixScratchTransformer.METHOD)
+                .invoke(baseScene[5]));
+        final Object renderMat1 = bridge.renderCallback().apply(patchedScene[5]);
+        // Simulate GCamera.getWorldToCameraMatrix() -> GTransform.getLocalToWorldMatrix() running while renderMat1 is
+        // live.
+        final Object nestedWorld = patchedScene[5]
+                .getClass()
+                .getMethod(MatrixScratchTransformer.METHOD)
+                .invoke(patchedScene[5]);
+        assertNotSame(renderMat1, nestedWorld, version);
+        rawEquals(expectedWorld, (float[]) patMatArray.invoke(renderMat1));
+        final Object renderMat2 = bridge.renderCallback().apply(patchedScene[5]);
+        assertSame(renderMat1, renderMat2, version + " thread-local render scratch matrix must be reused");
+
+        if (measureAllocations) {
+            final com.sun.management.ThreadMXBean allocMx =
+                    (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+            final var lookup = java.lang.invoke.MethodHandles.publicLookup();
+            final var sortType = java.lang.invoke.MethodType.methodType(float.class, Object.class, Object.class);
+            final java.lang.invoke.MethodHandle patSortHandle =
+                    lookup.unreflect(patSort).asType(sortType);
+            final Object renderer = patchedScene[0];
+            final Object cam = patchedScene[4];
+            final Object leafTransform = patchedScene[5];
+            final var renderCb = bridge.renderCallback();
+            for (int w = 0; w < ALLOCATION_WARMUP; w++) {
+                final float z0 = (float) patSortHandle.invokeExact(renderer, (Object) null);
+                final float z1 = (float) patSortHandle.invokeExact(renderer, cam);
+                final Object m = renderCb.apply(leafTransform);
+                if (z0 != z0 && z1 != z1 && m == null) throw new AssertionError();
+            }
+            final long tid = Thread.currentThread().getId();
+            allocMx.getThreadAllocatedBytes(tid);
+            long minNullCam = Long.MAX_VALUE;
+            long minWithCam = Long.MAX_VALUE;
+            long minRenderScratch = Long.MAX_VALUE;
+            for (int p = 0; p < ALLOCATION_PASSES; p++) {
+                long b0 = allocMx.getThreadAllocatedBytes(tid);
+                for (int i = 0; i < ALLOCATION_ITERS; i++) {
+                    final float z = (float) patSortHandle.invokeExact(renderer, (Object) null);
+                    if (Float.isNaN(z)) throw new AssertionError();
+                }
+                minNullCam = Math.min(minNullCam, allocMx.getThreadAllocatedBytes(tid) - b0);
+
+                long b1 = allocMx.getThreadAllocatedBytes(tid);
+                for (int i = 0; i < ALLOCATION_ITERS; i++) {
+                    final float z = (float) patSortHandle.invokeExact(renderer, cam);
+                    if (Float.isNaN(z)) throw new AssertionError();
+                }
+                minWithCam = Math.min(minWithCam, allocMx.getThreadAllocatedBytes(tid) - b1);
+
+                long b2 = allocMx.getThreadAllocatedBytes(tid);
+                for (int i = 0; i < ALLOCATION_ITERS; i++) {
+                    if (renderCb.apply(leafTransform) == null) throw new AssertionError();
+                }
+                minRenderScratch = Math.min(minRenderScratch, allocMx.getThreadAllocatedBytes(tid) - b2);
+            }
+            assertEquals(0L, minNullCam, version + " getSortingZOrder(null) must allocate 0 bytes");
+            assertEquals(0L, minWithCam, version + " getSortingZOrder(camera) must allocate 0 bytes");
+            assertEquals(0L, minRenderScratch, version + " renderCallback must allocate 0 bytes");
+        }
+    }
+
+    private static Object[] createSortingTestScene(final ClassLoader loader) throws Exception {
+        final Class<?> entityClass = Class.forName(ENTITY_CLASS, true, loader);
+        final Class<?> transformClass = Class.forName(MatrixScratchTransformer.OWNER.replace('/', '.'), true, loader);
+        final Class<?> vecClass = Class.forName("com.live2d.graphics3d.type.GVector3", true, loader);
+        final Class<?> meshRendererClass =
+                Class.forName(RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), true, loader);
+        final Class<?> containerClass =
+                Class.forName(RenderMatrixTransformer.MESH_CONTAINER_OWNER.replace('/', '.'), true, loader);
+        final Class<?> mesh2Class = Class.forName("com.live2d.graphics3d.mesh.GMesh2", true, loader);
+        final Class<?> mesh3Class = Class.forName("com.live2d.graphics3d.mesh.GMesh3", true, loader);
+        final Class<?> cameraClass =
+                Class.forName(RenderMatrixTransformer.CAMERA_OWNER.replace('/', '.'), true, loader);
+        final Class<?> componentClass = Class.forName("com.live2d.graphics3d.component.GComponent", true, loader);
+
+        final Method unaryPlusEntity = entityClass.getMethod("unaryPlus", entityClass);
+        final Method unaryPlusComp = entityClass.getMethod("unaryPlus", componentClass);
+        final Method getTransform = entityClass.getMethod("getTransform");
+        final Method vecSet = vecClass.getMethod("set", float.class, float.class, float.class);
+
+        final Object root = entityClass.getConstructor().newInstance();
+        final Object leaf = entityClass.getConstructor().newInstance();
+        unaryPlusEntity.invoke(root, leaf);
+        final Object rootT = getTransform.invoke(root);
+        final Object leafT = getTransform.invoke(leaf);
+        vecSet.invoke(transformClass.getMethod("getPosition").invoke(rootT), 1.5f, -2.0f, 3.25f);
+        vecSet.invoke(transformClass.getMethod("getEulerAngles").invoke(rootT), 15f, -30f, 45f);
+        vecSet.invoke(transformClass.getMethod("getScale").invoke(rootT), 1.25f, 0.8f, 1.5f);
+        vecSet.invoke(transformClass.getMethod("getPosition").invoke(leafT), -0.5f, 1.25f, 2.5f);
+        vecSet.invoke(transformClass.getMethod("getEulerAngles").invoke(leafT), -10f, 20f, 5f);
+        vecSet.invoke(transformClass.getMethod("getScale").invoke(leafT), 2f, -1.5f, 0.75f);
+
+        final Object renderer = meshRendererClass.getConstructor().newInstance();
+        final Object container = containerClass.getConstructor().newInstance();
+        unaryPlusComp.invoke(leaf, renderer);
+        unaryPlusComp.invoke(leaf, container);
+
+        final Object mesh2 = mesh2Class.getConstructor().newInstance();
+        mesh2Class.getMethod("setPositions", float[].class).invoke(mesh2, new float[] {0.5f, -1.25f, 2.0f, 3.0f});
+        final Object mesh3 = mesh3Class.getConstructor().newInstance();
+        mesh3Class.getMethod("setPositions", float[].class).invoke(mesh3, new float[] {-1.5f, 2.25f, 4.75f});
+
+        final Object camera = cameraClass.getConstructor(String.class).newInstance("test");
+        final Object camT = cameraClass.getMethod("getTransform").invoke(camera);
+        vecSet.invoke(transformClass.getMethod("getPosition").invoke(camT), 0.75f, 1.5f, -10.0f);
+        vecSet.invoke(transformClass.getMethod("getEulerAngles").invoke(camT), 12f, -18f, 8f);
+
+        final Object camZero = cameraClass.getConstructor(String.class).newInstance("zero");
+        final Object camZeroT = cameraClass.getMethod("getTransform").invoke(camZero);
+        vecSet.invoke(transformClass.getMethod("getScale").invoke(camZeroT), 0f, 0f, 0f);
+
+        return new Object[] {renderer, container, mesh2, mesh3, camera, leafT, camZero};
+    }
+
+    private static void verifyStrictBytecodeAcrossAll(final List<Path> artifacts) throws Exception {
+        final Path manifest = Files.createTempFile("render-matrix-verify-all-", ".txt");
+        try {
+            Files.writeString(
+                    manifest,
+                    String.join(
+                            "\n",
+                            artifacts.stream()
+                                    .map(p -> p.toAbsolutePath().toString())
+                                    .toList()));
+            final String javaExe =
+                    Path.of(System.getProperty("java.home"), "bin", "java").toString();
+            final Process process = new ProcessBuilder(
+                            javaExe,
+                            "-Xverify:all",
+                            "-cp",
+                            System.getProperty("java.class.path"),
+                            StrictRenderMatrixVerifierMain.class.getName(),
+                            manifest.toString())
+                    .redirectErrorStream(true)
+                    .start();
+            final String output = new String(process.getInputStream().readAllBytes());
+            assertTrue(process.waitFor(90L, java.util.concurrent.TimeUnit.SECONDS), "-Xverify:all timed out");
+            assertEquals(0, process.exitValue(), "-Xverify:all failed:\n" + output);
+            assertTrue(output.contains("VERIFIED_RENDER_MATRIX=" + artifacts.size()), output);
+        } finally {
+            Files.deleteIfExists(manifest);
+        }
+    }
+
+    /** Child entrypoint verifying patched {@code GTransform}, {@code GMeshRenderer}, and {@code GLineRenderer}. */
+    public static final class StrictRenderMatrixVerifierMain {
+        public static void main(final String[] args) throws Exception {
+            final List<String> lines = Files.readAllLines(Path.of(args[0]));
+            int verified = 0;
+            for (final String line : lines) {
+                if (line.isBlank()) continue;
+                final Path artifact = Path.of(line.trim());
+                final URL[] urls = jarUrls(artifact.getParent());
+                final ProtectionDomain domain =
+                        new ProtectionDomain(new CodeSource(artifact.toUri().toURL(), (Certificate[]) null), null);
+                final byte[] tBytes = readClassBytes(artifact, MatrixScratchTransformer.OWNER);
+                final byte[] mBytes = readClassBytes(artifact, RenderMatrixTransformer.MESH_RENDERER_OWNER);
+                final byte[] lBytes = readClassBytes(artifact, RenderMatrixTransformer.LINE_RENDERER_OWNER);
+                try (URLClassLoader dummy = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
+                    final byte[] tPatched = new MatrixScratchTransformer(dummy, artifact, tBytes)
+                            .transform(null, dummy, MatrixScratchTransformer.OWNER, null, domain, tBytes);
+                    final RenderMatrixTransformer rmx = new RenderMatrixTransformer(dummy, artifact, mBytes, lBytes);
+                    final byte[] mPatched = rmx.transform(
+                            null, dummy, RenderMatrixTransformer.MESH_RENDERER_OWNER, null, domain, mBytes);
+                    final byte[] lPatched = rmx.transform(
+                            null, dummy, RenderMatrixTransformer.LINE_RENDERER_OWNER, null, domain, lBytes);
+                    if (tPatched == null || mPatched == null || lPatched == null) {
+                        throw new AssertionError("transform failed for " + artifact);
+                    }
+                    try (MultiOverrideLoader loader = new MultiOverrideLoader(
+                            urls,
+                            Map.of(
+                                    MatrixScratchTransformer.OWNER.replace('/', '.'), tPatched,
+                                    RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), mPatched,
+                                    RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'), lPatched),
+                            domain)) {
+                        Class.forName(MatrixScratchTransformer.OWNER.replace('/', '.'), true, loader);
+                        Class.forName(RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), true, loader);
+                        Class.forName(RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'), true, loader);
+                    }
+                }
+                verified++;
+            }
+            System.out.println("VERIFIED_RENDER_MATRIX=" + verified);
+        }
+    }
+
+    private static Path resolveArtifact(final Path root, final String version) {
+        final String override = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (!override.isBlank()) {
+            return Path.of(override).toAbsolutePath().normalize();
+        }
+        return root.resolve(version).resolve(CUBISM_JAR);
+    }
+
+    private static byte[] readClassBytes(final Path artifact, final String owner) throws Exception {
+        try (JarFile jar = new JarFile(artifact.toFile())) {
+            final var entry = jar.getJarEntry(owner + ".class");
+            assertNotNull(entry, owner + " absent from " + artifact);
+            try (var in = jar.getInputStream(entry)) {
+                return in.readAllBytes();
+            }
+        }
+    }
+
+    private static void assertOtherMethodsUnchanged(
+            final byte[] original,
+            final byte[] rewritten,
+            final String owner,
+            final Set<String> mutated,
+            final String version) {
+        new ClassReader(original)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                if (!mutated.contains(name)) {
+                                    assertEquals(
+                                            ReviewedMethodShape.read(original, owner, name, descriptor),
+                                            ReviewedMethodShape.read(rewritten, owner, name, descriptor),
+                                            version + ":" + owner + "." + name);
+                                }
+                                return null;
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
+    }
+
+    private static byte[] injectNop(final byte[] original, final String targetMethod, final String targetDesc) {
+        final ClassReader reader = new ClassReader(original);
+        final org.objectweb.asm.ClassWriter writer = new org.objectweb.asm.ClassWriter(reader, 0);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] ex) {
+                        final MethodVisitor mv = super.visitMethod(access, name, desc, sig, ex);
+                        if (!targetMethod.equals(name) || !targetDesc.equals(desc)) return mv;
+                        return new MethodVisitor(Opcodes.ASM9, mv) {
+                            @Override
+                            public void visitCode() {
+                                super.visitCode();
+                                super.visitInsn(Opcodes.NOP);
+                            }
+                        };
+                    }
+                },
+                0);
+        return writer.toByteArray();
+    }
+
+    private static final class MultiOverrideLoader extends URLClassLoader {
+        private final Map<String, byte[]> overrides;
+        private final ProtectionDomain domain;
+
+        MultiOverrideLoader(final URL[] urls, final Map<String, byte[]> overrides, final ProtectionDomain domain) {
+            super(urls, ClassLoader.getPlatformClassLoader());
+            this.overrides = overrides;
+            this.domain = domain;
+        }
+
+        @Override
+        protected Class<?> findClass(final String name) throws ClassNotFoundException {
+            final byte[] bytes = overrides.get(name);
+            if (bytes != null) {
+                return defineClass(name, bytes, 0, bytes.length, domain);
+            }
+            return super.findClass(name);
+        }
+    }
+
+    private static void assertRawFloatEquals(final float expected, final float actual, final String message) {
+        assertEquals(Float.floatToRawIntBits(expected), Float.floatToRawIntBits(actual), message);
     }
 
     private static void rawEquals(float[] expected, float[] actual) {

@@ -96,6 +96,14 @@ class ShaderUniformCompositionArtifactTest {
                 assertTrue(
                         normalMatrixAbsenceSkipsBindCheck(patched),
                         version + ": normalMatrix absence/negative-location checks must skip bind normalMatrix");
+                assertEquals(
+                        1,
+                        bridgeCalls(patched, "useProgramLabel"),
+                        version + ": preDraw_exe must route use-program debug string through lookup table");
+                assertEquals(
+                        0,
+                        countUseProgramConcatInDraw(patched),
+                        version + ": patched preDraw_exe must drop invokedynamic use-program concat");
                 ShaderUniformTransformer.clearPatched(loader, ShaderUniformTransformer.OWNER);
             }
         }
@@ -159,8 +167,146 @@ class ShaderUniformCompositionArtifactTest {
                         2,
                         bridgeCalls(composedResult, "invalidate"),
                         version + ": the upstream lifecycle hooks stay untouched");
+                assertEquals(
+                        1,
+                        bridgeCalls(composedResult, "useProgramLabel"),
+                        version + ": useProgramLabel lookup must survive UniformLocationCallSiteTransformer takeover");
             }
         }
+    }
+
+    @Test
+    void strictVerifyAllLinksPatchedShaderAcrossAllAvailableVersions() throws Exception {
+        final List<Path> artifacts = new ArrayList<>();
+        for (final String version : VERSIONS) {
+            final Path path = tryResolveArtifact(version);
+            if (path != null && Files.isRegularFile(path)) {
+                artifacts.add(path);
+            }
+        }
+        assumeTrue(!artifacts.isEmpty(), "no Cubism artifacts configured for -Xverify:all check");
+        final Path manifest = Files.createTempFile("shader-verify-all-", ".txt");
+        try {
+            Files.writeString(
+                    manifest,
+                    String.join(
+                            "\n",
+                            artifacts.stream()
+                                    .map(p -> p.toAbsolutePath().toString())
+                                    .toList()));
+            final String javaExe =
+                    Path.of(System.getProperty("java.home"), "bin", "java").toString();
+            final Process process = new ProcessBuilder(
+                            javaExe,
+                            "-Xverify:all",
+                            "-cp",
+                            System.getProperty("java.class.path"),
+                            StrictShaderVerifierMain.class.getName(),
+                            manifest.toString())
+                    .redirectErrorStream(true)
+                    .start();
+            final String output = new String(process.getInputStream().readAllBytes());
+            assertTrue(process.waitFor(60L, java.util.concurrent.TimeUnit.SECONDS), "-Xverify:all timed out");
+            assertEquals(0, process.exitValue(), "-Xverify:all failed:\n" + output);
+            assertTrue(output.contains("VERIFIED_SHADERS=" + artifacts.size()), output);
+        } finally {
+            Files.deleteIfExists(manifest);
+        }
+    }
+
+    /** Child entrypoint verifying patched {@code GShader} bytecode under {@code -Xverify:all}. */
+    public static final class StrictShaderVerifierMain {
+        public static void main(final String[] args) throws Exception {
+            final List<String> lines = Files.readAllLines(Path.of(args[0]));
+            int verified = 0;
+            for (final String line : lines) {
+                if (line.isBlank()) continue;
+                final Path artifact = Path.of(line.trim());
+                final byte[] bytes = shaderBytes(artifact);
+                final var transformer = new ShaderUniformTransformer(ignored -> {});
+                try (URLClassLoader baseLoader = loaderFor(artifact)) {
+                    final ProtectionDomain artifactDomain = domain(artifact);
+                    final byte[] patched = transformer.transform(
+                            baseLoader, ShaderUniformTransformer.OWNER, null, artifactDomain, bytes);
+                    if (patched == null) {
+                        throw new AssertionError("patch failed for " + artifact);
+                    }
+                    final var pClassLoader =
+                            new URLClassLoader(baseLoader.getURLs(), StrictShaderVerifierMain.class.getClassLoader()) {
+                                @Override
+                                protected Class<?> loadClass(final String name, final boolean resolve)
+                                        throws ClassNotFoundException {
+                                    if (name.equals(ShaderUniformTransformer.OWNER.replace('/', '.'))) {
+                                        Class<?> loaded = findLoadedClass(name);
+                                        if (loaded == null) {
+                                            loaded = defineClass(name, patched, 0, patched.length, artifactDomain);
+                                        }
+                                        if (resolve) resolveClass(loaded);
+                                        return loaded;
+                                    }
+                                    return super.loadClass(name, resolve);
+                                }
+                            };
+                    try (pClassLoader) {
+                        final Class<?> c =
+                                Class.forName(ShaderUniformTransformer.OWNER.replace('/', '.'), true, pClassLoader);
+                        if (c.getDeclaredMethods().length == 0) {
+                            throw new AssertionError("no methods on verified " + c);
+                        }
+                    } finally {
+                        ShaderUniformTransformer.clearPatched(baseLoader, ShaderUniformTransformer.OWNER);
+                    }
+                    verified++;
+                }
+            }
+            System.out.println("VERIFIED_SHADERS=" + verified);
+        }
+    }
+
+    private static Path tryResolveArtifact(final String version) {
+        final String configured = System.getProperty("turboism.test.cubism" + version.replace(".", "") + "Jar", "");
+        if (!configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        final String ref = System.getProperty(
+                "turboism.test.cubismRefDir", System.getenv().getOrDefault("TURBOISM_CUBISM_REF", ""));
+        return ref.isBlank()
+                ? null
+                : Path.of(ref)
+                        .resolve(version)
+                        .resolve("Live2D_Cubism.jar")
+                        .toAbsolutePath()
+                        .normalize();
+    }
+
+    private static int countUseProgramConcatInDraw(final byte[] bytes) {
+        final int[] count = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    int access, String name, String descriptor, String signature, String[] exceptions) {
+                                if (!ShaderUniformTransformer.DRAW_METHOD.equals(name)) return null;
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitInvokeDynamicInsn(
+                                            String indyName,
+                                            String indyDesc,
+                                            org.objectweb.asm.Handle h,
+                                            Object... bsmArgs) {
+                                        if ("makeConcatWithConstants".equals(indyName)
+                                                && bsmArgs != null
+                                                && bsmArgs.length == 1
+                                                && ("use program " + '\001').equals(bsmArgs[0])) {
+                                            count[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        0);
+        return count[0];
     }
 
     private static boolean normalMatrixAbsenceSkipsBindCheck(final byte[] bytes) {

@@ -26,15 +26,21 @@ import org.junit.jupiter.api.Test;
 class VerifiedMatrixScratchInstallerTest {
     private static final String GATE = MatrixScratchTransformer.ADMISSION_PROPERTY;
     private static final String CALLBACK = MatrixScratchTransformer.CALLBACK_PROPERTY;
+    private static final String RENDER_CALLBACK = MatrixScratchBridge.RENDER_CALLBACK_PROPERTY;
+    private static final String SORTING_CALLBACK = MatrixScratchBridge.SORTING_CALLBACK_PROPERTY;
     private static final String STATS = MatrixScratchBridge.STATS_PROPERTY;
     private final Object previousGate = System.getProperties().get(GATE);
     private final Object previousCallback = System.getProperties().get(CALLBACK);
+    private final Object previousRenderCallback = System.getProperties().get(RENDER_CALLBACK);
+    private final Object previousSortingCallback = System.getProperties().get(SORTING_CALLBACK);
     private final Object previousStats = System.getProperties().get(STATS);
 
     @AfterEach
     void restore() {
         restoreProperty(GATE, previousGate);
         restoreProperty(CALLBACK, previousCallback);
+        restoreProperty(RENDER_CALLBACK, previousRenderCallback);
+        restoreProperty(SORTING_CALLBACK, previousSortingCallback);
         restoreProperty(STATS, previousStats);
     }
 
@@ -91,20 +97,27 @@ class VerifiedMatrixScratchInstallerTest {
     void armsOnlyAfterTransformAndRestoresBeforeRemovingOwnedGate() throws Exception {
         System.getProperties().remove(GATE);
         System.getProperties().remove(CALLBACK);
+        System.getProperties().remove(RENDER_CALLBACK);
+        System.getProperties().remove(SORTING_CALLBACK);
         System.getProperties().remove(STATS);
         try (Fixture f = fixture();
                 var installer = new VerifiedMatrixScratchInstaller(f.context())) {
             assertFalse(System.getProperties().containsKey(GATE));
             assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(RENDER_CALLBACK));
+            assertFalse(System.getProperties().containsKey(SORTING_CALLBACK));
             assertFalse(System.getProperties().containsKey(STATS));
             installer.install();
             AtomicBoolean gate = (AtomicBoolean) System.getProperties().get(GATE);
             assertTrue(gate.get());
             assertTrue(System.getProperties().containsKey(CALLBACK));
+            assertTrue(System.getProperties().containsKey(RENDER_CALLBACK));
+            assertTrue(System.getProperties().containsKey(SORTING_CALLBACK));
             assertTrue(System.getProperties().containsKey(STATS));
             assertNotNull(f.transformedTransformBytes);
             assertFalse(Arrays.equals(f.originalTransformBytes, f.transformedTransformBytes));
-            assertEquals(2, f.active.size(), "one pure dependency observer and one matrix transform");
+            assertEquals(
+                    3, f.active.size(), "one dependency observer, GTransform transform, and renderer matrix transform");
             assertTrue(f.installObservedDisarmed);
             installer.close();
             assertFalse(gate.get(), "old bytecode cannot start reuse during restoration");
@@ -114,6 +127,8 @@ class VerifiedMatrixScratchInstallerTest {
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
             assertFalse(System.getProperties().containsKey(CALLBACK));
+            assertFalse(System.getProperties().containsKey(RENDER_CALLBACK));
+            assertFalse(System.getProperties().containsKey(SORTING_CALLBACK));
             assertFalse(System.getProperties().containsKey(STATS));
             installer.close();
             assertThrows(IllegalStateException.class, installer::install);

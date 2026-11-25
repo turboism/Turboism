@@ -43,6 +43,9 @@ public final class NativeShaderUniformBridge {
 
     private static final int INITIAL_ENTRY_CAPACITY = 16;
     private static final int REENTRANT_POOL_LIMIT = 4;
+    private static final int USE_PROGRAM_LABEL_CACHE_SIZE = 256;
+    private static final String USE_PROGRAM_PREFIX = "use program ";
+    private static final String[] USE_PROGRAM_LABELS = buildUseProgramLabels();
     private static final Map.Entry<?, ?>[] EMPTY_ENTRIES = new Map.Entry<?, ?>[0];
     private static final ThreadLocal<EntryPool> ENTRY_POOL = ThreadLocal.withInitial(EntryPool::new);
     private static final ThreadLocal<ContextStamp> CONTEXT_SCRATCH = ThreadLocal.withInitial(ContextStamp::new);
@@ -64,6 +67,27 @@ public final class NativeShaderUniformBridge {
     private static final MethodType INT_UNARY_TYPE = MethodType.methodType(int.class, Object.class);
 
     private NativeShaderUniformBridge() {}
+
+    /**
+     * Returns a pre-cached {@code "use program <id>"} label for non-negative small shader program
+     * identifiers, falling back to string formatting outside the table.
+     *
+     * @param programId OpenGL shader program identifier
+     * @return exact {@code "use program <programId>"} label
+     */
+    public static String useProgramLabel(final int programId) {
+        return (programId >= 0 && programId < USE_PROGRAM_LABELS.length)
+                ? USE_PROGRAM_LABELS[programId]
+                : USE_PROGRAM_PREFIX + programId;
+    }
+
+    private static String[] buildUseProgramLabels() {
+        final String[] labels = new String[USE_PROGRAM_LABEL_CACHE_SIZE];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = USE_PROGRAM_PREFIX + i;
+        }
+        return labels;
+    }
 
     /** Installer lifecycle switch. Disabling leaves transformed calls on the official path. */
     public static void enabled(boolean value) {
