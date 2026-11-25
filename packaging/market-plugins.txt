@@ -32,4 +32,5 @@
 :plugins:texture-atlas-stats
 :plugins:ui-theme
 :plugins:warp-deformer-alt-symmetry
+:plugins:warp-row-column-deform
 :plugins:webdav-backup

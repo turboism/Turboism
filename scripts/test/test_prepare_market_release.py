@@ -259,23 +259,15 @@ class ManifestValidationTest(unittest.TestCase):
         self.assertFalse((self.tmp / "out").exists())
 
     def test_real_repo_manifest_plan(self):
-        roster_path = (
-            REPO_ROOT / "packaging/market-plugins.txt"
-            if (REPO_ROOT / "packaging/market-plugins.txt").is_file()
-            else REPO_ROOT / "packaging/release-plugins.txt"
-        )
-        expected_projects = [
-            line.strip()
-            for line in roster_path.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.strip().startswith("#") and line.strip() != ":plugins:core"
-        ]
-        result = run_script(REPO_ROOT, "--manifest",
-                            str(REPO_ROOT / "packaging/market-plugins.json"), "--plan")
+        manifest = REPO_ROOT / "packaging/market-plugins.json"
+        entries = json.loads(manifest.read_text(encoding="utf-8"))["plugins"]
+        expected_count = sum(entry.get("publication") == "approved" for entry in entries)
+        result = run_script(REPO_ROOT, "--manifest", str(manifest), "--plan")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), f"selected={len(expected_projects)}")
+        self.assertEqual(result.stdout.strip(), f"selected={expected_count}")
         default_result = run_script(REPO_ROOT, "--plan")
         self.assertEqual(default_result.returncode, 0, default_result.stderr)
-        self.assertEqual(default_result.stdout.strip(), f"selected={len(expected_projects)}")
+        self.assertEqual(default_result.stdout.strip(), f"selected={expected_count}")
 
     def test_market_roster_prefers_market_plugins_txt(self):
         (self.tmp / "packaging/release-plugins.txt").write_text(
@@ -675,6 +667,17 @@ class StagingTest(unittest.TestCase):
         self.assertEqual(names, ["market-release.json", "webdav-backup-0.1.0.jar"])
         sidecar = json.loads((self.output / "market-release.json").read_text())
         self.assertEqual([a["project"] for a in sidecar["artifacts"]], [":plugins:webdav-backup"])
+        withheld = self.stage(False, "--project", ":plugins:mcp")
+        self.assertNotEqual(withheld.returncode, 0)
+        self.assertIn("is not approved for publication", withheld.stderr)
+
+    def test_stage_limits_publication_to_the_requested_project(self):
+        project = ":plugins:webdav-backup"
+        result = self.stage(False, "--project", project)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "selected=1")
+        sidecar = json.loads((self.output / "market-release.json").read_text())
+        self.assertEqual([artifact["project"] for artifact in sidecar["artifacts"]], [project])
 
     def test_approved_plugin_requiring_withheld_plugin_fails_closed(self):
         dependent = make_module(

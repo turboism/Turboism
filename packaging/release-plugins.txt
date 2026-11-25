@@ -32,4 +32,5 @@
 :plugins:turbo-mesh
 :plugins:ui-theme
 :plugins:warp-deformer-alt-symmetry
+:plugins:warp-row-column-deform
 :plugins:webdav-backup

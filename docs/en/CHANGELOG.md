@@ -15,6 +15,7 @@ Changes since the previous stable release, **0.70.2**.
 ### Added
 
 - The SDK lets plugins register custom temporary deformation tools.
+- Turboism bundles Warp Row/Column Deform to move entire rows or columns of Warp Deformer control points. Install it from the Plugin Market if your compatible installation lacks it.
 - The canvas shows handles for moving mirror axes. ArtMesh Mirror adds axis lock and reset controls and uses a hollow circle for the pivot.
 - After an update, Turboism shows the release notes in the selected language.
 - ACP recognizes the agy CLI.

@@ -147,6 +147,10 @@ Section "-PluginPayload" SecPluginPayload
   ${EndIf}
   ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0034.need"
     SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+    File "/oname=warp-row-column-deform.jar" "${STAGING_DIR}/plugins/warp-row-column-deform.jar"
+  ${EndIf}
+  ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0035.need"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
     File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
   ${EndIf}
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-plugin-plan"'
@@ -196,6 +200,7 @@ Var PluginState_31
 Var PluginState_32
 Var PluginState_33
 Var PluginState_34
+Var PluginState_35
 
 LangString PLUGIN_NAME_dev_turboism_plugin_acp ${LANG_ENGLISH} "Turboism ACP 0.68.9"
 LangString PLUGIN_DESC_dev_turboism_plugin_acp ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting a user-installed agent to the authenticated Turboism MCP server."
@@ -469,6 +474,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_JAP
 LangString PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_JAPANESE} "キャンバスのボタンでワープデフォーマ制御点のミラー編集を切り替えます。"
 LangString PLUGIN_NAME_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_KOREAN} "워프 디포머 Alt 대칭 0.68.4"
 LangString PLUGIN_DESC_dev_turboism_plugin_warp_deformer_alt_symmetry ${LANG_KOREAN} "캔버스 버튼으로 워프 디포머와 아트메시의 미러 편집을 전환합니다. 아트메시 대칭축을 이동하고 회전할 수 있습니다."
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_row_column_deform ${LANG_ENGLISH} "Warp Row/Column Deform 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_row_column_deform ${LANG_ENGLISH} "Adds a custom temporary deform tool that moves whole rows or columns of Warp Deformer control points from outward edge handles or direct grid picks."
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_row_column_deform ${LANG_SIMPCHINESE} "弯曲行列整体变形 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_row_column_deform ${LANG_SIMPCHINESE} "添加自定义临时变形工具，支持通过外侧边缘手柄或直接点击网格来整行、整列移动弯曲变形器控制点。"
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_row_column_deform ${LANG_JAPANESE} "ワープ行・列変形 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_row_column_deform ${LANG_JAPANESE} "外側のエッジハンドルやグリッド上の選択からワープデフォーマの行・列単位で制御点を一括移動するカスタム一時変形ツールを追加します。"
+LangString PLUGIN_NAME_dev_turboism_plugin_warp_row_column_deform ${LANG_KOREAN} "워프 행/열 변형 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_warp_row_column_deform ${LANG_KOREAN} "바깥쪽 가장자리 핸들이나 그리드 직접 선택으로 워프 디포머 제어점을 행 또는 열 단위로 일괄 이동하는 사용자 정의 임시 변형 도구를 추가합니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_ENGLISH} "WebDAV Auto-Backup Sync Plugin 0.68.3"
 LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_ENGLISH} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
 LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_SIMPCHINESE} "WebDAV 自动备份同步插件 0.68.3"
@@ -480,8 +493,8 @@ LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDA
 
 ; Initialize first-party plugin selection states (all selected by default).
 Function InitPluginSelectionDefaults
-  StrCpy $PluginTotalCount "35"
-  StrCpy $PluginSelectedCount "35"
+  StrCpy $PluginTotalCount "36"
+  StrCpy $PluginSelectedCount "36"
   StrCpy $PluginCurrentIndex "0"
   StrCpy $PluginReadmeDir ""
   StrCpy $PluginState_0 1
@@ -519,6 +532,7 @@ Function InitPluginSelectionDefaults
   StrCpy $PluginState_32 1
   StrCpy $PluginState_33 1
   StrCpy $PluginState_34 1
+  StrCpy $PluginState_35 1
 FunctionEnd
 
 ; Extract rendered plugin RTF READMEs for the active UI language into a private installer temp directory.
@@ -567,6 +581,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-chn.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-chn.rtf"
     File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-chn.rtf"
+    File "/oname=plugin-35.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0035-chn.rtf"
   ${ElseIf} $LANGUAGE == ${LANG_JAPANESE}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-jpn.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-jpn.rtf"
@@ -603,6 +618,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-jpn.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-jpn.rtf"
     File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-jpn.rtf"
+    File "/oname=plugin-35.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0035-jpn.rtf"
   ${ElseIf} $LANGUAGE == ${LANG_KOREAN}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-kor.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-kor.rtf"
@@ -639,6 +655,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-kor.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-kor.rtf"
     File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-kor.rtf"
+    File "/oname=plugin-35.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0035-kor.rtf"
   ${Else}
     File "/oname=plugin-0.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0000-eng.rtf"
     File "/oname=plugin-1.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0001-eng.rtf"
@@ -675,6 +692,7 @@ Function StagePluginReadmeFiles
     File "/oname=plugin-32.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0032-eng.rtf"
     File "/oname=plugin-33.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0033-eng.rtf"
     File "/oname=plugin-34.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0034-eng.rtf"
+    File "/oname=plugin-35.rtf" "${GENERATED_DIR}/plugin-readmes/plugin-0035-eng.rtf"
   ${EndIf}
 FunctionEnd
 
@@ -820,6 +838,10 @@ Function PopulatePluginSelectionList
   Call InsertPluginListViewItem
   StrCpy $0 34
   StrCpy $1 $PluginState_34
+  StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_warp_row_column_deform)"
+  Call InsertPluginListViewItem
+  StrCpy $0 35
+  StrCpy $1 $PluginState_35
   StrCpy $2 "$(PLUGIN_NAME_dev_turboism_plugin_webdav)"
   Call InsertPluginListViewItem
   System::Call '*(i 8, i $PluginCurrentIndex, i 0, i 3, i 3, p 0, i 0, i 0, p 0) p .r3'
@@ -1253,6 +1275,18 @@ Function SyncPluginSelectionFromListView
     StrCpy $5 34
   ${EndIf}
   IntOp $4 $4 + $1
+  SendMessage $PluginSelectionList 0x102C 35 0xF000 $1
+  IntOp $1 $1 & 0xF000
+  ${If} $1 == 8192
+    StrCpy $1 1
+  ${Else}
+    StrCpy $1 0
+  ${EndIf}
+  ${If} $1 != $PluginState_35
+    StrCpy $PluginState_35 $1
+    StrCpy $5 35
+  ${EndIf}
+  IntOp $4 $4 + $1
 FunctionEnd
 
 ; Select ($0=1) or deselect ($0=0) all first-party plugins.
@@ -1292,8 +1326,9 @@ Function SetAllPluginsSelected
   StrCpy $PluginState_32 $0
   StrCpy $PluginState_33 $0
   StrCpy $PluginState_34 $0
+  StrCpy $PluginState_35 $0
   ${If} $0 == 1
-    StrCpy $PluginSelectedCount "35"
+    StrCpy $PluginSelectedCount "36"
     StrCpy $4 0x2000
   ${Else}
     StrCpy $PluginSelectedCount "0"
@@ -1516,6 +1551,12 @@ Function WritePluginSelectionSkipMarkers
   Delete "$PLUGINSDIR\Turboism-plugin-plan\0034.skip"
   ${If} $PluginState_34 == 0
     FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0034.skip" w
+    FileClose $0
+    Delete "$INSTDIR\plugins\warp-row-column-deform.jar"
+  ${EndIf}
+  Delete "$PLUGINSDIR\Turboism-plugin-plan\0035.skip"
+  ${If} $PluginState_35 == 0
+    FileOpen $0 "$PLUGINSDIR\Turboism-plugin-plan\0035.skip" w
     FileClose $0
     Delete "$INSTDIR\plugins\webdav-backup.jar"
   ${EndIf}
@@ -1764,6 +1805,13 @@ Function CollectUncheckedPluginIds
   ${EndIf}
   ${If} $PluginState_34 == 0
     ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.warp-row-column-deform"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.warp-row-column-deform"
+    ${EndIf}
+  ${EndIf}
+  ${If} $PluginState_35 == 0
+    ${If} $uncheckedPluginIds == ""
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.webdav"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.webdav"
@@ -1773,7 +1821,7 @@ FunctionEnd
 
 ; Export the complete bundled plugin id list so pre-install config preserves unrelated disabled items.
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.project-work-time;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.recent-project-board;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.turbo-mesh;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.webdav"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.acp;dev.turboism.plugin.artmesh-mirror;dev.turboism.plugin.boundingbox-warp-mirror;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.command-palette;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.deformer-batch-rename;dev.turboism.plugin.external-psd-edit;dev.turboism.plugin.frame-animation-import;dev.turboism.plugin.geometric-mesh-layout;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.model-import-3d;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.parameter-sync;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.project-work-time;dev.turboism.plugin.protected-export;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.recent-project-board;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.selection-brush;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-dalsoo;dev.turboism.plugin.texture-atlas-folders;dev.turboism.plugin.texture-atlas-nesting;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.turbo-mesh;dev.turboism.plugin.uitheme;dev.turboism.plugin.warp-deformer-alt-symmetry;dev.turboism.plugin.warp-row-column-deform;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; Uninstall allowlist: delete only installer-deployed plugin JARs; keep unknown files and third-party JARs.
@@ -1812,6 +1860,7 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\turbo-mesh.jar"
   Delete "$INSTDIR\plugins\ui-theme.jar"
   Delete "$INSTDIR\plugins\warp-deformer-alt-symmetry.jar"
+  Delete "$INSTDIR\plugins\warp-row-column-deform.jar"
   Delete "$INSTDIR\plugins\webdav-backup.jar"
 FunctionEnd
 

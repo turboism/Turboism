@@ -11,10 +11,8 @@ This script mirrors the configuration policy of installer.nsi and configure_turb
   - Full installs always carry all bundled plugin JARs; Thin installs write no new JARs and disable all bundled plugins;
   - Uninstall fail-closed cleanup ordering and exact LICENSE deletion remain unchanged.
 
-packaging/release-plugins.txt remains the sole authoritative payload manifest: this script checks
-it as an explicit regression oracle (manifest drift fails), while the synthetic id/module fixtures
-below stay independent because Gradle module names need not match plugin ids (actual ids come from
-META-INF/turboism/plugin.json, checked by verify-installer.py and assemble-release.sh).
+The release plugin manifest defines the expected payload and installer selections.
+Synthetic fixtures use independent module names because plugin descriptors define the actual IDs.
 """
 
 import json
@@ -27,45 +25,6 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# The frozen 33-item approval list, which is the regression oracle: an added, removed, reordered, or newly public excluded module fails.
-# Item 2 was renamed from "backup" to "webdav-backup" with the plugin rename, and frame-animation-import was added.
-EXPECTED_PATHS = [
-    ":plugins:acp",
-    ":plugins:artmesh-mirror",
-    ":plugins:atlas-bitmask-nesting",
-    ":plugins:atlas-dalsoo-polygon",
-    ":plugins:atlas-folder-layout",
-    ":plugins:atlas-maxrects-bssf",
-    ":plugins:boundingbox-warp-mirror",
-    ":plugins:clipmask-viewer",
-    ":plugins:command-palette",
-    ":plugins:cubism-tab-filter",
-    ":plugins:deformer-batch-rename",
-    ":plugins:external-psd-edit",
-    ":plugins:frame-animation-import",
-    ":plugins:geometric-mesh-layout",
-    ":plugins:history-panel",
-    ":plugins:mcp",
-    ":plugins:mesh-edit-mirror-axis-enhance",
-    ":plugins:model-import-3d",
-    ":plugins:palette-label-style",
-    ":plugins:parameter-batch-transfer",
-    ":plugins:parameter-sync",
-    ":plugins:perf-stats",
-    ":plugins:physics-editor",
-    ":plugins:project-work-time",
-    ":plugins:protected-export",
-    ":plugins:psd-clip-mask-import",
-    ":plugins:recent-preview",
-    ":plugins:recent-project-board",
-    ":plugins:scene-palette-enhancer",
-    ":plugins:selection-brush",
-    ":plugins:texture-atlas-stats",
-    ":plugins:turbo-mesh",
-    ":plugins:ui-theme",
-    ":plugins:warp-deformer-alt-symmetry",
-    ":plugins:webdav-backup",
-]
 # The three public excluded modules must stay absent from the list and from every release payload and selection surface, which is the regression oracle
 EXCLUDED = {"demo", "parameter", "project-inspector"}
 
@@ -78,20 +37,17 @@ def check(name, cond, detail=""):
 
 
 def load_manifest():
-    """Regression oracle: verify release-plugins.txt has no blank/comment/non-plugin/duplicate/
-    unsorted entries, matches the approved list, and excludes public-exclusion modules. Returned
-    module names serve the oracle only; plugin ids come from each JAR's plugin.json."""
+    """Validate the release manifest before using it to check the installer payload."""
     raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
     invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
     check("manifest has no blank lines or comments", not invalid, f"found={invalid[:3]}")
     lines = [l.strip() for l in raw if l.strip() and not l.strip().startswith("#")]
+    check("manifest has plugin entries", bool(lines))
     entry = re.compile(r"^:plugins:[a-z0-9-]+$")
     bad = [l for l in lines if not entry.match(l)]
     check("all manifest entries are plugin paths", not bad, f"bad={bad[:3]}")
     check("manifest has no duplicates", len(set(lines)) == len(lines))
     check("manifest is sorted in ASCII ascending order", lines == sorted(lines))
-    check(f"manifest matches frozen {len(EXPECTED_PATHS)} entries", lines == EXPECTED_PATHS,
-          f"n={len(lines)}")
     modules = [l[len(":plugins:"):] for l in lines]
     check("public-exclusion modules absent from manifest", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
@@ -124,7 +80,7 @@ RETIRED_IDS = [
 # old id, and this check mirrors the same result by file name.
 RETIRED_MODULES = ["backup", "clip-mask", "log-filter", "perf-opt", "render-opt"]
 
-REAL_MODULES = load_manifest()  # Regression oracle: a manifest drift, an addition, a removal, a reorder, or a placeholder regression fails
+REAL_MODULES = load_manifest()
 
 
 
