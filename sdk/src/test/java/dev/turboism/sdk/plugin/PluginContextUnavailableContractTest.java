@@ -287,6 +287,11 @@ class PluginContextUnavailableContractTest {
                 context.services()
                         .find(dev.turboism.sdk.action.ActionCatalogService.class)
                         .orElse(dev.turboism.sdk.action.ActionCatalogService.unavailable()));
+        assertSame(
+                dev.turboism.sdk.cubism.temporarydeform.TemporaryDeformToolRegistry.unavailable(),
+                context.services()
+                        .find(dev.turboism.sdk.cubism.temporarydeform.TemporaryDeformToolRegistry.class)
+                        .orElse(dev.turboism.sdk.cubism.temporarydeform.TemporaryDeformToolRegistry.unavailable()));
     }
 
     /**

@@ -1,0 +1,19 @@
+---
+pluginId: dev.turboism.plugin.warp-row-column-deform
+version: 0.1.0
+---
+
+# ワープ行・列変形
+
+| 項目 | 値 |
+|---|---|
+| バージョン | `0.1.0` |
+| プラグイン ID | `dev.turboism.plugin.warp-row-column-deform` |
+
+ワープデフォーマの行全体または列全体の制御点を一括移動できるカスタム一時変形ツールを追加します。**モデリング -> 一時変形ツール** と **ツール詳細** ドロップダウンから起動できます。
+
+<!-- compatibility:begin -->
+**Cubism Editor バージョン対応（自動生成）：** 全審査済みバージョン（5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05、21 個の正確なバージョン）.
+全機能（審査済みバージョン）：5.0.00–5.0.06, 5.1.00–5.1.03, 5.2.00–5.2.03, 5.3.00–5.3.05。
+完全なマトリクス: [compatibility matrix](../../compatibility/cubism/plugins_ja.md)
+<!-- compatibility:end -->

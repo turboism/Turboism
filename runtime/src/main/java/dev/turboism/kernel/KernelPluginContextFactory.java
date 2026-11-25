@@ -289,6 +289,24 @@ final class KernelPluginContextFactory implements AutoCloseable {
                     requestedScope,
                     graalHost,
                     diagnostic -> log.warn(requestedDescriptor.id(), diagnostic)));
+            final var temporaryDeformTools =
+                    new dev.turboism.adapter.cubism.temporarydeform.RuntimeTemporaryDeformToolRegistry(
+                            requestedDescriptor.id(),
+                            eventOwner.key().generation(),
+                            dev.turboism.permissions.PermissionChecker.from(
+                                    new dev.turboism.permissions.CubismPermissionGate(
+                                            requestedDescriptor.id(),
+                                            services.dependencies().permissions(),
+                                            services.dependencies().cubismAuditSink(),
+                                            services.dependencies().clock())),
+                            hostAccess.temporaryDeformCoordinator(),
+                            hostAccess.editorUiContributions());
+            try {
+                context.installTemporaryDeformTools(temporaryDeformTools);
+            } catch (RuntimeException | Error failure) {
+                temporaryDeformTools.close();
+                throw failure;
+            }
             return new PluginContextBundle(context, services.localization(), services.cleanupEvidence(), eventOwner);
         } catch (IOException | RuntimeException | Error failure) {
             // @containment-exempt: closes eventOwner before rethrowing primary failure with fatal prioritized

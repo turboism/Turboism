@@ -499,6 +499,18 @@
         ":testing:test-support"
       ]
     },
+    ":plugins:warp-row-column-deform": {
+      "annotationProcessor": [
+        ":event-processor"
+      ],
+      "compileOnly": [
+        ":sdk"
+      ],
+      "testImplementation": [
+        ":sdk",
+        ":testing:test-support"
+      ]
+    },
     ":plugins:webdav-backup": {
       "annotationProcessor": [
         ":event-processor"

@@ -84,6 +84,7 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.PHYSICS_EDITOR,
                 PluginService.MESH_TOOLS,
                 PluginService.MODELING_TOOLS,
+                PluginService.TEMPORARY_DEFORM_TOOLS,
                 PluginService.AUTOMESH_ALGORITHMS,
                 PluginService.SCENE_TABLE,
                 PluginService.CUBISM_LOG,

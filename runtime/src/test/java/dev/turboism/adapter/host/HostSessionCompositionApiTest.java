@@ -99,6 +99,7 @@ class HostSessionCompositionApiTest {
                         "meshEditUiService():dev.turboism.adapter.cubism.mesh.RuntimeMeshEditUiService",
                         "meshToolCoordinator():dev.turboism.adapter.cubism.mesh.MeshToolCoordinator",
                         "modelingToolCoordinator():dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator",
+                        "temporaryDeformCoordinator():dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinator",
                         "paletteAppearanceCoordinator():dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator",
                         "editorUiLifecycle():dev.turboism.ui.host.EditorUiHostLifecycle",
                         "editorUiContributions():dev.turboism.ui.contribution.EditorUiContributionAuthority",

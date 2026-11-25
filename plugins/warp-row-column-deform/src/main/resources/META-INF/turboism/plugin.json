@@ -1,0 +1,63 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.warp-row-column-deform",
+  "name": "Warp Row/Column Deform",
+  "version": "0.1.0",
+  "description": "Adds a custom temporary deform tool that moves whole rows or columns of Warp Deformer control points from outward edge handles or direct grid picks.",
+  "entrypoints": [
+    "dev.turboism.plugin.warprowcolumndeform.WarpRowColumnDeformPlugin"
+  ],
+  "turboismApi": "[0.70.3,)",
+  "authors": [
+    {
+      "name": "Turboism Contributors"
+    }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": [
+      "en",
+      "ja",
+      "ko",
+      "zh-Hans",
+      "zh-Hant"
+    ]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads selected Warp Deformer Bezier and conversion control-point grids."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Applies synchronized row or column displacements within Cubism's active Undo stroke."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Contributes the tool entry under Modeling -> Temporary Deform Tool and the Tool Details selector."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  },
+  "lifecycle": {
+    "hotReload": true
+  },
+  "tags": [
+    "deformer",
+    "warp",
+    "editing",
+    "temporary-deform"
+  ],
+  "category": "modeling"
+}

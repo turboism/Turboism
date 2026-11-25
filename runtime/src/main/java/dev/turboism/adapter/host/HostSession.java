@@ -343,6 +343,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return coordinators.modelingToolCoordinator();
     }
 
+    /** Returns the host-owned custom temporary deform tool coordinator. */
+    @Override
+    public dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinator temporaryDeformCoordinator() {
+        return coordinators.temporaryDeformCoordinator();
+    }
+
     /** Returns this host session's owner of temporary mesh-tool activations. */
     public dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator() {
         return coordinators.meshToolCoordinator();
@@ -510,6 +516,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 meshEditUiService(),
                 meshToolCoordinator(),
                 modelingToolCoordinator(),
+                temporaryDeformCoordinator(),
                 editorUiLifecycle(),
                 editorUiContributions(),
                 embeddedPanelActivation(),

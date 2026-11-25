@@ -1,0 +1,11 @@
+option.axisMode.auto
+option.axisMode.column
+option.axisMode.label
+option.axisMode.row
+option.gridKind.auto
+option.gridKind.bezier
+option.gridKind.conversion
+option.gridKind.label
+plugin.description
+plugin.name
+tool.label

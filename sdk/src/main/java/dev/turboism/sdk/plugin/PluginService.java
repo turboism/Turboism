@@ -96,6 +96,9 @@ public enum PluginService {
     /** Directory-only ordinary modeling tools; no {@link PluginContext} accessor. */
     MODELING_TOOLS(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class),
 
+    /** Directory-only custom temporary deform tools; no {@link PluginContext} accessor. */
+    TEMPORARY_DEFORM_TOOLS(dev.turboism.sdk.cubism.temporarydeform.TemporaryDeformToolRegistry.class),
+
     /** {@link dev.turboism.sdk.cubism.command.EditorCommandService} */
     EDITOR_COMMANDS(dev.turboism.sdk.cubism.command.EditorCommandService.class),
 
