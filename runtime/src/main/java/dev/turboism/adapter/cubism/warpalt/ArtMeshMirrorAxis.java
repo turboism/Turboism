@@ -8,6 +8,8 @@ final class ArtMeshMirrorAxis {
     private static final float DEFAULT_ROTATION_RADIUS = 64.0f;
     private static final double QUARTER_TURN = Math.PI / 2.0;
     private static final double SNAP_THRESHOLD_RADIANS = Math.toRadians(3.0);
+    private static final float INITIAL_POSITION_TOLERANCE = 1.0e-3f;
+    private static final double INITIAL_ANGLE_TOLERANCE_RADIANS = Math.toRadians(0.05);
 
     record Point(float x, float y) {
         Point {
@@ -23,6 +25,8 @@ final class ArtMeshMirrorAxis {
         }
     }
 
+    private final Point initialPivot;
+    private final double initialAngle;
     private Point pivot;
     private double angle;
     private float dirX;
@@ -30,8 +34,15 @@ final class ArtMeshMirrorAxis {
     private float rotationRadius = DEFAULT_ROTATION_RADIUS;
 
     ArtMeshMirrorAxis(Point pivot, boolean horizontal) {
+        this.initialPivot = pivot;
         this.pivot = pivot;
         preset(horizontal);
+        this.initialAngle = angle;
+    }
+
+    boolean isAtInitialState() {
+        return Math.hypot(pivot.x - initialPivot.x, pivot.y - initialPivot.y) <= INITIAL_POSITION_TOLERANCE
+                && Math.abs(angle - initialAngle) <= INITIAL_ANGLE_TOLERANCE_RADIANS;
     }
 
     Point pivot() {
