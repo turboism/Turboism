@@ -155,6 +155,54 @@ final class AcpClientTest {
     }
 
     @Test
+    void exposesGroupedSelectChoicesInAgentOrder() throws Exception {
+        final String firstModel = "[\"deepseek-official\",\"deepseek-v4-flash\"]";
+        final String secondModel = "[\"another-provider\",\"another-model\"]";
+        final Map<String, Object> groupedModel = Map.of(
+                "id", "model",
+                "name", "Model",
+                "category", "model",
+                "type", "select",
+                "currentValue", firstModel,
+                "options",
+                        List.of(
+                                Map.of(
+                                        "group",
+                                        "deepseek-official",
+                                        "name",
+                                        "DeepSeek",
+                                        "options",
+                                        List.of(Map.of("value", firstModel, "name", "DeepSeek Flash"))),
+                                Map.of(
+                                        "group",
+                                        "another-provider",
+                                        "name",
+                                        "Another provider",
+                                        "options",
+                                        List.of(Map.of("value", secondModel, "name", "Another model")))));
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    final long id = (Long) request.get("id");
+                    if ("initialize".equals(request.get("method"))) {
+                        output.response(id, initializeResult());
+                    } else if ("session/new".equals(request.get("method"))) {
+                        output.response(id, Map.of("sessionId", "sess-1", "configOptions", List.of(groupedModel)));
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {})) {
+            client.initialize(Duration.ofSeconds(2));
+            final AcpConfigOption model =
+                    client.newSession(Path.of("."), null, Duration.ofSeconds(2)).option("model");
+            assertNotNull(model);
+            assertEquals(firstModel, model.currentValue());
+            assertEquals(
+                    List.of(
+                            new AcpConfigOption.Choice(firstModel, "DeepSeek Flash"),
+                            new AcpConfigOption.Choice(secondModel, "Another model")),
+                    model.choices());
+        }
+    }
+
+    @Test
     void attachesTheStdioBridgeServerRegardlessOfHttpCapability() throws Exception {
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
                     final String method = string(request.get("method"));

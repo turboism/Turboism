@@ -90,7 +90,12 @@ dev.turboism.plugin.modelimport3d.SurfaceWarpImportCandidateTest.* # requires gi
 # not enable either lane. Register only the methods that carry that condition.
 dev.turboism.plugin.acp.AcpRealAgentSmokeTest.devinCliCompletesTheAcpHandshake() # requires TURBOISM_ACP_SMOKE=1 and the installed devin CLI.
 dev.turboism.plugin.acp.AcpRealAgentSmokeTest.opencodeCompletesTheAcpHandshake() # requires TURBOISM_ACP_SMOKE=1 and the installed opencode CLI.
+dev.turboism.plugin.acp.AcpRealAgentSmokeTest.antigravityCompletesTheHandshakeAndCreatesSessionOrRequestsSignIn() # requires TURBOISM_ACP_SMOKE=1 and the installed Antigravity CLI.
+dev.turboism.plugin.acp.AcpRealAgentSmokeTest.deepSeekHarnessCreatesAnAcpSession() # requires TURBOISM_ACP_SMOKE=1 and the installed DeepSeek Harness CLI.
 dev.turboism.plugin.acp.NativeRealCliSmokeTest.createsNativeSessionWithoutExternalAdapter* # requires TURBOISM_NATIVE_SMOKE=1 and the installed codex/claude/pi CLIs; includes the disabled parameterized-method report.
+dev.turboism.plugin.acp.WindowsHarnessDiscoveryTest.checksStderrAndVersionAndTriesNextInstalledCandidate() # requires a POSIX shell fixture.
+dev.turboism.plugin.acp.WindowsHarnessDiscoveryTest.doesNotAcceptErrorOutputAsSupportedProtocol() # requires a POSIX shell fixture.
+dev.turboism.plugin.acp.WindowsHarnessDiscoveryTest.explicitRefreshRechecksPreviouslyUnsupportedCandidate() # requires a POSIX shell fixture.
 # Like the SDK headless factory case, this branch needs a JVM without a display.
 dev.turboism.plugin.perfstats.PerfStatsPluginLifecycleTest.windowActionFailsGracefullyInHeadlessEnvironment() # requires a headless JVM; X11/xvfb makes GraphicsEnvironment.isHeadless() false.
 # Framework self-update cases from main that only run on their target platform or

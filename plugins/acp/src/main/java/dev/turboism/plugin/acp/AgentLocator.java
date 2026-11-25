@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 final class AgentLocator {
 
     private static final int MAX_DIRECTORIES = 256;
+    private static final String ANTIGRAVITY_CLI_WINDOWS_DIRECTORY = "agy/bin";
 
     private AgentLocator() {}
 
@@ -233,6 +234,7 @@ final class AgentLocator {
             final boolean windows) {
         if (windows) {
             add(directories, env.get("APPDATA"), "npm");
+            add(directories, env.get("LOCALAPPDATA"), ANTIGRAVITY_CLI_WINDOWS_DIRECTORY);
             add(directories, env.get("LOCALAPPDATA"), "Programs");
             add(directories, env.get("LOCALAPPDATA"), "Programs", "Antigravity", "bin");
             add(directories, env.get("LOCALAPPDATA"), "Microsoft", "WinGet", "Links");

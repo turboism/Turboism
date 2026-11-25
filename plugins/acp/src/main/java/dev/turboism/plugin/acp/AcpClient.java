@@ -45,6 +45,8 @@ final class AcpClient implements AutoCloseable {
     private static final int MAX_UI_METADATA_CHARS = 8 * 1024;
     private static final int MAX_UI_CONTENT_CHARS = 256 * 1024;
     private static final int MAX_PENDING_REQUESTS = 64;
+    private static final String CONFIG_CHOICES_KEY = "options";
+    private static final String CONFIG_CHOICE_GROUP_KEY = "group";
     private static final java.util.regex.Pattern GRAPHEME = java.util.regex.Pattern.compile("\\X");
     private static final java.util.regex.Pattern CREDENTIAL_ASSIGNMENT = java.util.regex.Pattern.compile(
             "(?i)(\\b(?:authorization|token|secret|credential|password)\\s*[:=]\\s*)" + "(?:bearer\\s+)?[^\\s,;]+");
@@ -895,15 +897,14 @@ final class AcpClient implements AutoCloseable {
             final String current = string(option.get("currentValue"));
             if (id == null || name == null || current == null) continue;
             final ArrayList<AcpConfigOption.Choice> choices = new ArrayList<>();
-            for (Object rawChoice : list(option.get("options"))) {
+            for (Object rawChoice : list(option.get(CONFIG_CHOICES_KEY))) {
                 final Map<String, Object> choice = object(rawChoice);
-                final String choiceValue = string(choice.get("value"));
-                final String choiceName = string(choice.get("name"));
-                if (choiceValue != null && choiceName != null) {
-                    choices.add(new AcpConfigOption.Choice(
-                            choiceValue,
-                            redactedUi(choiceName, MAX_UI_METADATA_CHARS),
-                            redactedUi(display(choice.get("description")), MAX_UI_METADATA_CHARS)));
+                if (string(choice.get(CONFIG_CHOICE_GROUP_KEY)) == null) {
+                    addConfigChoice(choices, choice);
+                    continue;
+                }
+                for (Object item : list(choice.get(CONFIG_CHOICES_KEY))) {
+                    addConfigChoice(choices, object(item));
                 }
             }
             if (!choices.isEmpty()) {
@@ -917,6 +918,17 @@ final class AcpClient implements AutoCloseable {
             }
         }
         return List.copyOf(options);
+    }
+
+    private static void addConfigChoice(final List<AcpConfigOption.Choice> choices, final Map<String, Object> choice) {
+        final String value = string(choice.get("value"));
+        final String name = string(choice.get("name"));
+        if (value != null && name != null) {
+            choices.add(new AcpConfigOption.Choice(
+                    value,
+                    redactedUi(name, MAX_UI_METADATA_CHARS),
+                    redactedUi(display(choice.get("description")), MAX_UI_METADATA_CHARS)));
+        }
     }
 
     private static String configId(final Map<String, Object> option) {
