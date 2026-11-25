@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -31,6 +32,8 @@ final class EditSubtreeCoordinator {
 
     private final EditSubtreeHandles h;
     private final SubtreeParallelExecutor parallelExecutor;
+    private final AtomicLong meshKeyformEpoch;
+    private final AtomicLong gridMutationEpoch;
     private final WeakIdentityCache<Object, EditModelTopologyCache> modelCaches = new WeakIdentityCache<>();
     private final ThreadLocal<Boolean> inFastPath = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final ThreadLocal<IdentityHashMap<Object, Boolean>> activeEditSourcesScratch =
@@ -49,8 +52,18 @@ final class EditSubtreeCoordinator {
     final LongAdder parallelMeshBatches = new LongAdder();
 
     EditSubtreeCoordinator(final EditSubtreeHandles handles, final SubtreeParallelExecutor parallelExecutor) {
+        this(handles, parallelExecutor, new AtomicLong(), new AtomicLong());
+    }
+
+    EditSubtreeCoordinator(
+            final EditSubtreeHandles handles,
+            final SubtreeParallelExecutor parallelExecutor,
+            final AtomicLong meshKeyformEpoch,
+            final AtomicLong gridMutationEpoch) {
         this.h = handles;
         this.parallelExecutor = parallelExecutor;
+        this.meshKeyformEpoch = meshKeyformEpoch;
+        this.gridMutationEpoch = gridMutationEpoch;
     }
 
     private volatile EditModelTopologyCache latestCache;
@@ -211,6 +224,7 @@ final class EditSubtreeCoordinator {
                     activeEditSources,
                     h,
                     fullArrayHashes);
+            cache.lastKeyformEditEpoch = meshKeyformEpoch.get() + gridMutationEpoch.get();
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             final EditModelTopologyCache cache = latestCache;
@@ -554,6 +568,15 @@ final class EditSubtreeCoordinator {
             throws Throwable {
         final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         pruneUnselected(c.selectedMeshBaselines, activeEditSources);
+        final Object[] partSources = c.partSources;
+        final boolean[] partVisHierarchy = c.partVisHierarchy;
+        for (int p = 0; p < partSources.length; p++) {
+            final Object pSrc = partSources[p];
+            partVisHierarchy[p] = pSrc != null && acc.controllableSourceIsVisibleHierarchy(pSrc);
+        }
+        final long curKeyformEpoch = meshKeyformEpoch.get() + gridMutationEpoch.get();
+        final boolean checkAllKeyforms = curKeyformEpoch != c.lastKeyformEditEpoch;
+        final boolean hasParentGuidHandle = h.controllableSourceGetParentGuid != null;
         for (int m = 0; m < nMesh; m++) {
             final Object mesh = c.visibleMeshes[m];
             if (acc.meshGetAnimatedForm(mesh) != null || acc.meshGetLocalAnimatedForm(mesh) != null) {
@@ -563,12 +586,35 @@ final class EditSubtreeCoordinator {
                 return false;
             }
             final Object src = c.visibleMeshSources[m];
-            if (acc.meshSourceGetMeshVersion(src) != c.lastMeshVer[m]
+            final List<?> keyforms = acc.sourceGetKeyforms(src);
+            final int kfCount = keyforms == null ? 0 : keyforms.size();
+            if (kfCount != c.lastMeshKeyformCount[m]
+                    || acc.meshSourceGetMeshVersion(src) != c.lastMeshVer[m]
                     || acc.meshGetCopiedMeshVersion(mesh) != c.lastMeshCopiedVer[m]
-                    || EditModelTopologyCache.computeKeyformVersionStamp(src, h) != c.lastMeshKeyformVersionStamp[m]
-                    || acc.controllableSourceIsVisible(src) != c.lastMeshVisible[m]
-                    || acc.controllableSourceIsVisibleHierarchy(src) != c.lastMeshVisHierarchy[m]
                     || acc.meshGetDrawOrder(mesh) != c.lastMeshDrawOrder[m]) {
+                return false;
+            }
+            final boolean srcVisible = acc.controllableSourceIsVisible(src);
+            final int parentPartIdx = c.meshParentPartIdx[m];
+            final boolean visHierarchy;
+            if (hasParentGuidHandle) {
+                final Object parentGuid = acc.controllableSourceGetParentGuid(src);
+                if (parentPartIdx >= 0 && parentGuid == c.lastMeshParentGuid[m]) {
+                    visHierarchy = srcVisible && partVisHierarchy[parentPartIdx];
+                } else if (parentPartIdx < 0 && parentGuid == null) {
+                    visHierarchy = acc.controllableSourceIsVisibleHierarchy(src);
+                } else {
+                    return false;
+                }
+            } else {
+                visHierarchy = acc.controllableSourceIsVisibleHierarchy(src);
+            }
+            if (srcVisible != c.lastMeshVisible[m] || visHierarchy != c.lastMeshVisHierarchy[m]) {
+                return false;
+            }
+            final boolean isSelected = activeEditSources.containsKey(src);
+            if ((checkAllKeyforms || isSelected)
+                    && EditModelTopologyCache.computeKeyformVersionStamp(src, h) != c.lastMeshKeyformVersionStamp[m]) {
                 return false;
             }
             final Object form = acc.meshGetInterpolatedForm(mesh);
@@ -576,7 +622,7 @@ final class EditSubtreeCoordinator {
                     || (form != null && acc.formGetEditVersion(form) != c.lastMeshInterpEditVer[m])) {
                 return false;
             }
-            if (activeEditSources.containsKey(src)) {
+            if (isSelected) {
                 final EditModelTopologyCache.SelectedMeshBaseline mb = c.selectedMeshBaselines.get(src);
                 if (mb == null || !mb.matches(src, form, h, fullArrayHashes)) {
                     return false;
@@ -597,6 +643,7 @@ final class EditSubtreeCoordinator {
                 }
             }
         }
+        c.lastKeyformEditEpoch = curKeyformEpoch;
         return true;
     }
 
@@ -815,8 +862,60 @@ final class EditSubtreeCoordinator {
             acc.formPostBlend(interpForm);
         }
 
-        acc.deformerSetPreClampMorphedForm(deformer, acc.formDeepCopy(interpForm, h.copyInfoDefault));
+        final Object existingPreClamp = acc.deformerGetPreClampMorphedForm(deformer);
+        if (canReuseDeformerFormInPlace(existingPreClamp, interpForm, lower, isWarp, acc)) {
+            copyDeformerFormInPlace(existingPreClamp, interpForm, isWarp, isRotation, acc);
+        } else {
+            acc.deformerSetPreClampMorphedForm(deformer, acc.formDeepCopy(interpForm, h.copyInfoDefault));
+        }
         clampDeformerForm(interpForm, isRotation, acc);
+    }
+
+    private static boolean canReuseDeformerFormInPlace(
+            final Object existing,
+            final Object interpForm,
+            final Object lower,
+            final boolean isWarp,
+            final EditSubtreeCompiledAccessors.HostOps acc) {
+        if (existing == null
+                || existing == interpForm
+                || existing == lower
+                || existing.getClass() != interpForm.getClass()) {
+            return false;
+        }
+        if (!isWarp) {
+            return true;
+        }
+        final float[] srcPos = acc.warpFormGetPositions(interpForm);
+        final float[] dstPos = acc.warpFormGetPositions(existing);
+        return srcPos != null && dstPos != null && srcPos.length == dstPos.length;
+    }
+
+    private static void copyDeformerFormInPlace(
+            final Object dst,
+            final Object src,
+            final boolean isWarp,
+            final boolean isRotation,
+            final EditSubtreeCompiledAccessors.HostOps acc) {
+        if (isWarp) {
+            final float[] srcPos = acc.warpFormGetPositions(src);
+            final float[] dstPos = acc.warpFormGetPositions(dst);
+            System.arraycopy(srcPos, 0, dstPos, 0, srcPos.length);
+        } else if (isRotation) {
+            acc.rotFormSetOriginX(dst, acc.rotFormGetOriginX(src));
+            acc.rotFormSetOriginY(dst, acc.rotFormGetOriginY(src));
+            acc.rotFormSetScale(dst, acc.rotFormGetScale(src));
+            acc.rotFormSetAngle(dst, acc.rotFormGetAngle(src));
+            acc.rotFormSetReflectX(dst, acc.rotFormIsReflectX(src));
+            acc.rotFormSetReflectY(dst, acc.rotFormIsReflectY(src));
+        }
+        acc.deformerFormSetOpacity(dst, acc.deformerFormGetOpacity(src));
+        MorphScratch.copyColor(acc.deformerFormGetMultiplyColor(dst), acc.deformerFormGetMultiplyColor(src), acc);
+        MorphScratch.copyColor(acc.deformerFormGetScreenColor(dst), acc.deformerFormGetScreenColor(src), acc);
+        final Object coordType = acc.deformerFormGetCoordType(src);
+        if (coordType != null) {
+            acc.deformerFormSetCoordType(dst, coordType);
+        }
     }
 
     private boolean targetsContainGuid(final List<?> targets, final int size, final Object paramGuid) throws Throwable {
@@ -970,11 +1069,17 @@ final class EditSubtreeCoordinator {
     }
 
     private static final class MorphScratch {
+        private static final int WARP_SCRATCH_CAP = 16;
+
         MorphKeyEntry[] entries;
-        Object blendedWarpForm;
-        int blendedWarpPosLen = -1;
-        Object deltaWarpForm;
-        int deltaWarpPosLen = -1;
+        final Object[] blendedWarpForms = new Object[WARP_SCRATCH_CAP];
+        final int[] blendedWarpLens = new int[WARP_SCRATCH_CAP];
+        int blendedWarpCount;
+        int blendedWarpCursor;
+        final Object[] deltaWarpForms = new Object[WARP_SCRATCH_CAP];
+        final int[] deltaWarpLens = new int[WARP_SCRATCH_CAP];
+        int deltaWarpCount;
+        int deltaWarpCursor;
         Object blendedRotForm;
         Object deltaRotForm;
 
@@ -1007,11 +1112,24 @@ final class EditSubtreeCoordinator {
             if (isWarp) {
                 final float[] pos = acc.warpFormGetPositions(template);
                 final int len = pos == null ? -1 : pos.length;
-                if (blendedWarpForm == null || blendedWarpPosLen != len) {
-                    blendedWarpForm = acc.formDeepCopy(template, defaultCopyInfo);
-                    blendedWarpPosLen = len;
+                for (int i = 0; i < blendedWarpCount; i++) {
+                    if (blendedWarpLens[i] == len
+                            && blendedWarpForms[i] != null
+                            && blendedWarpForms[i].getClass() == template.getClass()) {
+                        return blendedWarpForms[i];
+                    }
                 }
-                return blendedWarpForm;
+                final Object copy = acc.formDeepCopy(template, defaultCopyInfo);
+                final int slot;
+                if (blendedWarpCount < WARP_SCRATCH_CAP) {
+                    slot = blendedWarpCount++;
+                } else {
+                    slot = blendedWarpCursor;
+                    blendedWarpCursor = (blendedWarpCursor + 1) % WARP_SCRATCH_CAP;
+                }
+                blendedWarpForms[slot] = copy;
+                blendedWarpLens[slot] = len;
+                return copy;
             }
             if (blendedRotForm == null) {
                 blendedRotForm = acc.formDeepCopy(template, defaultCopyInfo);
@@ -1027,22 +1145,30 @@ final class EditSubtreeCoordinator {
             if (isWarp) {
                 final float[] srcPos = acc.warpFormGetPositions(src);
                 final int len = srcPos == null ? -1 : srcPos.length;
-                if (deltaWarpForm == null || deltaWarpPosLen != len) {
-                    deltaWarpForm = acc.formDeepCopy(src, defaultCopyInfo);
-                    deltaWarpPosLen = len;
-                } else {
-                    final float[] dstPos = acc.warpFormGetPositions(deltaWarpForm);
-                    if (srcPos != null && dstPos != null) {
-                        System.arraycopy(srcPos, 0, dstPos, 0, len);
+                for (int i = 0; i < deltaWarpCount; i++) {
+                    if (deltaWarpLens[i] == len
+                            && deltaWarpForms[i] != null
+                            && deltaWarpForms[i].getClass() == src.getClass()) {
+                        final Object cached = deltaWarpForms[i];
+                        final float[] dstPos = acc.warpFormGetPositions(cached);
+                        if (srcPos != null && dstPos != null) {
+                            System.arraycopy(srcPos, 0, dstPos, 0, len);
+                        }
+                        copyDeformerScalarsAndCoordType(cached, src, acc);
+                        return cached;
                     }
-                    acc.deformerFormSetOpacity(deltaWarpForm, acc.deformerFormGetOpacity(src));
-                    copyColor(
-                            acc.deformerFormGetMultiplyColor(deltaWarpForm),
-                            acc.deformerFormGetMultiplyColor(src),
-                            acc);
-                    copyColor(acc.deformerFormGetScreenColor(deltaWarpForm), acc.deformerFormGetScreenColor(src), acc);
                 }
-                return deltaWarpForm;
+                final Object copy = acc.formDeepCopy(src, defaultCopyInfo);
+                final int slot;
+                if (deltaWarpCount < WARP_SCRATCH_CAP) {
+                    slot = deltaWarpCount++;
+                } else {
+                    slot = deltaWarpCursor;
+                    deltaWarpCursor = (deltaWarpCursor + 1) % WARP_SCRATCH_CAP;
+                }
+                deltaWarpForms[slot] = copy;
+                deltaWarpLens[slot] = len;
+                return copy;
             }
             if (deltaRotForm == null) {
                 deltaRotForm = acc.formDeepCopy(src, defaultCopyInfo);
@@ -1050,6 +1176,17 @@ final class EditSubtreeCoordinator {
                 acc.formReinit(deltaRotForm, src, defaultCopyInfo);
             }
             return deltaRotForm;
+        }
+
+        private static void copyDeformerScalarsAndCoordType(
+                final Object dst, final Object src, final EditSubtreeCompiledAccessors.HostOps acc) {
+            acc.deformerFormSetOpacity(dst, acc.deformerFormGetOpacity(src));
+            copyColor(acc.deformerFormGetMultiplyColor(dst), acc.deformerFormGetMultiplyColor(src), acc);
+            copyColor(acc.deformerFormGetScreenColor(dst), acc.deformerFormGetScreenColor(src), acc);
+            final Object coordType = acc.deformerFormGetCoordType(src);
+            if (coordType != null) {
+                acc.deformerFormSetCoordType(dst, coordType);
+            }
         }
 
         private static void copyColor(

@@ -40,7 +40,12 @@ final class EditModelTopologyCache {
     boolean lastUpdCtxA;
     boolean lastUpdCtxF;
     int lastPartsCount;
-    int[] lastPartSignatures;
+    int[] lastPartSignatures = new int[0];
+    Object[] parts = new Object[0];
+    Object[] partSources = new Object[0];
+    boolean[] partVisHierarchy = new boolean[0];
+    final IdentityHashMap<Object, Integer> partSourceIndexByRef = new IdentityHashMap<>();
+    long lastKeyformEditEpoch;
     int lastAliasesCount;
     boolean hasAnyConflictPolygon;
 
@@ -85,6 +90,9 @@ final class EditModelTopologyCache {
     int[] lastMeshDrawOrder;
     boolean[] lastMeshVisible;
     boolean[] lastMeshVisHierarchy;
+    int[] meshParentPartIdx;
+    Object[] lastMeshParentGuid;
+    int[] lastMeshKeyformCount;
     float[][] lastMeshGMeshPosRefs;
 
     // Deep float[]/color baselines tracked strictly for currently selected or hovered objects.
@@ -188,7 +196,8 @@ final class EditModelTopologyCache {
             return false;
         }
         for (int i = 0; i < parts.size(); i++) {
-            if (partSignature(parts.get(i), acc) != lastPartSignatures[i]) {
+            final Object part = parts.get(i);
+            if (part != this.parts[i] || partSignature(part, acc) != lastPartSignatures[i]) {
                 return false;
             }
         }
@@ -324,8 +333,20 @@ final class EditModelTopologyCache {
         }
         lastPartsCount = parts.size();
         lastPartSignatures = new int[parts.size()];
+        this.parts = new Object[lastPartsCount];
+        partSources = new Object[lastPartsCount];
+        partVisHierarchy = new boolean[lastPartsCount];
+        partSourceIndexByRef.clear();
         for (int i = 0; i < parts.size(); i++) {
-            lastPartSignatures[i] = partSignature(parts.get(i), h.acc);
+            final Object part = parts.get(i);
+            final Object pSrc = h.acc.partGetSource(part);
+            this.parts[i] = part;
+            partSources[i] = pSrc;
+            if (pSrc != null) {
+                partSourceIndexByRef.put(pSrc, i);
+                partVisHierarchy[i] = h.acc.controllableSourceIsVisibleHierarchy(pSrc);
+            }
+            lastPartSignatures[i] = partSignature(part, h.acc);
         }
 
         hasAnyConflictPolygon = false;
@@ -609,10 +630,16 @@ final class EditModelTopologyCache {
         lastMeshDrawOrder = new int[mCount];
         lastMeshVisible = new boolean[mCount];
         lastMeshVisHierarchy = new boolean[mCount];
+        meshParentPartIdx = new int[mCount];
+        lastMeshParentGuid = new Object[mCount];
+        lastMeshKeyformCount = new int[mCount];
         lastMeshGMeshPosRefs = new float[mCount][];
         for (int i = 0; i < mCount; i++) {
-            final boolean captureSelected =
-                    activeEditSources != null && activeEditSources.containsKey(visibleMeshSources[i]);
+            final Object mSrc = visibleMeshSources[i];
+            final Object parentSrc = h.acc.controllableSourceGetParent(mSrc);
+            final Integer pIdx = parentSrc == null ? null : partSourceIndexByRef.get(parentSrc);
+            meshParentPartIdx[i] = pIdx != null ? pIdx : -1;
+            final boolean captureSelected = activeEditSources != null && activeEditSources.containsKey(mSrc);
             recordMeshSnapshot(i, captureSelected, h, fullArrayHashes);
         }
     }
@@ -626,6 +653,9 @@ final class EditModelTopologyCache {
         lastMeshVer[i] = acc.meshSourceGetMeshVersion(src);
         lastMeshCopiedVer[i] = acc.meshGetCopiedMeshVersion(m);
         lastMeshKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
+        final List<?> kfs = acc.sourceGetKeyforms(src);
+        lastMeshKeyformCount[i] = kfs == null ? 0 : kfs.size();
+        lastMeshParentGuid[i] = acc.controllableSourceGetParentGuid(src);
         final Object form = acc.meshGetInterpolatedForm(m);
         lastMeshInterpForm[i] = form;
         lastMeshInterpEditVer[i] = form == null ? -1 : acc.formGetEditVersion(form);

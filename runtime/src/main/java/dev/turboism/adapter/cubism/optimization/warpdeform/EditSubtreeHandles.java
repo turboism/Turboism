@@ -58,6 +58,7 @@ final class EditSubtreeHandles {
     private static final String ART_PATH_OWNER = "com/live2d/cubism/doc/model/drawable/artPath/CArtPath";
     private static final String CPART_OWNER = "com/live2d/cubism/doc/model/parts/CPart";
     private static final String CPART_SOURCE_OWNER = "com/live2d/cubism/doc/model/parts/CPartSource";
+    private static final String CPART_GUID_OWNER = "com/live2d/type/CPartGuid";
     private static final String CALIAS_OWNER = "com/live2d/cubism/doc/model/alias/CAlias";
     private static final String GLUE_OWNER = "com/live2d/cubism/doc/model/affecter/glue/CGlue";
     private static final String GLUE_SOURCE_OWNER = "com/live2d/cubism/doc/model/affecter/glue/CGlueSource";
@@ -235,6 +236,8 @@ final class EditSubtreeHandles {
     final MethodHandle selectorIsSelected;
     final MethodHandle controllableGetSource;
     final MethodHandle controllableSourceGetTargetGuid;
+    final MethodHandle controllableSourceGetParent;
+    final MethodHandle controllableSourceGetParentGuid;
 
     final MethodHandle appSettingGetDraw;
     final MethodHandle drawSettingGetOptimizeArtMesh;
@@ -310,6 +313,7 @@ final class EditSubtreeHandles {
     final MethodHandle formDeepCopy;
     final MethodHandle formReinit;
     final MethodHandle deformerFormInterpolate;
+    final MethodHandle deformerFormGetCoordType;
     final MethodHandle deformerFormSetCoordType;
     final MethodHandle deformerFormGetOpacity;
     final MethodHandle deformerFormSetOpacity;
@@ -321,10 +325,14 @@ final class EditSubtreeHandles {
     final MethodHandle rotFormGetOriginY;
     final MethodHandle rotFormGetAngle;
     final MethodHandle rotFormGetScale;
+    final MethodHandle rotFormSetOriginX;
+    final MethodHandle rotFormSetOriginY;
     final MethodHandle rotFormSetAngle;
     final MethodHandle rotFormSetScale;
     final MethodHandle rotFormIsReflectX;
     final MethodHandle rotFormIsReflectY;
+    final MethodHandle rotFormSetReflectX;
+    final MethodHandle rotFormSetReflectY;
 
     final MethodHandle floatColorGetR;
     final MethodHandle floatColorGetG;
@@ -402,6 +410,15 @@ final class EditSubtreeHandles {
     final MethodHandle actionPackGetM;
     final MethodHandle actionPackGetP;
     final MethodHandle actionPackGetDeformers;
+    final Class<?> kotlinLazyClass;
+    final MethodHandle lazyIsInitialized;
+    final HostHandles.HostField actionPackLazyEField;
+    final HostHandles.HostField actionPackLazyGField;
+    final HostHandles.HostField actionPackLazyIField;
+    final HostHandles.HostField actionPackLazyQField;
+    final HostHandles.HostField actionPackLazyAField;
+    final HostHandles.HostField actionPackLazyBField;
+    final boolean actionPackQIsAbstract;
     final MethodHandle jViewGetModelingView;
     final MethodHandle entitySetEnabled;
     final MethodHandle entityGetEnabled;
@@ -703,6 +720,10 @@ final class EditSubtreeHandles {
                 acControllableClass, "getSource", "()L" + AC_CONTROLLABLE_SOURCE_OWNER + ";", objUnary);
         controllableSourceGetTargetGuid = HostHandles.virtual(
                 acControllableSourceClass, "getTargetDeformerGuid", "()L" + DEFORMER_GUID_OWNER + ";", objUnary);
+        controllableSourceGetParent =
+                tryOptionalVirtual(acControllableSourceClass, "getParent", "()L" + CPART_SOURCE_OWNER + ";", objUnary);
+        controllableSourceGetParentGuid = tryOptionalVirtual(
+                acControllableSourceClass, "getParentGuid", "()L" + CPART_GUID_OWNER + ";", objUnary);
 
         appSettingGetDraw = HostHandles.virtual(appSettingClass, "getDraw", "()L" + DRAW_SETTING_OWNER + ";", objUnary);
         drawSettingGetOptimizeArtMesh = HostHandles.virtual(drawSettingClass, "getOptimizeArtMesh", "()Z", boolUnary);
@@ -889,6 +910,8 @@ final class EditSubtreeHandles {
                 "interpolate__testImpl",
                 "(L" + KEYFORM_GRID_SOURCE_OWNER + ";L" + CPARAM_SET_OWNER + ";L" + updCtxInternal + ";)V",
                 MethodType.methodType(void.class, Object.class, Object.class, Object.class, Object.class));
+        deformerFormGetCoordType =
+                tryOptionalVirtual(acDeformerFormClass, "getCoordType", "()L" + COORD_TYPE_OWNER + ";", objUnary);
         deformerFormSetCoordType =
                 HostHandles.virtual(acDeformerFormClass, "setCoordType", "(L" + COORD_TYPE_OWNER + ";)V", setObj);
         deformerFormGetOpacity = HostHandles.virtual(acDeformerFormClass, "getOpacity", "()F", floatUnary);
@@ -904,10 +927,14 @@ final class EditSubtreeHandles {
         rotFormGetOriginY = HostHandles.virtual(rotFormClass, "getOriginY", "()F", floatUnary);
         rotFormGetAngle = HostHandles.virtual(rotFormClass, "getAngle", "()F", floatUnary);
         rotFormGetScale = HostHandles.virtual(rotFormClass, "getScale", "()F", floatUnary);
+        rotFormSetOriginX = tryOptionalVirtual(rotFormClass, "setOriginX", "(F)V", setFloat);
+        rotFormSetOriginY = tryOptionalVirtual(rotFormClass, "setOriginY", "(F)V", setFloat);
         rotFormSetAngle = tryOptionalVirtual(rotFormClass, "setAngle", "(F)V", setFloat);
         rotFormSetScale = tryOptionalVirtual(rotFormClass, "setScale", "(F)V", setFloat);
         rotFormIsReflectX = HostHandles.virtual(rotFormClass, "isReflectX", "()Z", boolUnary);
         rotFormIsReflectY = HostHandles.virtual(rotFormClass, "isReflectY", "()Z", boolUnary);
+        rotFormSetReflectX = tryOptionalVirtual(rotFormClass, "setReflectX", "(Z)V", setBool);
+        rotFormSetReflectY = tryOptionalVirtual(rotFormClass, "setReflectY", "(Z)V", setBool);
 
         floatColorGetR = HostHandles.virtual(floatColorClass, "getR", "()F", floatUnary);
         floatColorGetG = HostHandles.virtual(floatColorClass, "getG", "()F", floatUnary);
@@ -1010,7 +1037,10 @@ final class EditSubtreeHandles {
         actionPackGetEditMode =
                 HostHandles.virtual(actionPackBaseClass, "f", "()L" + EDIT_MODE_MAIN_OWNER + ";", objUnary);
         actionPackGetSelected = HostHandles.virtual(actionPackClass, "r", "()Ljava/util/List;", objUnary);
-        actionPackGetQ = tryOptionalVirtual(actionPackBaseClass, "Q", "()Ljava/util/List;", objUnary);
+        actionPackQIsAbstract = isAbstractVirtualMethod(actionPackBaseClass, "Q");
+        actionPackGetQ = actionPackQIsAbstract
+                ? null
+                : tryOptionalVirtual(actionPackBaseClass, "Q", "()Ljava/util/List;", objUnary);
         actionPackGetS = tryOptionalVirtual(actionPackBaseClass, "S", "()Ljava/util/List;", objUnary);
         actionPackGetU = tryOptionalVirtual(actionPackBaseClass, "U", "()Ljava/util/List;", objUnary);
         actionPackGetF = HostHandles.virtual(actionPackBaseClass, "F", "()Ljava/util/List;", objUnary);
@@ -1024,6 +1054,16 @@ final class EditSubtreeHandles {
         actionPackGetL = HostHandles.virtual(actionPackBaseClass, "l", "()Z", boolUnary);
         actionPackGetM = HostHandles.virtual(actionPackBaseClass, "m", "()Z", boolUnary);
         actionPackGetP = tryOptionalVirtual(actionPackBaseClass, "p", "()Z", boolUnary);
+        kotlinLazyClass = tryOptionalLoad(loader, "kotlin/Lazy");
+        lazyIsInitialized = kotlinLazyClass == null
+                ? null
+                : tryOptionalInterface(kotlinLazyClass, "isInitialized", "()Z", boolUnary);
+        actionPackLazyEField = tryOptionalField(actionPackBaseClass, "E");
+        actionPackLazyGField = tryOptionalField(actionPackBaseClass, "G");
+        actionPackLazyIField = tryOptionalField(actionPackBaseClass, "I");
+        actionPackLazyQField = tryOptionalField(actionPackBaseClass, "q");
+        actionPackLazyAField = tryOptionalField(actionPackBaseClass, "A");
+        actionPackLazyBField = tryOptionalField(actionPackBaseClass, "B");
 
         final Class<?> overlayViewClass = HostHandles.load(
                 loader,
@@ -1188,6 +1228,19 @@ final class EditSubtreeHandles {
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
             return null;
+        }
+    }
+
+    private static boolean isAbstractVirtualMethod(final Class<?> owner, final String methodName) {
+        if (owner == null) {
+            return false;
+        }
+        try {
+            return java.lang.reflect.Modifier.isAbstract(
+                    owner.getMethod(methodName).getModifiers());
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+            return false;
         }
     }
 

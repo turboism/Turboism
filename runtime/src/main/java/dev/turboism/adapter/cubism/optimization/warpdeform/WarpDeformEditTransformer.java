@@ -106,11 +106,22 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     private final String resolvedOverlayMethodName;
     private final String selectionViewOwner;
     private final String resolvedSelectionDrawMethodName;
-    private final int selectionDrawNextFreeLocal;
+    private final SelectionDrawScan selectionDrawScan;
     private final int warpSourceReinitNextFreeLocal;
     private final int rotTransformNextFreeLocal;
     private final int rotHelperNextFreeLocal;
     private volatile String failure;
+
+    private record SelectionDrawScan(
+            String methodName,
+            int newCount,
+            int updateCalls,
+            int setVolatileAfterUpdateCalls,
+            int meshSlot,
+            int packSlot,
+            int selectedSlot,
+            int gluedSlot,
+            int nextFreeLocal) {}
 
     private record MethodSpec(String name, String descriptor) {}
 
@@ -165,7 +176,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                         ? WarpDeformEditTarget.LEGACY_OVERLAY_VIEW_OWNER
                         : WarpDeformEditTarget.OVERLAY_VIEW_OWNER;
         String detectedSelectionMethod = null;
-        int selectionFreeLocal = 8;
+        SelectionDrawScan resolvedSelScan = null;
         int warpSourceFreeLocal = 4;
         int rotTransformFreeLocal = 16;
         int rotHelperFreeLocal = 14;
@@ -222,16 +233,24 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                     viewMethods.add(new MethodSpec(detectedOverlayMethod, target.overlayMethodDescriptor()));
                 }
                 if (expectedSelectionOwner.equals(owner)) {
-                    final int[] selScan = inspectSelectionDrawMethod(refBytes);
-                    detectedSelectionMethod = selScan[0] >= 0 ? String.valueOf((char) selScan[0]) : null;
+                    resolvedSelScan = inspectSelectionDrawMethod(refBytes);
+                    detectedSelectionMethod = resolvedSelScan == null ? null : resolvedSelScan.methodName();
                     if (detectedSelectionMethod == null) {
                         throw new IllegalArgumentException("updateSelectionDraw method absent in " + owner);
                     }
-                    if (selScan[1] != EXPECTED_SELECTION_MESH_UPDATE_SITES) {
+                    if (resolvedSelScan.newCount() != EXPECTED_SELECTION_MESH_UPDATE_SITES
+                            || resolvedSelScan.updateCalls() != EXPECTED_SELECTION_MESH_UPDATE_SITES
+                            || resolvedSelScan.setVolatileAfterUpdateCalls() != EXPECTED_SELECTION_MESH_UPDATE_SITES
+                            || resolvedSelScan.meshSlot() < 0
+                            || resolvedSelScan.packSlot() < 0
+                            || resolvedSelScan.selectedSlot() < 0
+                            || resolvedSelScan.gluedSlot() < 0) {
                         throw new IllegalArgumentException(
-                                "DrawEntity_ArtMesh_Selection.update site mismatch in " + owner + ": " + selScan[1]);
+                                "DrawEntity_ArtMesh_Selection selection structure mismatch in "
+                                        + owner
+                                        + ": "
+                                        + resolvedSelScan);
                     }
-                    selectionFreeLocal = selScan[2];
                     viewMethods.add(
                             new MethodSpec(detectedSelectionMethod, WarpDeformEditTarget.SELECTION_DRAW_DESCRIPTOR));
                 }
@@ -286,7 +305,7 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         this.resolvedOverlayMethodName = detectedOverlayMethod;
         this.selectionViewOwner = expectedSelectionOwner;
         this.resolvedSelectionDrawMethodName = Objects.requireNonNull(detectedSelectionMethod, "selectionDrawMethod");
-        this.selectionDrawNextFreeLocal = selectionFreeLocal;
+        this.selectionDrawScan = Objects.requireNonNull(resolvedSelScan, "selectionDrawScan");
         this.warpSourceReinitNextFreeLocal = warpSourceFreeLocal;
         this.rotTransformNextFreeLocal = rotTransformFreeLocal;
         this.rotHelperNextFreeLocal = rotHelperFreeLocal;
@@ -514,7 +533,32 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         if (selectionViewOwner.equals(owner)
                 && resolvedSelectionDrawMethodName.equals(methodName)
                 && WarpDeformEditTarget.SELECTION_DRAW_DESCRIPTOR.equals(desc)) {
-            return EditSubtreeMethodWeavers.selectionDrawAdapter(out, selectionDrawNextFreeLocal);
+            return EditSubtreeMethodWeavers.selectionDrawAdapter(
+                    out,
+                    selectionDrawScan.meshSlot(),
+                    selectionDrawScan.packSlot(),
+                    selectionDrawScan.selectedSlot(),
+                    selectionDrawScan.gluedSlot(),
+                    selectionDrawScan.nextFreeLocal());
+        }
+        if (WarpDeformEditTarget.ACFORM_OWNER.equals(owner)) {
+            return new EditSubtreeMethodWeavers.EpochIncrementEntryAdapter(
+                    out, WarpDeformEditBridge.MESH_KEYFORM_EPOCH_PROPERTY, true);
+        }
+        if (WarpDeformEditTarget.KEYFORM_BINDING_SOURCE_OWNER.equals(owner)) {
+            if (WarpDeformEditTarget.GET_KEY_INDICES_IN_RANGE_METHOD.equals(methodName)) {
+                return new EditSubtreeMethodWeavers.KeyIndicesInRangeAdapter(out);
+            }
+            return new EditSubtreeMethodWeavers.EpochIncrementEntryAdapter(
+                    out, WarpDeformEditBridge.GRID_MUTATION_EPOCH_PROPERTY, false);
+        }
+        if (WarpDeformEditTarget.KEYFORM_GRID_SOURCE_OWNER.equals(owner)) {
+            if (WarpDeformEditTarget.FIND_KEYFORM_METHOD.equals(methodName)) {
+                return new EditSubtreeMethodWeavers.FindKeyformAdapter(
+                        out, WarpDeformEditTarget.FIND_KEYFORM_SEARCH_DESCRIPTOR.equals(desc));
+            }
+            return new EditSubtreeMethodWeavers.EpochIncrementEntryAdapter(
+                    out, WarpDeformEditBridge.GRID_MUTATION_EPOCH_PROPERTY, false);
         }
         if (target.overlayOwner().equals(owner)
                 && resolvedOverlayMethodName.equals(methodName)
@@ -526,8 +570,36 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         return out;
     }
 
+    private static List<MethodSpec> buildKeyformGridMethodSpecs() {
+        final List<MethodSpec> specs =
+                new java.util.ArrayList<>(2 + WarpDeformEditTarget.KEYFORM_GRID_MUTATOR_DESCRIPTORS.size());
+        specs.add(new MethodSpec(
+                WarpDeformEditTarget.FIND_KEYFORM_METHOD, WarpDeformEditTarget.FIND_KEYFORM_DEFAULT_DESCRIPTOR));
+        specs.add(new MethodSpec(
+                WarpDeformEditTarget.FIND_KEYFORM_METHOD, WarpDeformEditTarget.FIND_KEYFORM_SEARCH_DESCRIPTOR));
+        for (final Map.Entry<String, String> entry : WarpDeformEditTarget.KEYFORM_GRID_MUTATOR_DESCRIPTORS.entrySet()) {
+            specs.add(new MethodSpec(entry.getKey(), entry.getValue()));
+        }
+        return List.copyOf(specs);
+    }
+
     private static List<MethodSpec> fixedMethodsFor(final String owner) {
         return switch (owner) {
+            case WarpDeformEditTarget.ACFORM_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_UPDATED_METHOD, WarpDeformEditTarget.SET_UPDATED_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.KEYFORM_REINIT_DESCRIPTOR));
+            case WarpDeformEditTarget.KEYFORM_BINDING_SOURCE_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.GET_KEY_INDICES_IN_RANGE_METHOD,
+                                WarpDeformEditTarget.GET_KEY_INDICES_IN_RANGE_DESCRIPTOR),
+                        new MethodSpec(WarpDeformEditTarget.SET_KEYS_METHOD, WarpDeformEditTarget.SET_KEYS_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.KEYFORM_REINIT_DESCRIPTOR));
+            case WarpDeformEditTarget.KEYFORM_GRID_SOURCE_OWNER -> buildKeyformGridMethodSpecs();
             case WarpDeformEditTarget.WARP_FORM_OWNER ->
                 List.of(
                         new MethodSpec(WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.REINIT_DESCRIPTOR),
@@ -715,8 +787,8 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         return res;
     }
 
-    private static int[] inspectSelectionDrawMethod(final byte[] bytes) {
-        final int[] res = {-1, 0, LOCAL_SAFETY_MARGIN};
+    private static SelectionDrawScan inspectSelectionDrawMethod(final byte[] bytes) {
+        final SelectionDrawScan[] res = {null};
         new ClassReader(bytes)
                 .accept(
                         new ClassVisitor(Opcodes.ASM9) {
@@ -733,7 +805,18 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                 }
                                 return new MethodVisitor(Opcodes.ASM9) {
                                     private boolean sawKey;
+                                    private int newCount;
                                     private int updateCalls;
+                                    private int setVolatileAfterUpdateCalls;
+                                    private boolean inMeshCtor;
+                                    private boolean awaitingSetVolatile;
+                                    private int lastAloadInCtor = -1;
+                                    private int meshSlot = -1;
+                                    private int packSlot = -1;
+                                    private int selectedSlot = -1;
+                                    private int gluedSlot = -1;
+                                    private final int[] recentOps = new int[3];
+                                    private final int[] recentVars = {-1, -1, -1};
                                     private int maxLocal = 1;
 
                                     @Override
@@ -744,8 +827,30 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                     }
 
                                     @Override
+                                    public void visitTypeInsn(final int opcode, final String type) {
+                                        if (opcode == Opcodes.NEW
+                                                && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(
+                                                        type)) {
+                                            newCount++;
+                                            inMeshCtor = true;
+                                            lastAloadInCtor = -1;
+                                        }
+                                    }
+
+                                    @Override
                                     public void visitVarInsn(final int opcode, final int varIndex) {
                                         maxLocal = Math.max(maxLocal, varIndex + 2);
+                                        if (opcode == Opcodes.ALOAD && inMeshCtor) {
+                                            lastAloadInCtor = varIndex;
+                                        }
+                                        if (opcode == Opcodes.ALOAD || opcode == Opcodes.ILOAD) {
+                                            recentOps[0] = recentOps[1];
+                                            recentOps[1] = recentOps[2];
+                                            recentOps[2] = opcode;
+                                            recentVars[0] = recentVars[1];
+                                            recentVars[1] = recentVars[2];
+                                            recentVars[2] = varIndex;
+                                        }
                                     }
 
                                     @Override
@@ -760,29 +865,60 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                             final String mName,
                                             final String mDesc,
                                             final boolean itf) {
-                                        if (op == Opcodes.INVOKEVIRTUAL
+                                        if (op == Opcodes.INVOKESPECIAL
+                                                && inMeshCtor
+                                                && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(
+                                                        owner)
+                                                && WarpDeformEditTarget.INIT_METHOD.equals(mName)
+                                                && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_CTOR_DESCRIPTOR.equals(
+                                                        mDesc)) {
+                                            inMeshCtor = false;
+                                            meshSlot = lastAloadInCtor;
+                                        } else if (op == Opcodes.INVOKEVIRTUAL
                                                 && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.equals(
                                                         owner)
                                                 && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_METHOD.equals(mName)
                                                 && WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_UPDATE_DESCRIPTOR.equals(
                                                         mDesc)) {
                                             updateCalls++;
+                                            if (recentOps[0] == Opcodes.ALOAD
+                                                    && recentOps[1] == Opcodes.ILOAD
+                                                    && recentOps[2] == Opcodes.ILOAD) {
+                                                packSlot = recentVars[0];
+                                                selectedSlot = recentVars[1];
+                                                gluedSlot = recentVars[2];
+                                            }
+                                            awaitingSetVolatile = true;
+                                        } else if (awaitingSetVolatile
+                                                && op == Opcodes.INVOKEVIRTUAL
+                                                && WarpDeformEditTarget.SCENE_GRAPH_SET_VOLATILE_METHOD.equals(mName)
+                                                && WarpDeformEditTarget.SCENE_GRAPH_SET_VOLATILE_DESCRIPTOR.equals(
+                                                        mDesc)) {
+                                            awaitingSetVolatile = false;
+                                            setVolatileAfterUpdateCalls++;
                                         }
                                     }
 
                                     @Override
                                     public void visitEnd() {
                                         if (sawKey) {
-                                            res[0] = name.charAt(0);
-                                            res[1] = updateCalls;
-                                            res[2] = maxLocal + LOCAL_SAFETY_MARGIN;
+                                            res[0] = new SelectionDrawScan(
+                                                    name,
+                                                    newCount,
+                                                    updateCalls,
+                                                    setVolatileAfterUpdateCalls,
+                                                    meshSlot,
+                                                    packSlot,
+                                                    selectedSlot,
+                                                    gluedSlot,
+                                                    maxLocal + LOCAL_SAFETY_MARGIN);
                                         }
                                     }
                                 };
                             }
                         },
                         ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        return res;
+        return res[0];
     }
 
     private static String detectLegacyOverlayMethod(final byte[] bytes) {

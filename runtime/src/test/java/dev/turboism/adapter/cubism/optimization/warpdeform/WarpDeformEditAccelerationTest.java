@@ -347,6 +347,10 @@ class WarpDeformEditAccelerationTest {
         for (final Path jar : parityJars) {
             verifyEditSubtreeParallelParityAndCompositionForJar(jar);
         }
+        final Path legacyJar500 = LOCAL_ARTIFACTS_ROOT.resolve("5.0.00").resolve("Live2D_Cubism.jar");
+        if (Files.isRegularFile(legacyJar500)) {
+            verifyKeyformParityStandaloneJar(legacyJar500);
+        }
     }
 
     private void verifyEditSubtreeParallelParityAndCompositionForJar(final Path jar) throws Throwable {
@@ -470,7 +474,10 @@ class WarpDeformEditAccelerationTest {
                 runSelectorScopedAndEditingTransitionParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runOverlayElisionParityOnComposedLoader(rewLoader, warpEditBridge);
                 runDeepDagAndMorphTargetParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
+                runPartVisibilityAndMeshKeyformInvalidationParity(
+                        origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runSelectionDrawDirtyGatingParityOnComposedLoader(rewLoader, warpEditTarget, warpEditBridge);
+                runKeyformGridAndBindingParity(origLoader, rewLoader, warpEditBridge);
             }
         } finally {
             if (prevSkipProp == null) {
@@ -1519,12 +1526,36 @@ class WarpDeformEditAccelerationTest {
         kfGrid.getClass().getMethod("setInitialKeyform", formGuidCls).invoke(kfGrid, rfGuid);
         addDef.invoke(defSet, rotASrc, -1);
         addPart.invoke(rootPart, rotASrc, -1);
+
+        final Object rotBGuid =
+                defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("ovB".getBytes()));
+        final Object rotBSrc = rotSrcCls.getConstructor(modelSrcCls).newInstance(modelSource);
+        rotSrcCls.getMethod("setGuid", defGuidCls).invoke(rotBSrc, rotBGuid);
+        rotSrcCls
+                .getMethod("setId", defIdCls)
+                .invoke(rotBSrc, defIdCls.getConstructor(String.class).newInstance("OvRotB"));
+        final Object rotBForm =
+                rotFormCls.getConstructor(rotSrcCls, rotDefCls, coordCls).newInstance(rotBSrc, null, coordLocal);
+        final Object rfBGuid =
+                formGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("ovRfB".getBytes()));
+        rotFormCls.getMethod("setGuid", formGuidCls).invoke(rotBForm, rfBGuid);
+        @SuppressWarnings("unchecked")
+        final List<Object> rBKfs =
+                (List<Object>) rotSrcCls.getMethod("getKeyforms").invoke(rotBSrc);
+        rBKfs.add(rotBForm);
+        final Object kfGridB = rotSrcCls.getMethod("getKeyformGridSource").invoke(rotBSrc);
+        kfGridB.getClass().getMethod("setInitialKeyform", formGuidCls).invoke(kfGridB, rfBGuid);
+        addDef.invoke(defSet, rotBSrc, -1);
+        addPart.invoke(rootPart, rotBSrc, -1);
+
         rootPart.getClass().getMethod("setVisibleAndLockInHierarchy").invoke(rootPart);
 
         final Object renderNormal = Enum.valueOf((Class) renderTypeCls, "NORMAL");
         final Object model =
                 modelSrcCls.getMethod("createModelInstance", renderTypeCls).invoke(modelSource, renderNormal);
         final Object rotDeformer = modelCls.getMethod("getDeformer", defGuidCls).invoke(model, rotAGuid);
+        final Object rotBDeformer =
+                modelCls.getMethod("getDeformer", defGuidCls).invoke(model, rotBGuid);
 
         final Object[] ctx = createEditViewContext(loader, modelSource, model);
         final Object sceneGraph = ctx[4];
@@ -1549,15 +1580,16 @@ class WarpDeformEditAccelerationTest {
                 packAction.getClass(),
                 fn1Cls);
 
-        // Pass 1: native overlay builds Draw child & marks volatile.
+        // Pass 1: native overlay builds Draw children for both deformers in same frame (memoizes FrameGlobalState).
         final long updatesBeforePass1 = bridge.snapshot().get("overlayUpdates");
         ovMethod.invoke(kbInstance, rotDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
+        ovMethod.invoke(kbInstance, rotBDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
         final long updatesAfterPass1 = bridge.snapshot().get("overlayUpdates");
         assertTrue(
-                updatesAfterPass1 > updatesBeforePass1,
-                () -> "expected initial K$b.a overlay update, stats=" + bridge.snapshot());
+                updatesAfterPass1 >= updatesBeforePass1 + 2L,
+                () -> "expected initial K$b.a overlay updates for two deformers, stats=" + bridge.snapshot());
 
-        // Clear SceneGraph volatile set and invoke Pass 2 unchanged -> must elide update & keep setVolatile!
+        // Clear SceneGraph volatile set and invoke Pass 2 unchanged -> must elide updates & keep setVolatile!
         final Field willRenderF = findFieldOwner(sceneGraph.getClass(), "volatileEntities_willRender")
                 .getDeclaredField("volatileEntities_willRender");
         willRenderF.setAccessible(true);
@@ -1567,12 +1599,13 @@ class WarpDeformEditAccelerationTest {
 
         final long elisionsBeforePass2 = bridge.snapshot().get("overlayElisions");
         ovMethod.invoke(kbInstance, rotDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
+        ovMethod.invoke(kbInstance, rotBDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
         final Map<String, Long> afterElide = bridge.snapshot();
         assertTrue(
-                afterElide.get("overlayElisions") > elisionsBeforePass2,
-                () -> "expected overlayElisions, got " + afterElide);
+                afterElide.get("overlayElisions") >= elisionsBeforePass2 + 2L,
+                () -> "expected overlayElisions across memoized frame, got " + afterElide);
         assertEquals(updatesAfterPass1, afterElide.get("overlayUpdates"));
-        assertEquals(1, willRender.size(), "elided overlay must preserve GSceneGraph.setVolatile registration");
+        assertEquals(2, willRender.size(), "elided overlay must preserve GSceneGraph.setVolatile registration");
 
         // Mutate calculatedForm angle and invoke Pass 3 -> must detect geometry drift and re-update!
         final Object calcForm = rotDefCls.getMethod("getCalculatedForm").invoke(rotDeformer);
@@ -1581,6 +1614,21 @@ class WarpDeformEditAccelerationTest {
         assertTrue(
                 bridge.snapshot().get("overlayUpdates") > updatesAfterPass1,
                 () -> "dirty geometry must invalidate overlay elision, stats=" + bridge.snapshot());
+
+        // Verify preference epoch cache reacts cleanly when configured default toggles and restores.
+        final String prevProp = System.getProperty(WarpDeformEditBridge.ENABLE_PROPERTY);
+        System.clearProperty(WarpDeformEditBridge.ENABLE_PROPERTY);
+        try {
+            WarpDeformEditBridge.setConfiguredDefault(false);
+            assertFalse(WarpDeformEditBridge.enabledByPreference());
+            ovMethod.invoke(kbInstance, rotBDeformer, sceneGraph, false, true, rotModeAuto, packAction, falsePred);
+            assertEquals(0L, bridge.snapshot().get("failures"));
+        } finally {
+            WarpDeformEditBridge.setConfiguredDefault(true);
+            if (prevProp != null) {
+                System.setProperty(WarpDeformEditBridge.ENABLE_PROPERTY, prevProp);
+            }
+        }
     }
 
     private static void runDeepDagAndMorphTargetParity(
@@ -1631,8 +1679,8 @@ class WarpDeformEditAccelerationTest {
         assertEquals(beforeLevels + 3L, dragStats.get("parallelDeformerLevels"), () -> "stats=" + dragStats);
         assertTrue(dragStats.get("rotScratchReused") > beforeRotScratch, () -> "stats=" + dragStats);
 
-        // Drive MorphTarget + BlendWeightConstraint across ParamX & ParamC -> exact raw float parity on 5.3.02 &
-        // 5.3.05.
+        // Drive MorphTarget + BlendWeightConstraint across heterogeneous warp grid dimensions (18 and 32 floats) ->
+        // verify exact raw float parity and in-place preClampMorphedForm identity reuse.
         origMorphParam.getClass().getMethod("setValue", float.class).invoke(origMorphParam, 18.0f);
         rewMorphParam.getClass().getMethod("setValue", float.class).invoke(rewMorphParam, 18.0f);
         origHarness.param.getClass().getMethod("setValue", float.class).invoke(origHarness.param, 12.0f);
@@ -1640,6 +1688,22 @@ class WarpDeformEditAccelerationTest {
         origHarness.invokeUpdate();
         rewHarness.invokeUpdate();
         assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-morph-target-param");
+
+        final Method getPreClampM = rewMorphDef.getClass().getMethod("getPreClampMorphedForm");
+        final Object preClampAfterFirst = getPreClampM.invoke(rewMorphDef);
+        assertNotNull(preClampAfterFirst, "rewritten morph target step must populate preClampMorphedForm");
+
+        origMorphParam.getClass().getMethod("setValue", float.class).invoke(origMorphParam, 23.5f);
+        rewMorphParam.getClass().getMethod("setValue", float.class).invoke(rewMorphParam, 23.5f);
+        origHarness.param.getClass().getMethod("setValue", float.class).invoke(origHarness.param, 16.5f);
+        rewHarness.param.getClass().getMethod("setValue", float.class).invoke(rewHarness.param, 16.5f);
+        origHarness.invokeUpdate();
+        rewHarness.invokeUpdate();
+        assertAllMeshesRawFloatParity(origHarness, rewHarness, "deep-dag-morph-target-reuse");
+        assertSame(
+                preClampAfterFirst,
+                getPreClampM.invoke(rewMorphDef),
+                "second morph target update must reuse preClampMorphedForm instance in place");
 
         // Trigger CWarpDeformerSource.reinitInstance (undo simulation) and verify buffer reuse + exact parity.
         final long beforeReinitReused = bridge.snapshot().get("warpReinitPosReused");
@@ -1846,6 +1910,92 @@ class WarpDeformEditAccelerationTest {
         morphKfGrid.getClass().getMethod("addKey", float.class, paramGuidCls).invoke(morphKfGrid, 30.0f, paramXGuid);
         addDef.invoke(defSet, morphSrc, -1);
         addPartChild.invoke(rootPart, morphSrc, -1);
+
+        // Configure a 3x3 (32-float) sibling morph warp deformer so MorphScratch handles heterogeneous buffer sizes.
+        final float[] largeGrid = new float[32];
+        for (int row = 0; row <= 3; row++) {
+            for (int col = 0; col <= 3; col++) {
+                final int idx = (row * 4 + col) * 2;
+                largeGrid[idx] = -100.0f + col * 66.0f;
+                largeGrid[idx + 1] = -100.0f + row * 66.0f;
+            }
+        }
+        final Object morphLargeGuid =
+                defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("dagMorphLarge".getBytes()));
+        final Object morphLargeSrc = createWarpDeformerSource(
+                modelSrcCls,
+                modelSource,
+                warpSrcCls,
+                warpFormCls,
+                defGuidCls,
+                defIdCls,
+                formGuidCls,
+                coordCls,
+                morphLargeGuid,
+                "DagMorphLarge",
+                rootGuid,
+                coordLocal,
+                largeGrid);
+        warpSrcCls.getMethod("setCol", int.class).invoke(morphLargeSrc, 3);
+        warpSrcCls.getMethod("setRow", int.class).invoke(morphLargeSrc, 3);
+        final Object morphLargeForm = warpFormCls
+                .getConstructor(
+                        warpSrcCls,
+                        Class.forName(WarpDeformEditTarget.WARP_DEFORMER_OWNER.replace('/', '.'), false, loader),
+                        coordCls)
+                .newInstance(morphLargeSrc, null, coordLocal);
+        warpFormCls
+                .getMethod("setGuid", formGuidCls)
+                .invoke(
+                        morphLargeForm,
+                        formGuidCls
+                                .getConstructor(UUID.class)
+                                .newInstance(UUID.nameUUIDFromBytes("mfLarge".getBytes())));
+        final float[] shiftedLarge = largeGrid.clone();
+        shiftedLarge[0] += 11.0f;
+        shiftedLarge[shiftedLarge.length - 1] -= 7.5f;
+        warpFormCls.getMethod("setPositions", float[].class).invoke(morphLargeForm, shiftedLarge);
+        @SuppressWarnings("unchecked")
+        final List<Object> mLargeKfs =
+                (List<Object>) warpSrcCls.getMethod("getKeyforms").invoke(morphLargeSrc);
+        mLargeKfs.add(morphLargeForm);
+        final Object morphLargeTarget = morphCls.getConstructor(acFormCls, paramGuidCls, float.class)
+                .newInstance(morphLargeForm, paramCGuid, 25.0f);
+        final Object morphLargeSet =
+                warpSrcCls.getMethod("getKeyformMorphTargetSet").invoke(morphLargeSrc);
+        morphLargeSet.getClass().getMethod("add", morphCls).invoke(morphLargeSet, morphLargeTarget);
+        final Object morphLargeKfGrid =
+                warpSrcCls.getMethod("getKeyformGridSource").invoke(morphLargeSrc);
+        morphLargeKfGrid
+                .getClass()
+                .getMethod("addKey", float.class, paramGuidCls)
+                .invoke(morphLargeKfGrid, 0.0f, paramXGuid);
+        morphLargeKfGrid
+                .getClass()
+                .getMethod("addKey", float.class, paramGuidCls)
+                .invoke(morphLargeKfGrid, 30.0f, paramXGuid);
+        addDef.invoke(defSet, morphLargeSrc, -1);
+        addPartChild.invoke(rootPart, morphLargeSrc, -1);
+
+        final Object largeMeshGuid =
+                drawGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("DagMesh_Large".getBytes()));
+        final Object largeMeshSrc = createArtMeshSource(
+                modelSrcCls,
+                modelSource,
+                meshSrcCls,
+                meshFormCls,
+                defGuidCls,
+                drawGuidCls,
+                drawIdCls,
+                formGuidCls,
+                coordCls,
+                largeMeshGuid,
+                "DagMesh_Large",
+                morphLargeGuid,
+                coordCanvas,
+                new float[] {-20f, -20f, 20f, -20f, 20f, 20f, -20f, 20f});
+        addDraw.invoke(drawSet, largeMeshSrc, -1);
+        addPartChild.invoke(rootPart, largeMeshSrc, -1);
 
         // Build a 24-deep alternating Warp/Rotation chain + side branch of 6 deformers (total 30 deformers, 36
         // ArtMeshes).
@@ -2153,9 +2303,20 @@ class WarpDeformEditAccelerationTest {
 
         final long updatesBefore1 = bridge.snapshot().get("selectionDrawUpdates");
         invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        final Map<String, Long> afterPass1Stats = bridge.snapshot();
         assertTrue(
-                bridge.snapshot().get("selectionDrawUpdates") > updatesBefore1,
-                () -> "Pass 1 must record selectionDrawUpdates, stats=" + bridge.snapshot());
+                afterPass1Stats.get("selectionDrawUpdates") > updatesBefore1,
+                () -> "Pass 1 must record selectionDrawUpdates, stats=" + afterPass1Stats);
+        assertTrue(
+                afterPass1Stats.get("selectionMeshCreateElisions") > 0L,
+                () -> "Pass 1 unselected mesh must elide DrawEntity_ArtMesh_Selection creation, stats="
+                        + afterPass1Stats);
+
+        final Object mesh0Sel = findSelectionChildEntity(rewLoader, rew.subtreeAMeshes.get(0));
+        assertNotNull(mesh0Sel, "selected ArtMesh must lazily create DrawEntity_ArtMesh_Selection");
+        assertNull(
+                findSelectionChildEntity(rewLoader, rew.subtreeBMeshes.get(0)),
+                "unselected ArtMesh must lazily skip DrawEntity_ArtMesh_Selection creation");
 
         final Field willRenderF = findFieldOwner(sceneGraph.getClass(), "volatileEntities_willRender")
                 .getDeclaredField("volatileEntities_willRender");
@@ -2164,6 +2325,8 @@ class WarpDeformEditAccelerationTest {
         final Set<Object> willRender = (Set<Object>) willRenderF.get(sceneGraph);
         final int expectedVolatileCount = willRender.size();
         assertTrue(expectedVolatileCount >= 1, "Pass 1 must mark selection entity volatile");
+        assertTrue(willRender.contains(mesh0Sel));
+        assertTrue((boolean) mesh0Sel.getClass().getMethod("getEnabled").invoke(mesh0Sel));
         willRender.clear();
 
         // Pass 2 unchanged: must elide full K.E() scan while preserving volatile entities.
@@ -2176,23 +2339,38 @@ class WarpDeformEditAccelerationTest {
         assertEquals(updatesAfter1, bridge.snapshot().get("selectionDrawUpdates"));
         assertEquals(expectedVolatileCount, willRender.size(), "elided K.E() must restore volatileEntities_willRender");
 
-        // Mutate selection -> Pass 3 must invalidate whole-method elision cleanly AND elide inactive mesh update.
+        // Mutate selection -> Pass 3 must lazily create mesh1 selection entity and invalidate K.E().
         final Object mesh1Src =
                 rew.subtreeBMeshes.get(0).getClass().getMethod("getSource").invoke(rew.subtreeBMeshes.get(0));
         selector.getClass().getMethod("addSelected", acCtrlSrcCls, int.class).invoke(selector, mesh1Src, 0);
         invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
         final long updatesAfter3 = bridge.snapshot().get("selectionDrawUpdates");
         assertTrue(updatesAfter3 > updatesAfter1, "selection change must invalidate K.E()");
+        final Object mesh1Sel = findSelectionChildEntity(rewLoader, rew.subtreeBMeshes.get(0));
+        assertNotNull(mesh1Sel, "selecting mesh1 must lazily create its DrawEntity_ArtMesh_Selection");
 
-        // Mutate model via drag + unselected mesh1 stays disabled across two frames -> checks both invalidation &
-        // per-mesh elision.
+        // Run real GSceneGraph postRender -> preRender so preRender disables both volatile entities before K.E():
+        // selected mesh0 MUST still get setVolatile + enabled=true while unselected mesh1 skips setVolatile!
         selector.getClass().getMethod("clearSelection").invoke(selector);
         selector.getClass().getMethod("addSelected", acCtrlSrcCls, int.class).invoke(selector, mesh0Src, 0);
         dragRotationDeformer(rew.midRot, 18.0f, 3.0f);
         rew.invokeUpdate(doc, view);
+        final Method postRenderM = sceneGraph.getClass().getMethod("postRender");
+        final Method preRenderM = sceneGraph.getClass().getMethod("preRender");
+        postRenderM.invoke(sceneGraph);
+        preRenderM.invoke(sceneGraph);
+        final long setVolElideBefore4 = bridge.snapshot().get("selectionSetVolatileElisions");
         invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
-        final long updatesAfter4 = bridge.snapshot().get("selectionDrawUpdates");
-        assertTrue(updatesAfter4 > updatesAfter3, "model update must invalidate K.E()");
+        final Map<String, Long> afterPass4Stats = bridge.snapshot();
+        assertTrue(afterPass4Stats.get("selectionDrawUpdates") > updatesAfter3, "model update must invalidate K.E()");
+        assertTrue(willRender.contains(mesh0Sel), "selected mesh0 must stay registered volatile after preRender");
+        assertTrue(
+                (boolean) mesh0Sel.getClass().getMethod("getEnabled").invoke(mesh0Sel),
+                "selected mesh0 selection entity must be re-enabled by setVolatile");
+        assertFalse(willRender.contains(mesh1Sel), "inactive mesh1 must skip redundant setVolatile");
+        assertTrue(
+                afterPass4Stats.get("selectionSetVolatileElisions") > setVolElideBefore4,
+                () -> "expected inactive setVolatile elision, stats=" + afterPass4Stats);
 
         dragRotationDeformer(rew.midRot, 24.0f, 4.0f);
         rew.invokeUpdate(doc, view);
@@ -2201,6 +2379,16 @@ class WarpDeformEditAccelerationTest {
                 bridge.snapshot().get("selectionMeshElisions") > 0L,
                 () -> "expected DrawEntity_ArtMesh_Selection per-mesh elision on untouched disabled mesh, stats="
                         + bridge.snapshot());
+
+        // Re-selecting mesh1 after preRender disabled it must immediately re-enable and register volatile.
+        selector.getClass().getMethod("addSelected", acCtrlSrcCls, int.class).invoke(selector, mesh1Src, 0);
+        postRenderM.invoke(sceneGraph);
+        preRenderM.invoke(sceneGraph);
+        invokeOnEdtWithLoader(rewLoader, () -> updateSelM.invoke(viewHolder));
+        assertTrue(willRender.contains(mesh1Sel), "re-selected mesh1 must call setVolatile");
+        assertTrue(
+                (boolean) mesh1Sel.getClass().getMethod("getEnabled").invoke(mesh1Sel),
+                "re-selected mesh1 selection entity must become enabled");
     }
 
     @FunctionalInterface
@@ -3430,6 +3618,574 @@ class WarpDeformEditAccelerationTest {
                 System.setProperty(key, previous);
             }
         }
+    }
+
+    private static Object findSelectionChildEntity(final ClassLoader loader, final Object artMesh) throws Exception {
+        final Class<?> selCls = Class.forName(
+                WarpDeformEditTarget.DRAW_ENTITY_ARTMESH_SELECTION_OWNER.replace('/', '.'), false, loader);
+        final Object entity = artMesh.getClass().getMethod("getEntity").invoke(artMesh);
+        final Iterable<?> children =
+                (Iterable<?>) entity.getClass().getMethod("getChildren").invoke(entity);
+        for (final Object child : children) {
+            if (selCls.isInstance(child)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private static void runPartVisibilityAndMeshKeyformInvalidationParity(
+            final ClassLoader origLoader,
+            final ClassLoader rewLoader,
+            final WarpDeformEditTarget target,
+            final WarpDeformEditBridge bridge)
+            throws Exception {
+        final SyntheticModelHarness orig = buildSyntheticHierarchy(origLoader, target);
+        final SyntheticModelHarness rew = buildSyntheticHierarchy(rewLoader, target);
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "part-vis-baseline");
+
+        // Warm one fast drag frame so part hierarchy visibility cache is active.
+        final float[] dragged = rew.baseRootGridPositions.get(0).clone();
+        dragged[0] += 6.0f;
+        dragWarpDeformer(orig.rootWarp, dragged);
+        dragWarpDeformer(rew.rootWarp, dragged);
+        final long fastBefore = bridge.snapshot().get("fastModelUpdates");
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertTrue(bridge.snapshot().get("fastModelUpdates") > fastBefore);
+        assertAllMeshesRawFloatParity(orig, rew, "part-vis-warm-drag");
+
+        // Hide the root part and verify invisibility propagates identically to all ArtMeshes.
+        final Object origRootPart =
+                orig.modelSource.getClass().getMethod("getRootPart").invoke(orig.modelSource);
+        final Object rewRootPart =
+                rew.modelSource.getClass().getMethod("getRootPart").invoke(rew.modelSource);
+        final Method origSetVis = origRootPart.getClass().getMethod("setVisible", boolean.class);
+        final Method origLockVis = origRootPart.getClass().getMethod("setVisibleAndLockInHierarchy");
+        final Method rewSetVis = rewRootPart.getClass().getMethod("setVisible", boolean.class);
+        final Method rewLockVis = rewRootPart.getClass().getMethod("setVisibleAndLockInHierarchy");
+
+        origSetVis.invoke(origRootPart, false);
+        origLockVis.invoke(origRootPart);
+        rewSetVis.invoke(rewRootPart, false);
+        rewLockVis.invoke(rewRootPart);
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "part-hidden-parity");
+        for (int i = 0; i < orig.allMeshes.size(); i++) {
+            final boolean origInv = (boolean)
+                    orig.allMeshes.get(i).getClass().getMethod("isInvisible").invoke(orig.allMeshes.get(i));
+            final boolean rewInv = (boolean)
+                    rew.allMeshes.get(i).getClass().getMethod("isInvisible").invoke(rew.allMeshes.get(i));
+            assertEquals(origInv, rewInv, "isInvisible mismatch at mesh " + i);
+            assertTrue(rewInv, "hiding root part must make child mesh invisible");
+        }
+
+        // Restore part visibility and mutate a local ArtMesh keyform + ACForm.setUpdated() -> must invalidate epochs!
+        origSetVis.invoke(origRootPart, true);
+        origLockVis.invoke(origRootPart);
+        rewSetVis.invoke(rewRootPart, true);
+        rewLockVis.invoke(rewRootPart);
+        final Object origMesh0Src =
+                orig.subtreeAMeshes.get(0).getClass().getMethod("getSource").invoke(orig.subtreeAMeshes.get(0));
+        final Object rewMesh0Src =
+                rew.subtreeAMeshes.get(0).getClass().getMethod("getSource").invoke(rew.subtreeAMeshes.get(0));
+        final List<?> origMeshKfs =
+                (List<?>) origMesh0Src.getClass().getMethod("getKeyforms").invoke(origMesh0Src);
+        final List<?> rewMeshKfs =
+                (List<?>) rewMesh0Src.getClass().getMethod("getKeyforms").invoke(rewMesh0Src);
+        final Object origMeshForm = origMeshKfs.get(0);
+        final Object rewMeshForm = rewMeshKfs.get(0);
+        final float[] editedMeshPos =
+                ((float[]) rewMeshForm.getClass().getMethod("getPositions").invoke(rewMeshForm)).clone();
+        editedMeshPos[0] += 7.25f;
+        editedMeshPos[1] -= 3.5f;
+        origMeshForm.getClass().getMethod("setPositions", float[].class).invoke(origMeshForm, editedMeshPos.clone());
+        origMeshForm.getClass().getMethod("setUpdated").invoke(origMeshForm);
+        rewMeshForm.getClass().getMethod("setPositions", float[].class).invoke(rewMeshForm, editedMeshPos.clone());
+        rewMeshForm.getClass().getMethod("setUpdated").invoke(rewMeshForm);
+
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "part-restored-mesh-keyform-updated");
+    }
+
+    private static void verifyKeyformParityStandaloneJar(final Path jar) throws Throwable {
+        final HostArtifactDigest digest = HostArtifactDigest.cached(jar);
+        final WarpDeformEditTarget target = WarpDeformEditTarget.of(digest).orElseThrow();
+        final Map<String, byte[]> refs = readTargetBytes(jar, target.targetClasses());
+        final ProtectionDomain domain = protectionDomain(jar);
+        final URL[] urls = hostUrls(jar);
+        final Map<String, byte[]> overrides = new LinkedHashMap<>();
+        try (RewrittenHostClassLoader txLoader =
+                new RewrittenHostClassLoader(jar, urls, WarpDeformEditAccelerationTest.class.getClassLoader())) {
+            final WarpDeformEditTransformer tx = new WarpDeformEditTransformer(txLoader, jar, refs, target);
+            for (final String owner : target.targetClasses()) {
+                final byte[] next = tx.transform(null, txLoader, owner, null, domain, refs.get(owner));
+                assertNotNull(next, tx::failure);
+                overrides.put(owner.replace('/', '.'), next);
+            }
+            assertEquals(tx.expectedTotalSites(), tx.sites(), target.version());
+        }
+        final String prevEditProp = System.getProperty(WarpDeformEditBridge.ENABLE_PROPERTY);
+        System.setProperty(WarpDeformEditBridge.ENABLE_PROPERTY, "true");
+        try (RewrittenHostClassLoader origLoader =
+                        new RewrittenHostClassLoader(jar, urls, WarpDeformEditAccelerationTest.class.getClassLoader());
+                RewrittenHostClassLoader rewLoader = new RewrittenHostClassLoader(
+                        jar, urls, WarpDeformEditAccelerationTest.class.getClassLoader())) {
+            rewLoader.installOverrides(overrides, domain);
+            for (final String owner : overrides.keySet()) {
+                Class.forName(owner, false, rewLoader);
+            }
+            try (WarpDeformEditBridge bridge = new WarpDeformEditBridge(rewLoader)) {
+                bridge.install();
+                runKeyformGridAndBindingParity(origLoader, rewLoader, bridge);
+            }
+        } finally {
+            if (prevEditProp == null) {
+                System.clearProperty(WarpDeformEditBridge.ENABLE_PROPERTY);
+            } else {
+                System.setProperty(WarpDeformEditBridge.ENABLE_PROPERTY, prevEditProp);
+            }
+        }
+    }
+
+    private static void runKeyformGridAndBindingParity(
+            final ClassLoader origLoader, final ClassLoader rewLoader, final WarpDeformEditBridge bridge)
+            throws Exception {
+        final Object[] origEnv = buildKeyformParityHarness(origLoader);
+        final Object[] rewEnv = buildKeyformParityHarness(rewLoader);
+
+        final Object origGrid = origEnv[0];
+        final Object rewGrid = rewEnv[0];
+        final Object origParam1Src = origEnv[1];
+        final Object rewParam1Src = rewEnv[1];
+        final Object origParam1Guid = origEnv[2];
+        final Object rewParam1Guid = rewEnv[2];
+        final Object origParamSet = origEnv[3];
+        final Object rewParamSet = rewEnv[3];
+        final Object origParam1 = origEnv[4];
+        final Object rewParam1 = rewEnv[4];
+        final Object origParam2 = origEnv[5];
+        final Object rewParam2 = rewEnv[5];
+        final Object origMissingSet = origEnv[6];
+        final Object rewMissingSet = rewEnv[6];
+
+        final Class<?> origSearchCls =
+                Class.forName(WarpDeformEditTarget.PARAMETER_KEY_SEARCH_TYPE_OWNER.replace('/', '.'), true, origLoader);
+        final Class<?> rewSearchCls =
+                Class.forName(WarpDeformEditTarget.PARAMETER_KEY_SEARCH_TYPE_OWNER.replace('/', '.'), true, rewLoader);
+        final Class<?> origParamSetCls =
+                Class.forName("com.live2d.cubism.doc.model.param.CParameterSet", false, origLoader);
+        final Class<?> rewParamSetCls =
+                Class.forName("com.live2d.cubism.doc.model.param.CParameterSet", false, rewLoader);
+
+        final Method origGetBindingsM = origGrid.getClass().getMethod("getKeyformBindings");
+        final Method rewGetBindingsM = rewGrid.getClass().getMethod("getKeyformBindings");
+        final Method origFindDefaultM = origGrid.getClass().getMethod("findKeyform", origParamSetCls);
+        final Method rewFindDefaultM = rewGrid.getClass().getMethod("findKeyform", rewParamSetCls);
+        final Method origFindSearchM = origGrid.getClass().getMethod("findKeyform", origParamSetCls, origSearchCls);
+        final Method rewFindSearchM = rewGrid.getClass().getMethod("findKeyform", rewParamSetCls, rewSearchCls);
+
+        final long indicesBefore = bridge.snapshot().get("keyIndicesInRangeFastCalls");
+        final long findBefore = bridge.snapshot().get("findKeyformFastCalls");
+
+        assertBindingIndicesParity(origGetBindingsM, rewGetBindingsM, origGrid, rewGrid, "initial");
+
+        final float[] p1Samples = {
+            -50.0f, -40.0f, -20.0f, -10.0f, -5.0f, -0.0005f, -0.0f, +0.0f, 0.0005f, 5.0f, 10.0f, 20.0f, 35.0f, 50.0f
+        };
+        final float[] p2Samples = {-1.5f, -1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+        assertKeyformSweepParity(
+                origGrid,
+                rewGrid,
+                origParam1,
+                rewParam1,
+                origParam2,
+                rewParam2,
+                origParamSet,
+                rewParamSet,
+                origFindDefaultM,
+                rewFindDefaultM,
+                origFindSearchM,
+                rewFindSearchM,
+                origSearchCls,
+                rewSearchCls,
+                p1Samples,
+                p2Samples,
+                "non-repeat");
+
+        // Missing parameter set must return identically (null) without throwing.
+        assertKeyformResultParity(
+                origGrid,
+                rewGrid,
+                () -> origFindDefaultM.invoke(origGrid, origMissingSet),
+                () -> rewFindDefaultM.invoke(rewGrid, rewMissingSet),
+                "missing-param-default");
+
+        // Repeat wrapping & tie-breaking check (negative loop & positive overshoot).
+        origParam1Src.getClass().getMethod("setRepeat", boolean.class).invoke(origParam1Src, true);
+        rewParam1Src.getClass().getMethod("setRepeat", boolean.class).invoke(rewParam1Src, true);
+        final float[] repeatSamples = {-60.0f, -35.0f, -25.0f, -20.0f, -15.0f, -0.0f, 20.0f, 25.0f, 45.0f};
+        assertKeyformSweepParity(
+                origGrid,
+                rewGrid,
+                origParam1,
+                rewParam1,
+                origParam2,
+                rewParam2,
+                origParamSet,
+                rewParamSet,
+                origFindDefaultM,
+                rewFindDefaultM,
+                origFindSearchM,
+                rewFindSearchM,
+                origSearchCls,
+                rewSearchCls,
+                repeatSamples,
+                new float[] {-1.0f, 0.0f},
+                "repeat-on");
+        origParam1Src.getClass().getMethod("setRepeat", boolean.class).invoke(origParam1Src, false);
+        rewParam1Src.getClass().getMethod("setRepeat", boolean.class).invoke(rewParam1Src, false);
+
+        // Mutate keys via addKey, removeKey, reverseKeyformsOnParameter, direct list set(), setKeys(), and clear().
+        origGrid.getClass()
+                .getMethod("addKey", float.class, origParam1Guid.getClass())
+                .invoke(origGrid, 15.0f, origParam1Guid);
+        rewGrid.getClass()
+                .getMethod("addKey", float.class, rewParam1Guid.getClass())
+                .invoke(rewGrid, 15.0f, rewParam1Guid);
+        assertBindingIndicesParity(origGetBindingsM, rewGetBindingsM, origGrid, rewGrid, "after-addKey");
+        assertKeyformSweepParity(
+                origGrid,
+                rewGrid,
+                origParam1,
+                rewParam1,
+                origParam2,
+                rewParam2,
+                origParamSet,
+                rewParamSet,
+                origFindDefaultM,
+                rewFindDefaultM,
+                origFindSearchM,
+                rewFindSearchM,
+                origSearchCls,
+                rewSearchCls,
+                new float[] {10.0f, 15.0f, 17.5f},
+                new float[] {0.0f},
+                "after-addKey");
+
+        origGrid.getClass()
+                .getMethod("removeKey", float.class, origParam1Guid.getClass())
+                .invoke(origGrid, 15.0f, origParam1Guid);
+        rewGrid.getClass()
+                .getMethod("removeKey", float.class, rewParam1Guid.getClass())
+                .invoke(rewGrid, 15.0f, rewParam1Guid);
+        assertBindingIndicesParity(origGetBindingsM, rewGetBindingsM, origGrid, rewGrid, "after-removeKey");
+
+        // Mutate binding.getKeys() content in place without touching gridSize -> must invalidate zero-stale hashes!
+        @SuppressWarnings("unchecked")
+        final List<Float> origKeys = (List<Float>) ((List<?>) origGetBindingsM.invoke(origGrid))
+                .get(0)
+                .getClass()
+                .getMethod("getKeys")
+                .invoke(((List<?>) origGetBindingsM.invoke(origGrid)).get(0));
+        @SuppressWarnings("unchecked")
+        final List<Float> rewKeys = (List<Float>) ((List<?>) rewGetBindingsM.invoke(rewGrid))
+                .get(0)
+                .getClass()
+                .getMethod("getKeys")
+                .invoke(((List<?>) rewGetBindingsM.invoke(rewGrid)).get(0));
+        origKeys.set(1, -12.0f);
+        rewKeys.set(1, -12.0f);
+        assertBindingIndicesParity(origGetBindingsM, rewGetBindingsM, origGrid, rewGrid, "after-in-place-set");
+        assertKeyformSweepParity(
+                origGrid,
+                rewGrid,
+                origParam1,
+                rewParam1,
+                origParam2,
+                rewParam2,
+                origParamSet,
+                rewParamSet,
+                origFindDefaultM,
+                rewFindDefaultM,
+                origFindSearchM,
+                rewFindSearchM,
+                origSearchCls,
+                rewSearchCls,
+                new float[] {-12.0f, -10.0f, -6.0f},
+                new float[] {0.0f},
+                "after-in-place-set");
+
+        // Test reverseKeyformsOnParameter & empty keys exception/null parity.
+        origGrid.getClass()
+                .getMethod("reverseKeyformsOnParameter", origParam1Guid.getClass())
+                .invoke(origGrid, origParam1Guid);
+        rewGrid.getClass()
+                .getMethod("reverseKeyformsOnParameter", rewParam1Guid.getClass())
+                .invoke(rewGrid, rewParam1Guid);
+        assertBindingIndicesParity(origGetBindingsM, rewGetBindingsM, origGrid, rewGrid, "after-reverse");
+
+        final Object origBinding0 = ((List<?>) origGetBindingsM.invoke(origGrid)).get(0);
+        final Object rewBinding0 = ((List<?>) rewGetBindingsM.invoke(rewGrid)).get(0);
+        origBinding0.getClass().getMethod("setKeys", List.class).invoke(origBinding0, new ArrayList<Float>());
+        rewBinding0.getClass().getMethod("setKeys", List.class).invoke(rewBinding0, new ArrayList<Float>());
+        assertBindingIndicesParity(origGetBindingsM, rewGetBindingsM, origGrid, rewGrid, "after-empty-setKeys");
+        assertKeyformSweepParity(
+                origGrid,
+                rewGrid,
+                origParam1,
+                rewParam1,
+                origParam2,
+                rewParam2,
+                origParamSet,
+                rewParamSet,
+                origFindDefaultM,
+                rewFindDefaultM,
+                origFindSearchM,
+                rewFindSearchM,
+                origSearchCls,
+                rewSearchCls,
+                new float[] {0.0f},
+                new float[] {0.0f},
+                "empty-keys");
+
+        final Map<String, Long> stats = bridge.snapshot();
+        final String keyformDiag = " hasKeyformOps="
+                + bridge.hasKeyformOps()
+                + " findSlot="
+                + (System.getProperties().get(WarpDeformEditBridge.KEYFORM_FIND_PROPERTY) != null)
+                + " activeSlot="
+                + System.getProperties().get(WarpDeformEditBridge.ACTIVE_PROPERTY);
+        assertTrue(
+                stats.get("keyIndicesInRangeFastCalls") > indicesBefore,
+                () -> "expected keyIndicesInRangeFastCalls > 0, stats=" + stats + keyformDiag);
+        assertTrue(
+                stats.get("findKeyformFastCalls") > findBefore,
+                () -> "expected findKeyformFastCalls > 0, stats=" + stats + keyformDiag);
+        assertEquals(0L, stats.get("failures"), () -> "stats=" + stats);
+    }
+
+    private static Object[] buildKeyformParityHarness(final ClassLoader loader) throws Exception {
+        final Class<?> modelSrcCls = Class.forName("com.live2d.cubism.doc.model.CModelSource", true, loader);
+        final Class<?> modelCls = Class.forName("com.live2d.cubism.doc.model.CModel", true, loader);
+        final Class<?> paramSrcCls = Class.forName("com.live2d.cubism.doc.model.param.CParameterSource", true, loader);
+        final Class<?> paramGuidCls = Class.forName("com.live2d.type.CParameterGuid", true, loader);
+        final Class<?> paramIdCls = Class.forName("com.live2d.cubism.doc.model.id.CParameterId", true, loader);
+        final Class<?> defGuidCls = Class.forName("com.live2d.type.CDeformerGuid", true, loader);
+        final Class<?> defIdCls = Class.forName("com.live2d.cubism.doc.model.id.CDeformerId", true, loader);
+        final Class<?> formGuidCls = Class.forName("com.live2d.type.CFormGuid", true, loader);
+        final Class<?> coordCls = Class.forName("com.live2d.doc.CoordType", true, loader);
+        final Class<?> warpSrcCls =
+                Class.forName(WarpDeformEditTarget.WARP_SOURCE_OWNER.replace('/', '.'), true, loader);
+        final Class<?> warpFormCls =
+                Class.forName(WarpDeformEditTarget.WARP_FORM_OWNER.replace('/', '.'), true, loader);
+        final Class<?> acDefSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.deformer.ACDeformerSource", true, loader);
+        final Class<?> acCtrlSrcCls =
+                Class.forName("com.live2d.cubism.doc.model.ACParameterControllableSource", true, loader);
+        final Class<?> renderTypeCls = Class.forName("com.live2d.graphics3d.rendering.RenderType", true, loader);
+
+        final Object coordLocal = coordCls.getMethod("b").invoke(null);
+        final Object modelSource = modelSrcCls.getConstructor().newInstance();
+        final Object emptyModelSource = modelSrcCls.getConstructor().newInstance();
+        final Object rootPart = modelSrcCls.getMethod("getRootPart").invoke(modelSource);
+        final Object defSet = modelSrcCls.getMethod("getDeformerSourceSet").invoke(modelSource);
+        final Object paramSetSrc =
+                modelSrcCls.getMethod("getParameterSourceSet").invoke(modelSource);
+
+        final Object p1Guid =
+                paramGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("kfP1".getBytes()));
+        final Object p1Src = paramSrcCls.getConstructor().newInstance();
+        paramSrcCls.getMethod("setGuid", paramGuidCls).invoke(p1Src, p1Guid);
+        paramSrcCls
+                .getMethod("setId", paramIdCls)
+                .invoke(p1Src, paramIdCls.getConstructor(String.class).newInstance("KfP1"));
+        paramSrcCls.getMethod("setMinValue", float.class).invoke(p1Src, -50.0f);
+        paramSrcCls.getMethod("setMaxValue", float.class).invoke(p1Src, 50.0f);
+        paramSrcCls.getMethod("setDefaultValue", float.class).invoke(p1Src, 0.0f);
+        paramSetSrc.getClass().getMethod("add", paramSrcCls, int.class).invoke(paramSetSrc, p1Src, -1);
+
+        final Object p2Guid =
+                paramGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("kfP2".getBytes()));
+        final Object p2Src = paramSrcCls.getConstructor().newInstance();
+        paramSrcCls.getMethod("setGuid", paramGuidCls).invoke(p2Src, p2Guid);
+        paramSrcCls
+                .getMethod("setId", paramIdCls)
+                .invoke(p2Src, paramIdCls.getConstructor(String.class).newInstance("KfP2"));
+        paramSrcCls.getMethod("setMinValue", float.class).invoke(p2Src, -1.0f);
+        paramSrcCls.getMethod("setMaxValue", float.class).invoke(p2Src, 1.0f);
+        paramSrcCls.getMethod("setDefaultValue", float.class).invoke(p2Src, 0.0f);
+        paramSetSrc.getClass().getMethod("add", paramSrcCls, int.class).invoke(paramSetSrc, p2Src, -1);
+
+        final float[] gridPos = new float[18];
+        final Object wGuid =
+                defGuidCls.getConstructor(UUID.class).newInstance(UUID.nameUUIDFromBytes("kfWarp".getBytes()));
+        final Object warpSrc = createWarpDeformerSource(
+                modelSrcCls,
+                modelSource,
+                warpSrcCls,
+                warpFormCls,
+                defGuidCls,
+                defIdCls,
+                formGuidCls,
+                coordCls,
+                wGuid,
+                "KfWarp",
+                null,
+                coordLocal,
+                gridPos);
+        final Object grid = warpSrcCls.getMethod("getKeyformGridSource").invoke(warpSrc);
+        final Method addKeyM = grid.getClass().getMethod("addKey", float.class, paramGuidCls);
+        addKeyM.invoke(grid, -40.0f, p1Guid);
+        addKeyM.invoke(grid, -10.0f, p1Guid);
+        addKeyM.invoke(grid, -0.0f, p1Guid);
+        addKeyM.invoke(grid, 10.0f, p1Guid);
+        addKeyM.invoke(grid, 40.0f, p1Guid);
+        addKeyM.invoke(grid, -1.0f, p2Guid);
+        addKeyM.invoke(grid, 0.0f, p2Guid);
+        addKeyM.invoke(grid, 1.0f, p2Guid);
+
+        // Tighten p1 range to [-20, 20] so -40/+40 exercise getKeyIndicesInRange() out-of-range exclusion.
+        paramSrcCls.getMethod("setMinValue", float.class).invoke(p1Src, -20.0f);
+        paramSrcCls.getMethod("setMaxValue", float.class).invoke(p1Src, 20.0f);
+
+        defSet.getClass().getMethod("add", acDefSrcCls, int.class).invoke(defSet, warpSrc, -1);
+        rootPart.getClass().getMethod("addChild", acCtrlSrcCls, int.class).invoke(rootPart, warpSrc, -1);
+        rootPart.getClass().getMethod("setVisibleAndLockInHierarchy").invoke(rootPart);
+
+        final Object renderNormal = Enum.valueOf((Class) renderTypeCls, "NORMAL");
+        final Object model =
+                modelSrcCls.getMethod("createModelInstance", renderTypeCls).invoke(modelSource, renderNormal);
+        final Object emptyModel =
+                modelSrcCls.getMethod("createModelInstance", renderTypeCls).invoke(emptyModelSource, renderNormal);
+        final Object paramSet = modelCls.getMethod("getParameterSet").invoke(model);
+        final Object missingParamSet = modelCls.getMethod("getParameterSet").invoke(emptyModel);
+        final List<?> params =
+                (List<?>) paramSet.getClass().getMethod("getParameters").invoke(paramSet);
+        return new Object[] {grid, p1Src, p1Guid, paramSet, params.get(0), params.get(1), missingParamSet};
+    }
+
+    private static void assertBindingIndicesParity(
+            final Method origGetBindingsM,
+            final Method rewGetBindingsM,
+            final Object origGrid,
+            final Object rewGrid,
+            final String phase)
+            throws Exception {
+        final List<?> origBindings = (List<?>) origGetBindingsM.invoke(origGrid);
+        final List<?> rewBindings = (List<?>) rewGetBindingsM.invoke(rewGrid);
+        assertEquals(origBindings.size(), rewBindings.size(), phase);
+        for (int i = 0; i < origBindings.size(); i++) {
+            final Method origM = origBindings.get(i).getClass().getMethod("getKeyIndicesInRange");
+            final Method rewM = rewBindings.get(i).getClass().getMethod("getKeyIndicesInRange");
+            assertEquals(origM.invoke(origBindings.get(i)), rewM.invoke(rewBindings.get(i)), phase + " binding#" + i);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void assertKeyformSweepParity(
+            final Object origGrid,
+            final Object rewGrid,
+            final Object origP1,
+            final Object rewP1,
+            final Object origP2,
+            final Object rewP2,
+            final Object origParamSet,
+            final Object rewParamSet,
+            final Method origFindDefaultM,
+            final Method rewFindDefaultM,
+            final Method origFindSearchM,
+            final Method rewFindSearchM,
+            final Class<?> origSearchCls,
+            final Class<?> rewSearchCls,
+            final float[] p1Values,
+            final float[] p2Values,
+            final String phase)
+            throws Exception {
+        final Method origSetVal = origP1.getClass().getMethod("setValue", float.class);
+        final Method rewSetVal = rewP1.getClass().getMethod("setValue", float.class);
+        for (final float v1 : p1Values) {
+            origSetVal.invoke(origP1, v1);
+            rewSetVal.invoke(rewP1, v1);
+            for (final float v2 : p2Values) {
+                origSetVal.invoke(origP2, v2);
+                rewSetVal.invoke(rewP2, v2);
+                final String label = phase + " p1=" + v1 + " p2=" + v2;
+                assertKeyformResultParity(
+                        origGrid,
+                        rewGrid,
+                        () -> origFindDefaultM.invoke(origGrid, origParamSet),
+                        () -> rewFindDefaultM.invoke(rewGrid, rewParamSet),
+                        label + " default");
+                for (final String mode : new String[] {"EQUAL", "LESS_OR_EQUAL", "NEAREST"}) {
+                    final Object origEnum = Enum.valueOf((Class) origSearchCls, mode);
+                    final Object rewEnum = Enum.valueOf((Class) rewSearchCls, mode);
+                    assertKeyformResultParity(
+                            origGrid,
+                            rewGrid,
+                            () -> origFindSearchM.invoke(origGrid, origParamSet, origEnum),
+                            () -> rewFindSearchM.invoke(rewGrid, rewParamSet, rewEnum),
+                            label + " " + mode);
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface HostCall {
+        Object invoke() throws Exception;
+    }
+
+    private static void assertKeyformResultParity(
+            final Object origGrid,
+            final Object rewGrid,
+            final HostCall origCall,
+            final HostCall rewCall,
+            final String label)
+            throws Exception {
+        Object origRes = null;
+        Throwable origErr = null;
+        try {
+            origRes = origCall.invoke();
+        } catch (final java.lang.reflect.InvocationTargetException ite) {
+            origErr = ite.getCause();
+        }
+        Object rewRes = null;
+        Throwable rewErr = null;
+        try {
+            rewRes = rewCall.invoke();
+        } catch (final java.lang.reflect.InvocationTargetException ite) {
+            rewErr = ite.getCause();
+        }
+        if (origErr != null || rewErr != null) {
+            final Throwable finalOrigErr = origErr;
+            final Throwable finalRewErr = rewErr;
+            final Object finalRewRes = rewRes;
+            assertNotNull(origErr, () -> label + " unexpected rew exception " + finalRewErr);
+            assertNotNull(rewErr, () -> label + " expected exception " + finalOrigErr + " but got " + finalRewRes);
+            assertEquals(origErr.getClass().getName(), rewErr.getClass().getName(), label);
+            return;
+        }
+        final List<?> origGridList =
+                (List<?>) origGrid.getClass().getMethod("getKeyformsOnGrid").invoke(origGrid);
+        final List<?> rewGridList =
+                (List<?>) rewGrid.getClass().getMethod("getKeyformsOnGrid").invoke(rewGrid);
+        final int origIdx = origRes == null ? -1 : identityIndexOf(origGridList, origRes);
+        final int rewIdx = rewRes == null ? -1 : identityIndexOf(rewGridList, rewRes);
+        assertEquals(origIdx, rewIdx, label);
+    }
+
+    private static int identityIndexOf(final List<?> list, final Object item) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i) == item) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /** Child entrypoint verifying all rewritten host classes across all JARs under {@code -Xverify:all}. */
