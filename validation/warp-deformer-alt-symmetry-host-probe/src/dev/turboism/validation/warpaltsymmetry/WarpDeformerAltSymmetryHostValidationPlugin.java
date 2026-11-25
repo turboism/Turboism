@@ -118,6 +118,15 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
     private static final int DEFAULT_DRAG_DX = 48;
     private static final int BEZIER_DIM = 4;
     private static final int DEFAULT_DRAG_DY = -32;
+    private static final float ARTMESH_LOCK_OFFSET_PX = 64.0f;
+    private static final float ARTMESH_RESET_OFFSET_PX = 96.0f;
+    private static final int ARTMESH_LOCK_DRAG_TEST_DX = 16;
+    private static final int ARTMESH_LOCK_DRAG_TEST_DY = 16;
+    private static final int ARTMESH_RESET_DRAG_TEST_DX = 24;
+    private static final int ARTMESH_RESET_DRAG_TEST_DY = 18;
+    private static final double ARTMESH_AXIS_TOLERANCE = 0.5;
+    private static final double ARTMESH_ANGLE_TOLERANCE = 1.0e-3;
+    private static final long ARTMESH_UI_SETTLE_MILLIS = 600L;
 
     private PluginContext context;
     private PluginLogger logger;
@@ -759,9 +768,123 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
                     throw new IllegalStateException("Selected mesh axis not centered: pivot=" + px + "," + py);
                 logger.info("ARTMESH_NATIVE_SELECTION_CENTER_PASS pivot=" + px + "," + py);
             }
+            verifyArtMeshLockAndResetWithScreenshots(
+                    report, handles, bridge, state, axisField, pivotMethod, angleMethod, xMethod, yMethod, vector, origin);
         } catch (Exception failure) {
             throw new IllegalStateException("Native ArtMesh gesture validation failed: " + failure, failure);
         }
+    }
+
+    private void verifyArtMeshLockAndResetWithScreenshots(
+            final Report report,
+            final WeightHostHandles handles,
+            final Class<?> bridge,
+            final Object state,
+            final java.lang.reflect.Field axisField,
+            final java.lang.reflect.Method pivotMethod,
+            final java.lang.reflect.Method angleMethod,
+            final java.lang.reflect.Method xMethod,
+            final java.lang.reflect.Method yMethod,
+            final Class<?> vector,
+            final java.awt.Point origin)
+            throws Exception {
+        context.services().require(dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService.class).resetAxis();
+        sleep(ARTMESH_UI_SETTLE_MILLIS);
+        Object axis = axisField.get(state);
+        Object initialPivot = pivotMethod.invoke(axis);
+        float initialPivotX = ((Number) xMethod.invoke(initialPivot)).floatValue();
+        float initialPivotY = ((Number) yMethod.invoke(initialPivot)).floatValue();
+        double initialAngle = ((Number) angleMethod.invoke(axis)).doubleValue();
+
+        captureScreen(report, "artmesh-axis-unlocked.png", "artmesh.screenshotUnlocked");
+
+        float[] centerAndDir = projectAxisCenterAndDirection(
+                handles, bridge, axis, initialPivotX, initialPivotY, xMethod, yMethod, vector);
+        int lockScreenX = origin.x + Math.round(centerAndDir[0] - centerAndDir[2] * ARTMESH_LOCK_OFFSET_PX);
+        int lockScreenY = origin.y + Math.round(centerAndDir[1] - centerAndDir[3] * ARTMESH_LOCK_OFFSET_PX);
+
+        dispatchGesture(handles.viewport(), origin, lockScreenX, lockScreenY, 0, 0);
+        sleep(ARTMESH_UI_SETTLE_MILLIS);
+        captureScreen(report, "artmesh-axis-locked.png", "artmesh.screenshotLocked");
+
+        dispatchGesture(
+                handles.viewport(),
+                origin,
+                origin.x + Math.round(centerAndDir[0]),
+                origin.y + Math.round(centerAndDir[1]),
+                ARTMESH_LOCK_DRAG_TEST_DX,
+                ARTMESH_LOCK_DRAG_TEST_DY);
+        sleep(ARTMESH_UI_SETTLE_MILLIS);
+        Object lockedPivot = pivotMethod.invoke(axisField.get(state));
+        float lockedPivotX = ((Number) xMethod.invoke(lockedPivot)).floatValue();
+        float lockedPivotY = ((Number) yMethod.invoke(lockedPivot)).floatValue();
+        if (Math.hypot(lockedPivotX - initialPivotX, lockedPivotY - initialPivotY) >= ARTMESH_AXIS_TOLERANCE) {
+            throw new IllegalStateException("Locked axis moved during drag: " + lockedPivotX + "," + lockedPivotY);
+        }
+
+        dispatchGesture(handles.viewport(), origin, lockScreenX, lockScreenY, 0, 0);
+        sleep(ARTMESH_UI_SETTLE_MILLIS);
+        dispatchGesture(
+                handles.viewport(),
+                origin,
+                origin.x + Math.round(centerAndDir[0]),
+                origin.y + Math.round(centerAndDir[1]),
+                ARTMESH_RESET_DRAG_TEST_DX,
+                ARTMESH_RESET_DRAG_TEST_DY);
+        sleep(ARTMESH_UI_SETTLE_MILLIS);
+
+        Object movedAxis = axisField.get(state);
+        Object movedPivot = pivotMethod.invoke(movedAxis);
+        float movedPivotX = ((Number) xMethod.invoke(movedPivot)).floatValue();
+        float movedPivotY = ((Number) yMethod.invoke(movedPivot)).floatValue();
+        if (Math.hypot(movedPivotX - initialPivotX, movedPivotY - initialPivotY) < ARTMESH_AXIS_TOLERANCE) {
+            throw new IllegalStateException("Unlocked axis did not translate after unlocking");
+        }
+
+        float[] movedCenterAndDir = projectAxisCenterAndDirection(
+                handles, bridge, movedAxis, movedPivotX, movedPivotY, xMethod, yMethod, vector);
+        int resetScreenX = origin.x + Math.round(movedCenterAndDir[0] - movedCenterAndDir[2] * ARTMESH_RESET_OFFSET_PX);
+        int resetScreenY = origin.y + Math.round(movedCenterAndDir[1] - movedCenterAndDir[3] * ARTMESH_RESET_OFFSET_PX);
+        dispatchGesture(handles.viewport(), origin, resetScreenX, resetScreenY, 0, 0);
+        sleep(ARTMESH_UI_SETTLE_MILLIS);
+
+        Object resetAxis = axisField.get(state);
+        Object resetPivot = pivotMethod.invoke(resetAxis);
+        float resetPivotX = ((Number) xMethod.invoke(resetPivot)).floatValue();
+        float resetPivotY = ((Number) yMethod.invoke(resetPivot)).floatValue();
+        double resetAngle = ((Number) angleMethod.invoke(resetAxis)).doubleValue();
+        if (Math.hypot(resetPivotX - initialPivotX, resetPivotY - initialPivotY) >= ARTMESH_AXIS_TOLERANCE
+                || Math.abs(resetAngle - initialAngle) >= ARTMESH_ANGLE_TOLERANCE) {
+            throw new IllegalStateException("Reset button did not restore axis: pivot="
+                    + resetPivotX + "," + resetPivotY + " angle=" + resetAngle);
+        }
+        logger.info("ARTMESH_NATIVE_LOCK_AND_RESET_PASS");
+    }
+
+    private static float[] projectAxisCenterAndDirection(
+            final WeightHostHandles handles,
+            final Class<?> bridge,
+            final Object axis,
+            final float pivotX,
+            final float pivotY,
+            final java.lang.reflect.Method xMethod,
+            final java.lang.reflect.Method yMethod,
+            final Class<?> vector)
+            throws Exception {
+        Object screenCenter = handles.cameraManager().getClass().getMethod("documentToComponent", vector)
+                .invoke(handles.cameraManager(), vector.getConstructor(float.class, float.class).newInstance(pivotX, pivotY));
+        float cx = ((Number) vector.getMethod("getX").invoke(screenCenter)).floatValue();
+        float cy = ((Number) vector.getMethod("getY").invoke(screenCenter)).floatValue();
+        var rotationHandleMethod = bridge.getDeclaredMethod("rotationHandle", Object.class, Object.class, axis.getClass());
+        rotationHandleMethod.setAccessible(true);
+        Object handle = rotationHandleMethod.invoke(null, handles.cameraManager(), handles.viewContext(), axis);
+        float hx = ((Number) xMethod.invoke(handle)).floatValue();
+        float hy = ((Number) yMethod.invoke(handle)).floatValue();
+        double arm = Math.hypot(hx - cx, hy - cy);
+        if (!(arm > 0.0)) {
+            throw new IllegalStateException("Degenerate axis screen arm");
+        }
+        return new float[] {cx, cy, (float) ((hx - cx) / arm), (float) ((hy - cy) / arm)};
     }
 
     private static int countArtMeshAxisLines(Object entity) throws ReflectiveOperationException {

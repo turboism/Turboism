@@ -48,6 +48,8 @@ public final class NativeArtMeshSymmetryBridge {
     private static final int ORDER_AXIS_DARK = 90;
     private static final int ORDER_AXIS_LIGHT = 91;
     private static final int ORDER_MARKER_BASE = 92;
+    private static final int ORDER_CENTER_MARKER = 94;
+    private static final int ORDER_BUTTON = 96;
     private static final int ORDER_LABEL_OUTLINE = 97;
     private static final int ORDER_LABEL_FILL = 98;
     private static final float LABEL_FONT_SIZE_PT = 20.0f;
@@ -62,17 +64,35 @@ public final class NativeArtMeshSymmetryBridge {
     private static final int DARK_G = 24;
     private static final int DARK_B = 28;
     private static final int LIGHT_RGB = 255;
+    private static final int MUTED_DARK_R = 96;
+    private static final int MUTED_DARK_G = 96;
+    private static final int MUTED_DARK_B = 104;
+    private static final int MUTED_LIGHT_R = 196;
+    private static final int MUTED_LIGHT_G = 196;
+    private static final int MUTED_LIGHT_B = 204;
     private static final int MAX_MESH_VERTICES = 10_000;
     private static final float SCREEN_PAIR_TOLERANCE_PX = 20.0f;
     private static final float HANDLE_HIT_RADIUS_PX = 12.0f;
     private static final float CENTER_HIT_RADIUS_PX = 11.0f;
     private static final float LINE_HIT_DISTANCE_PX = 5.0f;
+    private static final float LOCK_BUTTON_OFFSET_PX = 64.0f;
+    private static final float RESET_BUTTON_OFFSET_PX = 96.0f;
+    private static final float BUTTON_HIT_RADIUS_PX = 12.0f;
     private static final float MARKER_DIAMOND_RADIUS_PX = 9.0f;
     private static final float MARKER_SQUARE_RADIUS_PX = 8.0f;
     private static final float PROBE_MIN_STEP = 1024.0f;
     private static final float PROBE_ULP_MULTIPLIER = 64.0f;
     private static final float ROTATION_ARM_MIN_PX = 32.0f;
     private static final float DEFAULT_ROTATION_RADIUS = 64.0f;
+    private static final String CENTER_HANDLE_ENTITY_NAME = "ArtMeshMirrorCenterHandle";
+    private static final String CENTER_HANDLE_LOCKED_ENTITY_NAME = "ArtMeshMirrorCenterHandleLocked";
+    private static final String UNLOCK_BUTTON_ENTITY_NAME = "ArtMeshMirrorUnlockButton";
+    private static final String LOCK_BUTTON_ENTITY_NAME = "ArtMeshMirrorLockButton";
+    private static final String RESET_BUTTON_ENTITY_NAME = "ArtMeshMirrorResetButton";
+    private static final String RESET_DISABLED_BUTTON_ENTITY_NAME = "ArtMeshMirrorResetDisabledButton";
+    private static final String FALLBACK_LOCKED_GLYPH = "L";
+    private static final String FALLBACK_UNLOCKED_GLYPH = "U";
+    private static final String FALLBACK_RESET_GLYPH = "R";
     private static final MethodType OBJECT_GETTER_TYPE = MethodType.methodType(Object.class, Object.class);
     private static final MethodType OBJECT_ARG_OBJECT_TYPE =
             MethodType.methodType(Object.class, Object.class, Object.class);
@@ -106,11 +126,11 @@ public final class NativeArtMeshSymmetryBridge {
                 state.axis = null;
                 state.drag = 0;
                 state.vertexGesture = false;
-                state.resetGesture = false;
+                state.consumedGesture = false;
                 state.pairs.clear();
                 state.written.clear();
                 state.writtenBits.clear();
-                hideAngleLabel(state);
+                hideOverlayWidgets(state);
                 Object view = state.view == null ? null : state.view.get();
                 if (view != null) {
                     try {
@@ -132,14 +152,21 @@ public final class NativeArtMeshSymmetryBridge {
         String angleLabel;
         boolean labelDirty;
         AngleLabelWidget angleWidget;
+        IconButtonWidget centerHandleWidget;
+        IconButtonWidget centerHandleLockedWidget;
+        IconButtonWidget unlockedButtonWidget;
+        IconButtonWidget lockedButtonWidget;
+        IconButtonWidget resetEnabledButtonWidget;
+        IconButtonWidget resetDisabledButtonWidget;
+        boolean locked;
         int drag;
         boolean vertexGesture;
         /**
-         * Set by the double-click reset. The matching release must be consumed as well: a reset is a
-         * complete gesture, and letting its release reach the native dispatcher starts a mesh edit
-         * the operator never asked for.
+         * Set by a non-drag axis click (lock toggle, reset button, or double-click reset). The
+         * matching drag and release must be consumed as well so they never reach the native
+         * dispatcher and start an unintended mesh edit.
          */
-        boolean resetGesture;
+        boolean consumedGesture;
 
         NativeWarpPointGesture.Gesture movement;
         ArtMeshMirrorAxis.Point last;
@@ -158,11 +185,11 @@ public final class NativeArtMeshSymmetryBridge {
             for (State state : STATES.values()) {
                 state.drag = 0;
                 state.vertexGesture = false;
-                state.resetGesture = false;
+                state.consumedGesture = false;
                 state.pairs.clear();
                 state.written.clear();
                 state.writtenBits.clear();
-                if (next == 0) hideAngleLabel(state);
+                if (next == 0) hideOverlayWidgets(state);
             }
         }
         if (next == 0) CURRENT.remove();
@@ -230,16 +257,18 @@ public final class NativeArtMeshSymmetryBridge {
             if (state == null) return false;
             if (id == MouseEvent.MOUSE_DRAGGED
                     && state.drag == 0
+                    && !state.consumedGesture
                     && state.axis != null
                     && !state.selectedMeshes.isEmpty()) {
                 CURRENT.set(state);
                 return false;
             }
             ViewUiHandles handles = VIEW_UI_HANDLES.get(view.getClass());
-            // Skip selection polling while actively dragging the captured axis.
-            if (!(state.drag != 0 && id == MouseEvent.MOUSE_DRAGGED)) {
+            // Skip selection polling while actively dragging or finishing a consumed button gesture.
+            if (!((state.drag != 0 || state.consumedGesture) && id == MouseEvent.MOUSE_DRAGGED)) {
                 if (!syncSelectedMeshes(view, state, handles)) {
                     state.drag = 0;
+                    state.consumedGesture = false;
                     return false;
                 }
             }
@@ -248,21 +277,24 @@ public final class NativeArtMeshSymmetryBridge {
                 state.movement = null;
                 state.vertexGesture = mouse.getButton() == MouseEvent.BUTTON1;
                 state.drag = 0;
-                state.resetGesture = false;
+                state.consumedGesture = false;
                 state.pairs.clear();
                 state.written.clear();
                 clearWrittenBits(state);
             }
             if (state.axis == null) initialize(view, state);
             if (state.axis == null) return false;
+            if (id == MouseEvent.MOUSE_DRAGGED && state.consumedGesture) {
+                return true;
+            }
             boolean needsPoint = id == MouseEvent.MOUSE_PRESSED || (state.drag != 0 && id == MouseEvent.MOUSE_DRAGGED);
             if (!needsPoint) {
                 if (id == MouseEvent.MOUSE_RELEASED) {
                     state.movement = null;
                     state.vertexGesture = false;
-                    boolean captured = state.drag != 0 || state.resetGesture;
+                    boolean captured = state.drag != 0 || state.consumedGesture;
                     state.drag = 0;
-                    state.resetGesture = false;
+                    state.consumedGesture = false;
                     state.pairs.clear();
                     state.written.clear();
                     clearWrittenBits(state);
@@ -287,6 +319,24 @@ public final class NativeArtMeshSymmetryBridge {
                     && !mouse.isMetaDown()) {
                 ArtMeshMirrorAxis.Point screen = project(handles, camera, point);
                 ProjectedAxis projection = projectAxis(handles, camera, state.axis);
+                if (distance(screen, lockButtonPosition(projection)) <= BUTTON_HIT_RADIUS_PX) {
+                    state.locked = !state.locked;
+                    state.vertexGesture = false;
+                    state.consumedGesture = true;
+                    handles.repaintCanvas.invokeExact(view);
+                    return true;
+                }
+                if (state.locked) {
+                    return false;
+                }
+                if (shouldShowResetButton(state.axis)
+                        && distance(screen, resetButtonPosition(projection)) <= BUTTON_HIT_RADIUS_PX) {
+                    resetAxisState(view, state);
+                    state.vertexGesture = false;
+                    state.consumedGesture = true;
+                    handles.repaintCanvas.invokeExact(view);
+                    return true;
+                }
                 ArtMeshMirrorAxis.Point center = projection.center();
                 ArtMeshMirrorAxis.Point handle = rotationHandle(projection, state.axis);
                 if (distance(screen, handle) <= HANDLE_HIT_RADIUS_PX) state.drag = 3;
@@ -302,10 +352,9 @@ public final class NativeArtMeshSymmetryBridge {
                 if (state.drag != 0) state.vertexGesture = false;
                 state.last = point;
                 if (state.drag != 0 && mouse.getClickCount() == 2) {
-                    state.axis = null;
-                    initialize(view, state);
+                    resetAxisState(view, state);
                     state.drag = 0;
-                    state.resetGesture = true;
+                    state.consumedGesture = true;
                     handles.repaintCanvas.invokeExact(view);
                     return true;
                 }
@@ -403,11 +452,17 @@ public final class NativeArtMeshSymmetryBridge {
         state.axis = null;
         state.drag = 0;
         state.vertexGesture = false;
-        state.resetGesture = false;
+        state.consumedGesture = false;
         state.pairs.clear();
         state.written.clear();
         state.writtenBits.clear();
-        hideAngleLabel(state);
+        hideOverlayWidgets(state);
+    }
+
+    private static void resetAxisState(Object view, State state) throws Throwable {
+        state.axis = null;
+        state.pairs.clear();
+        initialize(view, state);
     }
 
     private static void initialize(Object view, State state) throws Throwable {
@@ -502,9 +557,13 @@ public final class NativeArtMeshSymmetryBridge {
             line(handles, drawer, startX, startY, endX, endY, resources.dark, AXIS_LINE_DARK_WIDTH);
             handles.drawerSetOrder.invokeExact(drawer, ORDER_AXIS_LIGHT);
             line(handles, drawer, startX, startY, endX, endY, resources.light, AXIS_LINE_LIGHT_WIDTH);
-            marker(handles, drawer, center.x(), center.y(), resources, true);
+            Object markerDark = state.locked ? resources.mutedDark : resources.dark;
+            Object markerLight = state.locked ? resources.mutedLight : resources.light;
             var handle = rotationHandle(projection, state.axis);
-            marker(handles, drawer, handle.x(), handle.y(), resources, false);
+            marker(handles, drawer, handle.x(), handle.y(), markerDark, markerLight, false);
+            ArtMeshMirrorAxis.Point lockPos = lockButtonPosition(projection);
+            ArtMeshMirrorAxis.Point resetPos = resetButtonPosition(projection);
+            boolean showReset = shouldShowResetButton(state.axis);
             long tenths = Math.round(Math.toDegrees(state.axis.angle()) * DEGREES_TO_TENTHS);
             if (state.angleLabel == null || state.labelTenths != tenths) {
                 state.labelTenths = tenths;
@@ -512,6 +571,8 @@ public final class NativeArtMeshSymmetryBridge {
                 state.labelDirty = true;
             }
             if (resources.labelHandles != null) {
+                drawCenterHandleWidget(state, resources, graph, objectsOnComponent, center);
+                drawButtonWidgets(state, resources, graph, objectsOnComponent, lockPos, resetPos, showReset);
                 drawCachedAngleLabel(
                         state,
                         resources,
@@ -521,6 +582,20 @@ public final class NativeArtMeshSymmetryBridge {
                         handle.y() + LABEL_OFFSET_Y);
             } else {
                 // Fallback path for synthetic test hosts without GImageEntity.
+                marker(handles, drawer, center.x(), center.y(), markerDark, markerLight, true);
+                handles.drawerSetOrder.invokeExact(drawer, ORDER_BUTTON);
+                angleText(
+                        handles,
+                        drawer,
+                        state.locked ? FALLBACK_LOCKED_GLYPH : FALLBACK_UNLOCKED_GLYPH,
+                        resources,
+                        lockPos.x(),
+                        lockPos.y(),
+                        markerLight);
+                if (showReset) {
+                    angleText(
+                            handles, drawer, FALLBACK_RESET_GLYPH, resources, resetPos.x(), resetPos.y(), markerLight);
+                }
                 handles.drawerSetOrder.invokeExact(drawer, ORDER_LABEL_OUTLINE);
                 for (int side = 0; side < 4; side++) {
                     float dx = side == 0 ? -1 : side == 1 ? 1 : 0;
@@ -1293,6 +1368,24 @@ public final class NativeArtMeshSymmetryBridge {
                 projection.center().y() + projection.direction().y() * arm);
     }
 
+    private static boolean shouldShowResetButton(ArtMeshMirrorAxis axis) {
+        return axis != null && !axis.isAtInitialState();
+    }
+
+    private static ArtMeshMirrorAxis.Point lockButtonPosition(ProjectedAxis projection) {
+        return axisControlOffset(projection, -LOCK_BUTTON_OFFSET_PX);
+    }
+
+    private static ArtMeshMirrorAxis.Point resetButtonPosition(ProjectedAxis projection) {
+        return axisControlOffset(projection, -RESET_BUTTON_OFFSET_PX);
+    }
+
+    private static ArtMeshMirrorAxis.Point axisControlOffset(ProjectedAxis projection, float offsetPx) {
+        return new ArtMeshMirrorAxis.Point(
+                projection.center().x() + projection.direction().x() * offsetPx,
+                projection.center().y() + projection.direction().y() * offsetPx);
+    }
+
     private static final ClassValue<DrawingResources> DRAWING = new ClassValue<>() {
         @Override
         protected DrawingResources computeValue(Class<?> type) {
@@ -1305,7 +1398,7 @@ public final class NativeArtMeshSymmetryBridge {
     };
 
     private static final class DrawingResources {
-        final Object dark, light, font, layer;
+        final Object dark, light, mutedDark, mutedLight, font, layer;
         final Font awtFont;
         final LabelHandles labelHandles;
 
@@ -1313,6 +1406,8 @@ public final class NativeArtMeshSymmetryBridge {
             var color = Class.forName(CCOLOR_CLASS, false, loader).getConstructor(int.class, int.class, int.class);
             dark = color.newInstance(DARK_R, DARK_G, DARK_B);
             light = color.newInstance(LIGHT_RGB, LIGHT_RGB, LIGHT_RGB);
+            mutedDark = color.newInstance(MUTED_DARK_R, MUTED_DARK_G, MUTED_DARK_B);
+            mutedLight = color.newInstance(MUTED_LIGHT_R, MUTED_LIGHT_G, MUTED_LIGHT_B);
             font = Class.forName(CFONT_CLASS, false, loader)
                     .getConstructor(int.class)
                     .newInstance(LABEL_FONT_CTOR_SIZE);
@@ -1331,6 +1426,26 @@ public final class NativeArtMeshSymmetryBridge {
                 // Fall back to default sans-serif font when synthetic test fixtures omit getJFont.
             }
             return new Font(Font.SANS_SERIF, Font.PLAIN, (int) LABEL_FONT_SIZE_PT);
+        }
+    }
+
+    private static final class IconButtonWidget {
+        final Object texture;
+        final Object entity;
+
+        IconButtonWidget(String entityName, BufferedImage icon, LabelHandles handles, Object layer, int orderInLayer)
+                throws Throwable {
+            Object resource = handles.resourceCtor.invokeExact(icon, true);
+            texture = handles.textureCtor.invokeExact(resource, (Object) null, true);
+            Object filterMode = handles.getFilterMode.invokeExact(texture);
+            handles.setMinFilter.invokeExact(filterMode, handles.minFilterLinear);
+            handles.setMagFilter.invokeExact(filterMode, handles.magFilterLinear);
+            handles.setPreload.invokeExact(texture, true);
+            Object bounds = handles.rectCtor.invokeExact(0f, 0f, (float) icon.getWidth(), (float) icon.getHeight());
+            entity = handles.imageEntityCtor.invokeExact(entityName, texture, false, bounds);
+            Object renderer = handles.getMeshRenderer.invokeExact(entity);
+            handles.setSortingLayer.invokeExact(renderer, layer);
+            handles.setOrderInLayer.invokeExact(renderer, orderInLayer);
         }
     }
 
@@ -1376,6 +1491,116 @@ public final class NativeArtMeshSymmetryBridge {
         }
     }
 
+    private static void drawCenterHandleWidget(
+            State state,
+            DrawingResources resources,
+            Object graph,
+            Object objectsOnComponent,
+            ArtMeshMirrorAxis.Point center)
+            throws Throwable {
+        LabelHandles handles = resources.labelHandles;
+        if (state.locked) {
+            if (state.centerHandleLockedWidget == null) {
+                state.centerHandleLockedWidget = new IconButtonWidget(
+                        CENTER_HANDLE_LOCKED_ENTITY_NAME,
+                        ArtMeshMirrorAxisIcons.centerHandleIcon(true),
+                        handles,
+                        resources.layer,
+                        ORDER_CENTER_MARKER);
+            }
+            disableButtonWidget(state.centerHandleWidget, handles);
+            showEntityAt(
+                    state.centerHandleLockedWidget.entity, handles, graph, objectsOnComponent, center.x(), center.y());
+        } else {
+            if (state.centerHandleWidget == null) {
+                state.centerHandleWidget = new IconButtonWidget(
+                        CENTER_HANDLE_ENTITY_NAME,
+                        ArtMeshMirrorAxisIcons.centerHandleIcon(false),
+                        handles,
+                        resources.layer,
+                        ORDER_CENTER_MARKER);
+            }
+            disableButtonWidget(state.centerHandleLockedWidget, handles);
+            showEntityAt(state.centerHandleWidget.entity, handles, graph, objectsOnComponent, center.x(), center.y());
+        }
+    }
+
+    private static void drawButtonWidgets(
+            State state,
+            DrawingResources resources,
+            Object graph,
+            Object objectsOnComponent,
+            ArtMeshMirrorAxis.Point lockPos,
+            ArtMeshMirrorAxis.Point resetPos,
+            boolean showReset)
+            throws Throwable {
+        LabelHandles handles = resources.labelHandles;
+        if (state.locked) {
+            if (state.lockedButtonWidget == null) {
+                state.lockedButtonWidget = new IconButtonWidget(
+                        LOCK_BUTTON_ENTITY_NAME,
+                        ArtMeshMirrorAxisIcons.lockedIcon(),
+                        handles,
+                        resources.layer,
+                        ORDER_BUTTON);
+            }
+            disableButtonWidget(state.unlockedButtonWidget, handles);
+            showEntityAt(state.lockedButtonWidget.entity, handles, graph, objectsOnComponent, lockPos.x(), lockPos.y());
+        } else {
+            if (state.unlockedButtonWidget == null) {
+                state.unlockedButtonWidget = new IconButtonWidget(
+                        UNLOCK_BUTTON_ENTITY_NAME,
+                        ArtMeshMirrorAxisIcons.unlockedIcon(),
+                        handles,
+                        resources.layer,
+                        ORDER_BUTTON);
+            }
+            disableButtonWidget(state.lockedButtonWidget, handles);
+            showEntityAt(
+                    state.unlockedButtonWidget.entity, handles, graph, objectsOnComponent, lockPos.x(), lockPos.y());
+        }
+        if (!showReset) {
+            disableButtonWidget(state.resetEnabledButtonWidget, handles);
+            disableButtonWidget(state.resetDisabledButtonWidget, handles);
+            return;
+        }
+        if (state.locked) {
+            if (state.resetDisabledButtonWidget == null) {
+                state.resetDisabledButtonWidget = new IconButtonWidget(
+                        RESET_DISABLED_BUTTON_ENTITY_NAME,
+                        ArtMeshMirrorAxisIcons.resetIcon(false),
+                        handles,
+                        resources.layer,
+                        ORDER_BUTTON);
+            }
+            disableButtonWidget(state.resetEnabledButtonWidget, handles);
+            showEntityAt(
+                    state.resetDisabledButtonWidget.entity,
+                    handles,
+                    graph,
+                    objectsOnComponent,
+                    resetPos.x(),
+                    resetPos.y());
+        } else {
+            if (state.resetEnabledButtonWidget == null) {
+                state.resetEnabledButtonWidget = new IconButtonWidget(
+                        RESET_BUTTON_ENTITY_NAME,
+                        ArtMeshMirrorAxisIcons.resetIcon(true),
+                        handles,
+                        resources.layer,
+                        ORDER_BUTTON);
+            }
+            disableButtonWidget(state.resetDisabledButtonWidget, handles);
+            showEntityAt(
+                    state.resetEnabledButtonWidget.entity,
+                    handles,
+                    graph,
+                    objectsOnComponent,
+                    resetPos.x(),
+                    resetPos.y());
+        }
+    }
+
     private static void drawCachedAngleLabel(
             State state, DrawingResources resources, Object graph, Object objectsOnComponent, float x, float y)
             throws Throwable {
@@ -1389,23 +1614,70 @@ public final class NativeArtMeshSymmetryBridge {
             widget.updateText(state.angleLabel, resources.awtFont, handles);
             state.labelDirty = false;
         }
-        Object transform = handles.getTransform.invokeExact(widget.entity);
-        Object pos = handles.getPosition.invokeExact(transform);
-        handles.setVector3.invokeExact(pos, x + LABEL_IMAGE_WIDTH * 0.5f, y + LABEL_IMAGE_HEIGHT * 0.5f, 0f);
-        if (handles.getParentEntity.invokeExact(widget.entity) != objectsOnComponent) {
-            Object children = handles.getChildren.invokeExact(objectsOnComponent);
-            handles.addEntity.invokeExact(children, widget.entity, 0);
-        }
-        handles.setVolatile.invokeExact(graph, widget.entity);
+        showEntityAt(
+                widget.entity,
+                handles,
+                graph,
+                objectsOnComponent,
+                x + LABEL_IMAGE_WIDTH * 0.5f,
+                y + LABEL_IMAGE_HEIGHT * 0.5f);
     }
 
-    private static void hideAngleLabel(State state) {
-        if (state.angleWidget == null) return;
+    private static void showEntityAt(
+            Object entity, LabelHandles handles, Object graph, Object objectsOnComponent, float centerX, float centerY)
+            throws Throwable {
+        Object transform = handles.getTransform.invokeExact(entity);
+        Object pos = handles.getPosition.invokeExact(transform);
+        handles.setVector3.invokeExact(pos, centerX, centerY, 0f);
+        if (handles.getParentEntity.invokeExact(entity) != objectsOnComponent) {
+            Object children = handles.getChildren.invokeExact(objectsOnComponent);
+            handles.addEntity.invokeExact(children, entity, 0);
+        }
+        handles.setVolatile.invokeExact(graph, entity);
+    }
+
+    private static void hideOverlayWidgets(State state) {
+        LabelHandles handles = findLabelHandles(state);
+        if (handles == null) return;
+        if (state.angleWidget != null) {
+            disableEntity(state.angleWidget.entity, handles);
+        }
+        disableButtonWidget(state.centerHandleWidget, handles);
+        disableButtonWidget(state.centerHandleLockedWidget, handles);
+        disableButtonWidget(state.unlockedButtonWidget, handles);
+        disableButtonWidget(state.lockedButtonWidget, handles);
+        disableButtonWidget(state.resetEnabledButtonWidget, handles);
+        disableButtonWidget(state.resetDisabledButtonWidget, handles);
+    }
+
+    private static LabelHandles findLabelHandles(State state) {
+        Object sampleEntity = state.angleWidget != null
+                ? state.angleWidget.entity
+                : state.centerHandleWidget != null
+                        ? state.centerHandleWidget.entity
+                        : state.centerHandleLockedWidget != null
+                                ? state.centerHandleLockedWidget.entity
+                                : state.unlockedButtonWidget != null
+                                        ? state.unlockedButtonWidget.entity
+                                        : state.lockedButtonWidget != null
+                                                ? state.lockedButtonWidget.entity
+                                                : state.resetEnabledButtonWidget != null
+                                                        ? state.resetEnabledButtonWidget.entity
+                                                        : state.resetDisabledButtonWidget != null
+                                                                ? state.resetDisabledButtonWidget.entity
+                                                                : null;
+        return sampleEntity == null ? null : DRAWING.get(sampleEntity.getClass()).labelHandles;
+    }
+
+    private static void disableButtonWidget(IconButtonWidget widget, LabelHandles handles) {
+        if (widget != null) {
+            disableEntity(widget.entity, handles);
+        }
+    }
+
+    private static void disableEntity(Object entity, LabelHandles handles) {
         try {
-            LabelHandles handles = DRAWING.get(state.angleWidget.entity.getClass()).labelHandles;
-            if (handles != null) {
-                handles.setEnabled.invokeExact(state.angleWidget.entity, false);
-            }
+            handles.setEnabled.invokeExact(entity, false);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
         }
@@ -1424,7 +1696,13 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     private static void marker(
-            ViewUiHandles handles, Object drawer, float x, float y, DrawingResources resources, boolean diamond)
+            ViewUiHandles handles,
+            Object drawer,
+            float x,
+            float y,
+            Object darkColor,
+            Object lightColor,
+            boolean diamond)
             throws Throwable {
         float r = diamond ? MARKER_DIAMOND_RADIUS_PX : MARKER_SQUARE_RADIUS_PX;
         float x0 = diamond ? x : x - r;
@@ -1438,7 +1716,7 @@ public final class NativeArtMeshSymmetryBridge {
         for (int layer = 0; layer < 2; layer++) {
             handles.drawerSetOrder.invokeExact(drawer, ORDER_MARKER_BASE + layer);
             float width = layer == 0 ? AXIS_LINE_DARK_WIDTH : AXIS_LINE_LIGHT_WIDTH;
-            Object color = layer == 0 ? resources.dark : resources.light;
+            Object color = layer == 0 ? darkColor : lightColor;
             line(handles, drawer, x0, y0, x1, y1, color, width);
             line(handles, drawer, x1, y1, x2, y2, color, width);
             line(handles, drawer, x2, y2, x3, y3, color, width);

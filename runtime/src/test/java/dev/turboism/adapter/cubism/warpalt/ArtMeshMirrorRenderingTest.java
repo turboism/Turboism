@@ -175,6 +175,266 @@ final class ArtMeshMirrorRenderingTest {
     }
 
     @Test
+    void lockButtonTogglesIconsAndBlocksAllOtherAxisInteractions() throws Exception {
+        try (var loader = hostWithImageLabel()) {
+            Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            Class<?> textureClass = loader.loadClass("com.live2d.graphics3d.texture.GTexture");
+            Class<?> imageEntityClass = loader.loadClass("com.live2d.graphics3d.geometry.GImageEntity");
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> entitiesByName = (java.util.Map<String, Object>)
+                    imageEntityClass.getField("byName").get(null);
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertEquals(1, textureClass.getField("reinitCalls").getInt(null));
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorCenterHandle")));
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorUnlockButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorCenterHandleLocked")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorLockButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetDisabledButton")));
+
+                // Lock button sits at center (500, 400) - (0, 1) * 64 = (500, 336).
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 336, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 502, 337, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 502, 337, 1))));
+
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertEquals(1, textureClass.getField("reinitCalls").getInt(null));
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorCenterHandleLocked")));
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorLockButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorCenterHandle")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorUnlockButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetDisabledButton")));
+
+                ArtMeshMirrorAxis axis = currentAxis();
+                var initialPivot = axis.pivot();
+                double initialAngle = axis.angle();
+
+                // Center drag, double-click reset, rotation handle, axis line, and reset slot must all pass through.
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 530, 420, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 530, 420, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 2))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 500, 400, 2))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 464, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 540, 440, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 540, 440, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 430, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 520, 430, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 520, 430, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 304, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 500, 304, 1))));
+                assertEquals(initialPivot, axis.pivot());
+                assertEquals(initialAngle, axis.angle(), 1e-6);
+
+                // Clicking the lock button again unlocks and restores axis translation.
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 336, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 500, 336, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 515, 420, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 515, 420, 1))));
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000025, 10000030),
+                        currentAxis().pivot());
+
+                // Moving away from initial state reveals the active reset button; locking disables it.
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetDisabledButton")));
+
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 515, 356, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 515, 356, 1))));
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetButton")));
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetDisabledButton")));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 515, 324, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 515, 324, 1))));
+            }
+        }
+    }
+
+    @Test
+    void lockedAxisStillMirrorsVerticesNearAxis() throws Exception {
+        try (var loader = hostForPointDrag()) {
+            Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            Object edit = view.getClass().getField("edit").get(view);
+            Object model = edit.getClass().getField("model").get(edit);
+            Object mesh = model.getClass().getMethod("getArtMesh", String.class).invoke(model, "one");
+            Object form = mesh.getClass().getMethod("getCalculatedForm").invoke(mesh);
+            float[] positions = {-10f, 0f, 10f, 0f};
+            form.getClass().getField("positions").set(form, positions);
+            Object meshSource = mesh.getClass().getMethod("getSource").invoke(mesh);
+            Object coord = loader.loadClass("com.live2d.doc.CoordType")
+                    .getConstructor()
+                    .newInstance();
+            Class<?> baseType = loader.loadClass("com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRef");
+            Class<?> exType = loader.loadClass("com.live2d.cubism.doc.model.drawable.artMesh.MeshPointRefEx");
+            Class<?> transformType = loader.loadClass("com.live2d.doc.selection.ITransformBetweenLocalAndCanvas");
+            Class<?> vectorType = loader.loadClass("com.live2d.graphics3d.type.GVector2");
+            Object identityTransform = java.lang.reflect.Proxy.newProxyInstance(
+                    loader, new Class<?>[] {transformType}, (proxy, method, args) -> args[0]);
+            Object base0 = baseType.getConstructor(
+                            meshSource.getClass(),
+                            int.class,
+                            float[].class,
+                            int.class,
+                            coord.getClass(),
+                            form.getClass())
+                    .newInstance(meshSource, 0, positions, 0, coord, form);
+            Object ref0 = exType.getConstructor(baseType, transformType, form.getClass())
+                    .newInstance(base0, identityTransform, form);
+
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                // Lock button sits at (500, 336) when pivot (0, 0) projects to (500, 400).
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 336, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 500, 336, 1))));
+
+                // Pressing right on the axis center passes through while still arming vertex mirroring.
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1))));
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 500, 405, 1))));
+
+                Object target =
+                        vectorType.getConstructor(float.class, float.class).newInstance(-12f, 6f);
+                com.live2d.cubism.view.context.action.U$b.writeArtMesh(ref0, target, 1.0f);
+                assertEquals(-12f, positions[0], 1e-5f);
+                assertEquals(6f, positions[1], 1e-5f);
+                assertEquals(12f, positions[2], 1e-5f);
+                assertEquals(6f, positions[3], 1e-5f);
+            }
+        }
+    }
+
+    @Test
+    void resetButtonRestoresInitialPositionAndAngle() throws Exception {
+        var centerUnlocked = ArtMeshMirrorAxisIcons.centerHandleIcon(false);
+        var centerLocked = ArtMeshMirrorAxisIcons.centerHandleIcon(true);
+        var unlocked = ArtMeshMirrorAxisIcons.unlockedIcon();
+        var locked = ArtMeshMirrorAxisIcons.lockedIcon();
+        var resetEnabled = ArtMeshMirrorAxisIcons.resetIcon(true);
+        var resetDisabled = ArtMeshMirrorAxisIcons.resetIcon(false);
+        for (var icon : new java.awt.image.BufferedImage[] {
+            centerUnlocked, centerLocked, unlocked, locked, resetEnabled, resetDisabled
+        }) {
+            assertEquals(ArtMeshMirrorAxisIcons.ICON_SIZE_PX, icon.getWidth());
+            assertEquals(ArtMeshMirrorAxisIcons.ICON_SIZE_PX, icon.getHeight());
+            assertEquals(0, icon.getRGB(0, 0));
+        }
+        assertEquals(0, centerUnlocked.getRGB(11, 11));
+        assertEquals(0, centerLocked.getRGB(11, 11));
+        assertFalse(java.util.Arrays.equals(pixels(centerUnlocked), pixels(centerLocked)));
+        assertFalse(java.util.Arrays.equals(pixels(unlocked), pixels(locked)));
+        assertFalse(java.util.Arrays.equals(pixels(resetEnabled), pixels(resetDisabled)));
+
+        try (var loader = hostWithImageLabel()) {
+            Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
+                    .getConstructor()
+                    .newInstance();
+            Class<?> imageEntityClass = loader.loadClass("com.live2d.graphics3d.geometry.GImageEntity");
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> entitiesByName = (java.util.Map<String, Object>)
+                    imageEntityClass.getField("byName").get(null);
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                // Translate center from (500, 400) to (540, 430).
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 540, 430, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 540, 430, 1))));
+
+                // Rotate from vertical (handle at 540, 494) to horizontal (604, 430).
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 540, 494, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 604, 430, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 604, 430, 1))));
+
+                ArtMeshMirrorAxis moved = currentAxis();
+                assertEquals(new ArtMeshMirrorAxis.Point(10000050, 10000040), moved.pivot());
+                assertEquals(0.0, moved.angle(), 1e-6);
+
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertTrue(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetButton")));
+
+                // Reset button sits at center (540, 430) - (1, 0) * 96 = (444, 430).
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 444, 430, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 445, 431, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 445, 431, 1))));
+
+                ArtMeshMirrorAxis reset = currentAxis();
+                assertEquals(new ArtMeshMirrorAxis.Point(10000010, 10000010), reset.pivot());
+                assertEquals(Math.PI / 2, reset.angle(), 1e-6);
+
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetButton")));
+                assertFalse(isEntityEnabled(entitiesByName.get("ArtMeshMirrorResetDisabledButton")));
+            }
+        }
+    }
+
+    private static ArtMeshMirrorAxis currentAxis() throws Exception {
+        var states = NativeArtMeshSymmetryBridge.class.getDeclaredField("STATES");
+        states.setAccessible(true);
+        Object state =
+                ((java.util.Map<?, ?>) states.get(null)).values().iterator().next();
+        var axisField = state.getClass().getDeclaredField("axis");
+        axisField.setAccessible(true);
+        return (ArtMeshMirrorAxis) axisField.get(state);
+    }
+
+    private static boolean isEntityEnabled(Object entity) throws Exception {
+        return entity != null && entity.getClass().getField("enabled").getBoolean(entity);
+    }
+
+    private static int[] pixels(java.awt.image.BufferedImage image) {
+        return image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
+    }
+
+    @Test
     void pointDragMirrorsWithoutRepeatedSelectionPollingAndUpdatesForm() throws Exception {
         try (var loader = hostForPointDrag()) {
             Object view = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView")
@@ -375,8 +635,9 @@ final class ArtMeshMirrorRenderingTest {
             import com.live2d.graphics3d.texture.GTexture;
             import com.live2d.graphics3d.type.GRectF;
             public class GImageEntity extends com.live2d.graphics3d.entity.GEntity {
+                public static final java.util.Map<String, GImageEntity> byName = new java.util.HashMap<>();
                 private final GMeshRenderer r=new GMeshRenderer();
-                public GImageEntity(String n, GTexture t, boolean f, GRectF b){}
+                public GImageEntity(String n, GTexture t, boolean f, GRectF b){byName.put(n, this);}
                 public GMeshRenderer getMeshRenderer(){return r;}
             }
             """);
