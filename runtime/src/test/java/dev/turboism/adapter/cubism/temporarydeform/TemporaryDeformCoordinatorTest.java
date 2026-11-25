@@ -106,11 +106,12 @@ class TemporaryDeformCoordinatorTest {
 
     @Test
     void toolDetailDropdownReconciliationSuppressesSpuriousNativeSelectionEvents() throws Exception {
-        final Path resolvedJar = TemporaryDeformNativeTransformerTest.resolveFirstAvailableCubismJar("5.3.03", "5.3.02");
+        final Path resolvedJar =
+                TemporaryDeformNativeTransformerTest.resolveFirstAvailableCubismJar("5.3.03", "5.3.02");
         assumeTrue(Files.isRegularFile(resolvedJar), "local Cubism JAR required for CComboBox2 verification");
 
-        try (URLClassLoader hostLoader =
-                new URLClassLoader(new URL[] {resolvedJar.toUri().toURL()}, TemporaryDeformCoordinator.class.getClassLoader())) {
+        try (URLClassLoader hostLoader = new URLClassLoader(
+                new URL[] {resolvedJar.toUri().toURL()}, TemporaryDeformCoordinator.class.getClassLoader())) {
             final Class<?> comboClass = Class.forName("com.live2d.ui.control.CComboBox2", true, hostLoader);
             final Class<?> fn1Class = Class.forName("kotlin.jvm.functions.Function1", true, hostLoader);
             final Class<?> unitClass = Class.forName("kotlin.Unit", true, hostLoader);
@@ -120,7 +121,8 @@ class TemporaryDeformCoordinatorTest {
             final AtomicInteger beforeNativeCount = new AtomicInteger();
             final AtomicInteger customCallbacks = new AtomicInteger();
 
-            final Object combo = comboClass.getConstructor(Object[].class).newInstance((Object) new Object[] {"NATIVE_A", "NATIVE_B"});
+            final Object combo = comboClass.getConstructor(Object[].class).newInstance((Object)
+                    new Object[] {"NATIVE_A", "NATIVE_B"});
             final Object nativeListener = Proxy.newProxyInstance(hostLoader, new Class<?>[] {fn1Class}, (p, m, a) -> {
                 if ("invoke".equals(m.getName())) {
                     nativeCallbacks.incrementAndGet();
@@ -148,8 +150,9 @@ class TemporaryDeformCoordinatorTest {
             final NativeTemporaryDeformToolDetailAdapter adapter = new NativeTemporaryDeformToolDetailAdapter();
             final List<NativeTemporaryDeformToolDetailAdapter.ToolDetailEntry> initialTools = List.of(
                     new NativeTemporaryDeformToolDetailAdapter.ToolDetailEntry("p:1:row-col", "Row/Column", 100));
-            final List<NativeTemporaryDeformToolDetailAdapter.ToolDetailEntry> updatedTools = List.of(
-                    new NativeTemporaryDeformToolDetailAdapter.ToolDetailEntry("p:1:row-col", "Row/Column Updated", 100));
+            final List<NativeTemporaryDeformToolDetailAdapter.ToolDetailEntry> updatedTools =
+                    List.of(new NativeTemporaryDeformToolDetailAdapter.ToolDetailEntry(
+                            "p:1:row-col", "Row/Column Updated", 100));
 
             EdtDispatch.call("reconcile tool detail combo", () -> {
                 adapter.reconcilePanel(
@@ -180,39 +183,44 @@ class TemporaryDeformCoordinatorTest {
 
     @Test
     void warpTargetAdapterWritesEditableKeyformAndSkipsMissingModelUpdate() throws Exception {
-        final Path resolvedJar = TemporaryDeformNativeTransformerTest.resolveFirstAvailableCubismJar("5.3.03", "5.3.02");
+        final Path resolvedJar =
+                TemporaryDeformNativeTransformerTest.resolveFirstAvailableCubismJar("5.3.03", "5.3.02");
         assumeTrue(Files.isRegularFile(resolvedJar), "local Cubism JAR required for host vector and guid types");
 
-        try (URLClassLoader hostLoader =
-                new URLClassLoader(new URL[] {resolvedJar.toUri().toURL()}, TemporaryDeformCoordinator.class.getClassLoader())) {
+        try (URLClassLoader hostLoader = new URLClassLoader(
+                new URL[] {resolvedJar.toUri().toURL()}, TemporaryDeformCoordinator.class.getClassLoader())) {
             final Class<?> vecClass = Class.forName("com.live2d.graphics3d.type.GVector2", true, hostLoader);
             final Class<?> pointRefExClass = Class.forName("com.live2d.doc.selection.IPointRefEx", false, hostLoader);
             final com.live2d.type.Guid deformerGuid = new com.live2d.type.Guid() {};
 
             final float[] calculatedCoords = new float[] {10.0F, 20.0F};
             final float[] editableCoords = new float[] {10.0F, 20.0F};
-            final Object calculatedPoint = Proxy.newProxyInstance(
-                    hostLoader, new Class<?>[] {pointRefExClass}, (p, m, a) -> {
+            final Object calculatedPoint =
+                    Proxy.newProxyInstance(hostLoader, new Class<?>[] {pointRefExClass}, (p, m, a) -> {
                         if ("e".equals(m.getName())) {
                             return vecClass.getConstructor(float.class, float.class)
                                     .newInstance(calculatedCoords[0], calculatedCoords[1]);
                         }
                         if ("a".equals(m.getName())) {
-                            calculatedCoords[0] = ((Number) vecClass.getMethod("getX").invoke(a[0])).floatValue();
-                            calculatedCoords[1] = ((Number) vecClass.getMethod("getY").invoke(a[0])).floatValue();
+                            calculatedCoords[0] =
+                                    ((Number) vecClass.getMethod("getX").invoke(a[0])).floatValue();
+                            calculatedCoords[1] =
+                                    ((Number) vecClass.getMethod("getY").invoke(a[0])).floatValue();
                             return null;
                         }
                         return null;
                     });
-            final Object editablePoint = Proxy.newProxyInstance(
-                    hostLoader, new Class<?>[] {pointRefExClass}, (p, m, a) -> {
+            final Object editablePoint =
+                    Proxy.newProxyInstance(hostLoader, new Class<?>[] {pointRefExClass}, (p, m, a) -> {
                         if ("e".equals(m.getName())) {
                             return vecClass.getConstructor(float.class, float.class)
                                     .newInstance(editableCoords[0], editableCoords[1]);
                         }
                         if ("a".equals(m.getName())) {
-                            editableCoords[0] = ((Number) vecClass.getMethod("getX").invoke(a[0])).floatValue();
-                            editableCoords[1] = ((Number) vecClass.getMethod("getY").invoke(a[0])).floatValue();
+                            editableCoords[0] =
+                                    ((Number) vecClass.getMethod("getX").invoke(a[0])).floatValue();
+                            editableCoords[1] =
+                                    ((Number) vecClass.getMethod("getY").invoke(a[0])).floatValue();
                             return null;
                         }
                         return null;
@@ -269,8 +277,7 @@ class TemporaryDeformCoordinatorTest {
                     new NativeWarpDeformerTargetAdapter(new FakeDeformer(), new FakeModel(), 0, hostLoader);
             adapter.setActionContext(actionContext);
             adapter.snapshotStrokeBaseline();
-            adapter.applyConversionDeltas(
-                    Map.of(0, new dev.turboism.sdk.cubism.model.Point2(5.0F, -12.0F)));
+            adapter.applyConversionDeltas(Map.of(0, new dev.turboism.sdk.cubism.model.Point2(5.0F, -12.0F)));
 
             assertEquals(15.0F, editableCoords[0], 0.001F);
             assertEquals(8.0F, editableCoords[1], 0.001F);
