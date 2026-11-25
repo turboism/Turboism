@@ -30,7 +30,8 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 
 ### Native CLIs and local sessions
 
-- Following [Paseo's provider design](https://paseo.sh/docs/providers.md), bundled adapters connect directly to original `claude`, `codex`, and `pi` CLIs. No additional ACP package or Node SDK is required. Pi's Turboism MCP extension is bundled. Gemini CLI uses its built-in ACP mode; Antigravity uses `agy-acp`. Existing ACP adapters remain supported.
+- Bundled adapters connect directly to the original `claude`, `codex`, and `pi` CLIs. The plugin includes the Turboism MCP extension for Pi. [Paseo provider design](https://paseo.sh/docs/providers.md)
+- Antigravity uses `agy acp` and supports the standalone `agy-acp` adapter. DeepSeek Harness uses `dsh --profile acp`.
 - Harness selectors show available connections. Unsupported options, including permission modes, are hidden; enabled controls use the normal foreground color.
 - A local `session-index/` records sessions created here, partitioned by harness, launch command, protocol, and working directory. CLI sessions created elsewhere are not imported.
 - Native sessions resume model context but currently do not replay earlier conversation text. Pi files live under the plugin state directory's `native-sessions/pi/`; Codex and Claude Code use their native stores.
@@ -40,7 +41,7 @@ Opens an Agent conversation window and a Settings window. Drives a user-installe
 ## What it does
 
 - Opens two Swing windows: **Agent** (chat conversation) and **Agent Settings**.
-- Launches original Claude Code, Codex, and Pi CLIs using bundled native adapters; Gemini CLI, OpenCode, Devin CLI, Antigravity (`agy-acp`), and custom commands use ACP.
+- Launches Claude Code, Codex, and Pi through native adapters. Gemini CLI, OpenCode, Devin CLI, Antigravity, DeepSeek Harness, and custom commands use ACP.
 - Drives `initialize`, `authenticate`, `session/new`, `session/load`, `session/resume`, `session/prompt`, `session/cancel`, `session/close`, `session/list`, `session/update`, `session/request_permission`, `session/set_config_option`, and `logout` per the ACP v1 contract.
 - Attaches the Turboism MCP server as an ACP stdio MCP server so the agent can use the Cubism tools. The HTTP endpoint remains a read-only fallback for agents that only advertise HTTP MCP support.
 - Detects the agent executable on PATH and in common install locations, and persists a small amount of plugin-owned state (selected agent, custom command, durable session id, initial instructions).
@@ -128,6 +129,7 @@ OpenCode 1.15.13 can hide a provider authentication failure behind `end_turn` an
 
 - **Connect fails with "Executable not found"**: set a custom command in **Manage agents…**, or install one of the detected agents so it is on PATH.
 - **"The agent requires sign-in"**: press **Sign in…** and complete the agent's authentication method, then reconnect.
+- **DeepSeek Harness lacks model credentials**. Configure your provider in DeepSeek Harness, then reconnect from **Manage agents…**.
 - **Cubism tools unavailable in the session**: the Agent transcript reports whether MCP attached writable (stdio bridge), read-only (HTTP), or not at all. Check that the `dev.turboism.plugin.mcp` plugin is enabled and started.
 - **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
 

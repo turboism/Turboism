@@ -39,6 +39,24 @@ final class WindowsHarnessDiscoveryTest {
     }
 
     @Test
+    void discoversAntigravityAndDeepSeekWithoutInheritedPath() throws Exception {
+        final Path local = home.resolve("AppData/Local");
+        final Path roaming = home.resolve("AppData/Roaming");
+        final Path agy = Files.createDirectories(local.resolve("agy/bin")).resolve("agy.exe");
+        final Path desktopDsh = Files.createDirectories(
+                        local.resolve("Programs/DeepSeek Harness/resources/runtime/cli/bin"))
+                .resolve("dsh.cmd");
+        final Path npmDsh = Files.createDirectories(roaming.resolve("npm")).resolve("dsh.cmd");
+        for (Path launcher : List.of(agy, desktopDsh, npmDsh)) {
+            Files.createFile(launcher);
+        }
+        final List<Path> directories = AgentLocator.commonInstallDirectories(
+                home.toString(), Map.of("APPDATA", roaming.toString(), "LOCALAPPDATA", local.toString()), true);
+        assertEquals(List.of(agy), AgentLocator.findExecutables("agy", directories, true));
+        assertEquals(List.of(npmDsh, desktopDsh), AgentLocator.findExecutables("dsh", directories, true));
+    }
+
+    @Test
     void discoversNativeLaunchersAndConfiguredPrefixes() throws Exception {
         Path bin = Files.createDirectories(home.resolve(".local/bin"));
         Path managedPi = Files.createDirectories(home.resolve(".pi/agent/bin"));
