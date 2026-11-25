@@ -53,11 +53,21 @@ public final class RenderMatrixTransformer implements ClassFileTransformer {
     /** Descriptor of {@code GMeshRenderer.getSortingZOrder__testImpl(GCamera)}. */
     public static final String SORTING_Z_DESCRIPTOR = "(L" + CAMERA_OWNER + ";)F";
 
+    /** Internal name of {@code com.live2d.graphics3d.a} render context. */
+    public static final String RENDER_CONTEXT_OWNER = "com/live2d/graphics3d/a";
+
     /** Reviewed render method name on {@code GMeshRenderer} and {@code GLineRenderer}. */
     public static final String RENDER_METHOD = "render";
 
     /** Descriptor of {@code render(a)}. */
-    public static final String RENDER_DESCRIPTOR = "(Lcom/live2d/graphics3d/a;)V";
+    public static final String RENDER_DESCRIPTOR = "(L" + RENDER_CONTEXT_OWNER + ";)V";
+
+    /** Reviewed {@code GMaterial.setup} method name. */
+    public static final String MATERIAL_SETUP_METHOD = "setup";
+
+    /** Descriptor of {@code GMaterial.setup(a, GMatrix44)}. */
+    public static final String MATERIAL_SETUP_DESCRIPTOR =
+            "(L" + RENDER_CONTEXT_OWNER + ";L" + MatrixScratchTransformer.MATRIX + ";)V";
 
     /** Expected transformed class count covering both {@code GMeshRenderer} and {@code GLineRenderer}. */
     public static final int EXPECTED_MATCHES = 2;

@@ -69,10 +69,8 @@ final class VerifiedMatrixScratchInstaller implements AutoCloseable {
     private static final String GET_POSITIONS = "getPositions";
     private static final String GET_STEP = "getStep";
     private static final String GET_WORLD_TO_CAMERA = "getWorldToCameraMatrix";
-    private static final String MATERIAL_SETUP = "setup";
-    private static final String RENDER_CTX_INTERNAL = "com/live2d/graphics3d/a";
-    private static final String MATERIAL_SETUP_DESCRIPTOR =
-            "(L" + RENDER_CTX_INTERNAL + ";L" + MatrixScratchTransformer.MATRIX + ";)V";
+    private static final String MATERIAL_SETUP = RenderMatrixTransformer.MATERIAL_SETUP_METHOD;
+    private static final String MATERIAL_SETUP_DESCRIPTOR = RenderMatrixTransformer.MATERIAL_SETUP_DESCRIPTOR;
 
     private final InstallContext context;
     private final Class<?> target;
