@@ -29,6 +29,7 @@ class CubismVersionSidecarTest {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.demo";
     private static final String FORMAT = "turboism.plugin-cubism-versions/v1";
+    private static final int EXPECTED_SHIPPED_SIDECARS = 40;
 
     @TempDir
     Path temporary;
@@ -224,7 +225,7 @@ class CubismVersionSidecarTest {
     @Test
     void allShippedSidecarsAreValidDeclarations() throws IOException, DescriptorParseException {
         final List<Path> sidecars = shippedSidecars();
-        assertEquals(39, sidecars.size(), "expected 39 shipped cubism-versions.json sidecars");
+        assertEquals(EXPECTED_SHIPPED_SIDECARS, sidecars.size(), "shipped cubism-versions.json sidecar count");
 
         for (Path sidecar : sidecars) {
             final Path descriptor = sidecar.getParent().resolve("plugin.json");
