@@ -28,6 +28,7 @@ public final class NativeMeshMirrorBridge {
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     private static final AtomicReference<Object> CURRENT_PANEL = new AtomicReference<>();
     private static final AtomicReference<Object> CURRENT_CONTEXT = new AtomicReference<>();
+    private static final NativeMeshMirrorAxisGesture AXIS_GESTURE = new NativeMeshMirrorAxisGesture();
     /**
      * The host builds the mirror widget exactly once, from a static initializer, well before
      * the runtime can bind. One slot is therefore enough: it holds the references that single
@@ -83,6 +84,7 @@ public final class NativeMeshMirrorBridge {
 
     /** Revokes the bridge and clears all session-scoped host state. */
     public static void uninstall() {
+        AXIS_GESTURE.clear();
         INSTALLED.set(null);
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);
@@ -198,6 +200,7 @@ public final class NativeMeshMirrorBridge {
     private static Object attachNow(final Binding binding, final Object widget, final Object panel) {
         final Object previousPanel = CURRENT_PANEL.getAndSet(panel);
         if (previousPanel != null && previousPanel != panel) {
+            AXIS_GESTURE.clear();
             binding.ui.resetSession();
             binding.axis.clearPivot();
         }
@@ -231,7 +234,9 @@ public final class NativeMeshMirrorBridge {
             final float lineWidth,
             final Object color) {
         final Binding binding = INSTALLED.get();
-        if (binding == null || binding.axis.currentAngleDegrees() == 0.0f || drawImpl == null) return false;
+        if (binding == null || drawImpl == null) return false;
+        final boolean handles = hasAxisHandles(binding);
+        if (!handles && binding.axis.currentAngleDegrees() == 0.0f) return false;
         try {
             final NativeSegment nativeSegment = nativeSegment(drawImpl, axisValue, vertical);
             if (nativeSegment == null) return false;
@@ -243,7 +248,7 @@ public final class NativeMeshMirrorBridge {
                         (nativeSegment.start.y() + nativeSegment.end.y()) * 0.5f);
             }
             binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
-            final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
+            final MeshMirrorGeometry.Line line = binding.axis.guideLine();
             if (line == null) return false;
             final MeshMirrorGeometry.Segment segment =
                     MeshMirrorGeometry.covering(line, nativeSegment.firstCorner, nativeSegment.oppositeCorner);
@@ -257,6 +262,7 @@ public final class NativeMeshMirrorBridge {
                     0.0f)) {
                 return false;
             }
+            if (handles) AXIS_GESTURE.draw(binding.axis, line, nativeSegment.view, nativeSegment.drawer, color);
             return true;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return false;
@@ -280,10 +286,11 @@ public final class NativeMeshMirrorBridge {
             final int flags,
             final Object defaults) {
         final Binding binding = INSTALLED.get();
+        final boolean handles = hasAxisHandles(binding);
         try {
             if (binding != null
                     && binding.enabled
-                    && binding.axis.currentAngleDegrees() != 0.0f
+                    && (handles || binding.axis.currentAngleDegrees() != 0.0f)
                     && drawer != null
                     && start != null
                     && end != null) {
@@ -298,18 +305,18 @@ public final class NativeMeshMirrorBridge {
                     pivot = new MeshMirrorGeometry.Point((startX + endX) * 0.5f, (startY + endY) * 0.5f);
                 }
                 binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
-                final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
+                final MeshMirrorGeometry.Line line = binding.axis.guideLine();
                 if (line != null) {
                     MeshMirrorGeometry.Point firstCorner = new MeshMirrorGeometry.Point(startX, startY);
                     MeshMirrorGeometry.Point oppositeCorner = new MeshMirrorGeometry.Point(endX, endY);
+                    Object view = null;
                     try {
                         final Object panel = CURRENT_PANEL.get();
                         final Object controller = invoke(property(panel, "toolMode"), "getCtrl$cubism");
                         final Object pack = property(controller, "completePack");
-                        final MeshMirrorGeometry.Point[] bounds = viewportBounds(
-                                property(pack, "currentViewContext"),
-                                pack,
-                                drawer.getClass().getClassLoader());
+                        view = property(pack, "currentViewContext");
+                        final MeshMirrorGeometry.Point[] bounds =
+                                viewportBounds(view, pack, drawer.getClass().getClassLoader());
                         firstCorner = bounds[0];
                         oppositeCorner = bounds[1];
                     } catch (ReflectiveOperationException | RuntimeException ignored) {
@@ -320,6 +327,7 @@ public final class NativeMeshMirrorBridge {
                     final Object resolvedStart = vector(start, segment.start());
                     final Object resolvedEnd = vector(start, segment.end());
                     invokeLegacyAxisCall(drawer, resolvedStart, resolvedEnd, color, first, second, flags, defaults);
+                    if (handles) AXIS_GESTURE.draw(binding.axis, line, view, drawer, color);
                     return;
                 }
             }
@@ -385,8 +393,21 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
+    private static boolean hasAxisHandles(final Binding binding) {
+        return binding != null && binding.enabled && binding.ui.contribution() != null && CURRENT_PANEL.get() != null;
+    }
+
+    /** Captures a handle gesture before the native mesh editor can modify points. */
+    public static boolean axisInput(final Object view, final Object event) {
+        final Binding binding = INSTALLED.get();
+        return binding != null
+                && binding.enabled
+                && AXIS_GESTURE.input(view, event, CURRENT_PANEL.get(), binding.axis, binding.ui);
+    }
+
     /** Clears cached host UI and context identities after a context transition. */
     public static void clearHostContext() {
+        AXIS_GESTURE.clear();
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);
         final Binding binding = INSTALLED.get();
@@ -412,6 +433,7 @@ public final class NativeMeshMirrorBridge {
         final MeshMirrorGeometry.Point first = bounds[0];
         final MeshMirrorGeometry.Point opposite = bounds[1];
         return new NativeSegment(
+                viewContext,
                 drawer,
                 vertical
                         ? new MeshMirrorGeometry.Point(axisValue, opposite.y())
@@ -493,6 +515,7 @@ public final class NativeMeshMirrorBridge {
     }
 
     private record NativeSegment(
+            Object view,
             Object drawer,
             MeshMirrorGeometry.Point start,
             MeshMirrorGeometry.Point end,

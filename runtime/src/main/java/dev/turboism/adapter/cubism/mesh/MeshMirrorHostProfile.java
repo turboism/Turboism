@@ -27,6 +27,12 @@ public record MeshMirrorHostProfile(
         ToolEligibility toolEligibility,
         SelectedPointMove selectedPointMove,
         LinkedDeletion linkedDeletion) {
+    /** Names the reviewed view event dispatcher that can capture axis gestures. */
+    public static final String INPUT_OWNER = "com/live2d/cubism/view/context/CEViewContext";
+
+    static final String INPUT_METHOD = "onInputEvent";
+    static final String INPUT_DESCRIPTOR = "(Lcom/live2d/ui/event/h;)V";
+
     /** Exact 5.2.x selector for the native mirror/subtool eligibility predicate. */
     public record ToolEligibility(String method, String descriptor) {}
 

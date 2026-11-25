@@ -33,6 +33,8 @@ public final class RuntimeMeshEditUiService {
     /** Parameter count of {@link #MIRROR_EDIT_COMP_METHOD}: the label and the row. */
     private static final int MIRROR_EDIT_COMP_ARITY = 2;
 
+    private static final String SET_VALUE = "setValue";
+
     private final AtomicReference<MirrorAxisAngleControl> contribution = new AtomicReference<>();
     private final List<Attachment> attachments = new ArrayList<>();
     private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver = new AtomicReference<>();
@@ -137,10 +139,11 @@ public final class RuntimeMeshEditUiService {
                             + panel.getClass().getName());
                     return;
                 }
-                final Object root = build(active, axis, panel);
+                final AngleRow row = build(active, axis, panel);
+                final Object root = row.root();
                 addAfterPositionRow(mount, root);
                 synchronized (attachments) {
-                    if (contribution.get() == active) attachments.add(new Attachment(panel, mount, root));
+                    if (contribution.get() == active) attachments.add(new Attachment(panel, mount, root, row.input()));
                     else {
                         remove(panel, mount, root);
                         diag("ATTACH_SKIPPED reason=CONTRIBUTION_CHANGED");
@@ -167,7 +170,7 @@ public final class RuntimeMeshEditUiService {
      * CHBox, wrapped by the reviewed host {@code createWidgetMirrorEditForMeshEdit$createComp}
      * when available. Runs on the EDT; every step is reflective through the panel loader.
      */
-    private Object build(
+    private AngleRow build(
             final MirrorAxisAngleControl active, final RuntimeMeshMirrorAxisService axis, final Object panel)
             throws ReflectiveOperationException {
         final ClassLoader loader = panel.getClass().getClassLoader();
@@ -181,7 +184,7 @@ public final class RuntimeMeshEditUiService {
         invoke(slider, "setMin", active.minimumDegrees());
         invoke(slider, "setMax", active.maximumDegrees());
         invoke(slider, "setKeta", 1);
-        invoke(slider, "setValue", axis.currentAngleDegrees());
+        invoke(slider, SET_VALUE, axis.currentAngleDegrees());
         final java.util.concurrent.atomic.AtomicLong changeSequence = new java.util.concurrent.atomic.AtomicLong();
         final Object changed = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
@@ -206,7 +209,7 @@ public final class RuntimeMeshEditUiService {
         final Object onReset = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
                 final long before = changeSequence.get();
-                invoke(slider, "setValue", 0.0f);
+                invoke(slider, SET_VALUE, 0.0f);
                 if (changeSequence.get() == before) {
                     active.onAngleChanged().accept(0.0f);
                     NativeMeshMirrorBridge.repaintCanvas(panel);
@@ -224,7 +227,12 @@ public final class RuntimeMeshEditUiService {
         invoke(box, "unaryPlus", reset);
 
         final Object wrapped = createMirrorEditComp(panel, label, box);
-        return wrapped == null ? box : wrapped;
+        return new AngleRow(wrapped == null ? box : wrapped, slider);
+    }
+
+    void syncAngleInput(final Object panel, final float degrees) throws ReflectiveOperationException {
+        final Attachment attachment = find(panel);
+        if (attachment != null) invoke(attachment.input(), SET_VALUE, degrees);
     }
 
     /** Preferred host wrapper (CVBox); null when the reviewed static helper is absent. */
@@ -450,5 +458,7 @@ public final class RuntimeMeshEditUiService {
         EdtDispatch.post("mesh edit UI update", action);
     }
 
-    record Attachment(Object panel, Object mount, Object root) {}
+    private record AngleRow(Object root, Object input) {}
+
+    record Attachment(Object panel, Object mount, Object root, Object input) {}
 }

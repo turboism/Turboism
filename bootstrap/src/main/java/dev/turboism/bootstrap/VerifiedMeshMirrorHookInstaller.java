@@ -130,6 +130,9 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final List<String> targets = new ArrayList<>(List.of(
                 profile.meshEditorOwner().replace('/', '.'),
                 profile.mirrorWidgetOwner().replace('/', '.')));
+        if (targetOwners.contains(MeshMirrorHostProfile.INPUT_OWNER)) {
+            targets.add(MeshMirrorHostProfile.INPUT_OWNER.replace('/', '.'));
+        }
         if (profile.mirrorAxisDrawOwner() != null) {
             targets.add(profile.mirrorAxisDrawOwner().replace('/', '.'));
         }

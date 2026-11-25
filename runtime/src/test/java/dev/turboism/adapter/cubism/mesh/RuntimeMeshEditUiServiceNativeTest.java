@@ -91,10 +91,15 @@ final class RuntimeMeshEditUiServiceNativeTest {
             assertEquals(12.3f, changed.get(), 0.0001f);
             assertEquals(1, invoke(panel, "getCanvasRepaints"));
 
+            service.syncAngleInput(panel, -23.4f);
+            assertSame(slider, children(box).get(0));
+            assertEquals(-23.4f, ((Number) invoke(slider, "getValue")).floatValue(), 0.0001f);
+            assertEquals(-23.4f, changed.get(), 0.0001f);
+
             // The reset CButton action routes through its Function1 proxy.
             invoke(invoke(button, "getOnAction"), "invoke", button);
             assertEquals(0.0f, changed.get(), 0.0001f);
-            assertEquals(2, invoke(panel, "getCanvasRepaints"));
+            assertEquals(3, invoke(panel, "getCanvasRepaints"));
             assertEquals(0.0f, ((Number) invoke(slider, "getValue")).floatValue(), 0.0001f);
 
             registration.close();
