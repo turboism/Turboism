@@ -2,8 +2,11 @@ package dev.turboism.plugin.geometricmeshlayout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.model.Point2;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class GeometricMeshShapeTest {
@@ -34,6 +37,28 @@ class GeometricMeshShapeTest {
         assertEquals(30.0, radiusOf(concentricHex.points().get(1)), 0.001);
         assertEquals(60.0, radiusOf(concentricHex.points().get(7)), 0.001);
         assertEquals(90.0, radiusOf(concentricHex.points().get(13)), 0.001);
+    }
+
+    @Test
+    void connectsAdjacentRingsWithoutConnectingTheCenter() {
+        final int sides = 16;
+        final int rings = 3;
+        final MeshPointLayout layout = GeometricMeshShape.generate(500, 500, 137, sides, rings - 1, true, false);
+        final int[] pairs = layout.edgePairs();
+        final Set<Set<Integer>> edges = new HashSet<>();
+        for (int edge = 0; edge < pairs.length; edge += 2) {
+            edges.add(Set.of(pairs[edge], pairs[edge + 1]));
+        }
+        assertEquals((rings + rings - 1) * sides, edges.size());
+        for (int ring = 0; ring < rings; ring++) {
+            final int base = 1 + ring * sides;
+            for (int side = 0; side < sides; side++) {
+                assertTrue(edges.contains(Set.of(base + side, base + (side + 1) % sides)));
+                if (ring > 0) {
+                    assertTrue(edges.contains(Set.of(base + side, base + side - sides)));
+                }
+            }
+        }
     }
 
     @Test

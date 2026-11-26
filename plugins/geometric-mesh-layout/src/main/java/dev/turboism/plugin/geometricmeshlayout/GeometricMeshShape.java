@@ -96,7 +96,8 @@ final class GeometricMeshShape {
             }
         }
 
-        final int[] edges = new int[(totalRings * sides + (hasSpokes ? totalRings * sides : 0)) * 2];
+        final int radialSteps = innerRings + (hasSpokes ? 1 : 0);
+        final int[] edges = new int[(totalRings + radialSteps) * sides * 2];
         int cursor = 0;
         for (int ring = 0; ring < totalRings; ring++) {
             final int baseVertex = ringVertexOffset + ring * sides;
@@ -105,14 +106,14 @@ final class GeometricMeshShape {
                 edges[cursor++] = baseVertex + ((index + 1) % sides);
             }
         }
-        if (hasSpokes) {
-            for (int index = 0; index < sides; index++) {
+        for (int index = 0; index < sides; index++) {
+            if (hasSpokes) {
                 edges[cursor++] = 0;
                 edges[cursor++] = ringVertexOffset + index;
-                for (int ring = 1; ring < totalRings; ring++) {
-                    edges[cursor++] = ringVertexOffset + (ring - 1) * sides + index;
-                    edges[cursor++] = ringVertexOffset + ring * sides + index;
-                }
+            }
+            for (int ring = 1; ring < totalRings; ring++) {
+                edges[cursor++] = ringVertexOffset + (ring - 1) * sides + index;
+                edges[cursor++] = ringVertexOffset + ring * sides + index;
             }
         }
         return new MeshPointLayout(points, edges);
