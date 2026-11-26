@@ -73,6 +73,7 @@ final class PresetImportDialog implements AutoCloseable {
     private volatile boolean closed;
     private ModelPreviewPanel preview;
     private ModelImportPlugin.PreparedImport prepared;
+    private ModelImportPlugin.PreparedImport confirmed;
 
     PresetImportDialog(
             final Window owner,
@@ -122,8 +123,8 @@ final class PresetImportDialog implements AutoCloseable {
         body.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 
         JPanel decisions = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 6, 0));
-        decisions.add(cancel);
         decisions.add(confirm);
+        decisions.add(cancel);
 
         JPanel content = new JPanel(new BorderLayout(0, 8));
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
@@ -140,7 +141,10 @@ final class PresetImportDialog implements AutoCloseable {
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
         confirm.setEnabled(false);
-        confirm.addActionListener(event -> dialog.dispose());
+        confirm.addActionListener(event -> {
+            confirmed = prepared;
+            dialog.dispose();
+        });
         cancel.addActionListener(event -> dialog.dispose());
         presets.addActionListener(event -> requestPreview());
         dialog.pack();
@@ -151,13 +155,13 @@ final class PresetImportDialog implements AutoCloseable {
     /**
      * Shows the window and waits for the operator.
      *
-     * @return the confirmed import, or empty when the window closed without a prepared selection
+     * @return the confirmed import, or empty when the operator closes the window without confirmation
      */
     Optional<ModelImportPlugin.PreparedImport> show() {
         if (closed) return Optional.empty();
+        confirmed = null;
         dialog.setVisible(true);
-        final ModelImportPlugin.PreparedImport accepted = prepared;
-        return confirm.isEnabled() && accepted != null ? Optional.of(accepted) : Optional.empty();
+        return Optional.ofNullable(confirmed);
     }
 
     /** Supersedes one selection: the newest request is the only one whose result is shown. */
