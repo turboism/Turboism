@@ -92,7 +92,7 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(operations);
 
         assertEquals(
-                dev.turboism.adapter.ui.SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
+                dev.turboism.diagnostics.SafeModeDiagnostic.Code.MAPPING_NOT_VERIFIED,
                 adapter.activeProject().diagnostic().orElseThrow().code());
     }
 
@@ -111,7 +111,7 @@ class VerifiedProjectWorkspaceHostOperationsTest {
         ProjectWorkspaceAdapter adapter = ProjectWorkspaceAdapter.Impl.connected(operations);
 
         var diagnostic = adapter.activeProject().diagnostic().orElseThrow();
-        assertEquals(dev.turboism.adapter.ui.SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
+        assertEquals(dev.turboism.diagnostics.SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
         assertFalse(diagnostic.message().contains("private-host-detail"));
     }
 

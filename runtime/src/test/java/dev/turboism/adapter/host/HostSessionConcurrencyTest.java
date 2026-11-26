@@ -8,14 +8,14 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
-import dev.turboism.adapter.ui.StatusToolbarAdapter;
-import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
+import dev.turboism.ui.surface.UiSurfaceAdapter;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;

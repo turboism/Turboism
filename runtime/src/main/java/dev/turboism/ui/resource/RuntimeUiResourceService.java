@@ -1,6 +1,5 @@
 package dev.turboism.ui.resource;
 
-import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
@@ -78,7 +77,7 @@ public final class RuntimeUiResourceService implements AutoCloseable {
      */
     public RuntimeUiResourceService(
             final CubismNativeIconResolver resolver,
-            final ThemeStatusAdapter themeStatus,
+            final Supplier<Optional<ThemeStatusSnapshot>> themeStatus,
             final IntSupplier scalePercent) {
         this(
                 Objects.requireNonNull(resolver, "resolver"),
@@ -93,7 +92,7 @@ public final class RuntimeUiResourceService implements AutoCloseable {
      */
     public static RuntimeUiResourceService connected(
             final CubismNativeIconResolver resolver,
-            final ThemeStatusAdapter themeStatus,
+            final Supplier<Optional<ThemeStatusSnapshot>> themeStatus,
             final IntSupplier scalePercent) {
         return new RuntimeUiResourceService(resolver, themeStatus, scalePercent);
     }
@@ -204,19 +203,19 @@ public final class RuntimeUiResourceService implements AutoCloseable {
         selections.clear();
     }
 
-    private static Presentation readPresentation(final ThemeStatusAdapter themeStatus, final IntSupplier scalePercent) {
+    private static Presentation readPresentation(
+            final Supplier<Optional<ThemeStatusSnapshot>> themeStatus, final IntSupplier scalePercent) {
         requireOffEdt();
         Objects.requireNonNull(themeStatus, "themeStatus");
         Objects.requireNonNull(scalePercent, "scalePercent");
 
         NativeIconVariant.Theme theme = NativeIconVariant.Theme.LIGHT;
         try {
-            final ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> result = themeStatus.themeStatus();
-            if (result != null && result.isAvailable()) {
-                final Optional<ThemeStatusSnapshot> snapshot = result.value().orElse(Optional.empty());
-                if (snapshot.isPresent() && snapshot.orElseThrow().dark()) {
-                    theme = NativeIconVariant.Theme.DARK;
-                }
+            final Optional<ThemeStatusSnapshot> snapshot = themeStatus.get();
+            if (snapshot != null
+                    && snapshot.isPresent()
+                    && snapshot.orElseThrow().dark()) {
+                theme = NativeIconVariant.Theme.DARK;
             }
         } catch (RuntimeException ignored) {
             // Presentation is optional; an adapter failure uses the explicit light fallback.

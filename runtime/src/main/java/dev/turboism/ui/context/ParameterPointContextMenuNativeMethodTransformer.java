@@ -1,8 +1,8 @@
 package dev.turboism.ui.context;
 
-import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.internal.Requirements;
+import dev.turboism.mapping.profile.CubismPaletteHostProfile;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;

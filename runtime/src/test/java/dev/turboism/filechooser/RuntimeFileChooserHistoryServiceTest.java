@@ -142,7 +142,7 @@ class RuntimeFileChooserHistoryServiceTest {
                 .asBoolean(false));
         final dev.turboism.config.RuntimeSettingsFileService settings =
                 new dev.turboism.config.RuntimeSettingsFileService(
-                        config, new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator());
+                        config, new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator()::cleanEmptyDocks);
 
         assertFalse(fileChooser.exportSeparationEnabled());
         settings.save(new RuntimeSettings(false, "INFO", 100, false, false, false, true));

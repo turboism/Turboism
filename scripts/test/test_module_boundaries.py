@@ -221,6 +221,34 @@ def main() -> None:
             ),
             expected="Runtime layering violation in runtime/.../core/plugin/Fixture.java",
         ),
+        # ``core`` stays below feature packages, and ``config``/``ui`` stay below ``adapter``
+        # so the top-level ``:runtime`` package graph remains strictly acyclic.
+        lambda: run_gradle(
+            "ui-adapter-upward-import",
+            "class Fixture {}\n",
+            runtime_sources=(
+                (
+                    "ui/Fixture.java",
+                    "package dev.turboism.ui;\n\n"
+                    "import dev.turboism.adapter.cubism.CubismFacadeImpl;\n\n"
+                    "final class Fixture {}\n",
+                ),
+            ),
+            expected="Runtime layering violation in runtime/.../ui/Fixture.java",
+        ),
+        lambda: run_gradle(
+            "config-ui-upward-import",
+            "class Fixture {}\n",
+            runtime_sources=(
+                (
+                    "config/Fixture.java",
+                    "package dev.turboism.config;\n\n"
+                    "import dev.turboism.ui.settings.SettingsContributionStore;\n\n"
+                    "final class Fixture {}\n",
+                ),
+            ),
+            expected="Runtime layering violation in runtime/.../config/Fixture.java",
+        ),
     ]
     with ThreadPoolExecutor(max_workers=min(len(tasks), 4)) as executor:
         for _ in executor.map(lambda fn: fn(), tasks):

@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.ui.AdapterHostException;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.ClipmaskAliases;

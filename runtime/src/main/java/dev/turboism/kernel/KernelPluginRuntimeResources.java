@@ -190,7 +190,7 @@ record KernelPluginRuntimeResources(
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
                 new dev.turboism.config.RuntimeSettingsFileService(
                         home,
-                        hostAccess.dockMaintenance(),
+                        hostAccess.dockMaintenance()::cleanEmptyDocks,
                         log::setMinimumLevel,
                         log::setMaxStorageMiB,
                         message -> log.warn("config", message));

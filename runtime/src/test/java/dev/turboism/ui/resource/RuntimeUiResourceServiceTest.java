@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
@@ -152,10 +151,9 @@ class RuntimeUiResourceServiceTest {
                         enabled, image(24, 0xff123456),
                         disabled, image(24, 0xff654321)),
                 UiIconAvailability.RESOURCE_UNAVAILABLE);
-        final ThemeStatusAdapter theme = () -> {
+        final java.util.function.Supplier<Optional<ThemeStatusSnapshot>> theme = () -> {
             themeReads.incrementAndGet();
-            return ThemeStatusAdapter.AdapterResult.available(
-                    Optional.of(new ThemeStatusSnapshot("dark", "Dark", true)));
+            return Optional.of(new ThemeStatusSnapshot("dark", "Dark", true));
         };
         final RuntimeUiResourceService service = RuntimeUiResourceService.connected(resolver, theme, () -> {
             scaleReads.incrementAndGet();
@@ -187,10 +185,9 @@ class RuntimeUiResourceServiceTest {
         final CubismNativeIconResolver resolver = new CubismNativeIconResolver(
                 Map.of(light100, image(16, 0xff111111), dark125, image(20, 0xff222222)),
                 UiIconAvailability.RESOURCE_UNAVAILABLE);
-        final ThemeStatusAdapter theme = () -> {
+        final java.util.function.Supplier<Optional<ThemeStatusSnapshot>> theme = () -> {
             themeReads.incrementAndGet();
-            return ThemeStatusAdapter.AdapterResult.available(
-                    Optional.of(new ThemeStatusSnapshot("light", "Light", false)));
+            return Optional.of(new ThemeStatusSnapshot("light", "Light", false));
         };
         final RuntimeUiResourceService service = RuntimeUiResourceService.connected(resolver, theme, () -> {
             scaleReads.incrementAndGet();
@@ -223,7 +220,7 @@ class RuntimeUiResourceServiceTest {
         final CountDownLatch refreshStarted = new CountDownLatch(1);
         final CountDownLatch releaseRefresh = new CountDownLatch(1);
         final AtomicReference<Throwable> refreshFailure = new AtomicReference<>();
-        final ThemeStatusAdapter theme = () -> {
+        final java.util.function.Supplier<Optional<ThemeStatusSnapshot>> theme = () -> {
             themeReads.incrementAndGet();
             if (blockRefresh.get()) {
                 refreshStarted.countDown();
@@ -236,8 +233,7 @@ class RuntimeUiResourceServiceTest {
                     throw new AssertionError(interrupted);
                 }
             }
-            return ThemeStatusAdapter.AdapterResult.available(
-                    Optional.of(new ThemeStatusSnapshot("light", "Light", false)));
+            return Optional.of(new ThemeStatusSnapshot("light", "Light", false));
         };
         final RuntimeUiResourceService service = RuntimeUiResourceService.connected(resolver, theme, () -> {
             scaleReads.incrementAndGet();
@@ -290,10 +286,9 @@ class RuntimeUiResourceServiceTest {
     void hostPresentationSamplingIsRejectedOnTheEdtBeforeAnyHostRead() throws Exception {
         final AtomicInteger themeReads = new AtomicInteger();
         final AtomicInteger scaleReads = new AtomicInteger();
-        final ThemeStatusAdapter theme = () -> {
+        final java.util.function.Supplier<Optional<ThemeStatusSnapshot>> theme = () -> {
             themeReads.incrementAndGet();
-            return ThemeStatusAdapter.AdapterResult.available(
-                    Optional.of(new ThemeStatusSnapshot("dark", "Dark", true)));
+            return Optional.of(new ThemeStatusSnapshot("dark", "Dark", true));
         };
         final CubismNativeIconResolver resolver =
                 new CubismNativeIconResolver(Map.of(), UiIconAvailability.RESOURCE_UNAVAILABLE);

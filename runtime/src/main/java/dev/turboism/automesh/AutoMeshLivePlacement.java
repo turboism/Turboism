@@ -1,8 +1,8 @@
 package dev.turboism.automesh;
 
-import dev.turboism.adapter.cubism.profile.CubismAutoMeshUiProfile;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.profile.CubismAutoMeshUiProfile;
 import dev.turboism.ui.host.EdtDispatch;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

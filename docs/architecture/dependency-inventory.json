@@ -558,19 +558,7 @@
   },
   "runtime": {
     "packageCycles": [],
-    "topPackageCycles": [
-      [
-        "dev.turboism.adapter",
-        "dev.turboism.automesh",
-        "dev.turboism.config",
-        "dev.turboism.core",
-        "dev.turboism.home",
-        "dev.turboism.hostread",
-        "dev.turboism.mapping",
-        "dev.turboism.task",
-        "dev.turboism.ui"
-      ]
-    ],
+    "topPackageCycles": [],
     "topPackageEdges": [
       [
         "dev.turboism.adapter",
@@ -583,6 +571,10 @@
       [
         "dev.turboism.adapter",
         "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.adapter",
+        "dev.turboism.diagnostics"
       ],
       [
         "dev.turboism.adapter",
@@ -602,6 +594,10 @@
       ],
       [
         "dev.turboism.adapter",
+        "dev.turboism.psd"
+      ],
+      [
+        "dev.turboism.adapter",
         "dev.turboism.runtime"
       ],
       [
@@ -611,10 +607,6 @@
       [
         "dev.turboism.adapter",
         "dev.turboism.ui"
-      ],
-      [
-        "dev.turboism.automesh",
-        "dev.turboism.adapter"
       ],
       [
         "dev.turboism.automesh",
@@ -638,10 +630,6 @@
       ],
       [
         "dev.turboism.bootstrap",
-        "dev.turboism.adapter"
-      ],
-      [
-        "dev.turboism.config",
         "dev.turboism.adapter"
       ],
       [
@@ -677,14 +665,6 @@
         "dev.turboism.task"
       ],
       [
-        "dev.turboism.config",
-        "dev.turboism.ui"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.config"
-      ],
-      [
         "dev.turboism.core",
         "dev.turboism.internal"
       ],
@@ -695,10 +675,6 @@
       [
         "dev.turboism.core",
         "dev.turboism.runtime"
-      ],
-      [
-        "dev.turboism.core",
-        "dev.turboism.task"
       ],
       [
         "dev.turboism.diagnostics",
@@ -846,6 +822,10 @@
       ],
       [
         "dev.turboism.kernel",
+        "dev.turboism.psd"
+      ],
+      [
+        "dev.turboism.kernel",
         "dev.turboism.recentfile"
       ],
       [
@@ -967,6 +947,26 @@
       [
         "dev.turboism.pluginmanagement",
         "dev.turboism.update"
+      ],
+      [
+        "dev.turboism.psd",
+        "dev.turboism.core"
+      ],
+      [
+        "dev.turboism.psd",
+        "dev.turboism.internal"
+      ],
+      [
+        "dev.turboism.psd",
+        "dev.turboism.permissions"
+      ],
+      [
+        "dev.turboism.psd",
+        "dev.turboism.runtime"
+      ],
+      [
+        "dev.turboism.psd",
+        "dev.turboism.task"
       ],
       [
         "dev.turboism.recentfile",
@@ -1110,11 +1110,11 @@
       ],
       [
         "dev.turboism.ui",
-        "dev.turboism.adapter"
+        "dev.turboism.core"
       ],
       [
         "dev.turboism.ui",
-        "dev.turboism.core"
+        "dev.turboism.diagnostics"
       ],
       [
         "dev.turboism.ui",
@@ -1221,6 +1221,7 @@
       "dev.turboism.performance",
       "dev.turboism.permissions",
       "dev.turboism.pluginmanagement",
+      "dev.turboism.psd",
       "dev.turboism.recentfile",
       "dev.turboism.recentpreview",
       "dev.turboism.runtime",

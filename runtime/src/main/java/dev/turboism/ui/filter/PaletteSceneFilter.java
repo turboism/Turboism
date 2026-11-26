@@ -1,6 +1,6 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
+import dev.turboism.mapping.profile.CubismPaletteHostProfile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

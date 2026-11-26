@@ -3,7 +3,6 @@ package dev.turboism.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;

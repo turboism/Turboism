@@ -1,6 +1,5 @@
 package dev.turboism.ui.mesh;
 
-import dev.turboism.adapter.cubism.mesh.MeshToolCoordinator;
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -81,7 +80,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
 
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
-    private final MeshToolCoordinator coordinator;
+    private final MeshToolToolbarCoordinator coordinator;
     /** Themed background of the native containers that receive the injected mesh-toolbar content. */
     private final ThemedHostSurface hostSurfaces = new ThemedHostSurface();
 
@@ -113,7 +112,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     public VerifiedMeshToolbarHostOperations(
             final VerifiedMemberResolver resolver,
             final EditorUiPluginResourceRegistry resources,
-            final MeshToolCoordinator coordinator) {
+            final MeshToolToolbarCoordinator coordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.resources = Objects.requireNonNull(resources, "resources");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");

@@ -1,7 +1,7 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.internal.ReviewedVersions;
+import dev.turboism.mapping.profile.CubismPaletteHostProfile;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.util.Objects;
 import java.util.Optional;

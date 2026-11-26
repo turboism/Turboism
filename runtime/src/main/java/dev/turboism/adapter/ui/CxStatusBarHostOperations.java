@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;

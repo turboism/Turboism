@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceImpl;
 import dev.turboism.adapter.cubism.service.read.CubismReadCapabilityServiceTestSupport;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;

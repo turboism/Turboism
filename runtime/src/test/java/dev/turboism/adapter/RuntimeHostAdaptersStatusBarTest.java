@@ -5,15 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
-import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.VerifiedCxStatusBarHostAccessTest;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

@@ -790,7 +790,7 @@ class RuntimeSettingsServiceTest {
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator =
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
         coordinator.bind(1, cleanups::incrementAndGet);
-        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator);
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator::cleanEmptyDocks);
 
         assertEquals("Empty dock cleanup completed.", service.cleanEmptyDocks().message());
         assertEquals(1, cleanups.get());
@@ -804,10 +804,10 @@ class RuntimeSettingsServiceTest {
             """);
     }
 
-    private static dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator() {
+    private static Runnable coordinator() {
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator =
                 new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
         coordinator.bind(1, () -> {});
-        return coordinator;
+        return coordinator::cleanEmptyDocks;
     }
 }

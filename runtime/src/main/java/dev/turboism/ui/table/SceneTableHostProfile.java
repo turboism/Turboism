@@ -1,7 +1,7 @@
 package dev.turboism.ui.table;
 
-import dev.turboism.adapter.cubism.profile.CubismSceneTableProfile;
 import dev.turboism.internal.Requirements;
+import dev.turboism.mapping.profile.CubismSceneTableProfile;
 import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;

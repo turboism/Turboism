@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.psd.PsdExportHost;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.AtlasTexture;
@@ -401,8 +401,8 @@ class DefaultCubismServicesFactoryPsdWiringTest {
     private static final class SuccessfulWiringTextures
             implements ModelTextures,
                     PsdExportHost,
-                    dev.turboism.core.runtime.psd.PsdSessionBoundHost,
-                    dev.turboism.core.runtime.psd.PsdReplaceHost {
+                    dev.turboism.psd.PsdSessionBoundHost,
+                    dev.turboism.psd.PsdReplaceHost {
         private final AtomicInteger exportCalls = new AtomicInteger();
         private final AtomicInteger replaceCalls = new AtomicInteger();
 
@@ -445,11 +445,11 @@ class DefaultCubismServicesFactoryPsdWiringTest {
         }
 
         @Override
-        public dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
+        public dev.turboism.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
                 final RawImageId target, final Path stage, final String sourceFileName, final Runnable admission) {
             admission.run();
             replaceCalls.incrementAndGet();
-            return new dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement(
+            return new dev.turboism.psd.PsdReplaceHost.Replacement(
                     "OK", true, true, false, false, true, Optional.of(new RawImageId("raw-after")), "replaced-detail");
         }
 

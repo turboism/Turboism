@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
-import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.runtime.env.ProtonEnvironment;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;

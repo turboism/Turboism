@@ -766,7 +766,14 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             iconResolver =
                     CubismNativeIconResolver.preload(panel.resolver(), UiEmbeddedPanelAliases.APP_CONTROLLER_CLASS);
             return RuntimeUiResourceService.connected(
-                    iconResolver, adapters.themeStatus(), DisplayScaleSampler::samplePercent);
+                    iconResolver,
+                    () -> {
+                        final var result = adapters.themeStatus().themeStatus();
+                        return result != null && result.isAvailable()
+                                ? result.value().orElse(Optional.empty())
+                                : Optional.empty();
+                    },
+                    DisplayScaleSampler::samplePercent);
         } catch (RuntimeException | LinkageError optionalFailure) {
             // The resolver is not yet owned by RuntimeUiResourceService when construction fails.
             // Release it here so optional icon failure cannot leak a partially-created cache.

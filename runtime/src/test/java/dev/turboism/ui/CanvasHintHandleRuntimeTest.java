@@ -4,8 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
-import dev.turboism.adapter.ui.StatusToolbarAdapter;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintHandle;
@@ -13,6 +12,7 @@ import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.CanvasHintPosition;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.test.concurrent.Await;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;

@@ -1,7 +1,7 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.reflect.ReflectAccess;
+import dev.turboism.mapping.profile.CubismPaletteHostProfile;
 import dev.turboism.ui.host.LogPaletteHostStructure;
 import java.awt.Component;
 import java.awt.Container;

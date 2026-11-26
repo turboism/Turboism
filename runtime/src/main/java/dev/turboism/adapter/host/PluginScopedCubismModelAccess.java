@@ -10,8 +10,6 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
-import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
-import dev.turboism.ui.appearance.control.RuntimeModelAppearanceComposition;
 import java.util.Objects;
 import java.util.function.LongSupplier;
 

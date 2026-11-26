@@ -437,7 +437,7 @@ final class KernelPluginServicesFactory implements AutoCloseable {
                 evidence,
                 failureCollector,
                 pluginName,
-                dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess));
+                dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)::register);
     }
 
     static UserFileGrantSource newUserFileGrantSource(

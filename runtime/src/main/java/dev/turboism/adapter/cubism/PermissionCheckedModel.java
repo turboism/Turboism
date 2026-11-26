@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism;
 
-import dev.turboism.core.runtime.psd.PsdExportHost;
-import dev.turboism.core.runtime.psd.PsdReplaceHost;
-import dev.turboism.core.runtime.psd.RuntimePsdExportService;
-import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
+import dev.turboism.psd.PsdExportHost;
+import dev.turboism.psd.PsdReplaceHost;
+import dev.turboism.psd.RuntimePsdExportService;
+import dev.turboism.psd.RuntimePsdReplaceService;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;

@@ -14,7 +14,6 @@ import dev.turboism.sdk.ui.settings.SettingsBinding;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsTab;
-import dev.turboism.ui.settings.SettingsContributionStore;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,7 +37,7 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
     private final RuntimeTypedPluginConfigRegistry registry;
     private final String pluginId;
     private final String pluginName;
-    private final SettingsContributionStore store;
+    private final SettingsContributionRegistrar store;
     private final Object lifecycleLock = new Object();
     private final List<Registration> registrations = new ArrayList<>();
     private int nextIndex;
@@ -48,7 +47,7 @@ final class ConfigSchemaSettingsPublisher implements AutoCloseable {
             final RuntimeTypedPluginConfigRegistry registry,
             final String pluginId,
             final String pluginName,
-            final SettingsContributionStore store) {
+            final SettingsContributionRegistrar store) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.pluginId = Requirements.text(pluginId, "pluginId");
         this.pluginName = Requirements.text(pluginName, "pluginName");

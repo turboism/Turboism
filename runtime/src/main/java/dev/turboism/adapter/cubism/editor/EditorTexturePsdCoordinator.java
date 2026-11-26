@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.core.runtime.psd.PsdExportHost;
-import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.psd.PsdExportHost;
+import dev.turboism.psd.PsdReplaceHost;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.ModelImageRelation;

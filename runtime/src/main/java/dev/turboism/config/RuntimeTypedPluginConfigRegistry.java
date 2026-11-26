@@ -30,7 +30,6 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-import dev.turboism.ui.settings.SettingsContributionStore;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -109,7 +108,7 @@ public final class RuntimeTypedPluginConfigRegistry implements PluginConfigRegis
             final CleanupEvidenceCollector cleanupEvidence,
             final RuntimeFailureSink failureSink,
             final String pluginName,
-            final SettingsContributionStore settingsContributions) {
+            final SettingsContributionRegistrar settingsContributions) {
         this.legacy = Objects.requireNonNull(legacy, "legacy");
         this.pluginId = Requirements.text(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));

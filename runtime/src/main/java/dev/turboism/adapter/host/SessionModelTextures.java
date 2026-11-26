@@ -5,9 +5,9 @@ import java.util.Objects;
 
 final class SessionModelTextures
         implements dev.turboism.sdk.cubism.model.ModelTextures,
-                dev.turboism.core.runtime.psd.PsdExportHost,
-                dev.turboism.core.runtime.psd.PsdReplaceHost,
-                dev.turboism.core.runtime.psd.PsdSessionBoundHost {
+                dev.turboism.psd.PsdExportHost,
+                dev.turboism.psd.PsdReplaceHost,
+                dev.turboism.psd.PsdSessionBoundHost {
     private final DynamicCubismModelAccess host;
     final long generation;
     final dev.turboism.sdk.cubism.model.ModelTextures delegate;
@@ -28,7 +28,7 @@ final class SessionModelTextures
             final Runnable admission) {
         Objects.requireNonNull(admission, "admission");
         return host.guarded(generation, () -> {
-            if (!(delegate instanceof dev.turboism.core.runtime.psd.PsdExportHost exportHost)) {
+            if (!(delegate instanceof dev.turboism.psd.PsdExportHost exportHost)) {
                 return Observation.unavailable();
             }
             return exportHost.exportPsdTo(source, destination, () -> host.guardedVoid(generation, admission));
@@ -38,7 +38,7 @@ final class SessionModelTextures
     @Override
     public String sessionIdentity() {
         return host.guarded(generation, () -> {
-            if (!(delegate instanceof dev.turboism.core.runtime.psd.PsdSessionBoundHost bound)) {
+            if (!(delegate instanceof dev.turboism.psd.PsdSessionBoundHost bound)) {
                 throw new IllegalStateException("The captured model session cannot prove a PSD edit binding.");
             }
             return bound.sessionIdentity();
@@ -51,15 +51,15 @@ final class SessionModelTextures
     }
 
     @Override
-    public dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
+    public dev.turboism.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
             final dev.turboism.sdk.cubism.id.RawImageId target,
             final java.nio.file.Path stage,
             final String sourceFileName,
             final Runnable admission) {
         Objects.requireNonNull(admission, "admission");
         return host.guarded(generation, () -> {
-            if (!(delegate instanceof dev.turboism.core.runtime.psd.PsdReplaceHost replaceHost)) {
-                return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
+            if (!(delegate instanceof dev.turboism.psd.PsdReplaceHost replaceHost)) {
+                return dev.turboism.psd.PsdReplaceHost.Replacement.unavailable();
             }
             return replaceHost.replaceWithStagedPsd(
                     target, stage, sourceFileName, () -> host.guardedVoid(generation, admission));

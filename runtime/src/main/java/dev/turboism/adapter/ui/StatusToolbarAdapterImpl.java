@@ -1,8 +1,10 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;

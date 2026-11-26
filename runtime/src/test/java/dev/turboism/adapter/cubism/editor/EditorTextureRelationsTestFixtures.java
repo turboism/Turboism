@@ -4,7 +4,6 @@ import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.desc;
 import static dev.turboism.adapter.cubism.editor.EditorTestFixtures.internal;
 
 import dev.turboism.adapter.cubism.editor.host.EditorHostThread;
-import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -12,6 +11,7 @@ import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelect
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
+import dev.turboism.psd.PsdReplaceHost;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import java.io.File;

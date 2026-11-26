@@ -1,7 +1,7 @@
 package dev.turboism.ui.workspace.layout;
 
-import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import java.util.Objects;
@@ -39,7 +39,7 @@ public final class RuntimeWorkspaceLayoutService implements WorkspaceLayoutServi
         if (closed) {
             return CompletableFuture.completedFuture(UNAVAILABLE_SNAPSHOT);
         }
-        permissionChecker.check(CubismFacadeImpl.PROJECT_READ_PERMISSION, "ui.workspace-layout.current");
+        permissionChecker.check(PermissionIds.TURBOISM_CUBISM_PROJECT_READ, "ui.workspace-layout.current");
         return CompletableFuture.completedFuture(admitOnEdt(() -> {
             if (closed) {
                 return UNAVAILABLE_SNAPSHOT;

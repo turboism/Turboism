@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 

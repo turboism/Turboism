@@ -1,11 +1,6 @@
 package dev.turboism.ui;
 
-import dev.turboism.adapter.ui.BoundedKeyedStore;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
-import dev.turboism.adapter.ui.StatusToolbarAdapter;
-import dev.turboism.adapter.ui.StatusToolbarAdapterImpl;
-import dev.turboism.adapter.ui.UiSurfaceAdapter;
-import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.internal.Requirements;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -40,6 +35,9 @@ import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
 import dev.turboism.ui.panel.PanelCollapsibleContentCoordinator;
 import dev.turboism.ui.panel.RuntimeEmbeddedPanelActivationCoordinator;
+import dev.turboism.ui.surface.BoundedKeyedStore;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
+import dev.turboism.ui.surface.UiSurfaceAdapter;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -148,8 +146,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
                 pluginId,
                 stateSource,
                 disposableScope,
-                StatusToolbarAdapterImpl.safeMode(),
-                UiSurfaceAdapterImpl.safeMode());
+                StatusToolbarAdapter.safeMode(),
+                UiSurfaceAdapter.safeMode());
     }
 
     public RuntimeUiHostCapabilityService(
@@ -164,7 +162,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
                 stateSource,
                 disposableScope,
                 statusToolbarAdapter,
-                UiSurfaceAdapterImpl.safeMode());
+                UiSurfaceAdapter.safeMode());
     }
 
     public RuntimeUiHostCapabilityService(

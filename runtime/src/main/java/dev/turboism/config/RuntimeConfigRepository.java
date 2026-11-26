@@ -8,7 +8,6 @@ import dev.turboism.core.io.DurableFile;
 import dev.turboism.core.io.PathLocks;
 import dev.turboism.core.io.WriteOptions;
 import dev.turboism.core.runtime.work.FatalErrors;
-import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
 import dev.turboism.runtime.json.RuntimeJson;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -203,7 +202,7 @@ public final class RuntimeConfigRepository {
             // structured diagnostic and stays on disk. An update keeps it unless the change
             // replaces or removes it; see restoreToleratedValues.
             if (object.has("locale")
-                    && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator.isAllowedLocale(
+                    && !RuntimeConfigValidator.isAllowedLocale(
                             object.path("locale").asText(""))) {
                 report("RUNTIME_CONFIG_BAD_LOCALE");
                 if (tolerated != null) {
@@ -216,7 +215,7 @@ public final class RuntimeConfigRepository {
             // diagnostic and stays on disk unless an update replaces or removes it.
             if (object.path("launcher") instanceof ObjectNode launcher
                     && launcher.has("memoryProfile")
-                    && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator.isAllowedMemoryProfile(
+                    && !RuntimeConfigValidator.isAllowedMemoryProfile(
                             launcher.path("memoryProfile").asText(""))) {
                 report("RUNTIME_CONFIG_BAD_MEMORY_PROFILE");
                 if (tolerated != null) {

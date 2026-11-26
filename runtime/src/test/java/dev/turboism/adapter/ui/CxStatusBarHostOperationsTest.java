@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.ui.surface.StatusToolbarAdapter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.mesh.SelectionMode;
 import dev.turboism.sdk.cubism.mesh.VertexSelection;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.mesh.MeshToolToolbarCoordinator;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /** Runtime owner of one exact custom mesh-tool activation per host session. */
-public final class MeshToolCoordinator implements AutoCloseable {
+public final class MeshToolCoordinator implements MeshToolToolbarCoordinator, AutoCloseable {
     private static final Comparator<RegisteredTool> TOOL_ORDER = Comparator.comparingInt(
                     (RegisteredTool value) -> value.tool().order())
             .thenComparing(RegisteredTool::pluginId)
@@ -229,6 +230,13 @@ public final class MeshToolCoordinator implements AutoCloseable {
                     ? Optional.empty()
                     : Optional.of(new ActiveTool(active.key.pluginId, active.key.generation, active.stored.tool));
         }
+    }
+
+    @Override
+    public Optional<ActiveToolIdentity> activeToolIdentity() {
+        return activeTool()
+                .map(active -> new ActiveToolIdentity(
+                        active.pluginId(), active.generation(), active.tool().id()));
     }
 
     /** Returns the exact current activation lease, if any. */

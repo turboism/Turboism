@@ -1,8 +1,8 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.profile.CubismPaletteHostProfile;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;

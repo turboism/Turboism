@@ -51,10 +51,9 @@ final class DynamicCubismModelAccess
     private boolean acceptingCalls;
     private long generation;
     private int inFlight;
-    private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess;
+    private dev.turboism.adapter.host.RuntimeModelAppearanceAccess appearanceAccess;
 
-    void attachAppearanceAccess(
-            final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess) {
+    void attachAppearanceAccess(final dev.turboism.adapter.host.RuntimeModelAppearanceAccess appearanceAccess) {
         synchronized (callGate) {
             if (this.appearanceAccess != null || acceptingCalls || generation != 0) {
                 throw new IllegalStateException("Model appearance access is already bound.");
@@ -391,14 +390,14 @@ final class DynamicCubismModelAccess
         throw staleFailure();
     }
 
-    private dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess appearanceAccess() {
+    private dev.turboism.adapter.host.RuntimeModelAppearanceAccess appearanceAccess() {
         synchronized (callGate) {
             return appearanceAccess;
         }
     }
 
     PartAppearance appearancePart(final ModelId modelId, final PartId partId, final long modelGeneration) {
-        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        final dev.turboism.adapter.host.RuntimeModelAppearanceAccess access = appearanceAccess();
         return access == null
                 ? PartAppearance.unavailable()
                 : access.part(modelId.value(), partId.value(), modelGeneration);
@@ -406,7 +405,7 @@ final class DynamicCubismModelAccess
 
     DeformerAppearance appearanceDeformer(
             final ModelId modelId, final DeformerId deformerId, final long modelGeneration) {
-        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        final dev.turboism.adapter.host.RuntimeModelAppearanceAccess access = appearanceAccess();
         return access == null
                 ? DeformerAppearance.unavailable()
                 : access.deformer(modelId.value(), deformerId.value(), modelGeneration);
@@ -414,7 +413,7 @@ final class DynamicCubismModelAccess
 
     DrawableAppearance appearanceDrawable(
             final ModelId modelId, final ArtMeshId drawableId, final long modelGeneration) {
-        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        final dev.turboism.adapter.host.RuntimeModelAppearanceAccess access = appearanceAccess();
         return access == null
                 ? DrawableAppearance.unavailable()
                 : access.drawable(modelId.value(), drawableId.value(), modelGeneration);
@@ -424,7 +423,7 @@ final class DynamicCubismModelAccess
             final ModelId modelId,
             final dev.turboism.sdk.cubism.id.ParameterId parameterId,
             final long modelGeneration) {
-        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        final dev.turboism.adapter.host.RuntimeModelAppearanceAccess access = appearanceAccess();
         return access == null
                 ? ParameterAppearance.unavailable()
                 : access.parameter(modelId.value(), parameterId.value(), modelGeneration);
@@ -434,7 +433,7 @@ final class DynamicCubismModelAccess
             final ModelId modelId,
             final dev.turboism.sdk.cubism.id.ParameterGroupId groupId,
             final long modelGeneration) {
-        final dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess access = appearanceAccess();
+        final dev.turboism.adapter.host.RuntimeModelAppearanceAccess access = appearanceAccess();
         return access == null
                 ? ParameterGroupAppearance.unavailable()
                 : access.parameterGroup(modelId.value(), groupId.value(), modelGeneration);
