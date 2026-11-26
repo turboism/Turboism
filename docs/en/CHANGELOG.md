@@ -23,6 +23,8 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Changed
 
+- Modeling drag, Bezier warp evaluation, parts traversal, and parameter panel repaints run faster with zero-allocation indexed parts traversal, cached morph-target keys, O(1) untouched-mesh epoch skipping, primitive Cubism 5.3+ Bezier acceleration, compiled sorting accessors, and cached shader material parameter pairs.
+- Settings -> Performance is consolidated into five clearer sections with 11 bundled tri-state switches, a collapsed Legacy & Experimental section for off-by-default or conflicting options, and plain-language tooltips across all six locales; upgrading from 0.70.3 beta.3 (defaults version 1 to 2) automatically enables deferred end-of-frame GL error checks while preserving explicit opt-outs and OFF presets.
 - Rendering, deformer editing, and interactive mesh editing run faster with zero-allocation render matrix and material passes, reused morph buffers, elided inactive selection overlays, primitive bezier grid and keyform lookup fast paths, lock-free mesh setup tracking, and ConstantDynamic optimization slot dispatch.
 - Drag input runs with less latency. The editor defers OpenGL driver work, schedules independent deformation tasks together, and skips redundant palette updates.
 - The canvas context menu groups plugin actions.
@@ -42,6 +44,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Fixed
 
+- Cubism OpenGL cleanup drains pending VBOs across shared contexts on canvas reinitialization and panel disposal without GL errors, ArtMesh Mirror persists per-mesh axis lock, angle, and pivot with centered handles, and 3D model preset imports ask for confirmation before replacing a scene.
 - Mesh layout preserves geometry and toolbar selection. AutoMesh keeps the selected preset, and Turbo Mesh improves transparent bleed, region separation, and adaptive vertex placement.
 - ACP finds Antigravity more reliably and handles DeepSeek model selection.
 - Automatic mesh generation resolves the correct ArtMesh update bridge on Cubism 5.3.
