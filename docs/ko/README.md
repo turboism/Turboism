@@ -24,9 +24,9 @@ Turboism은 **Live2D Cubism Editor**를 위한 Windows 중심의 런타임 확�
 
 ### 퍼스트파티 플러그인
 
-표준 릴리스 패키지에는 35개의 퍼스트파티 플러그인이 기본 포함됩니다(`parameter-lock`은 플러그인 마켓에서 제공). 플러그인별 Editor 버전 지원은 [플러그인 호환성 매트릭스](../../compatibility/cubism/plugins_ko.md)를 참고하세요:
+표준 릴리스 패키지에는 36개의 퍼스트파티 플러그인이 기본 포함됩니다(`parameter-lock`은 플러그인 마켓에서 제공). 플러그인별 Editor 버전 지원은 [플러그인 호환성 매트릭스](../../compatibility/cubism/plugins_ko.md)를 참고하세요:
 
-- **모델링 · 메시 · 디포머**: `turbo-mesh`(곡률 기반 사용자 지정 정점 배치 및 삼각 분할), `geometric-mesh-layout`(원형/다각형 메시 생성), `selection-brush`, `artmesh-mirror`, `mesh-edit-mirror-axis-enhance`, `boundingbox-warp-mirror`, `warp-deformer-alt-symmetry`, `deformer-batch-rename`.
+- **모델링 · 메시 · 디포머**: `turbo-mesh`(곡률 기반 사용자 지정 정점 배치 및 삼각 분할), `geometric-mesh-layout`(원형/다각형 메시 생성), `selection-brush`, `artmesh-mirror`, `mesh-edit-mirror-axis-enhance`, `boundingbox-warp-mirror`, `warp-deformer-alt-symmetry`, `warp-row-column-deform`, `deformer-batch-rename`.
 - **파라미터 · 물리 · 애니메이션**: `parameter`(CSV 가져오기/내보내기, 바인딩 반전·이관), `parameter-batch-transfer`, `parameter-sync`, `parameter-lock` *(마켓)*, `physics-editor`(물리 목록 전체 선택 및 상태 유지), `frame-animation-import`(스프라이트 시트·연속 이미지 가져오기).
 - **PSD · 3D · 텍스처 아틀라스**: `external-psd-edit`(외부 앱에서 원본 PSD 실시간 편집), `psd-clip-mask-import`, `model-import-3d`(GLB/glTF/OBJ 가져오기), `atlas-maxrects-bssf`, `atlas-dalsoo-polygon`, `atlas-bitmask-nesting`, `atlas-folder-layout`, `texture-atlas-stats`.
 - **작업 공간 · UI · 검사**: `ui-theme`, `command-palette`(`Ctrl+K`), `cubism-tab-filter`, `palette-label-style`, `scene-palette-enhancer`, `recent-project-board`, `recent-preview`, `history-panel`(시맨틱 실행 취소 타임라인), `clipmask-viewer`, `perf-stats`, `project-work-time`.

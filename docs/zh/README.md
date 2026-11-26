@@ -24,9 +24,9 @@ Turboism 是面向 **Live2D Cubism Editor** 的运行时增强工具与插件框
 
 ### 第一方插件
 
-标准发行包内置 35 个第一方插件（`parameter-lock` 通过插件市场提供），各插件对应的 Editor 版本支持情况见[插件兼容矩阵](../../compatibility/cubism/plugins_zh.md)：
+标准发行包内置 36 个第一方插件（`parameter-lock` 通过插件市场提供），各插件对应的 Editor 版本支持情况见[插件兼容矩阵](../../compatibility/cubism/plugins_zh.md)：
 
-- **建模、网格与变形器**：`turbo-mesh`（曲率感知自定义布点与三角剖分）、`geometric-mesh-layout`（圆形/多边形网格生成）、`selection-brush`（选择笔刷）、`artmesh-mirror`、`mesh-edit-mirror-axis-enhance`、`boundingbox-warp-mirror`、`warp-deformer-alt-symmetry`、`deformer-batch-rename`。
+- **建模、网格与变形器**：`turbo-mesh`（曲率感知自定义布点与三角剖分）、`geometric-mesh-layout`（圆形/多边形网格生成）、`selection-brush`（选择笔刷）、`artmesh-mirror`、`mesh-edit-mirror-axis-enhance`、`boundingbox-warp-mirror`、`warp-deformer-alt-symmetry`、`warp-row-column-deform`、`deformer-batch-rename`。
 - **参数、物理与动画**：`parameter`（参数 CSV 导入导出、绑定反转与迁移）、`parameter-batch-transfer`、`parameter-sync`、`parameter-lock` *（插件市场）*、`physics-editor`（物理列表全选与状态保留）、`frame-animation-import`（序列帧与精灵图导入）。
 - **PSD、3D 与纹理图集**：`external-psd-edit`（外部实时编辑原图 PSD）、`psd-clip-mask-import`、`model-import-3d`（GLB/glTF/OBJ 导入生成原生网格）、`atlas-maxrects-bssf`、`atlas-dalsoo-polygon`、`atlas-bitmask-nesting`、`atlas-folder-layout`、`texture-atlas-stats`。
 - **工作区、界面与检查**：`ui-theme`、`command-palette`（`Ctrl+K` 命令面板）、`cubism-tab-filter`、`palette-label-style`、`scene-palette-enhancer`、`recent-project-board`、`recent-preview`、`history-panel`（语义化撤销时间线）、`clipmask-viewer`、`perf-stats`、`project-work-time`。

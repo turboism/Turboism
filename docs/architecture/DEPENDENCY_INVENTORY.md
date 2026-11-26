@@ -37,12 +37,15 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
 
 ## Recorded baseline
 
-- 48 Gradle modules, including convention-supplied edges (plugins declare
-  `compileOnly :sdk`, `annotationProcessor :event-processor`, and
-  `testImplementation :sdk`, `:testing:test-support`). The two modules added
-  since the first baseline are `:event-processor` (compile-time `@SubscribeEvent`
-  subscriber-catalog generator) and `:graal-host` (standalone GraalVM Polyglot
-  host); both depend only on `:sdk`.
+- 50 Gradle graph nodes (`settings.gradle.kts` includes 50 subprojects, including
+  40 `:plugins:*` modules; 49 declare outgoing project edges in
+  `dependency-inventory.json`, with `:sdk` as the dependency-free sink), with 93
+  non-test configuration edges (including convention-supplied `compileOnly :sdk`
+  and `annotationProcessor :event-processor` edges) and 99 test-only
+  configuration edges. Two modules added after the first baseline are
+  `:event-processor` (compile-time `@SubscribeEvent` subscriber-catalog
+  generator) and `:graal-host` (standalone GraalVM Polyglot host); both depend
+  only on `:sdk`.
 - Two extracted modules: `:persistence-core` (typed-config codec/schema/migration
   kernel) and `:compatibility-policy` (reviewed release matrix, exact
   reviewed-release predicate, `@CubismEditor` rules and selector admission), both
@@ -53,7 +56,7 @@ commit. `--report` prints the fan-in/fan-out analysis without writing.
   so its cycle surface is the module edge itself. `:bootstrap` declares
   `:compatibility-policy` only as a `testImplementation` for the repacked-host
   admission test.
-- `:runtime`: 35 top-level `dev.turboism.*` packages, 144 top-level package
+- `:runtime`: 35 top-level `dev.turboism.*` packages, 156 top-level package
   edges, 1 top-level cycle, **0 leaf-package cycles** (6 before the `#70` step 3a
   pilot; see below for how each was removed). `dev.turboism.core` imports neither
   `dev.turboism.adapter` nor `dev.turboism.ui`: the plugin service wiring lives in
