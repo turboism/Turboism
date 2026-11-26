@@ -416,6 +416,155 @@ final class ArtMeshMirrorRenderingTest {
         }
     }
 
+    @Test
+    void persistsAxisLockAngleAndPositionSeparatelyPerArtMeshAcrossSessions() throws Exception {
+        Path dataDir = Files.createDirectories(root.resolve("runtime-data"));
+        try (var loader = hostWithPersistentGuids()) {
+            Class<?> viewClass = loader.loadClass("com.live2d.cubism.view.context.CEViewContext_ModelingView");
+            Object view = viewClass.getConstructor().newInstance();
+            Object selector = viewClass
+                    .getField("edit")
+                    .get(view)
+                    .getClass()
+                    .getField("selector")
+                    .get(viewClass.getField("edit").get(view));
+
+            NativeArtMeshSymmetryBridge.bindPersistenceDirectory(dataDir);
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                NativeArtMeshSymmetryBridge.draw(view);
+
+                // Modify mesh "one": translate to (530, 415), rotate to 0.0, and lock.
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 500, 400, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 530, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 530, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 530, 479, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 594, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 594, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 466, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 466, 415, 1))));
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000040, 10000025),
+                        currentAxis().pivot());
+                assertEquals(0.0, currentAxis().angle(), 1e-6);
+
+                // Switch to mesh "two": must open unlocked at its own default center & angle.
+                selector.getClass().getField("second").setBoolean(selector, true);
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000030, 10000030),
+                        currentAxis().pivot());
+                assertEquals(Math.PI / 2, currentAxis().angle(), 1e-6);
+
+                // Translate mesh "two" from (520, 420) to (505, 435), leaving it unlocked.
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 520, 420, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_DRAGGED, 505, 435, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 505, 435, 1))));
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000015, 10000045),
+                        currentAxis().pivot());
+
+                // Switch back to mesh "one": must restore pivot, angle, and locked state.
+                selector.getClass().getField("second").setBoolean(selector, false);
+                NativeArtMeshSymmetryBridge.draw(view);
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000040, 10000025),
+                        currentAxis().pivot());
+                assertEquals(0.0, currentAxis().angle(), 1e-6);
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 530, 415, 1))));
+            }
+
+            // Simulate Cubism restart by flushing, uninstalling, and recreating view.
+            NativeWarpAltMirrorBridge.uninstall();
+            Object view2 = viewClass.getConstructor().newInstance();
+            Object selector2 = viewClass
+                    .getField("edit")
+                    .get(view2)
+                    .getClass()
+                    .getField("selector")
+                    .get(viewClass.getField("edit").get(view2));
+
+            NativeArtMeshSymmetryBridge.bindPersistenceDirectory(dataDir);
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                NativeArtMeshSymmetryBridge.draw(view2);
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000040, 10000025),
+                        currentAxis().pivot());
+                assertEquals(0.0, currentAxis().angle(), 1e-6);
+                assertFalse(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 530, 415, 1))));
+
+                selector2.getClass().getField("second").setBoolean(selector2, true);
+                NativeArtMeshSymmetryBridge.draw(view2);
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000015, 10000045),
+                        currentAxis().pivot());
+                assertEquals(Math.PI / 2, currentAxis().angle(), 1e-6);
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 505, 435, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 505, 435, 1))));
+
+                // Unlock and reset mesh "one", then confirm reset persists across restart while "two" stays intact.
+                selector2.getClass().getField("second").setBoolean(selector2, false);
+                NativeArtMeshSymmetryBridge.draw(view2);
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 466, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 466, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_PRESSED, 434, 415, 1))));
+                assertTrue(NativeArtMeshSymmetryBridge.input(
+                        view2, event(loader, mouse(loader, MouseEvent.MOUSE_RELEASED, 434, 415, 1))));
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000010, 10000010),
+                        currentAxis().pivot());
+                assertEquals(Math.PI / 2, currentAxis().angle(), 1e-6);
+            }
+
+            NativeWarpAltMirrorBridge.uninstall();
+            Object view3 = viewClass.getConstructor().newInstance();
+            Object selector3 = viewClass
+                    .getField("edit")
+                    .get(view3)
+                    .getClass()
+                    .getField("selector")
+                    .get(viewClass.getField("edit").get(view3));
+            NativeArtMeshSymmetryBridge.bindPersistenceDirectory(dataDir);
+            NativeWarpAltMirrorBridge.install(true);
+            try (var participation = NativeArtMeshSymmetryBridge.service().participate()) {
+                NativeArtMeshSymmetryBridge.service().setEnabled(true);
+                NativeArtMeshSymmetryBridge.draw(view3);
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000010, 10000010),
+                        currentAxis().pivot());
+                assertEquals(Math.PI / 2, currentAxis().angle(), 1e-6);
+
+                selector3.getClass().getField("second").setBoolean(selector3, true);
+                NativeArtMeshSymmetryBridge.draw(view3);
+                assertEquals(
+                        new ArtMeshMirrorAxis.Point(10000015, 10000045),
+                        currentAxis().pivot());
+                assertEquals(Math.PI / 2, currentAxis().angle(), 1e-6);
+            }
+        }
+    }
+
     private static ArtMeshMirrorAxis currentAxis() throws Exception {
         var states = NativeArtMeshSymmetryBridge.class.getDeclaredField("STATES");
         states.setAccessible(true);
@@ -1002,6 +1151,97 @@ final class ArtMeshMirrorRenderingTest {
             }
             """);
         Path classes = Files.createDirectories(root.resolve("classes"));
+        var args = new ArrayList<>(List.of("-d", classes.toString()));
+        args.addAll(files);
+        assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        return new URLClassLoader(new URL[] {classes.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
+    }
+
+    private URLClassLoader hostWithPersistentGuids() throws Exception {
+        var files = new ArrayList<String>();
+        source(files, "com.live2d.graphics3d.type.GVector2", """
+            public class GVector2 {float x,y; public GVector2(float x,float y){this.x=x;this.y=y;}
+            public float getX(){return x;} public float getY(){return y;}}
+            """);
+        source(files, "com.live2d.type.CPoint", """
+            public class CPoint {public int x,y;public CPoint(int x,int y){this.x=x;this.y=y;}}
+            """);
+        source(files, "com.live2d.type.CColor", "public class CColor {public CColor(int r,int g,int b){}}");
+        source(files, "com.live2d.type.CFont", "public class CFont {public CFont(int size){}}");
+        source(files, "com.live2d.type.CModelGuid", """
+            public class CModelGuid {
+                private final String uuid;
+                public CModelGuid(String uuid) { this.uuid = uuid; }
+                public String getUuidString() { return uuid; }
+            }
+            """);
+        source(files, "com.live2d.type.CDrawableGuid", """
+            public class CDrawableGuid {
+                private final String uuid;
+                public CDrawableGuid(String uuid) { this.uuid = uuid; }
+                public String getUuidString() { return uuid; }
+            }
+            """);
+        source(
+                files,
+                "com.live2d.graphics3d.component.a.c$b",
+                "public class c$b {public static final c$b a=new c$b();}");
+        source(files, "com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource", "public class CArtMeshSource {}");
+        source(files, "com.live2d.cubism.doc.modeling.CModelingEditMode_Main", """
+            import com.live2d.type.CDrawableGuid;
+            import com.live2d.type.CModelGuid;
+            public class CModelingEditMode_Main {
+                public final Selector selector=new Selector(); public final Model model=new Model();
+                public Selector getSelector(){return selector;}public Model getCurrentModel(){return model;}
+                public static class Selector {public boolean second;
+                    public java.util.List<Selection> getSelected(){return java.util.List.of(new Selection(second));}}
+                public static class Selection {final CDrawableGuid guid;Selection(boolean s){guid=new CDrawableGuid(s?"two":"one");}
+                    public Object getSource(){return new com.live2d.cubism.doc.model.drawable.artMesh.CArtMeshSource();}
+                    public CDrawableGuid getGuid(){return guid;}}
+                public static class ModelSource {
+                    private final CModelGuid guid = new CModelGuid("model-guid-1");
+                    public CModelGuid getGuid() { return guid; }
+                }
+                public static class Model {final ModelSource source=new ModelSource();
+                    public ModelSource getSource(){return source;}
+                    public Mesh getArtMesh(CDrawableGuid id){return new Mesh("two".equals(id.getUuidString()));}}
+                public static class Mesh {boolean second;Mesh(boolean s){second=s;}
+                    public Form getCalculatedForm(){return new Form(second);}}
+                public static class Form {boolean second;Form(boolean s){second=s;}
+                    public float[] getPositions(){float x=second?10000020:10000000;return new float[]{x,x,x+20,x+20};}}
+            }
+            """);
+        source(files, "com.live2d.cubism.view.context.CEViewContext_ModelingView", """
+            import com.live2d.graphics3d.type.GVector2;
+            import com.live2d.type.*;
+            public class CEViewContext_ModelingView {
+                public final com.live2d.cubism.doc.modeling.CModelingEditMode_Main edit=new com.live2d.cubism.doc.modeling.CModelingEditMode_Main();
+                public final Camera camera=new Camera();public final Drawer drawer=new Drawer();
+                public Object getCurrentEditMode(){return edit;}public Camera getCameraManager(){return camera;}
+                public int repaints; public void repaintCanvas(){repaints++;}
+                public static class NativeMouse extends java.awt.event.MouseEvent {
+                    public NativeMouse(int id,int x,int y,int clicks){
+                        super(new java.awt.Canvas(),id,1L,0,x,y,clicks,false,java.awt.event.MouseEvent.BUTTON1);}}
+                public static class NativeEvent {
+                    public final NativeMouse mouse; public final CPoint point;
+                    public NativeEvent(NativeMouse m){mouse=m;point=new CPoint(m.getX(),m.getY());}
+                    public NativeMouse f(){return mouse;} public CPoint K(){return point;}}
+                public Render getRenderSystem(){return new Render();}public Scene getSceneGraph(){return new Scene();}
+                public class Render {public Drawer b(){return drawer;}}
+                public static class Scene {public Object getObjectsOnCanvas(){return this;}public Object getObjectsOnComponent(){return this;}}
+                public static class Rect {public int getX(){return 0;}public int getY(){return 0;}public int getWidth(){return 1000;}public int getHeight(){return 800;}}
+                public static class Camera {public float zoom=1; public int unprojects;
+                    public boolean isSafeEditOnPlaneXY(){return true;}public Rect getComponentRect(){return new Rect();}
+                    public GVector2 documentToComponent(GVector2 p){return new GVector2(500+(p.getX()-10000010)*zoom,400+(p.getY()-10000010)*zoom);}
+                    public GVector2 componentToDocument(CPoint p){unprojects++;return new GVector2((p.x-500)/zoom+10000010,(p.y-400)/zoom+10000010);}}
+                public static class Drawer {public int calls;
+                    public void a(Object ignored){}public void a(int order){}
+                    public void a(GVector2 a,GVector2 b,CColor c,float width,float z){calls++;}
+                    public void a(float a,float b,float c,float d,float e,float f,float g,float h,float i,CColor color){calls++;}
+                    public void a(String s,CFont f,float x,float y,float z,float size,CColor c){calls++;}}
+            }
+            """);
+        Path classes = Files.createDirectories(root.resolve("persistent-classes"));
         var args = new ArrayList<>(List.of("-d", classes.toString()));
         args.addAll(files);
         assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));

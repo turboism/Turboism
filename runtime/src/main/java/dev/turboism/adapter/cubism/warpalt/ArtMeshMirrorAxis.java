@@ -84,6 +84,14 @@ final class ArtMeshMirrorAxis {
         setAngle(horizontal ? 0.0 : QUARTER_TURN);
     }
 
+    void restore(Point savedPivot, double savedAngle) {
+        if (savedPivot == null || !Double.isFinite(savedAngle)) {
+            throw new IllegalArgumentException("invalid saved axis");
+        }
+        pivot = savedPivot;
+        setAngle(savedAngle);
+    }
+
     void translate(Point delta) {
         pivot = pivot.plus(delta);
     }

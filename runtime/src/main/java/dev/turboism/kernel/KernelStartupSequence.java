@@ -348,6 +348,8 @@ final class KernelStartupSequence {
             runtime.bindExportSettingsAuthority(exportSettings);
             runtime.bindProtectedExportOrchestrator(protectedExport);
             bindAutoMeshGuard(runtime, plugins, ingress, scheduler, effectiveLocale.get(), log);
+            dev.turboism.adapter.cubism.warpalt.NativeArtMeshSymmetryBridge.bindPersistenceDirectory(
+                    layout.runtimeDataDir());
             runtime.loadPluginsAfterBootstrap(beforePlugins, afterPlugins);
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             // Only publish startup after the hooks and plugin listeners are ready.

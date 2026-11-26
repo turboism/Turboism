@@ -2,7 +2,10 @@ package dev.turboism.adapter.cubism.warpalt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ArtMeshMirrorAxisTest {
     private static ArtMeshMirrorAxis.Point p(float x, float y) {
@@ -76,6 +79,51 @@ class ArtMeshMirrorAxisTest {
             // Translated float coordinates accumulate several ULPs through the two paths.
             assertEquals(expected.x(), actual.x(), 1e-4, "angle=" + degrees);
             assertEquals(expected.y(), actual.y(), 1e-4, "angle=" + degrees);
+        }
+    }
+
+    @Test
+    void axisStoreIsolatesModelsRejectsCorruptFilesAndPrunesEmptyModels(@TempDir Path tempDir) throws Exception {
+        try (ArtMeshMirrorAxisStore store = ArtMeshMirrorAxisStore.at(tempDir)) {
+            var meshOne = new ArtMeshMirrorAxisStore.SavedAxis(12.5f, -8.25f, 0.75, true);
+            var meshTwo = new ArtMeshMirrorAxisStore.SavedAxis(-4.0f, 33.0f, Math.PI / 2.0, false);
+            var otherModelMeshOne = new ArtMeshMirrorAxisStore.SavedAxis(99.0f, 100.0f, 0.0, false);
+            store.put("model-a", "mesh-1", meshOne);
+            store.put("model-a", "mesh-2", meshTwo);
+            store.put("model-b", "mesh-1", otherModelMeshOne);
+            store.put("model-c", "mesh-1", meshOne);
+            store.flush();
+            assertTrue(Files.isRegularFile(store.fileForModel("model-c")));
+            store.remove("model-c", "mesh-1");
+            store.flush();
+            assertFalse(Files.exists(store.fileForModel("model-c")));
+        }
+
+        try (ArtMeshMirrorAxisStore reloaded = ArtMeshMirrorAxisStore.at(tempDir)) {
+            assertEquals(
+                    new ArtMeshMirrorAxisStore.SavedAxis(12.5f, -8.25f, 0.75, true), reloaded.get("model-a", "mesh-1"));
+            assertEquals(
+                    new ArtMeshMirrorAxisStore.SavedAxis(-4.0f, 33.0f, Math.PI / 2.0, false),
+                    reloaded.get("model-a", "mesh-2"));
+            assertEquals(
+                    new ArtMeshMirrorAxisStore.SavedAxis(99.0f, 100.0f, 0.0, false), reloaded.get("model-b", "mesh-1"));
+            assertNull(reloaded.get("model-a", "unknown"));
+
+            Files.writeString(reloaded.fileForModel("model-a"), "{corrupt");
+            Files.writeString(
+                    reloaded.fileForModel("model-b"), "{\"schemaVersion\":99,\"modelGuid\":\"model-b\",\"axes\":{}}");
+        }
+
+        try (ArtMeshMirrorAxisStore failedSafe = ArtMeshMirrorAxisStore.at(tempDir)) {
+            assertNull(failedSafe.get("model-a", "mesh-1"));
+            assertNull(failedSafe.get("model-b", "mesh-1"));
+            Files.writeString(
+                    failedSafe.fileForModel("model-b"),
+                    "{\"schemaVersion\":1,\"modelGuid\":\"wrong-model\",\"axes\":{\"mesh-1\":{\"pivotX\":1,\"pivotY\":2,\"angle\":0,\"locked\":true}}}");
+        }
+
+        try (ArtMeshMirrorAxisStore mismatchedModel = ArtMeshMirrorAxisStore.at(tempDir)) {
+            assertNull(mismatchedModel.get("model-b", "mesh-1"));
         }
     }
 

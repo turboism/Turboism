@@ -738,6 +738,8 @@ public final class WarpDeformerAltSymmetryHostValidationPlugin implements Cubism
                         + " counterpart=" + tmx + "," + tmy + " expected=" + expectedMx + "," + expectedMy);
             logger.info("ARTMESH_NATIVE_TILTED_VERTEX_MIRROR_PASS angle=" + Math.toDegrees(tiltedAngle)
                     + " source=" + tdx + "," + tdy + " counterpart=" + tmx + "," + tmy);
+            context.services().require(dev.turboism.sdk.cubism.mesh.ArtMeshMirrorService.class).resetAxis();
+            sleep(500);
             for (Object selectedMesh : java.util.List.of(meshes.get(1), meshes.get(0))) {
                 Object previousAxis = axisField.get(state);
                 SwingUtilities.invokeAndWait(() -> {
