@@ -24,8 +24,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarFile;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -486,7 +489,7 @@ class MatrixScratchArtifactTest {
         final ProtectionDomain domain =
                 new ProtectionDomain(new CodeSource(artifact.toUri().toURL(), (Certificate[]) null), null);
 
-        try (URLClassLoader baseLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader());
+        try (URLClassLoader baseLoader = new MultiOverrideLoader(urls, Map.of(), domain);
                 URLClassLoader guardLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
             final RenderMatrixTransformer guardCheck =
                     new RenderMatrixTransformer(guardLoader, artifact, meshRendererBytes, lineRendererBytes);
@@ -526,6 +529,24 @@ class MatrixScratchArtifactTest {
             assertNotNull(patchedMeshRenderer, version + ": " + transformer.failure());
             assertNotNull(patchedLineRenderer, version + ": " + transformer.failure());
             assertEquals(RenderMatrixTransformer.EXPECTED_MATCHES, transformer.matches(), version);
+            assertRenderMatrixGateUsesConstantDynamic(
+                    patchedMeshRenderer,
+                    RenderMatrixTransformer.SORTING_Z_METHOD,
+                    RenderMatrixTransformer.SORTING_Z_DESCRIPTOR,
+                    MatrixScratchBridge.SORTING_CALLBACK_PROPERTY,
+                    version);
+            assertRenderMatrixGateUsesConstantDynamic(
+                    patchedMeshRenderer,
+                    RenderMatrixTransformer.RENDER_METHOD,
+                    RenderMatrixTransformer.RENDER_DESCRIPTOR,
+                    MatrixScratchBridge.RENDER_CALLBACK_PROPERTY,
+                    version);
+            assertRenderMatrixGateUsesConstantDynamic(
+                    patchedLineRenderer,
+                    RenderMatrixTransformer.RENDER_METHOD,
+                    RenderMatrixTransformer.RENDER_DESCRIPTOR,
+                    MatrixScratchBridge.RENDER_CALLBACK_PROPERTY,
+                    version);
             assertOtherMethodsUnchanged(
                     meshRendererBytes,
                     patchedMeshRenderer,
@@ -551,12 +572,14 @@ class MatrixScratchArtifactTest {
                             MatrixScratchTransformer.OWNER.replace('/', '.'), patchedTransform,
                             RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), patchedMeshRenderer,
                             RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'), patchedLineRenderer),
-                    domain)) {
+                    domain,
+                    baseLoader)) {
                 final AtomicBoolean admission = new AtomicBoolean(true);
                 System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, Boolean.TRUE.toString());
                 System.getProperties().put(MatrixScratchTransformer.ADMISSION_PROPERTY, admission);
                 try (MatrixScratchBridge bridge = new MatrixScratchBridge(patchedLoader, admission)) {
                     assertTrue(bridge.supportsRenderFastPaths(), version);
+                    assertTrue(bridge.usesCompiledRenderAccessors(), version);
                     bridge.activate();
                     System.getProperties().put(MatrixScratchBridge.CALLBACK_PROPERTY, bridge.callback());
                     System.getProperties().put(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY, bridge.renderCallback());
@@ -720,9 +743,11 @@ class MatrixScratchArtifactTest {
                 }
                 minRenderScratch = Math.min(minRenderScratch, allocMx.getThreadAllocatedBytes(tid) - b2);
             }
-            assertEquals(0L, minNullCam, version + " getSortingZOrder(null) must allocate 0 bytes");
-            assertEquals(0L, minWithCam, version + " getSortingZOrder(camera) must allocate 0 bytes");
-            assertEquals(0L, minRenderScratch, version + " renderCallback must allocate 0 bytes");
+            assertEquals(
+                    0L, minNullCam, version + " getSortingZOrder(null) must allocate 0 bytes " + bridge.snapshot());
+            assertEquals(
+                    0L, minWithCam, version + " getSortingZOrder(camera) must allocate 0 bytes " + bridge.snapshot());
+            assertEquals(0L, minRenderScratch, version + " renderCallback must allocate 0 bytes " + bridge.snapshot());
         }
     }
 
@@ -840,7 +865,8 @@ class MatrixScratchArtifactTest {
                                     MatrixScratchTransformer.OWNER.replace('/', '.'), tPatched,
                                     RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), mPatched,
                                     RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'), lPatched),
-                            domain)) {
+                            domain,
+                            dummy)) {
                         Class.forName(MatrixScratchTransformer.OWNER.replace('/', '.'), true, loader);
                         Class.forName(RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'), true, loader);
                         Class.forName(RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'), true, loader);
@@ -919,21 +945,316 @@ class MatrixScratchArtifactTest {
     private static final class MultiOverrideLoader extends URLClassLoader {
         private final Map<String, byte[]> overrides;
         private final ProtectionDomain domain;
+        private final ClassLoader signerSource;
 
         MultiOverrideLoader(final URL[] urls, final Map<String, byte[]> overrides, final ProtectionDomain domain) {
+            this(urls, overrides, domain, null);
+        }
+
+        MultiOverrideLoader(
+                final URL[] urls,
+                final Map<String, byte[]> overrides,
+                final ProtectionDomain domain,
+                final ClassLoader signerSource) {
             super(urls, ClassLoader.getPlatformClassLoader());
             this.overrides = overrides;
             this.domain = domain;
+            this.signerSource = signerSource;
         }
 
         @Override
         protected Class<?> findClass(final String name) throws ClassNotFoundException {
             final byte[] bytes = overrides.get(name);
             if (bytes != null) {
-                return defineClass(name, bytes, 0, bytes.length, domain);
+                ProtectionDomain resolved = domain;
+                if (signerSource != null) {
+                    try {
+                        resolved = Class.forName(name, false, signerSource).getProtectionDomain();
+                    } catch (final ClassNotFoundException ignored) {
+                        resolved = domain;
+                    }
+                }
+                return defineClass(name, bytes, 0, bytes.length, resolved);
             }
-            return super.findClass(name);
+            try {
+                return super.findClass(name);
+            } catch (final ClassNotFoundException missing) {
+                if ("com.jogamp.opengl.util.GLBuffers".equals(name) || "com.jogamp.common.nio.Buffers".equals(name)) {
+                    final byte[] stub = buildBuffersStub(name.replace('.', '/'));
+                    return defineClass(name, stub, 0, stub.length);
+                }
+                throw missing;
+            }
         }
+
+        private static byte[] buildBuffersStub(final String internalName) {
+            final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
+            final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+            init.visitCode();
+            init.visitVarInsn(Opcodes.ALOAD, 0);
+            init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            init.visitInsn(Opcodes.RETURN);
+            init.visitMaxs(0, 0);
+            init.visitEnd();
+
+            final MethodVisitor mv = cw.visitMethod(
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                    "newDirectIntBuffer",
+                    "(I)Ljava/nio/IntBuffer;",
+                    null,
+                    null);
+            mv.visitCode();
+            mv.visitVarInsn(Opcodes.ILOAD, 0);
+            mv.visitInsn(Opcodes.ICONST_4);
+            mv.visitInsn(Opcodes.IMUL);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/nio/ByteBuffer", "allocateDirect", "(I)Ljava/nio/ByteBuffer;", false);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/nio/ByteOrder", "nativeOrder", "()Ljava/nio/ByteOrder;", false);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/nio/ByteBuffer",
+                    "order",
+                    "(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;",
+                    false);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, "java/nio/ByteBuffer", "asIntBuffer", "()Ljava/nio/IntBuffer;", false);
+            mv.visitInsn(Opcodes.ARETURN);
+            mv.visitMaxs(0, 0);
+            mv.visitEnd();
+            cw.visitEnd();
+            return cw.toByteArray();
+        }
+    }
+
+    @Test
+    void renderMatrixFallsBackCleanlyBelowClassfile55AndWhenSortingClassesAreNonPublic(@TempDir final Path tempDir)
+            throws Throwable {
+        final Path root = referenceRoot();
+        final String version = "5.3.05";
+        final Path artifact = resolveArtifact(root, version);
+        final URL[] urls = jarUrls(artifact.getParent());
+        final ProtectionDomain domain =
+                new ProtectionDomain(new CodeSource(artifact.toUri().toURL(), (Certificate[]) null), null);
+        final byte[] transformBytes = readClassBytes(artifact, MatrixScratchTransformer.OWNER);
+        final byte[] meshRendererBytes = readClassBytes(artifact, RenderMatrixTransformer.MESH_RENDERER_OWNER);
+        final byte[] lineRendererBytes = readClassBytes(artifact, RenderMatrixTransformer.LINE_RENDERER_OWNER);
+        final byte[] containerBytes = readClassBytes(artifact, RenderMatrixTransformer.MESH_CONTAINER_OWNER);
+
+        final byte[] v8MeshRenderer = rewriteClassVersion(meshRendererBytes, Opcodes.V1_8);
+        final byte[] v8LineRenderer = rewriteClassVersion(lineRendererBytes, Opcodes.V1_8);
+        try (URLClassLoader loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
+            final RenderMatrixTransformer legacyTransformer =
+                    new RenderMatrixTransformer(loader, artifact, v8MeshRenderer, v8LineRenderer);
+            final byte[] patchedLegacyMesh = legacyTransformer.transform(
+                    null, loader, RenderMatrixTransformer.MESH_RENDERER_OWNER, null, domain, v8MeshRenderer);
+            final byte[] patchedLegacyLine = legacyTransformer.transform(
+                    null, loader, RenderMatrixTransformer.LINE_RENDERER_OWNER, null, domain, v8LineRenderer);
+            assertNotNull(patchedLegacyMesh, legacyTransformer.failure());
+            assertNotNull(patchedLegacyLine, legacyTransformer.failure());
+            assertZeroConstantDynamic(
+                    patchedLegacyMesh,
+                    RenderMatrixTransformer.SORTING_Z_METHOD,
+                    RenderMatrixTransformer.SORTING_Z_DESCRIPTOR,
+                    version + " <55 sorting");
+            assertZeroConstantDynamic(
+                    patchedLegacyMesh,
+                    RenderMatrixTransformer.RENDER_METHOD,
+                    RenderMatrixTransformer.RENDER_DESCRIPTOR,
+                    version + " <55 mesh render");
+            assertZeroConstantDynamic(
+                    patchedLegacyLine,
+                    RenderMatrixTransformer.RENDER_METHOD,
+                    RenderMatrixTransformer.RENDER_DESCRIPTOR,
+                    version + " <55 line render");
+        }
+
+        // Making GMeshContainer.getMesh package-private disables compiled SortingHostAccessor while keeping
+        // package-local Cubism bytecode access intact so FallbackRenderAccessors parity runs end-to-end.
+        final byte[] packagePrivateGetMeshContainer = stripPublicFromMethod(containerBytes, "getMesh");
+        try (URLClassLoader baseLoader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
+            final RenderMatrixTransformer renderTransformer =
+                    new RenderMatrixTransformer(baseLoader, artifact, meshRendererBytes, lineRendererBytes);
+            final byte[] patchedMeshRenderer = renderTransformer.transform(
+                    null, baseLoader, RenderMatrixTransformer.MESH_RENDERER_OWNER, null, domain, meshRendererBytes);
+            final byte[] patchedLineRenderer = renderTransformer.transform(
+                    null, baseLoader, RenderMatrixTransformer.LINE_RENDERER_OWNER, null, domain, lineRendererBytes);
+            final MatrixScratchTransformer scratchTransformer =
+                    new MatrixScratchTransformer(baseLoader, artifact, transformBytes);
+            final byte[] patchedTransform = scratchTransformer.transform(
+                    null, baseLoader, MatrixScratchTransformer.OWNER, null, domain, transformBytes);
+            assertNotNull(patchedMeshRenderer);
+            assertNotNull(patchedLineRenderer);
+            assertNotNull(patchedTransform);
+
+            try (MultiOverrideLoader fallbackLoader = new MultiOverrideLoader(
+                    urls,
+                    Map.of(
+                            MatrixScratchTransformer.OWNER.replace('/', '.'),
+                            patchedTransform,
+                            RenderMatrixTransformer.MESH_RENDERER_OWNER.replace('/', '.'),
+                            patchedMeshRenderer,
+                            RenderMatrixTransformer.LINE_RENDERER_OWNER.replace('/', '.'),
+                            patchedLineRenderer,
+                            RenderMatrixTransformer.MESH_CONTAINER_OWNER.replace('/', '.'),
+                            packagePrivateGetMeshContainer),
+                    domain,
+                    baseLoader)) {
+                final AtomicBoolean admission = new AtomicBoolean(true);
+                System.setProperty(MatrixScratchTransformer.ENABLE_PROPERTY, Boolean.TRUE.toString());
+                System.getProperties().put(MatrixScratchTransformer.ADMISSION_PROPERTY, admission);
+                try (MatrixScratchBridge bridge = new MatrixScratchBridge(fallbackLoader, admission)) {
+                    assertTrue(bridge.supportsRenderFastPaths());
+                    assertFalse(bridge.usesCompiledRenderAccessors());
+                    bridge.activate();
+                    System.getProperties().put(MatrixScratchBridge.CALLBACK_PROPERTY, bridge.callback());
+                    System.getProperties().put(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY, bridge.renderCallback());
+                    System.getProperties().put(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY, bridge.sortingCallback());
+                    verifySortingZAndRenderScratchParity(
+                            baseLoader, fallbackLoader, bridge, version + "-fallback", false);
+                } finally {
+                    System.getProperties().remove(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY);
+                    System.getProperties().remove(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY);
+                    System.getProperties().remove(MatrixScratchBridge.CALLBACK_PROPERTY);
+                    System.getProperties().remove(MatrixScratchTransformer.ADMISSION_PROPERTY);
+                    System.clearProperty(MatrixScratchTransformer.ENABLE_PROPERTY);
+                }
+            }
+        }
+        assertNotNull(tempDir);
+    }
+
+    private static void assertRenderMatrixGateUsesConstantDynamic(
+            final byte[] bytes,
+            final String methodName,
+            final String methodDescriptor,
+            final String callbackProperty,
+            final String version) {
+        final List<String> condyKeys = new ArrayList<>();
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!methodName.equals(name) || !methodDescriptor.equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        if (value instanceof ConstantDynamic condy) {
+                                            condyKeys.add(condy.getName());
+                                            assertEquals(
+                                                    "Ljava/lang/Object;",
+                                                    condy.getDescriptor(),
+                                                    version + ":" + methodName);
+                                            assertTrue(condy.getBootstrapMethodArgumentCount() >= 3);
+                                            for (int i = 0; i < condy.getBootstrapMethodArgumentCount(); i++) {
+                                                condyKeys.add(String.valueOf(condy.getBootstrapMethodArgument(i)));
+                                            }
+                                        }
+                                    }
+
+                                    @Override
+                                    public void visitMethodInsn(
+                                            final int opcode,
+                                            final String owner,
+                                            final String called,
+                                            final String desc,
+                                            final boolean itf) {
+                                        assertFalse(
+                                                "java/lang/System".equals(owner) && "getProperties".equals(called),
+                                                version + ":" + methodName + " must not call System.getProperties()");
+                                        assertFalse(
+                                                "java/lang/Boolean".equals(owner) && "getBoolean".equals(called),
+                                                version + ":" + methodName + " must not call Boolean.getBoolean()");
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
+        assertTrue(
+                condyKeys.contains(MatrixScratchTransformer.ADMISSION_PROPERTY),
+                version + ":" + methodName + " missing ADMISSION condy: " + condyKeys);
+        assertTrue(
+                condyKeys.contains(callbackProperty),
+                version + ":" + methodName + " missing callback condy " + callbackProperty + ": " + condyKeys);
+    }
+
+    private static void assertZeroConstantDynamic(
+            final byte[] bytes, final String methodName, final String methodDescriptor, final String label) {
+        final int[] condyCount = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!methodName.equals(name) || !methodDescriptor.equals(descriptor)) {
+                                    return null;
+                                }
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        if (value instanceof ConstantDynamic) {
+                                            condyCount[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
+        assertEquals(0, condyCount[0], label + " must not emit ConstantDynamic below classfile 55");
+    }
+
+    private static byte[] rewriteClassVersion(final byte[] bytes, final int version) {
+        final ClassReader reader = new ClassReader(bytes);
+        final ClassWriter writer = new ClassWriter(0);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public void visit(
+                            final int originalVersion,
+                            final int access,
+                            final String name,
+                            final String signature,
+                            final String superName,
+                            final String[] interfaces) {
+                        super.visit(version, access, name, signature, superName, interfaces);
+                    }
+                },
+                0);
+        return writer.toByteArray();
+    }
+
+    private static byte[] stripPublicFromMethod(final byte[] bytes, final String methodName) {
+        final ClassReader reader = new ClassReader(bytes);
+        final ClassWriter writer = new ClassWriter(0);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final int nextAccess = methodName.equals(name) ? (access & ~Opcodes.ACC_PUBLIC) : access;
+                        return super.visitMethod(nextAccess, name, descriptor, signature, exceptions);
+                    }
+                },
+                0);
+        return writer.toByteArray();
     }
 
     private static void assertRawFloatEquals(final float expected, final float actual, final String message) {

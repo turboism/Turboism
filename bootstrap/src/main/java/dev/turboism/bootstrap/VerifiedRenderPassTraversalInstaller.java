@@ -41,7 +41,7 @@ final class VerifiedRenderPassTraversalInstaller implements VerifiedHookInstalle
             new WeavePlan<>(
                     VerifiedRenderPassTraversalInstaller::targets, VerifiedRenderPassTraversalInstaller::sitesProven),
             (target, launch) -> {
-                final RenderPassTraversalBridge bridge = new RenderPassTraversalBridge();
+                final RenderPassTraversalBridge bridge = new RenderPassTraversalBridge(launch.hostLoader());
                 return BridgeLayer.of(bridge::install, bridge);
             },
             WeaveEffects.none());

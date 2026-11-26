@@ -407,6 +407,46 @@ class WarpGridInterpolationArtifactTest {
         assertFloatResultBitParity(
                 obAfterRes, rbAfterRes, obAfter, rbAfter, "warp.grid.a.a after rebuild", -120.0f, 70.0f, false);
 
+        // Exercise single-cell (1x1) and wide sparse (12x6) grids to cover X-shift boundary transitions and lazy Y
+        // load.
+        final float[] singleCellPts = buildGrid(1, 1, -20.0f, -10.0f, 40.0f, 30.0f, false);
+        final Object origSingle = origSimpleCtor.newInstance(1, 1, singleCellPts.clone());
+        final Object rewrSingle = rewrSimpleCtor.newInstance(1, 1, singleCellPts.clone());
+        for (final float[] pt :
+                new float[][] {{0.0f, 5.0f}, {-20.0f, -10.0f}, {20.0f, 20.0f}, {-50.0f, 5.0f}, {10.0f, -50.0f}}) {
+            final float[] sOrigOut = {-2.0f, -4.0f};
+            final float[] sRewrOut = {-2.0f, -4.0f};
+            final float[] sOrigRes = (float[]) origGet01Ex.invoke(origSingle, pt[0], pt[1], null, sOrigOut);
+            final float[] sRewrRes = (float[]) rewrGet01Ex.invoke(rewrSingle, pt[0], pt[1], null, sRewrOut);
+            assertFloatResultBitParity(
+                    sOrigRes, sRewrRes, sOrigOut, sRewrOut, "CSimpleGrid.get01_ex 1x1", pt[0], pt[1], false);
+        }
+
+        final float[] wideGridPts = buildGrid(12, 6, -60.0f, -30.0f, 10.0f, 10.0f, true);
+        final Object origWide = origSimpleCtor.newInstance(12, 6, wideGridPts.clone());
+        final Object rewrWide = rewrSimpleCtor.newInstance(12, 6, wideGridPts.clone());
+        final Object origWideTarget = origVecCtor.newInstance(0.75f, 0.25f);
+        final Object rewrWideTarget = rewrVecCtor.newInstance(0.75f, 0.25f);
+        for (final float[] pt : new float[][] {
+            {-55.0f, -25.0f},
+            {55.0f, 25.0f},
+            {5.0f, 100.0f},
+            {-200.0f, 0.0f},
+            {200.0f, 0.0f},
+            {15.0f, 5.0f}
+        }) {
+            for (final boolean useTarget : new boolean[] {false, true}) {
+                final float[] wOrigOut = {-3.0f, -6.0f};
+                final float[] wRewrOut = {-3.0f, -6.0f};
+                final float[] wOrigRes = (float[])
+                        origGet01Ex.invoke(origWide, pt[0], pt[1], useTarget ? origWideTarget : null, wOrigOut);
+                final float[] wRewrRes = (float[])
+                        rewrGet01Ex.invoke(rewrWide, pt[0], pt[1], useTarget ? rewrWideTarget : null, wRewrOut);
+                assertFloatResultBitParity(
+                        wOrigRes, wRewrRes, wOrigOut, wRewrOut, "CSimpleGrid.get01_ex 12x6", pt[0], pt[1], useTarget);
+            }
+        }
+
         if (checkZeroAlloc) {
             final MethodHandle rewrSimpleMh =
                     java.lang.invoke.MethodHandles.lookup().unreflect(rewrGet01Ex);

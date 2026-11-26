@@ -1,27 +1,24 @@
 package dev.turboism.shell;
 
-import dev.turboism.config.PerformanceSettingsConfig;
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.config.optimization.OptimizationPreset;
 import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.ui.panel.CollapsibleSection;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 
 /**
- * Coordinates the Performance tab preset selector, individual optimization checkboxes, and
- * collapsible section group checkboxes while enforcing {@link OptimizationCatalog} exclusions.
+ * Coordinates the Performance tab preset selector, bundled or individual optimization checkboxes,
+ * and collapsible section group checkboxes while enforcing {@link OptimizationCatalog} exclusions.
  */
 final class PerformanceToggleCoordinator {
     private static final String GROUP_TOGGLE_SUFFIX = ".toggle";
@@ -29,7 +26,7 @@ final class PerformanceToggleCoordinator {
     private JComboBox<SettingsControl.Option> presetCombo;
     private String[] presetAccepted;
     private boolean[] presetChanging;
-    private final Map<String, ToggleEntry> optimizationToggles = new LinkedHashMap<>();
+    private final Map<String, MemberTarget> optimizationTargets = new LinkedHashMap<>();
     private final List<ToggleEntry> allToggles = new ArrayList<>();
     private final List<GroupBinding> groups = new ArrayList<>();
     private boolean applyingBatch;
@@ -43,15 +40,19 @@ final class PerformanceToggleCoordinator {
 
     ToggleEntry registerToggle(
             final String controlId,
-            final Optional<Optimization> optimization,
+            final List<Optimization> optimizations,
             final JCheckBox checkbox,
             final SettingsControl.Toggle control,
+            final Map<Optimization, Boolean> initialMembers,
             final boolean[] accepted,
             final boolean[] changing,
             final List<ToggleEntry> sectionToggles) {
-        final ToggleEntry entry = new ToggleEntry(controlId, optimization, checkbox, control, accepted, changing);
+        final ToggleEntry entry =
+                new ToggleEntry(controlId, optimizations, checkbox, control, initialMembers, accepted, changing);
         allToggles.add(entry);
-        optimization.ifPresent(value -> optimizationToggles.put(value.key(), entry));
+        for (final Optimization optimization : optimizations) {
+            optimizationTargets.put(optimization.key(), new MemberTarget(entry, optimization));
+        }
         if (sectionToggles != null) {
             sectionToggles.add(entry);
         }
@@ -88,10 +89,15 @@ final class PerformanceToggleCoordinator {
         }
         applyingBatch = true;
         try {
-            for (final Map.Entry<String, ToggleEntry> entry : optimizationToggles.entrySet()) {
-                final Optimization optimization = OptimizationCatalog.requireByKey(entry.getKey());
-                final boolean target = preset.targetFlag(optimization).orElseThrow();
-                entry.getValue().setSelected(target);
+            for (final ToggleEntry entry : allToggles) {
+                if (entry.optimizations().isEmpty()) {
+                    continue;
+                }
+                for (final Optimization optimization : entry.optimizations()) {
+                    final boolean target = preset.targetFlag(optimization).orElseThrow();
+                    entry.setMemberState(optimization, target);
+                }
+                entry.syncCheckBox();
             }
         } finally {
             applyingBatch = false;
@@ -120,8 +126,8 @@ final class PerformanceToggleCoordinator {
             return;
         }
         final OptimizationPreset detected = OptimizationPreset.detect(key -> {
-            final ToggleEntry entry = optimizationToggles.get(key);
-            return entry != null && entry.accepted()[0];
+            final MemberTarget target = optimizationTargets.get(key);
+            return target != null && target.entry().memberState(target.optimization());
         });
         final String nextValue = detected.configValue();
         presetAccepted[0] = nextValue;
@@ -145,7 +151,7 @@ final class PerformanceToggleCoordinator {
             return;
         }
 
-        final boolean allOn = toggleable.stream().allMatch(entry -> entry.accepted()[0]);
+        final boolean allOn = toggleable.stream().allMatch(ToggleEntry::allAccepted);
         boolean optimizationChanged = false;
         applyingBatch = true;
         try {
@@ -171,40 +177,50 @@ final class PerformanceToggleCoordinator {
 
     private List<ToggleEntry> compatibleCandidatesToEnable(final List<ToggleEntry> toggleable) {
         final Set<Optimization> active = activeOptimizations();
-        final List<ToggleEntry> unchecked = new ArrayList<>();
+        final List<ToggleEntry> candidates = new ArrayList<>();
         for (final ToggleEntry entry : toggleable) {
-            if (!entry.accepted()[0]) {
-                unchecked.add(entry);
+            if (!entry.allAccepted()) {
+                candidates.add(entry);
             }
         }
         // Evaluate default-ON entries before opt-in toggles so same-group exclusions keep defaults.
-        unchecked.sort(Comparator.comparing(PerformanceToggleCoordinator::isDefaultEnabled)
+        candidates.sort(Comparator.comparing(PerformanceToggleCoordinator::isDefaultEnabled)
                 .reversed());
 
-        final List<ToggleEntry> candidates = new ArrayList<>();
-        for (final ToggleEntry candidate : unchecked) {
-            if (candidate.optimization().isPresent()) {
-                final Optimization opt = candidate.optimization().get();
-                if (conflictsWithAny(opt, active)) {
-                    continue;
-                }
-                if (!candidate.control().validator().validate(false, true).accepted()) {
-                    continue;
-                }
-                active.add(opt);
-                candidates.add(candidate);
-            } else if (candidate.control().validator().validate(false, true).accepted()) {
-                candidates.add(candidate);
+        final List<ToggleEntry> compatible = new ArrayList<>();
+        for (final ToggleEntry candidate : candidates) {
+            if (hasAnyConflict(candidate, active)) {
+                continue;
+            }
+            if (!candidate
+                    .control()
+                    .validator()
+                    .validate(candidate.allAccepted(), true)
+                    .accepted()) {
+                continue;
+            }
+            active.addAll(candidate.optimizations());
+            compatible.add(candidate);
+        }
+        return compatible;
+    }
+
+    private static boolean hasAnyConflict(final ToggleEntry candidate, final Set<Optimization> active) {
+        for (final Optimization optimization : candidate.optimizations()) {
+            if (!candidate.memberState(optimization) && conflictsWithAny(optimization, active)) {
+                return true;
             }
         }
-        return candidates;
+        return false;
     }
 
     private Set<Optimization> activeOptimizations() {
         final Set<Optimization> active = new LinkedHashSet<>();
         for (final ToggleEntry entry : allToggles) {
-            if (entry.accepted()[0] && entry.optimization().isPresent()) {
-                active.add(entry.optimization().get());
+            for (final Optimization optimization : entry.optimizations()) {
+                if (entry.memberState(optimization)) {
+                    active.add(optimization);
+                }
             }
         }
         return active;
@@ -213,7 +229,7 @@ final class PerformanceToggleCoordinator {
     private static boolean setAll(final List<ToggleEntry> entries, final boolean target) {
         boolean optimizationChanged = false;
         for (final ToggleEntry entry : entries) {
-            if (entry.setSelected(target) && entry.optimization().isPresent()) {
+            if (entry.setSelected(target) && !entry.optimizations().isEmpty()) {
                 optimizationChanged = true;
             }
         }
@@ -226,14 +242,8 @@ final class PerformanceToggleCoordinator {
                 .toList();
         group.headerCheckBox().setEnabled(!enabledMembers.isEmpty());
         final List<ToggleEntry> inspected = enabledMembers.isEmpty() ? group.members() : enabledMembers;
-        int selectedCount = 0;
-        for (final ToggleEntry entry : inspected) {
-            if (entry.accepted()[0]) {
-                selectedCount++;
-            }
-        }
-        final boolean allSelected = !inspected.isEmpty() && selectedCount == inspected.size();
-        final boolean anySelected = selectedCount > 0;
+        final boolean allSelected = !inspected.isEmpty() && inspected.stream().allMatch(ToggleEntry::allAccepted);
+        final boolean anySelected = inspected.stream().anyMatch(ToggleEntry::anyAccepted);
         CollapsibleSection.updateGroupCheckBoxState(group.headerCheckBox(), allSelected, anySelected);
     }
 
@@ -264,15 +274,15 @@ final class PerformanceToggleCoordinator {
     }
 
     private static boolean isDefaultEnabled(final ToggleEntry entry) {
-        if (entry.optimization().isEmpty()) {
+        if (entry.optimizations().isEmpty()) {
             return true;
         }
-        final String key = entry.optimization().get().key();
-        return Arrays.stream(PerformanceSettingsConfig.Field.values())
-                .filter(field -> field.key().equals(key))
-                .findFirst()
-                .map(field -> Boolean.parseBoolean(field.defaultValue(false)))
-                .orElse(false);
+        for (final Optimization optimization : entry.optimizations()) {
+            if (!OptimizationCatalog.isDefaultEnabled(optimization)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void selectOption(final JComboBox<SettingsControl.Option> combo, final String value) {
@@ -287,38 +297,117 @@ final class PerformanceToggleCoordinator {
 
     private record GroupBinding(JCheckBox headerCheckBox, List<ToggleEntry> members) {}
 
-    record ToggleEntry(
-            String id,
-            Optional<Optimization> optimization,
-            JCheckBox checkbox,
-            SettingsControl.Toggle control,
-            boolean[] accepted,
-            boolean[] changing) {
+    private record MemberTarget(ToggleEntry entry, Optimization optimization) {}
+
+    static final class ToggleEntry {
+        private final String id;
+        private final List<Optimization> optimizations;
+        private final JCheckBox checkbox;
+        private final SettingsControl.Toggle control;
+        private final Map<Optimization, Boolean> memberStates;
+        private final boolean[] accepted;
+        private final boolean[] changing;
+
+        private ToggleEntry(
+                final String id,
+                final List<Optimization> optimizations,
+                final JCheckBox checkbox,
+                final SettingsControl.Toggle control,
+                final Map<Optimization, Boolean> initialMembers,
+                final boolean[] accepted,
+                final boolean[] changing) {
+            this.id = id;
+            this.optimizations = List.copyOf(optimizations);
+            this.checkbox = checkbox;
+            this.control = control;
+            this.memberStates = new LinkedHashMap<>(initialMembers);
+            this.accepted = accepted;
+            this.changing = changing;
+        }
+
+        String id() {
+            return id;
+        }
+
+        List<Optimization> optimizations() {
+            return optimizations;
+        }
+
+        JCheckBox checkbox() {
+            return checkbox;
+        }
+
+        SettingsControl.Toggle control() {
+            return control;
+        }
+
+        boolean memberState(final Optimization optimization) {
+            return Boolean.TRUE.equals(memberStates.get(optimization));
+        }
+
+        boolean allAccepted() {
+            if (optimizations.isEmpty()) {
+                return accepted[0];
+            }
+            for (final Optimization optimization : optimizations) {
+                if (!memberState(optimization)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        boolean anyAccepted() {
+            if (optimizations.isEmpty()) {
+                return accepted[0];
+            }
+            for (final Optimization optimization : optimizations) {
+                if (memberState(optimization)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void setMemberState(final Optimization optimization, final boolean target) {
+            memberStates.put(optimization, target);
+            accepted[0] = allAccepted();
+        }
+
+        void applyUniformState(final boolean target) {
+            accepted[0] = target;
+            for (final Optimization optimization : optimizations) {
+                memberStates.put(optimization, target);
+            }
+            syncCheckBox();
+        }
+
         boolean setSelected(final boolean target) {
             if (!checkbox.isEnabled()) {
                 return false;
             }
-            if (accepted[0] == target) {
-                if (checkbox.isSelected() != target) {
-                    applyCheckboxSelection(target);
-                }
+            final boolean alreadyAtTarget = target ? allAccepted() : !anyAccepted();
+            if (alreadyAtTarget) {
+                syncCheckBox();
                 return false;
             }
-            if (!control.validator().validate(accepted[0], target).accepted()) {
+            if (!control.validator().validate(allAccepted(), target).accepted()) {
                 return false;
             }
-            accepted[0] = target;
-            applyCheckboxSelection(target);
+            applyUniformState(target);
             return true;
         }
 
-        private void applyCheckboxSelection(final boolean target) {
-            if (checkbox.isSelected() == target) {
-                return;
-            }
+        void syncCheckBox() {
+            final boolean all = allAccepted();
+            final boolean any = anyAccepted();
             changing[0] = true;
             try {
-                checkbox.setSelected(target);
+                if (optimizations.size() > 1) {
+                    CollapsibleSection.updateGroupCheckBoxState(checkbox, all, any);
+                } else {
+                    checkbox.setSelected(all);
+                }
             } finally {
                 changing[0] = false;
             }

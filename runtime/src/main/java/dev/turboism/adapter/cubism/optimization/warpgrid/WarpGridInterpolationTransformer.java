@@ -122,8 +122,6 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
     private static final int LOCAL_FROW = 13;
     private static final int LOCAL_COL_PLUS_1 = 14;
     private static final int LOCAL_ROW_STRIDE = 15;
-    private static final int LOCAL_SX = 16;
-    private static final int LOCAL_SY = 17;
     private static final int LOCAL_X = 18;
     private static final int LOCAL_Y = 19;
     private static final int LOCAL_XI = 20;
@@ -510,21 +508,15 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitVarInsn(Opcodes.ALOAD, LOCAL_SRC);
             visitVarInsn(Opcodes.ILOAD, LOCAL_INDEX_I);
             visitInsn(Opcodes.FALOAD);
-            visitVarInsn(Opcodes.FSTORE, LOCAL_SX);
+            visitVarInsn(Opcodes.FLOAD, LOCAL_FCOL);
+            visitInsn(Opcodes.FMUL);
+            visitVarInsn(Opcodes.FSTORE, LOCAL_X);
 
             visitVarInsn(Opcodes.ALOAD, LOCAL_SRC);
             visitVarInsn(Opcodes.ILOAD, LOCAL_INDEX_I);
             visitInsn(Opcodes.ICONST_1);
             visitInsn(Opcodes.IADD);
             visitInsn(Opcodes.FALOAD);
-            visitVarInsn(Opcodes.FSTORE, LOCAL_SY);
-
-            visitVarInsn(Opcodes.FLOAD, LOCAL_SX);
-            visitVarInsn(Opcodes.FLOAD, LOCAL_FCOL);
-            visitInsn(Opcodes.FMUL);
-            visitVarInsn(Opcodes.FSTORE, LOCAL_X);
-
-            visitVarInsn(Opcodes.FLOAD, LOCAL_SY);
             visitVarInsn(Opcodes.FLOAD, LOCAL_FROW);
             visitInsn(Opcodes.FMUL);
             visitVarInsn(Opcodes.FSTORE, LOCAL_Y);
@@ -551,21 +543,19 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitJumpInsn(Opcodes.IFLE, oobExit);
 
             visitVarInsn(Opcodes.FLOAD, LOCAL_X);
+            visitInsn(Opcodes.DUP);
             visitInsn(Opcodes.F2I);
+            visitInsn(Opcodes.DUP);
             visitVarInsn(Opcodes.ISTORE, LOCAL_XI);
-
-            visitVarInsn(Opcodes.FLOAD, LOCAL_Y);
-            visitInsn(Opcodes.F2I);
-            visitVarInsn(Opcodes.ISTORE, LOCAL_YI);
-
-            visitVarInsn(Opcodes.FLOAD, LOCAL_X);
-            visitVarInsn(Opcodes.ILOAD, LOCAL_XI);
             visitInsn(Opcodes.I2F);
             visitInsn(Opcodes.FSUB);
             visitVarInsn(Opcodes.FSTORE, LOCAL_X_RATE);
 
             visitVarInsn(Opcodes.FLOAD, LOCAL_Y);
-            visitVarInsn(Opcodes.ILOAD, LOCAL_YI);
+            visitInsn(Opcodes.DUP);
+            visitInsn(Opcodes.F2I);
+            visitInsn(Opcodes.DUP);
+            visitVarInsn(Opcodes.ISTORE, LOCAL_YI);
             visitInsn(Opcodes.I2F);
             visitInsn(Opcodes.FSUB);
             visitVarInsn(Opcodes.FSTORE, LOCAL_Y_RATE);
@@ -577,9 +567,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             visitInsn(Opcodes.IADD);
             visitInsn(Opcodes.ICONST_1);
             visitInsn(Opcodes.ISHL);
+            visitInsn(Opcodes.DUP);
             visitVarInsn(Opcodes.ISTORE, LOCAL_GRID_IDX);
-
-            visitVarInsn(Opcodes.ILOAD, LOCAL_GRID_IDX);
             visitVarInsn(Opcodes.ILOAD, LOCAL_ROW_STRIDE);
             visitInsn(Opcodes.IADD);
             visitVarInsn(Opcodes.ISTORE, LOCAL_NEXT_ROW);
@@ -922,6 +911,8 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             target.visitInsn(Opcodes.ISHL);
             target.visitVarInsn(Opcodes.ISTORE, SG_LOCAL_P1_OFF);
 
+            emitLoadCoord(SG_LOCAL_P0_OFF, 0, SG_LOCAL_P00X);
+            emitLoadCoord(SG_LOCAL_P1_OFF, 0, SG_LOCAL_P01X);
             target.visitInsn(Opcodes.ICONST_0);
             target.visitVarInsn(Opcodes.ISTORE, SG_LOCAL_IX);
             target.visitLabel(colLoop);
@@ -929,8 +920,10 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             target.visitVarInsn(Opcodes.ILOAD, SG_LOCAL_COL);
             target.visitJumpInsn(Opcodes.IF_ICMPGE, colDone);
 
-            emitLoadCellVertices();
+            emitLoadCoord(SG_LOCAL_P0_OFF, P10_X_OFFSET, SG_LOCAL_P10X);
+            emitLoadCoord(SG_LOCAL_P1_OFF, P10_X_OFFSET, SG_LOCAL_P11X);
             emitAxisAabbReject(SG_LOCAL_PX, SG_LOCAL_P00X, SG_LOCAL_P10X, SG_LOCAL_P01X, SG_LOCAL_P11X, colNext);
+            emitLoadCellYCoords();
             emitAxisAabbReject(SG_LOCAL_PY, SG_LOCAL_P00Y, SG_LOCAL_P10Y, SG_LOCAL_P01Y, SG_LOCAL_P11Y, colNext);
 
             // Triangle 1: (p00, p10, p01).
@@ -1020,6 +1013,10 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             target.visitVarInsn(Opcodes.FSTORE, SG_LOCAL_BEST_DIST_SQ);
 
             target.visitLabel(colNext);
+            target.visitVarInsn(Opcodes.FLOAD, SG_LOCAL_P10X);
+            target.visitVarInsn(Opcodes.FSTORE, SG_LOCAL_P00X);
+            target.visitVarInsn(Opcodes.FLOAD, SG_LOCAL_P11X);
+            target.visitVarInsn(Opcodes.FSTORE, SG_LOCAL_P01X);
             target.visitIincInsn(SG_LOCAL_IX, 1);
             target.visitIincInsn(SG_LOCAL_P0_OFF, CELL_POINT_STRIDE);
             target.visitIincInsn(SG_LOCAL_P1_OFF, CELL_POINT_STRIDE);
@@ -1050,14 +1047,10 @@ public final class WarpGridInterpolationTransformer implements ClassFileTransfor
             target.visitInsn(Opcodes.ARETURN);
         }
 
-        private void emitLoadCellVertices() {
-            emitLoadCoord(SG_LOCAL_P0_OFF, 0, SG_LOCAL_P00X);
+        private void emitLoadCellYCoords() {
             emitLoadCoord(SG_LOCAL_P0_OFF, 1, SG_LOCAL_P00Y);
-            emitLoadCoord(SG_LOCAL_P0_OFF, P10_X_OFFSET, SG_LOCAL_P10X);
             emitLoadCoord(SG_LOCAL_P0_OFF, P10_Y_OFFSET, SG_LOCAL_P10Y);
-            emitLoadCoord(SG_LOCAL_P1_OFF, 0, SG_LOCAL_P01X);
             emitLoadCoord(SG_LOCAL_P1_OFF, 1, SG_LOCAL_P01Y);
-            emitLoadCoord(SG_LOCAL_P1_OFF, P10_X_OFFSET, SG_LOCAL_P11X);
             emitLoadCoord(SG_LOCAL_P1_OFF, P10_Y_OFFSET, SG_LOCAL_P11Y);
         }
 

@@ -116,6 +116,19 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     /** {@code AtomicLong} epoch slot incremented on {@code KeyformGridSource} and binding mutations. */
     public static final String GRID_MUTATION_EPOCH_PROPERTY = "turboism.warp-deform-edit.grid-mutation-epoch";
 
+    /** {@code AtomicLong} epoch slot incremented on local ArtMesh, visibility, or GPU-mesh mutations. */
+    public static final String LOCAL_MESH_EPOCH_PROPERTY = "turboism.warp-deform-edit.local-mesh-epoch";
+
+    /** {@code AtomicLong} epoch slot incremented on direct unversioned ArtMesh position or draw-order writes. */
+    public static final String DIRECT_LOCAL_MESH_EPOCH_PROPERTY = "turboism.warp-deform-edit.direct-local-mesh-epoch";
+
+    /** {@code ThreadLocal<Boolean>} flag suppressing {@code localMeshEpoch} during incremental fast transforms. */
+    public static final String FAST_MESH_TRANSFORM_THREAD_PROPERTY =
+            "turboism.warp-deform-edit.fast-mesh-transform-thread";
+
+    /** {@code MethodHandle} slot: {@code (Object source) -> void} recording mutated deformer sources. */
+    public static final String DEFORMER_MUTATION_PROPERTY = "turboism.warp-deform-edit.deformer-mutation";
+
     /** {@code MethodHandle} slot: {@code (binding) -> List<Integer>} fast range key indices. */
     public static final String KEYFORM_INDICES_IN_RANGE_PROPERTY = "turboism.warp-deform-edit.key-indices-in-range";
 
@@ -124,6 +137,18 @@ public final class WarpDeformEditBridge implements AutoCloseable {
 
     /** Sentinel object returned by {@link #KEYFORM_FIND_PROPERTY} to fall through to host code. */
     public static final String KEYFORM_UNHANDLED_PROPERTY = "turboism.warp-deform-edit.keyform-unhandled";
+
+    /** {@code MethodHandle} slot: {@code (oldGrid, newGrid, prevParams, curParams, col, row, pts) -> List}. */
+    public static final String EXTENSION_BEZIER_DRAG_PROPERTY = "turboism.warp-deform-edit.ext-bezier-drag";
+
+    /** {@code MethodHandle} slot: {@code (nw, ne, sw, se, u, v) -> GVector2}. */
+    public static final String EXTENSION_COONS_EVAL_PROPERTY = "turboism.warp-deform-edit.ext-coons-eval";
+
+    /** {@code MethodHandle} slot: {@code (nw, ne, sw, se, target, u0, v0) -> extension.a.j}. */
+    public static final String EXTENSION_COONS_INVERT_PROPERTY = "turboism.warp-deform-edit.ext-coons-invert";
+
+    /** {@code MethodHandle} slot: {@code (points, col, row, u, v) -> GVector2}. */
+    public static final String EXTENSION_BICUBIC_EVAL_PROPERTY = "turboism.warp-deform-edit.ext-bicubic-eval";
 
     /** Diagnostic counter snapshot slot ({@code Supplier<Map<String, Long>>}). */
     public static final String STATS_PROPERTY = "turboism.warp-deform-edit.stats";
@@ -214,6 +239,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private static final String STAT_SELECTION_SET_VOLATILE_ELISIONS = "selectionSetVolatileElisions";
     private static final String STAT_KEY_INDICES_FAST_CALLS = "keyIndicesInRangeFastCalls";
     private static final String STAT_FIND_KEYFORM_FAST_CALLS = "findKeyformFastCalls";
+    private static final String STAT_EXT_BEZIER_DRAG_CALLS = "extBezierDragCalls";
+    private static final String STAT_EXT_COONS_EVAL_CALLS = "extCoonsEvalCalls";
+    private static final String STAT_EXT_COONS_INVERT_CALLS = "extCoonsInvertCalls";
+    private static final String STAT_EXT_BICUBIC_EVAL_CALLS = "extBicubicEvalCalls";
     private static final String STAT_FAILURES = "failures";
     private static final int ROT_SCRATCH_SLOTS = 8;
     private static final int SEARCH_EXACT_ORDINAL = -1;
@@ -347,9 +376,13 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final EditSubtreeCompiledAccessors.KeyformOps keyformOps;
     private final AtomicLong meshKeyformEpoch = new AtomicLong();
     private final AtomicLong gridMutationEpoch = new AtomicLong();
+    private final AtomicLong localMeshEpoch = new AtomicLong();
+    private final AtomicLong directLocalMeshEpoch = new AtomicLong();
+    private final ThreadLocal<Boolean> fastMeshTransformThread = new ThreadLocal<>();
     private final SubtreeParallelExecutor parallelExecutor;
     private final EditSubtreeCoordinator editSubtreeCoordinator;
     private final EditOverlayElisionCoordinator editOverlayCoordinator;
+    private final ExtensionBezierSupport extensionBezierSupport;
 
     private volatile boolean preferenceEnabled;
     private volatile long lastObservedPrefEpoch = -1L;
@@ -366,6 +399,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
     private final LongAdder bezierPointsCalls = new LongAdder();
     private final LongAdder keyIndicesInRangeFastCalls = new LongAdder();
     private final LongAdder findKeyformFastCalls = new LongAdder();
+    private final LongAdder extBezierDragCalls = new LongAdder();
+    private final LongAdder extCoonsEvalCalls = new LongAdder();
+    private final LongAdder extCoonsInvertCalls = new LongAdder();
+    private final LongAdder extBicubicEvalCalls = new LongAdder();
     private final LongAdder cornerTriangleCalls = new LongAdder();
     private final LongAdder majorLinesCalls = new LongAdder();
     private final LongAdder detailLinesCalls = new LongAdder();
@@ -690,9 +727,16 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                     EditSubtreeCompiledAccessors.tryCompileKeyform(loader);
             keyformOps = compiledKeyform != null ? compiledKeyform : tryCreateFallbackKeyformOps(loader);
             parallelExecutor = executor;
-            editSubtreeCoordinator =
-                    new EditSubtreeCoordinator(subtreeHandles, executor, meshKeyformEpoch, gridMutationEpoch);
+            editSubtreeCoordinator = new EditSubtreeCoordinator(
+                    subtreeHandles,
+                    executor,
+                    meshKeyformEpoch,
+                    gridMutationEpoch,
+                    localMeshEpoch,
+                    directLocalMeshEpoch,
+                    fastMeshTransformThread);
             editOverlayCoordinator = new EditOverlayElisionCoordinator(subtreeHandles, editSubtreeCoordinator);
+            extensionBezierSupport = ExtensionBezierSupport.tryCreate(loader, vec2Class, vec2GetX, vec2GetY);
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             executor.close();
@@ -800,6 +844,10 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         counters.put(STAT_SELECTION_SET_VOLATILE_ELISIONS, editOverlayCoordinator.selectionSetVolatileElisions.sum());
         counters.put(STAT_KEY_INDICES_FAST_CALLS, keyIndicesInRangeFastCalls.sum());
         counters.put(STAT_FIND_KEYFORM_FAST_CALLS, findKeyformFastCalls.sum());
+        counters.put(STAT_EXT_BEZIER_DRAG_CALLS, extBezierDragCalls.sum());
+        counters.put(STAT_EXT_COONS_EVAL_CALLS, extCoonsEvalCalls.sum());
+        counters.put(STAT_EXT_COONS_INVERT_CALLS, extCoonsInvertCalls.sum());
+        counters.put(STAT_EXT_BICUBIC_EVAL_CALLS, extBicubicEvalCalls.sum());
         counters.put(STAT_FAILURES, failures.sum());
         return Map.copyOf(counters);
     }
@@ -997,6 +1045,62 @@ public final class WarpDeformEditBridge implements AutoCloseable {
                                 boolean.class, Object.class, Object.class, boolean.class, boolean.class)));
         slots.put(MESH_KEYFORM_EPOCH_PROPERTY, meshKeyformEpoch);
         slots.put(GRID_MUTATION_EPOCH_PROPERTY, gridMutationEpoch);
+        slots.put(LOCAL_MESH_EPOCH_PROPERTY, localMeshEpoch);
+        slots.put(DIRECT_LOCAL_MESH_EPOCH_PROPERTY, directLocalMeshEpoch);
+        slots.put(FAST_MESH_TRANSFORM_THREAD_PROPERTY, fastMeshTransformThread);
+        slots.put(
+                DEFORMER_MUTATION_PROPERTY,
+                lookup.bind(this, "recordDeformerMutated", MethodType.methodType(void.class, Object.class)));
+        if (extensionBezierSupport != null) {
+            slots.put(
+                    EXTENSION_BEZIER_DRAG_PROPERTY,
+                    lookup.bind(
+                            this,
+                            "extensionBezierDragEval",
+                            MethodType.methodType(
+                                    List.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    int.class,
+                                    int.class,
+                                    float[].class)));
+            slots.put(
+                    EXTENSION_COONS_EVAL_PROPERTY,
+                    lookup.bind(
+                            this,
+                            "extensionEvalCoons",
+                            MethodType.methodType(
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    float.class,
+                                    float.class)));
+            slots.put(
+                    EXTENSION_COONS_INVERT_PROPERTY,
+                    lookup.bind(
+                            this,
+                            "extensionInvertCoons",
+                            MethodType.methodType(
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    Object.class,
+                                    float.class,
+                                    float.class)));
+            slots.put(
+                    EXTENSION_BICUBIC_EVAL_PROPERTY,
+                    lookup.bind(
+                            this,
+                            "extensionEvalBicubicGrid",
+                            MethodType.methodType(
+                                    Object.class, float[].class, int.class, int.class, float.class, float.class)));
+        }
         slots.put(KEYFORM_UNHANDLED_PROPERTY, KEYFORM_UNHANDLED);
         slots.put(
                 KEYFORM_INDICES_IN_RANGE_PROPERTY,
@@ -1481,6 +1585,56 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         return editOverlayCoordinator.shouldElideArtMeshSetVolatile(drawEntity, actionPack, isSelected, isGlued);
     }
 
+    private void recordDeformerMutated(final Object source) {
+        editSubtreeCoordinator.recordDeformerSourceMutated(source);
+    }
+
+    private List<?> extensionBezierDragEval(
+            final Object oldGrid,
+            final Object newGrid,
+            final Object prevParams,
+            final Object curParams,
+            final int col,
+            final int row,
+            final float[] deformedPoints) {
+        if (!isOperational() || extensionBezierSupport == null) {
+            return null;
+        }
+        return extensionBezierSupport.evaluateDragBatch(
+                oldGrid, newGrid, prevParams, curParams, col, row, deformedPoints, extBezierDragCalls, failures);
+    }
+
+    private Object extensionEvalCoons(
+            final Object nw, final Object ne, final Object sw, final Object se, final float u, final float v) {
+        if (!isOperational() || extensionBezierSupport == null) {
+            return null;
+        }
+        return extensionBezierSupport.evaluateCoonsPatch(nw, ne, sw, se, u, v, extCoonsEvalCalls, failures);
+    }
+
+    private Object extensionInvertCoons(
+            final Object nw,
+            final Object ne,
+            final Object sw,
+            final Object se,
+            final Object targetVec,
+            final float u0,
+            final float v0) {
+        if (!isOperational() || extensionBezierSupport == null) {
+            return null;
+        }
+        return extensionBezierSupport.invertCoonsPatch(
+                nw, ne, sw, se, targetVec, u0, v0, extCoonsInvertCalls, failures);
+    }
+
+    private Object extensionEvalBicubicGrid(
+            final float[] points, final int col, final int row, final float u, final float v) {
+        if (!isOperational() || extensionBezierSupport == null) {
+            return null;
+        }
+        return extensionBezierSupport.evaluateBicubicGrid(points, col, row, u, v, extBicubicEvalCalls, failures);
+    }
+
     boolean hasKeyformOps() {
         return keyformOps != null;
     }
@@ -1508,6 +1662,9 @@ public final class WarpDeformEditBridge implements AutoCloseable {
         ROT_SCRATCH.remove();
         editSubtreeCoordinator.clearCaches();
         editOverlayCoordinator.clearCaches();
+        if (extensionBezierSupport != null) {
+            extensionBezierSupport.clearCaches();
+        }
     }
 
     private int formIsInside(final Object form, final Object pt) {

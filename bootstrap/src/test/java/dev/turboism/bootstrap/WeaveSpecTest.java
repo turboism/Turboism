@@ -91,7 +91,7 @@ class WeaveSpecTest {
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_MATCHES,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
-                1, VerifiedParameterRowRepaintInstaller.EXPECTED_MATCHES, VerifiedParameterRowRepaintInstaller.HOOK_ID);
+                4, VerifiedParameterRowRepaintInstaller.EXPECTED_MATCHES, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_MATCHES, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
                 1, VerifiedRenderPassTraversalInstaller.EXPECTED_MATCHES, VerifiedRenderPassTraversalInstaller.HOOK_ID);
@@ -179,7 +179,7 @@ class WeaveSpecTest {
                 VerifiedWarpGridInterpolationInstaller.EXPECTED_OWNERS,
                 VerifiedWarpGridInterpolationInstaller.HOOK_ID);
         assertEquals(
-                1, VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS, VerifiedParameterRowRepaintInstaller.HOOK_ID);
+                4, VerifiedParameterRowRepaintInstaller.EXPECTED_OWNERS, VerifiedParameterRowRepaintInstaller.HOOK_ID);
         assertEquals(1, VerifiedMeshHitTestInstaller.EXPECTED_OWNERS, VerifiedMeshHitTestInstaller.HOOK_ID);
         assertEquals(
                 5, VerifiedRenderPassTraversalInstaller.EXPECTED_OWNERS, VerifiedRenderPassTraversalInstaller.HOOK_ID);

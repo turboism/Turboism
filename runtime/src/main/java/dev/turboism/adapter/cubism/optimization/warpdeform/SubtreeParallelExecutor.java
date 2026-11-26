@@ -37,6 +37,7 @@ final class SubtreeParallelExecutor implements AutoCloseable {
 
     private final int workerCount;
     private final Thread[] workers;
+    private volatile ThreadLocal<Boolean> meshThreadMarker;
     private final AtomicBoolean[] workerIdle;
     private final AtomicBoolean[] workerDagParked;
     private final DispatchSlot[] slots;
@@ -108,14 +109,30 @@ final class SubtreeParallelExecutor implements AutoCloseable {
         return workers != null && !shutdown && workerCount > 0;
     }
 
+    /** Registers a thread-local flag set on worker threads only while running the ArtMesh transform phase. */
+    void setMeshThreadMarker(final ThreadLocal<Boolean> marker) {
+        this.meshThreadMarker = marker;
+    }
+
     /** Executes {@code count} indexed tasks on EDT directly or across persistent worker threads. */
     void executeBatch(final int count, final int minParallelThreshold, final IntConsumer task) {
         if (count <= 0) {
             return;
         }
         if (count < minParallelThreshold || !isParallelCapable()) {
-            for (int i = 0; i < count; i++) {
-                task.accept(i);
+            final ThreadLocal<Boolean> marker = meshThreadMarker;
+            final boolean alreadyMarked = marker != null && marker.get() != null;
+            if (marker != null && !alreadyMarked) {
+                marker.set(Boolean.TRUE);
+            }
+            try {
+                for (int i = 0; i < count; i++) {
+                    task.accept(i);
+                }
+            } finally {
+                if (marker != null && !alreadyMarked) {
+                    marker.remove();
+                }
             }
             return;
         }
@@ -123,6 +140,7 @@ final class SubtreeParallelExecutor implements AutoCloseable {
         try {
             final long epoch = publishedEpoch.get() + 1L;
             final DispatchSlot slot = acquireCleanSlot(epoch);
+            slot.meshThreadMarker = meshThreadMarker;
             slot.resetForBatch(Thread.currentThread(), count, task);
             currentSlot = slot;
             publishedEpoch.set(epoch);
@@ -167,6 +185,7 @@ final class SubtreeParallelExecutor implements AutoCloseable {
         try {
             final long epoch = publishedEpoch.get() + 1L;
             final DispatchSlot slot = acquireCleanSlot(epoch);
+            slot.meshThreadMarker = meshThreadMarker;
             slot.resetForDagAndMeshes(
                     Thread.currentThread(),
                     dirtyDefCount,
@@ -339,33 +358,44 @@ final class SubtreeParallelExecutor implements AutoCloseable {
         if (count <= 0 || task == null) {
             return;
         }
-        final int divisor = (workerCount + 1) * MESH_CHUNK_DIVISOR;
-        while (true) {
-            final int cur = (int) slot.meshCursor.get();
-            if (cur >= count) {
-                return;
-            }
-            final int chunk = Math.max(MIN_MESH_CHUNK, Math.min(MAX_MESH_CHUNK, (count - cur) / divisor));
-            final int start = (int) slot.meshCursor.getAndAdd(chunk);
-            if (start >= count) {
-                return;
-            }
-            final int end = Math.min(count, start + chunk);
-            int executed = 0;
-            try {
-                for (int i = start; i < end; i++) {
-                    executed++;
-                    task.accept(i);
+        final ThreadLocal<Boolean> marker = slot.meshThreadMarker;
+        final boolean alreadyMarked = marker != null && marker.get() != null;
+        if (marker != null && !alreadyMarked) {
+            marker.set(Boolean.TRUE);
+        }
+        try {
+            final int divisor = (workerCount + 1) * MESH_CHUNK_DIVISOR;
+            while (true) {
+                final int cur = (int) slot.meshCursor.get();
+                if (cur >= count) {
+                    return;
                 }
-            } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                slot.firstFailure.compareAndSet(null, failure);
-            } finally {
-                final int unread = (end - start) - executed;
-                final long left = slot.remainingMeshes.addAndGet(-(executed + unread));
-                if (left <= 0L) {
-                    LockSupport.unpark(slot.edtThread);
+                final int chunk = Math.max(MIN_MESH_CHUNK, Math.min(MAX_MESH_CHUNK, (count - cur) / divisor));
+                final int start = (int) slot.meshCursor.getAndAdd(chunk);
+                if (start >= count) {
+                    return;
                 }
+                final int end = Math.min(count, start + chunk);
+                int executed = 0;
+                try {
+                    for (int i = start; i < end; i++) {
+                        executed++;
+                        task.accept(i);
+                    }
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
+                    slot.firstFailure.compareAndSet(null, failure);
+                } finally {
+                    final int unread = (end - start) - executed;
+                    final long left = slot.remainingMeshes.addAndGet(-(executed + unread));
+                    if (left <= 0L) {
+                        LockSupport.unpark(slot.edtThread);
+                    }
+                }
+            }
+        } finally {
+            if (marker != null && !alreadyMarked) {
+                marker.remove();
             }
         }
     }
@@ -441,6 +471,7 @@ final class SubtreeParallelExecutor implements AutoCloseable {
         final AtomicReference<Throwable> firstFailure = new AtomicReference<>();
         final IntRingQueue queue = new IntRingQueue(DEFAULT_QUEUE_CAPACITY);
         volatile Thread edtThread;
+        volatile ThreadLocal<Boolean> meshThreadMarker;
         volatile boolean[] dirtyDefFlags;
         volatile int[][] deformerChildren;
         volatile IntConsumer deformerTask;

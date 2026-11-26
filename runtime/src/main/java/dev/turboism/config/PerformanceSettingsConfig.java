@@ -115,14 +115,17 @@ public final class PerformanceSettingsConfig {
     }
 
     /**
-     * Root field marking that legacy v0.70.2 default-off optimization preferences were already
-     * migrated, preventing re-promotion after later explicit user opt-outs.
+     * Root field marking the optimization defaults migration epoch, preventing re-promotion after
+     * later explicit user opt-outs.
      */
     public static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD =
             RuntimeConfigValidator.OPTIMIZATION_DEFAULTS_VERSION_FIELD;
 
+    private static final int UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION = 0;
+    private static final int V1_OPTIMIZATION_DEFAULTS_VERSION = 1;
+
     /** Current optimization defaults migration epoch written to migrated and fresh configs. */
-    public static final int CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1;
+    public static final int CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 2;
 
     private static final String LAUNCHER_FIELD = "launcher";
 
@@ -193,7 +196,7 @@ public final class PerformanceSettingsConfig {
             if (isExplicitOffPreset(rootObject)) {
                 return node == null || node.isNull() ? Boolean.FALSE.toString() : node.asText();
             }
-            if (OptimizationCatalog.isLegacyPromotedDefaultKey(field.key) && isExplicitFalse(node)) {
+            if (shouldPromoteOnRead(optimizationDefaultsVersion(rootObject), field) && isExplicitFalse(node)) {
                 return Boolean.TRUE.toString();
             }
         }
@@ -201,8 +204,8 @@ public final class PerformanceSettingsConfig {
     }
 
     /**
-     * Migrates an unversioned saved configuration once so promoted v0.70.2 defaults activate while
-     * preserving an explicit {@code OFF} preset, and records {@link #OPTIMIZATION_DEFAULTS_VERSION_FIELD}.
+     * Migrates unversioned or v1 optimization defaults once toward the current epoch while
+     * preserving an explicit {@code OFF} preset, and stamps {@link #OPTIMIZATION_DEFAULTS_VERSION_FIELD}.
      *
      * @param root configuration document to migrate in place
      * @return {@code true} when the document changed
@@ -211,28 +214,44 @@ public final class PerformanceSettingsConfig {
         if (!needsLegacyDefaultsMigration(root)) {
             return false;
         }
+        final int version = optimizationDefaultsVersion(root);
         if (isExplicitOffPreset(root)) {
-            for (final Optimization optimization : OptimizationCatalog.persisted()) {
-                final ObjectNode parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER
-                        ? root.withObject(LAUNCHER_FIELD)
-                        : root;
-                final JsonNode existing = parent.get(optimization.key());
-                if (existing == null || existing.isNull()) {
-                    parent.put(optimization.key(), false);
-                }
-            }
+            fillMissingOptimizationsAsFalse(root);
+        } else if (version == V1_OPTIMIZATION_DEFAULTS_VERSION) {
+            promoteLauncherFieldIfFalse(root, OptimizationCatalog.MESA_GL_THREAD.key());
         } else {
-            final JsonNode launcher = root.get(LAUNCHER_FIELD);
-            if (launcher instanceof ObjectNode launcherObject) {
-                for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
-                    if (isExplicitFalse(launcherObject.get(optimization.key()))) {
-                        launcherObject.put(optimization.key(), true);
-                    }
-                }
+            for (final Optimization optimization : OptimizationCatalog.legacyPromotedDefaults()) {
+                promoteLauncherFieldIfFalse(root, optimization.key());
             }
         }
         root.put(OPTIMIZATION_DEFAULTS_VERSION_FIELD, CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
         return true;
+    }
+
+    private static boolean shouldPromoteOnRead(final int version, final Field field) {
+        if (version == V1_OPTIMIZATION_DEFAULTS_VERSION) {
+            return field == Field.MESA_GL_THREAD;
+        }
+        return OptimizationCatalog.isLegacyPromotedDefaultKey(field.key);
+    }
+
+    private static void fillMissingOptimizationsAsFalse(final ObjectNode root) {
+        for (final Optimization optimization : OptimizationCatalog.persisted()) {
+            final ObjectNode parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER
+                    ? root.withObject(LAUNCHER_FIELD)
+                    : root;
+            final JsonNode existing = parent.get(optimization.key());
+            if (existing == null || existing.isNull()) {
+                parent.put(optimization.key(), false);
+            }
+        }
+    }
+
+    private static void promoteLauncherFieldIfFalse(final ObjectNode root, final String key) {
+        final JsonNode launcher = root.get(LAUNCHER_FIELD);
+        if (launcher instanceof ObjectNode launcherObject && isExplicitFalse(launcherObject.get(key))) {
+            launcherObject.put(key, true);
+        }
     }
 
     private static ObjectNode persistLegacyDefaultsMigration(
@@ -250,10 +269,32 @@ public final class PerformanceSettingsConfig {
     }
 
     private static boolean needsLegacyDefaultsMigration(final ObjectNode root) {
-        if (root == null || root.has(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+        if (root == null) {
             return false;
         }
+        final int version = optimizationDefaultsVersion(root);
+        if (version >= CURRENT_OPTIMIZATION_DEFAULTS_VERSION) {
+            return false;
+        }
+        if (version == V1_OPTIMIZATION_DEFAULTS_VERSION) {
+            return true;
+        }
         return isExplicitOffPreset(root) || hasEnabledPersistedOptimization(root);
+    }
+
+    private static int optimizationDefaultsVersion(final JsonNode root) {
+        if (root == null || !root.has(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+            return UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION;
+        }
+        final JsonNode versionNode = root.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD);
+        if (versionNode == null || versionNode.isNull() || !versionNode.isIntegralNumber()) {
+            return UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION;
+        }
+        final long version = versionNode.longValue();
+        if (version < V1_OPTIMIZATION_DEFAULTS_VERSION) {
+            return UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION;
+        }
+        return (int) Math.min(version, Integer.MAX_VALUE);
     }
 
     private static boolean isExplicitOffPreset(final JsonNode root) {

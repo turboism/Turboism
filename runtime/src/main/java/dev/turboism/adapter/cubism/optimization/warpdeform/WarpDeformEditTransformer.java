@@ -94,6 +94,15 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
     private static final String MH_SELECTED_UPLOAD_DESC = "(Ljava/lang/Object;Ljava/lang/Object;Z)Z";
     private static final String MH_SOFT_SELECTION_DESC =
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;[FII)Z";
+    private static final String MH_EXT_BEZIER_DRAG_DESC =
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;II[F)Ljava/util/List;";
+    private static final String MH_EXT_COONS_EVAL_DESC =
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;FF)Ljava/lang/Object;";
+    private static final String MH_EXT_COONS_INVERT_DESC =
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;FF)"
+                    + "Ljava/lang/Object;";
+    private static final String MH_EXT_BICUBIC_EVAL_DESC = "([FIIFF)Ljava/lang/Object;";
+    private static final String EXT_RESULT_J_OWNER = "com/live2d/cubism/doc/model/extension/a/j";
 
     private final ClassLoader loader;
     private final Path artifact;
@@ -455,6 +464,62 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
         if (WarpDeformEditTarget.BEZIER_GRID_OWNER.equals(owner)) {
             return new CreatePointsOnBezierAdapter(out);
         }
+        if (WarpDeformEditTarget.EXTENSION_BEZIER_EVAL_OWNER.equals(owner)) {
+            return new EntryNonNullResultAdapter(
+                    out,
+                    WarpDeformEditBridge.EXTENSION_BEZIER_DRAG_PROPERTY,
+                    MH_EXT_BEZIER_DRAG_DESC,
+                    new int[] {0, 1, 2, 3, 4, 5, 6},
+                    new int[] {
+                        Opcodes.ALOAD,
+                        Opcodes.ALOAD,
+                        Opcodes.ALOAD,
+                        Opcodes.ALOAD,
+                        Opcodes.ILOAD,
+                        Opcodes.ILOAD,
+                        Opcodes.ALOAD
+                    },
+                    LIST_OWNER);
+        }
+        if (WarpDeformEditTarget.EXTENSION_BEZIER_MATH_OWNER.equals(owner)) {
+            if (WarpDeformEditTarget.EXTENSION_COONS_EVAL_DESCRIPTOR.equals(desc)) {
+                return new EntryNonNullResultAdapter(
+                        out,
+                        WarpDeformEditBridge.EXTENSION_COONS_EVAL_PROPERTY,
+                        MH_EXT_COONS_EVAL_DESC,
+                        new int[] {0, 1, 2, 3, 4, 5},
+                        new int[] {
+                            Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.ALOAD, Opcodes.FLOAD, Opcodes.FLOAD
+                        },
+                        WarpDeformEditTarget.GVECTOR2_OWNER);
+            }
+            if (WarpDeformEditTarget.EXTENSION_COONS_INVERT_DESCRIPTOR.equals(desc)) {
+                return new EntryNonNullResultAdapter(
+                        out,
+                        WarpDeformEditBridge.EXTENSION_COONS_INVERT_PROPERTY,
+                        MH_EXT_COONS_INVERT_DESC,
+                        new int[] {0, 1, 2, 3, 4, 5, 6},
+                        new int[] {
+                            Opcodes.ALOAD,
+                            Opcodes.ALOAD,
+                            Opcodes.ALOAD,
+                            Opcodes.ALOAD,
+                            Opcodes.ALOAD,
+                            Opcodes.FLOAD,
+                            Opcodes.FLOAD
+                        },
+                        EXT_RESULT_J_OWNER);
+            }
+            if (WarpDeformEditTarget.EXTENSION_BICUBIC_EVAL_DESCRIPTOR.equals(desc)) {
+                return new EntryNonNullResultAdapter(
+                        out,
+                        WarpDeformEditBridge.EXTENSION_BICUBIC_EVAL_PROPERTY,
+                        MH_EXT_BICUBIC_EVAL_DESC,
+                        new int[] {0, 1, 2, 3, 4},
+                        new int[] {Opcodes.ALOAD, Opcodes.ILOAD, Opcodes.ILOAD, Opcodes.FLOAD, Opcodes.FLOAD},
+                        WarpDeformEditTarget.GVECTOR2_OWNER);
+            }
+        }
         if (WarpDeformEditTarget.WARP_DRAW_OWNER.equals(owner)) {
             return switch (methodName) {
                 case WarpDeformEditTarget.DRAW_CORNER_TRIANGLE_METHOD ->
@@ -516,9 +581,13 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 return EditSubtreeMethodWeavers.artMeshAppearanceAdapter(out);
             }
         }
-        if (WarpDeformEditTarget.WARP_SOURCE_OWNER.equals(owner)
-                && WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD.equals(methodName)) {
-            return EditSubtreeMethodWeavers.warpSourceReinitAdapter(out, warpSourceReinitNextFreeLocal);
+        if (WarpDeformEditTarget.WARP_SOURCE_OWNER.equals(owner)) {
+            if (WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD.equals(methodName)) {
+                return EditSubtreeMethodWeavers.warpSourceReinitAdapter(out, warpSourceReinitNextFreeLocal);
+            }
+            if (WarpDeformEditTarget.SET_KEYFORMS_METHOD.equals(methodName)) {
+                return new EditSubtreeMethodWeavers.DeformerSourceMutationAdapter(out);
+            }
         }
         if (WarpDeformEditTarget.ROT_FORM_OWNER.equals(owner)
                 && WarpDeformEditTarget.ROT_TRANSFORM_EXE_METHOD.equals(methodName)) {
@@ -542,8 +611,30 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                     selectionDrawScan.nextFreeLocal());
         }
         if (WarpDeformEditTarget.ACFORM_OWNER.equals(owner)) {
-            return new EditSubtreeMethodWeavers.EpochIncrementEntryAdapter(
-                    out, WarpDeformEditBridge.MESH_KEYFORM_EPOCH_PROPERTY, true);
+            return new EditSubtreeMethodWeavers.AcFormMutationAdapter(
+                    out, WarpDeformEditTarget.REINIT_METHOD.equals(methodName));
+        }
+        if (WarpDeformEditTarget.AC_DEFORMER_SOURCE_OWNER.equals(owner)) {
+            return new EditSubtreeMethodWeavers.DeformerSourceMutationAdapter(out);
+        }
+        if (WarpDeformEditTarget.ART_MESH_OWNER.equals(owner)) {
+            return new EditSubtreeMethodWeavers.LocalMeshEpochEntryAdapter(
+                    out, WarpDeformEditTarget.SET_DEFORMED_FORM_METHOD.equals(methodName), false, false);
+        }
+        if (WarpDeformEditTarget.ART_MESH_SOURCE_OWNER.equals(owner)) {
+            final boolean isKeyformMutation = WarpDeformEditTarget.SET_KEYFORMS_METHOD.equals(methodName)
+                    || WarpDeformEditTarget.REINIT_METHOD.equals(methodName);
+            return new EditSubtreeMethodWeavers.LocalMeshEpochEntryAdapter(
+                    out, false, isKeyformMutation, WarpDeformEditTarget.SET_POSITIONS_METHOD.equals(methodName));
+        }
+        if (WarpDeformEditTarget.CART_MESH_FORM_OWNER.equals(owner)
+                || WarpDeformEditTarget.AC_DRAWABLE_FORM_OWNER.equals(owner)) {
+            return new EditSubtreeMethodWeavers.LocalMeshEpochEntryAdapter(out, true, false, true);
+        }
+        if (WarpDeformEditTarget.AC_CONTROLLABLE_SOURCE_OWNER.equals(owner)
+                || WarpDeformEditTarget.GMESH_CONTAINER_OWNER.equals(owner)
+                || WarpDeformEditTarget.GMESH2_OWNER.equals(owner)) {
+            return new EditSubtreeMethodWeavers.LocalMeshEpochEntryAdapter(out, false, false, false);
         }
         if (WarpDeformEditTarget.KEYFORM_BINDING_SOURCE_OWNER.equals(owner)) {
             if (WarpDeformEditTarget.GET_KEY_INDICES_IN_RANGE_METHOD.equals(methodName)) {
@@ -607,9 +698,88 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                                 WarpDeformEditTarget.FORM_IS_INSIDE_METHOD,
                                 WarpDeformEditTarget.FORM_IS_INSIDE_DESCRIPTOR));
             case WarpDeformEditTarget.WARP_SOURCE_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD,
+                                WarpDeformEditTarget.WARP_SOURCE_REINIT_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_KEYFORMS_METHOD,
+                                WarpDeformEditTarget.SET_KEYFORMS_DESCRIPTOR));
+            case WarpDeformEditTarget.AC_DEFORMER_SOURCE_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_UPDATED_FLAG_METHOD,
+                                WarpDeformEditTarget.VOID_NO_ARG_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.KEYFORM_REINIT_DESCRIPTOR));
+            case WarpDeformEditTarget.ART_MESH_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_ANIMATED_FORM_METHOD,
+                                WarpDeformEditTarget.ACFORM_PARAM_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_ANIMATED_FORM_METHOD,
+                                WarpDeformEditTarget.ART_MESH_FORM_PARAM_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_LOCAL_ANIMATED_FORM_METHOD,
+                                WarpDeformEditTarget.ACFORM_PARAM_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_LOCAL_ANIMATED_FORM_METHOD,
+                                WarpDeformEditTarget.ART_MESH_FORM_PARAM_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_INTERPOLATED_FORM_METHOD,
+                                WarpDeformEditTarget.ART_MESH_FORM_PARAM_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_DEFORMED_FORM_METHOD,
+                                WarpDeformEditTarget.ART_MESH_FORM_PARAM_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_COPIED_MESH_VERSION_METHOD,
+                                WarpDeformEditTarget.SET_INT_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.RECOVER_METHOD, WarpDeformEditTarget.VOID_NO_ARG_DESCRIPTOR));
+            case WarpDeformEditTarget.ART_MESH_SOURCE_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_KEYFORMS_METHOD, WarpDeformEditTarget.SET_KEYFORMS_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_MESH_UPDATED_TEST_METHOD,
+                                WarpDeformEditTarget.VOID_NO_ARG_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.KEYFORM_REINIT_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_POSITIONS_METHOD,
+                                WarpDeformEditTarget.SET_POSITIONS_DESCRIPTOR));
+            case WarpDeformEditTarget.CART_MESH_FORM_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_POSITIONS_METHOD,
+                                WarpDeformEditTarget.SET_POSITIONS_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.KEYFORM_REINIT_DESCRIPTOR));
+            case WarpDeformEditTarget.AC_DRAWABLE_FORM_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_DRAW_ORDER_METHOD, WarpDeformEditTarget.SET_INT_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.REINIT_METHOD, WarpDeformEditTarget.KEYFORM_REINIT_DESCRIPTOR));
+            case WarpDeformEditTarget.AC_CONTROLLABLE_SOURCE_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_VISIBLE_METHOD, WarpDeformEditTarget.SET_BOOLEAN_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.INTERNAL_SET_VIS_LOCK_METHOD,
+                                WarpDeformEditTarget.INTERNAL_SET_VIS_LOCK_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.SET_PARENT_GUID_METHOD,
+                                WarpDeformEditTarget.SET_PARENT_GUID_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.INTERNAL_SET_PARENT_METHOD,
+                                WarpDeformEditTarget.INTERNAL_SET_PARENT_DESCRIPTOR));
+            case WarpDeformEditTarget.GMESH_CONTAINER_OWNER ->
+                List.of(new MethodSpec(WarpDeformEditTarget.SET_MESH_METHOD, WarpDeformEditTarget.SET_MESH_DESCRIPTOR));
+            case WarpDeformEditTarget.GMESH2_OWNER ->
                 List.of(new MethodSpec(
-                        WarpDeformEditTarget.WARP_SOURCE_REINIT_METHOD,
-                        WarpDeformEditTarget.WARP_SOURCE_REINIT_DESCRIPTOR));
+                        WarpDeformEditTarget.SET_POSITIONS_METHOD, WarpDeformEditTarget.SET_POSITIONS_DESCRIPTOR));
             case WarpDeformEditTarget.WARP_DEFORMER_OWNER ->
                 List.of(new MethodSpec(
                         WarpDeformEditTarget.TRANSFORM_CANVAS_TO_LOCAL_METHOD,
@@ -636,6 +806,21 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
                 List.of(new MethodSpec(
                         WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_METHOD,
                         WarpDeformEditTarget.CREATE_POINTS_ON_BEZIER_DESCRIPTOR));
+            case WarpDeformEditTarget.EXTENSION_BEZIER_EVAL_OWNER ->
+                List.of(new MethodSpec(
+                        WarpDeformEditTarget.EXTENSION_METHOD_A,
+                        WarpDeformEditTarget.EXTENSION_BEZIER_DRAG_EVAL_DESCRIPTOR));
+            case WarpDeformEditTarget.EXTENSION_BEZIER_MATH_OWNER ->
+                List.of(
+                        new MethodSpec(
+                                WarpDeformEditTarget.EXTENSION_METHOD_A,
+                                WarpDeformEditTarget.EXTENSION_COONS_EVAL_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.EXTENSION_METHOD_A,
+                                WarpDeformEditTarget.EXTENSION_COONS_INVERT_DESCRIPTOR),
+                        new MethodSpec(
+                                WarpDeformEditTarget.EXTENSION_METHOD_A,
+                                WarpDeformEditTarget.EXTENSION_BICUBIC_EVAL_DESCRIPTOR));
             default -> throw new IllegalArgumentException("unsupported fixed owner: " + owner);
         };
     }
@@ -1450,6 +1635,60 @@ public final class WarpDeformEditTransformer implements ClassFileTransformer {
             mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, mhDesc, false);
             mv.visitJumpInsn(Opcodes.IFEQ, fallback);
             mv.visitInsn(Opcodes.RETURN);
+            mv.visitLabel(notHandle);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(tryEnd);
+            mv.visitJumpInsn(Opcodes.GOTO, fallback);
+            mv.visitLabel(handler);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(fallback);
+        }
+    }
+
+    private static final class EntryNonNullResultAdapter extends MethodVisitor {
+
+        private final String slotKey;
+        private final String mhDesc;
+        private final int[] argSlots;
+        private final int[] loadOpcodes;
+        private final String castOwner;
+
+        private EntryNonNullResultAdapter(
+                final MethodVisitor out,
+                final String slotKey,
+                final String mhDesc,
+                final int[] argSlots,
+                final int[] loadOpcodes,
+                final String castOwner) {
+            super(Opcodes.ASM9, out);
+            this.slotKey = slotKey;
+            this.mhDesc = mhDesc;
+            this.argSlots = argSlots;
+            this.loadOpcodes = loadOpcodes;
+            this.castOwner = castOwner;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label tryStart = new Label();
+            final Label tryEnd = new Label();
+            final Label handler = new Label();
+            final Label notHandle = new Label();
+            final Label fallback = new Label();
+            mv.visitTryCatchBlock(tryStart, tryEnd, handler, THROWABLE_OWNER);
+            mv.visitLabel(tryStart);
+            SlotBridgeEmitter.emitMethodHandleConsult(mv, slotKey, notHandle);
+            for (int i = 0; i < argSlots.length; i++) {
+                mv.visitVarInsn(loadOpcodes[i], argSlots[i]);
+            }
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, mhDesc, false);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitJumpInsn(Opcodes.IFNULL, notHandle);
+            if (castOwner != null) {
+                mv.visitTypeInsn(Opcodes.CHECKCAST, castOwner);
+            }
+            mv.visitInsn(Opcodes.ARETURN);
             mv.visitLabel(notHandle);
             mv.visitInsn(Opcodes.POP);
             mv.visitLabel(tryEnd);

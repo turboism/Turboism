@@ -841,7 +841,10 @@ final class ConfigMerge {
     private static final String RUNTIME_CONFIG_FORMAT = "turboism.runtime.config";
     private static final long CURRENT_SCHEMA_VERSION = 1L;
     private static final String OPTIMIZATION_DEFAULTS_VERSION_FIELD = "optimizationDefaultsVersion";
-    private static final long CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1L;
+    private static final long UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION = 0L;
+    private static final long V1_OPTIMIZATION_DEFAULTS_VERSION = 1L;
+    private static final long CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 2L;
+    private static final String MESA_GL_THREAD_FIELD = "mesaGlThread";
     private static final Set<String> V1_FIELDS = Set.of(
             "format", "schemaVersion", OPTIMIZATION_DEFAULTS_VERSION_FIELD,
             "worktreeId", "pluginDirs", "disabledPlugins",
@@ -1313,15 +1316,19 @@ final class ConfigMerge {
     }
 
     /**
-     * Migrates an unversioned v0.70.2 optimization configuration once while preserving an explicit
-     * {@code OFF} preset or untouched minimal configs.
+     * Migrates unversioned or v1 optimization defaults once toward the current epoch while
+     * preserving an explicit {@code OFF} preset or untouched minimal configs.
      */
     static boolean migrateOptimizationDefaults(Map<String, Object> document) {
-        if (document == null || document.containsKey(OPTIMIZATION_DEFAULTS_VERSION_FIELD)) {
+        if (document == null) {
+            return false;
+        }
+        final long version = optimizationDefaultsVersion(document);
+        if (version >= CURRENT_OPTIMIZATION_DEFAULTS_VERSION) {
             return false;
         }
         final boolean explicitOff = isExplicitOffPreset(document);
-        if (!explicitOff && !hasEnabledOptimization(document)) {
+        if (version < V1_OPTIMIZATION_DEFAULTS_VERSION && !explicitOff && !hasEnabledOptimization(document)) {
             return false;
         }
         final Map<String, Object> launcher = mutableLauncher(document);
@@ -1336,21 +1343,35 @@ final class ConfigMerge {
                     launcher.put(field, Boolean.FALSE);
                 }
             }
-            if (!launcher.isEmpty()) {
-                document.put("launcher", launcher);
-            }
+        } else if (version == V1_OPTIMIZATION_DEFAULTS_VERSION) {
+            promoteLauncherFieldIfFalse(launcher, MESA_GL_THREAD_FIELD);
         } else {
             for (String field : LEGACY_PROMOTED_DEFAULT_OFF_FIELDS) {
-                if (Boolean.FALSE.equals(launcher.get(field))) {
-                    launcher.put(field, Boolean.TRUE);
-                }
+                promoteLauncherFieldIfFalse(launcher, field);
             }
-            if (!launcher.isEmpty()) {
-                document.put("launcher", launcher);
-            }
+        }
+        if (!launcher.isEmpty()) {
+            document.put("launcher", launcher);
         }
         document.put(OPTIMIZATION_DEFAULTS_VERSION_FIELD, CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
         return true;
+    }
+
+    private static long optimizationDefaultsVersion(Map<String, Object> document) {
+        final Object raw = document.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD);
+        if (!(raw instanceof Long)) {
+            return UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION;
+        }
+        final long version = (Long) raw;
+        return version < V1_OPTIMIZATION_DEFAULTS_VERSION
+                ? UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION
+                : version;
+    }
+
+    private static void promoteLauncherFieldIfFalse(Map<String, Object> launcher, String field) {
+        if (Boolean.FALSE.equals(launcher.get(field))) {
+            launcher.put(field, Boolean.TRUE);
+        }
     }
 
     private static Map<String, Object> mutableLauncher(Map<String, Object> document) {

@@ -48,6 +48,7 @@ public final class ConfigMergeRegression {
 
     private static final String HEX64 =
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static final long CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 2L;
 
     public static void main(String[] args) throws Exception {
         strictNumbers();
@@ -411,8 +412,9 @@ public final class ConfigMergeRegression {
             final Map<String, Object> migrated = ConfigMerge.loadExisting(upgradeHome);
             ConfigMerge.validateCurrent(migrated);
             check(
-                    "v0.70.2 defaults migration stamps optimizationDefaultsVersion=1",
-                    Long.valueOf(1L).equals(migrated.get("optimizationDefaultsVersion")));
+                    "v0.70.2 defaults migration stamps optimizationDefaultsVersion=2",
+                    Long.valueOf(CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+                            .equals(migrated.get("optimizationDefaultsVersion")));
             final Map<?, ?> migratedLauncher = (Map<?, ?>) migrated.get("launcher");
             for (String key : promotedKeys) {
                 check("v0.70.2 promoted key flipped to true: " + key, Boolean.TRUE.equals(migratedLauncher.get(key)));
@@ -431,6 +433,7 @@ public final class ConfigMergeRegression {
                 editedLauncher.put((String) entry.getKey(), entry.getValue());
             }
             editedLauncher.put("warpGridInterpolation", Boolean.FALSE);
+            editedLauncher.put("mesaGlThread", Boolean.FALSE);
             migrated.put("launcher", editedLauncher);
             ConfigMerge.write(upgradeHome, migrated);
             final String beforeSecondInstall =
@@ -444,7 +447,7 @@ public final class ConfigMergeRegression {
             deleteTree(upgradeHome);
         }
 
-        // 2. Explicit OFF preset respects false choices and records optimizationDefaultsVersion=1.
+        // 2. Explicit OFF preset respects false choices and records optimizationDefaultsVersion=2.
         final Path offHome = Files.createTempDirectory("listener-v0702-off-");
         try {
             final Map<String, Object> offLauncher = new LinkedHashMap<>();
@@ -462,8 +465,9 @@ public final class ConfigMergeRegression {
             final Map<String, Object> migratedOff = ConfigMerge.loadExisting(offHome);
             ConfigMerge.validateCurrent(migratedOff);
             check(
-                    "OFF preset migration records optimizationDefaultsVersion=1",
-                    Long.valueOf(1L).equals(migratedOff.get("optimizationDefaultsVersion")));
+                    "OFF preset migration records optimizationDefaultsVersion=2",
+                    Long.valueOf(CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+                            .equals(migratedOff.get("optimizationDefaultsVersion")));
             final Map<?, ?> migratedOffLauncher = (Map<?, ?>) migratedOff.get("launcher");
             for (String key : promotedKeys) {
                 check("OFF preset preserves false for " + key, Boolean.FALSE.equals(migratedOffLauncher.get(key)));
@@ -475,6 +479,86 @@ public final class ConfigMergeRegression {
         } finally {
             deleteTree(offHome);
         }
+
+        // 3. v0.70.3-beta.3 (optimizationDefaultsVersion=1) promotes ONLY mesaGlThread while preserving
+        // all other explicit opt-outs.
+        final Path v1UpgradeHome = Files.createTempDirectory("listener-v1-upgrade-");
+        try {
+            final Map<String, Object> v1Launcher = new LinkedHashMap<>();
+            v1Launcher.put("cubismJvm", "graalvm");
+            v1Launcher.put("modelUpdateSkip", Boolean.TRUE);
+            v1Launcher.put("mesaGlThread", Boolean.FALSE);
+            v1Launcher.put("shaderUniform", Boolean.FALSE);
+            v1Launcher.put("matrixScratch", Boolean.FALSE);
+            v1Launcher.put("uploadElision", Boolean.FALSE);
+            v1Launcher.put("uniformLocationCache", Boolean.FALSE);
+            final Map<String, Object> v1Config = validRuntimeConfig();
+            v1Config.put("optimizationDefaultsVersion", 1L);
+            v1Config.put("atlasLoading", Boolean.TRUE);
+            v1Config.put("launcher", v1Launcher);
+            ConfigMerge.write(v1UpgradeHome, v1Config);
+
+            listener(v1UpgradeHome, "full").beforePacks(List.of());
+            check(
+                    "v1 valid defaults migration creates no corrupt backup",
+                    !Files.exists(v1UpgradeHome.resolve("config.json.corrupt.bak")));
+            final Map<String, Object> migratedV1 = ConfigMerge.loadExisting(v1UpgradeHome);
+            ConfigMerge.validateCurrent(migratedV1);
+            check(
+                    "v1 defaults migration stamps optimizationDefaultsVersion=2",
+                    Long.valueOf(CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+                            .equals(migratedV1.get("optimizationDefaultsVersion")));
+            final Map<?, ?> migratedV1Launcher = (Map<?, ?>) migratedV1.get("launcher");
+            check(
+                    "v1 migration flips mesaGlThread to true",
+                    Boolean.TRUE.equals(migratedV1Launcher.get("mesaGlThread")));
+            check(
+                    "v1 migration preserves all other explicit opt-outs",
+                    Boolean.FALSE.equals(migratedV1Launcher.get("shaderUniform"))
+                            && Boolean.FALSE.equals(migratedV1Launcher.get("matrixScratch"))
+                            && Boolean.FALSE.equals(migratedV1Launcher.get("uploadElision"))
+                            && Boolean.FALSE.equals(migratedV1Launcher.get("uniformLocationCache")));
+        } finally {
+            deleteTree(v1UpgradeHome);
+        }
+
+        // 4. v1 explicit OFF preset stays OFF without turning on mesaGlThread.
+        final Path v1OffHome = Files.createTempDirectory("listener-v1-off-");
+        try {
+            final Map<String, Object> v1OffLauncher = new LinkedHashMap<>();
+            v1OffLauncher.put("cubismJvm", "graalvm");
+            v1OffLauncher.put("modelUpdateSkip", Boolean.FALSE);
+            v1OffLauncher.put("mesaGlThread", Boolean.FALSE);
+            v1OffLauncher.put("shaderUniform", Boolean.FALSE);
+            final Map<String, Object> v1OffConfig = validRuntimeConfig();
+            v1OffConfig.put("optimizationDefaultsVersion", 1L);
+            v1OffConfig.put("atlasLoading", Boolean.FALSE);
+            v1OffConfig.put("launcher", v1OffLauncher);
+            ConfigMerge.write(v1OffHome, v1OffConfig);
+
+            listener(v1OffHome, "full").beforePacks(List.of());
+            final Map<String, Object> migratedV1Off = ConfigMerge.loadExisting(v1OffHome);
+            ConfigMerge.validateCurrent(migratedV1Off);
+            check(
+                    "v1 OFF preset migration records optimizationDefaultsVersion=2",
+                    Long.valueOf(CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+                            .equals(migratedV1Off.get("optimizationDefaultsVersion")));
+            final Map<?, ?> migratedV1OffLauncher = (Map<?, ?>) migratedV1Off.get("launcher");
+            check(
+                    "v1 OFF preset preserves mesaGlThread=false and other false flags",
+                    Boolean.FALSE.equals(migratedV1OffLauncher.get("mesaGlThread"))
+                            && Boolean.FALSE.equals(migratedV1OffLauncher.get("shaderUniform"))
+                            && Boolean.FALSE.equals(migratedV1OffLauncher.get("warpDeformEditAcceleration"))
+                            && Boolean.FALSE.equals(migratedV1Off.get("atlasInteractiveRender")));
+        } finally {
+            deleteTree(v1OffHome);
+        }
+
+        // 5. Fresh template stamps optimizationDefaultsVersion=2.
+        check(
+                "fresh config template records optimizationDefaultsVersion=2",
+                Long.valueOf(CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+                        .equals(ConfigMerge.loadTemplate().get("optimizationDefaultsVersion")));
     }
 
     private static Map<String, Object> validRuntimeConfig() {

@@ -323,4 +323,150 @@ class PerformanceSettingsConfigTest {
             assertEquals(OptimizationPreset.CUSTOM, OptimizationPreset.detect(service));
         }
     }
+
+    @Test
+    void migratesVersion1ConfigPromotingOnlyMesaGlThreadWhilePreservingOtherOptOuts() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("optimizationDefaultsVersion", 1);
+        root.put("worktreeId", "turboism-runtime");
+        root.putArray("pluginDirs").add("plugins");
+        root.put("atlasLoading", true);
+        var launcher = root.putObject("launcher");
+        launcher.put("cubismJvm", "graalvm");
+        launcher.put("modelUpdateSkip", true);
+        launcher.put("mesaGlThread", false);
+        launcher.put("shaderUniform", false);
+        launcher.put("matrixScratch", false);
+        launcher.put("warpGridInterpolation", false);
+        launcher.put("uniformLocationCache", false);
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        assertEquals("true", loaded.value(Field.MESA_GL_THREAD).value());
+        assertEquals("false", loaded.value(Field.SHADER_UNIFORM).value());
+        assertEquals("false", loaded.value(Field.MATRIX_SCRATCH).value());
+        assertEquals("false", loaded.value(Field.WARP_GRID_INTERPOLATION).value());
+        assertEquals("false", loaded.value(Field.UNIFORM_LOCATION_CACHE).value());
+
+        var persisted = json.readTree(home.resolve("config.json").toFile());
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+        assertTrue(persisted.path("launcher").path("mesaGlThread").booleanValue());
+        assertFalse(persisted.path("launcher").path("shaderUniform").booleanValue());
+        assertFalse(persisted.path("launcher").path("matrixScratch").booleanValue());
+        assertFalse(persisted.path("launcher").path("warpGridInterpolation").booleanValue());
+    }
+
+    @Test
+    void migratesVersion1MinimalConfigWithMesaGlThreadOptOut() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("optimizationDefaultsVersion", 1);
+        root.put("worktreeId", "turboism-runtime");
+        root.putArray("pluginDirs").add("plugins");
+        var launcher = root.putObject("launcher");
+        launcher.put("cubismJvm", "graalvm");
+        launcher.put("mesaGlThread", false);
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        assertEquals("true", loaded.value(Field.MESA_GL_THREAD).value());
+        var persisted = json.readTree(home.resolve("config.json").toFile());
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+        assertTrue(persisted.path("launcher").path("mesaGlThread").booleanValue());
+    }
+
+    @Test
+    void migratesVersion1ExplicitOffPresetWithoutEnablingMesaGlThread() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("optimizationDefaultsVersion", 1);
+        root.put("worktreeId", "turboism-runtime");
+        var launcher = root.putObject("launcher");
+        launcher.put("cubismJvm", "graalvm");
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            var parent = optimization.access() == Optimization.Access.PERSISTED_LAUNCHER ? launcher : root;
+            parent.put(optimization.key(), false);
+        }
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        for (Optimization optimization : OptimizationCatalog.persisted()) {
+            assertEquals("false", loaded.value(Field.forKey(optimization.key())).value(), optimization.key());
+        }
+        var persisted = json.readTree(home.resolve("config.json").toFile());
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                persisted
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+        assertFalse(persisted.path("launcher").path("mesaGlThread").booleanValue());
+        try (var service = new OptimizationSettingsFileService(home)) {
+            assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(service));
+        }
+    }
+
+    @Test
+    void preservesVersion2ExplicitMesaGlThreadOptOutIdempotently() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = json.createObjectNode();
+        root.put("format", "turboism.runtime.config");
+        root.put("schemaVersion", 1);
+        root.put("optimizationDefaultsVersion", PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION);
+        root.put("worktreeId", "turboism-runtime");
+        root.putArray("pluginDirs").add("plugins");
+        root.put("atlasLoading", true);
+        var launcher = root.putObject("launcher");
+        launcher.put("cubismJvm", "graalvm");
+        launcher.put("modelUpdateSkip", true);
+        launcher.put("mesaGlThread", false);
+        Files.writeString(
+                home.resolve("config.json"),
+                json.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+        byte[] before = Files.readAllBytes(home.resolve("config.json"));
+
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        assertEquals("false", loaded.value(Field.MESA_GL_THREAD).value());
+        assertEquals("global-config", loaded.value(Field.MESA_GL_THREAD).source());
+        assertArrayEquals(before, Files.readAllBytes(home.resolve("config.json")));
+    }
+
+    @Test
+    void defaultsAndFreshSaveStampVersion2AndPreserveMesaGlThreadOptOut() throws Exception {
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                RuntimeConfigRepository.defaults()
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+        var repository = new RuntimeConfigRepository(home, ignored -> {});
+        PerformanceSettingsConfig.save(repository, Field.MESA_GL_THREAD, "false");
+        var loaded = PerformanceSettingsConfig.load(home, ignored -> {});
+        assertEquals("false", loaded.value(Field.MESA_GL_THREAD).value());
+        assertEquals(
+                PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION,
+                repository
+                        .read()
+                        .path(PerformanceSettingsConfig.OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+                        .asInt());
+    }
 }

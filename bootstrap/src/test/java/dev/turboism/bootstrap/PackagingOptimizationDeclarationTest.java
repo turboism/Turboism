@@ -202,6 +202,16 @@ class PackagingOptimizationDeclarationTest {
         final String mirror = read("packaging/windows-installer/test-config-merge.py");
         assertEquals(promoted, new TreeSet<>(declaredNames(mirror, "\nLEGACY_PROMOTED_DEFAULT_OFF_FIELDS = {", "}")));
         assertEquals(rootFields, new TreeSet<>(declaredNames(mirror, "\nROOT_OPTIMIZATION_FIELDS = {", "}")));
+
+        final String launcher = read("packaging/windows-installer/cubism-launch-common.ps1");
+        assertEquals(
+                promoted,
+                new TreeSet<>(declaredNames(launcher, "$script:CubismLegacyPromotedDefaultOffFields = @(", ")")));
+        assertEquals(
+                rootFields, new TreeSet<>(declaredNames(launcher, "$script:CubismRootOptimizationFields = @(", ")")));
+        assertEquals(
+                new TreeSet<>(LAUNCHER_FIELDS),
+                new TreeSet<>(declaredNames(launcher, "$script:CubismLauncherOptimizationFields = @(", ")")));
     }
 
     private static void assertDisjoint(final List<Set<String>> lists) {

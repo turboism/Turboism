@@ -9,15 +9,25 @@
     "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
     "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
     "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
-    "com/live2d/cubism/view/context/action/a",
-    "com/live2d/cubism/view/context/action/a$a",
-    "com/live2d/cubism/view/context/action/N$c",
+    "com/live2d/cubism/view/context/action/z$b",
+    "com/live2d/cubism/view/context/action/z$c",
+    "com/live2d/cubism/view/context/action/C$c",
     "com/live2d/cubism/view/ay",
     "com/live2d/cubism/view/context/K",
     "com/live2d/cubism/view/context/K$b",
     "com/live2d/cubism/doc/model/ACForm",
     "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-    "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+    "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+    "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+    "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+    "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+    "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+    "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+    "com/live2d/graphics3d/component/GMeshContainer",
+    "com/live2d/graphics3d/mesh/GMesh2",
+    "com/live2d/cubism/doc/model/extension/a/d",
+    "com/live2d/cubism/doc/model/extension/a/f"
   ],
   "overrides": {
     "5.0.00": [
@@ -36,7 +46,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.0.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -54,7 +72,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.0.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -72,7 +98,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.0.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -90,7 +124,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.0.04": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -108,7 +150,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.0.05": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -126,7 +176,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.0.06": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -144,7 +202,15 @@
       "com/live2d/cubism/view/context/J",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.1.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -163,7 +229,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.1.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -182,7 +256,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.1.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -201,7 +283,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.1.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -220,7 +310,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.2.00": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -239,7 +337,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.2.01": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -258,7 +364,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.2.02": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -277,7 +391,15 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
     "5.2.03": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
@@ -296,9 +418,17 @@
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2"
     ],
-    "5.3.00": [
+    "5.3.04": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformer",
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
@@ -308,17 +438,27 @@
       "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
-      "com/live2d/cubism/view/context/action/z$b",
-      "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c",
+      "com/live2d/cubism/view/context/action/a",
+      "com/live2d/cubism/view/context/action/a$a",
+      "com/live2d/cubism/view/context/action/N$c",
       "com/live2d/cubism/view/ay",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2",
+      "com/live2d/cubism/doc/model/extension/a/d",
+      "com/live2d/cubism/doc/model/extension/a/f"
     ],
-    "5.3.01": [
+    "5.3.05": [
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformer",
       "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
@@ -328,55 +468,25 @@
       "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
       "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
       "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
-      "com/live2d/cubism/view/context/action/z$b",
-      "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c",
+      "com/live2d/cubism/view/context/action/a",
+      "com/live2d/cubism/view/context/action/a$a",
+      "com/live2d/cubism/view/context/action/N$c",
       "com/live2d/cubism/view/ay",
       "com/live2d/cubism/view/context/K",
       "com/live2d/cubism/view/context/K$b",
       "com/live2d/cubism/doc/model/ACForm",
       "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
-    ],
-    "5.3.02": [
-      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
-      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformer",
-      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
-      "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm",
-      "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformer$a",
-      "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid",
-      "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-      "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
-      "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
-      "com/live2d/cubism/view/context/action/z$b",
-      "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c",
-      "com/live2d/cubism/view/ay",
-      "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b",
-      "com/live2d/cubism/doc/model/ACForm",
-      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
-    ],
-    "5.3.03": [
-      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
-      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformer",
-      "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerSource",
-      "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm",
-      "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformer$a",
-      "com/live2d/cubism/doc/model/deformer/warp/bezier/CSimpleGrid",
-      "com/live2d/cubism/doc/model/deformer/warp/grid/CGridTransform",
-      "com/live2d/cubism/doc/model/deformer/warp/bezier/CBezierGrid",
-      "com/live2d/cubism/doc/model/deformer/warp/WarpDeformer_Draw",
-      "com/live2d/cubism/view/context/action/z$b",
-      "com/live2d/cubism/view/context/action/z$c",
-      "com/live2d/cubism/view/context/action/C$c",
-      "com/live2d/cubism/view/ay",
-      "com/live2d/cubism/view/context/K",
-      "com/live2d/cubism/view/context/K$b",
-      "com/live2d/cubism/doc/model/ACForm",
-      "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
-      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource"
+      "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+      "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMesh",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "com/live2d/cubism/doc/model/drawable/ACDrawableForm",
+      "com/live2d/cubism/doc/model/ACParameterControllableSource",
+      "com/live2d/graphics3d/component/GMeshContainer",
+      "com/live2d/graphics3d/mesh/GMesh2",
+      "com/live2d/cubism/doc/model/extension/a/d",
+      "com/live2d/cubism/doc/model/extension/a/f"
     ]
   }
 }

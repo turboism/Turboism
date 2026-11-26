@@ -2,13 +2,22 @@ package dev.turboism.adapter.cubism.optimization.renderpass;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.config.optimization.Optimization;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.function.BiFunction;
+import kotlin.Pair;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Offline contract tests for {@link RenderPassTraversalTarget} and {@link RenderPassTraversalBridge}.
@@ -84,6 +93,48 @@ final class RenderPassTraversalContractTest {
             else System.getProperties().put(preKey, prevPre);
             if (prevPost == null) System.getProperties().remove(postKey);
             else System.getProperties().put(postKey, prevPost);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void bridgeCompilesCanonicalUniformPairResolverAndRestoresPropertyOnClose(@TempDir final Path tempDir)
+            throws Exception {
+        final String pairKey = RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY;
+        final Object prevPair = System.getProperties().get(pairKey);
+        final URL kotlinJar = Pair.class.getProtectionDomain().getCodeSource().getLocation();
+        assertNotNull(kotlinJar);
+        try (URLClassLoader hostLoader = new URLClassLoader(
+                        new URL[] {tempDir.toUri().toURL(), kotlinJar}, ClassLoader.getPlatformClassLoader());
+                RenderPassTraversalBridge bridge = new RenderPassTraversalBridge(hostLoader)) {
+            assertTrue(bridge.hasUniformPairResolver());
+            bridge.install();
+
+            final Object published = System.getProperties().get(pairKey);
+            assertTrue(published instanceof BiFunction<?, ?, ?>);
+            final BiFunction<Object, Object, Object> resolver = (BiFunction<Object, Object, Object>) published;
+
+            final Object base1 = resolver.apply("baseColor", null);
+            final Object base2 = resolver.apply(new String("baseColor"), null);
+            final Object mult1 = resolver.apply("multiplyColor", null);
+            final Object screen1 = resolver.apply("screenColor", null);
+            final Object custom1 = resolver.apply("pointSteps", 7);
+            final Object custom2 = resolver.apply("pointSteps", 7);
+            assertTrue(base1.getClass().getClassLoader() == hostLoader || base1 instanceof Pair);
+            assertSame(base1, base2);
+            assertSame(mult1, resolver.apply(new String("multiplyColor"), null));
+            assertSame(screen1, resolver.apply(new String("screenColor"), null));
+            assertSame(custom1, custom2);
+
+            bridge.close();
+            if (prevPair == null) {
+                assertNull(System.getProperties().get(pairKey));
+            } else {
+                assertSame(prevPair, System.getProperties().get(pairKey));
+            }
+        } finally {
+            if (prevPair == null) System.getProperties().remove(pairKey);
+            else System.getProperties().put(pairKey, prevPair);
         }
     }
 

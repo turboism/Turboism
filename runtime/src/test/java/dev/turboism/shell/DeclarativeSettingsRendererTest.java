@@ -438,16 +438,16 @@ class DeclarativeSettingsRendererTest {
                             new SettingsSnapshot.Entry(
                                     "turboism.core",
                                     new SettingsContribution(
-                                            "performance.section.model",
+                                            "performance.section.editing",
                                             performanceTab,
-                                            OptionalInt.of(70),
-                                            new SettingsControl.Note("performance.section.model", "Model updates"))),
+                                            OptionalInt.of(50),
+                                            new SettingsControl.Note("performance.section.editing", "Editing"))),
                             new SettingsSnapshot.Entry(
                                     "turboism.core",
                                     new SettingsContribution(
                                             "model-toggle",
                                             performanceTab,
-                                            OptionalInt.of(71),
+                                            OptionalInt.of(51),
                                             new SettingsControl.Toggle(
                                                     "model-toggle",
                                                     "Model update",
@@ -465,7 +465,7 @@ class DeclarativeSettingsRendererTest {
                 final JPanel section = findCollapsibleSection(form);
                 assertTrue(section != null, "performance section must render as a collapsible box");
                 assertTrue(section.getToolTipText() != null
-                        && section.getToolTipText().contains("settings.performance.section.model.tooltip"));
+                        && section.getToolTipText().contains("settings.performance.section.editing.tooltip"));
                 assertTrue(
                         findCheckBox(section, "Model update") != null, "the section content must contain its toggle");
                 try {
@@ -473,7 +473,7 @@ class DeclarativeSettingsRendererTest {
                             section.getBorder().getClass().getDeclaredField("delegate");
                     delegate.setAccessible(true);
                     assertEquals(
-                            "Model updates",
+                            "Editing",
                             ((javax.swing.border.TitledBorder) delegate.get(section.getBorder())).getTitle());
                 } catch (ReflectiveOperationException failure) {
                     throw new AssertionError(failure);
@@ -1159,36 +1159,46 @@ class DeclarativeSettingsRendererTest {
                 assertEquals("off", ((SettingsControl.Option) combo.getSelectedItem()).value());
 
                 final List<JCheckBox> boxes = checkboxes(scroll);
-                assertEquals(43, boxes.size());
+                assertEquals(OptimizationCatalog.uiRows().size(), boxes.size());
                 assertTrue(boxes.stream().noneMatch(JCheckBox::isSelected));
 
                 final List<JPanel> sections = findCollapsibleSections(scroll);
-                assertEquals(7, sections.size());
-                for (int index = 0; index < 6; index++) {
+                assertEquals(OptimizationCatalog.SECTIONS.size(), sections.size());
+                final int jvmSectionIndex = OptimizationCatalog.SECTIONS.indexOf(OptimizationCatalog.SECTION_JVM);
+                final int legacySectionIndex = OptimizationCatalog.SECTIONS.indexOf(OptimizationCatalog.SECTION_LEGACY);
+                for (int index = 0; index < sections.size(); index++) {
                     final JCheckBox groupBox = findGroupToggleCheckBox(sections.get(index));
-                    assertTrue(groupBox != null, "toggle section must expose a group checkbox");
-                    assertFalse(groupBox.isSelected());
-                    assertNull(groupBox.getClientProperty("JButton.selectedState"));
+                    if (index == jvmSectionIndex) {
+                        assertNull(groupBox, "section without boolean toggles must omit its header checkbox");
+                    } else {
+                        assertTrue(groupBox != null, "toggle section must expose a group checkbox");
+                        assertFalse(groupBox.isSelected());
+                        assertNull(groupBox.getClientProperty("JButton.selectedState"));
+                    }
                 }
-                assertNull(
-                        findGroupToggleCheckBox(sections.get(6)),
-                        "section without boolean toggles must omit its header checkbox");
+                assertFalse(
+                        sections.get(legacySectionIndex).getComponent(0).isVisible(),
+                        "legacy section must be collapsed by default");
 
                 // 1. Selecting BALANCED updates all checkboxes immediately without persisting yet.
                 selectOption(combo, OptimizationPreset.BALANCED.configValue());
-                for (final Optimization optimization : OptimizationCatalog.persisted()) {
-                    final JCheckBox box = findCheckBoxByName(boxes, optimization.contributionId());
+                for (final OptimizationCatalog.UiRow row : OptimizationCatalog.uiRows()) {
+                    final JCheckBox box = findCheckBoxByName(boxes, row.contributionId());
+                    final boolean expected = OptimizationPreset.BALANCED
+                            .targetFlag(row.members().get(0))
+                            .orElseThrow();
                     assertEquals(
-                            OptimizationPreset.BALANCED.targetFlag(optimization).orElseThrow(),
+                            expected,
                             box.isSelected(),
-                            "live checkbox must sync to BALANCED for " + optimization.contributionId());
+                            "live checkbox must sync to BALANCED for " + row.contributionId());
                 }
                 assertEquals(OptimizationPreset.OFF, OptimizationPreset.detect(stored));
-                for (int index = 0; index < 6; index++) {
+                for (int index = 0; index < sections.size(); index++) {
+                    if (index == jvmSectionIndex) continue;
                     final String sectionId = OptimizationCatalog.SECTIONS.get(index);
-                    final List<Optimization> sectionOpts = OptimizationCatalog.placed().stream()
-                            .filter(opt ->
-                                    opt.placement().orElseThrow().section().equals(sectionId))
+                    final List<Optimization> sectionOpts = OptimizationCatalog.uiRows().stream()
+                            .filter(row -> row.section().equals(sectionId))
+                            .flatMap(row -> row.members().stream())
                             .toList();
                     final boolean expectedAll = sectionOpts.stream()
                             .allMatch(opt ->
@@ -1217,7 +1227,8 @@ class DeclarativeSettingsRendererTest {
                 assertEquals(
                         OptimizationPreset.HEAVY_EDITING.configValue(),
                         ((SettingsControl.Option) combo.getSelectedItem()).value());
-                for (int index = 0; index < 6; index++) {
+                for (int index = 0; index < sections.size(); index++) {
+                    if (index == jvmSectionIndex) continue;
                     assertGroupCheckBoxState(findGroupToggleCheckBox(sections.get(index)), true, false);
                 }
 
@@ -1241,7 +1252,8 @@ class DeclarativeSettingsRendererTest {
                 selectOption(reopenedCombo, OptimizationPreset.OFF.configValue());
                 assertTrue(checkboxes(reopenedScroll).stream().noneMatch(JCheckBox::isSelected));
                 final List<JPanel> reopenedSections = findCollapsibleSections(reopenedScroll);
-                for (int index = 0; index < 6; index++) {
+                for (int index = 0; index < reopenedSections.size(); index++) {
+                    if (index == jvmSectionIndex) continue;
                     assertGroupCheckBoxState(findGroupToggleCheckBox(reopenedSections.get(index)), false, false);
                 }
                 assertTrue(reopened.save().getAsBoolean());
@@ -1251,22 +1263,25 @@ class DeclarativeSettingsRendererTest {
     }
 
     @Test
-    void hotpathSectionRendersAllNineTogglesReferenceLinkAndPersistsOnRestart(@TempDir final Path home)
+    void consolidatedEditingSectionRendersBundlesReferenceLinkAndMixedMemberTriState(@TempDir final Path home)
             throws Exception {
-        final List<Optimization> hotpath = List.of(
-                OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION,
-                OptimizationCatalog.WARP_GRID_INTERPOLATION,
-                OptimizationCatalog.WARP_NORMAL_POINT_ELISION,
-                OptimizationCatalog.CAMERA_MATRIX_CACHE,
-                OptimizationCatalog.RENDER_PASS_TRAVERSAL,
-                OptimizationCatalog.MESH_HIT_TEST,
-                OptimizationCatalog.SCENE_HANDLER_CACHE,
-                OptimizationCatalog.CURSOR_VALIDATION_ELISION,
-                OptimizationCatalog.PARAMETER_ROW_REPAINT);
+        final OptimizationCatalog.UiRow warpRow = OptimizationCatalog.uiRowByContributionId(
+                        "editing-warp-interpolation")
+                .orElseThrow();
+        final OptimizationCatalog.UiRow atlasRow =
+                OptimizationCatalog.uiRowByContributionId("assets-atlas").orElseThrow();
+        final OptimizationCatalog.UiRow meshRow =
+                OptimizationCatalog.uiRowByContributionId("assets-mesh").orElseThrow();
+        final OptimizationCatalog.UiRow modelIoRow =
+                OptimizationCatalog.uiRowByContributionId("assets-model-io").orElseThrow();
         final URI expectedUri = OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI;
         final AtomicReference<URI> openedUri = new AtomicReference<>();
         CoreWindows.setTestSettingsLinkObserver(openedUri::set);
         try (OptimizationSettingsFileService service = new OptimizationSettingsFileService(home)) {
+            // Seed a hand-edited mixed bundle state inside editing-model-update.
+            service.setEnabled(OptimizationCatalog.MODEL_UPDATE_SKIP.key(), true);
+            service.setEnabled(OptimizationCatalog.MODEL_INSTANCE_COALESCE.key(), false);
+
             final List<SettingsSnapshot.Entry> entries = new java.util.ArrayList<>();
             entries.add(new SettingsSnapshot.Entry(
                     "turboism.core", OptimizationSettingsContribution.createPreset(localization(), service)));
@@ -1293,65 +1308,63 @@ class DeclarativeSettingsRendererTest {
                     final JScrollPane scroll =
                             assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
                     final JPanel form = (JPanel) scroll.getViewport().getView();
-                    final JCheckBox atlasLoading =
-                            findCheckBoxByName(checkboxes(form), OptimizationCatalog.ATLAS_LOADING.contributionId());
-                    assertTrue(atlasLoading.isSelected(), "missing preference enables the atlas optimization");
-                    atlasLoading.doClick();
-                    final JCheckBox spatialIndex = findCheckBoxByName(
-                            checkboxes(form), OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX.contributionId());
+                    final List<JPanel> sections = findCollapsibleSections(scroll);
+                    final JPanel editingSection = sections.get(0);
+                    final JPanel legacySection =
+                            sections.get(OptimizationCatalog.SECTIONS.indexOf(OptimizationCatalog.SECTION_LEGACY));
                     assertTrue(
-                            spatialIndex.isSelected(),
-                            "missing preference enables the spatial triangulation optimization");
-                    spatialIndex.doClick();
-                    final JCheckBox modelOpen = findCheckBoxByName(
-                            checkboxes(form), OptimizationCatalog.MODEL_OPEN_ACCELERATION.contributionId());
-                    assertTrue(modelOpen.isSelected(), "missing preference enables model open acceleration");
-                    modelOpen.doClick();
-                    final JCheckBox runtimeExport = findCheckBoxByName(
-                            checkboxes(form), OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION.contributionId());
-                    assertTrue(runtimeExport.isSelected(), "missing preference enables runtime export acceleration");
-                    runtimeExport.doClick();
-                    final JCheckBox meshEdit = findCheckBoxByName(
-                            checkboxes(form), OptimizationCatalog.MESH_EDIT_ACCELERATION.contributionId());
-                    assertTrue(meshEdit.isSelected(), "missing preference enables mesh edit acceleration");
-                    meshEdit.doClick();
-                    final JPanel topSection = findCollapsibleSection(form);
-                    assertTrue(topSection != null, "top collapsible section must render");
-                    assertTrue(
-                            topSection.getToolTipText() != null
-                                    && topSection
+                            editingSection.getToolTipText() != null
+                                    && editingSection
                                             .getToolTipText()
-                                            .contains("settings.performance.section.hotpath.tooltip"),
-                            "top section must carry the hotpath tooltip");
+                                            .contains("settings.performance.section.editing.tooltip"),
+                            "top section must carry the editing tooltip");
+                    assertFalse(
+                            legacySection.getComponent(0).isVisible(),
+                            "legacy section must remain collapsed on default open");
 
-                    final List<JCheckBox> sectionBoxes = checkboxes(topSection);
+                    final List<JCheckBox> editingBoxes = checkboxes(editingSection);
                     assertEquals(
-                            hotpath.stream().map(Optimization::contributionId).toList(),
-                            sectionBoxes.stream().map(JCheckBox::getName).toList(),
-                            "hotpath section must render all 9 promoted checkboxes in placement order");
-                    final JCheckBox topGroupToggle = findGroupToggleCheckBox(topSection);
-                    assertTrue(topGroupToggle != null, "hotpath section must render its left group toggle checkbox");
-                    assertGroupCheckBoxState(topGroupToggle, true, false);
+                            List.of("editing-model-update", "editing-warp-interpolation", "editing-canvas-input"),
+                            editingBoxes.stream().map(JCheckBox::getName).toList());
+                    final JCheckBox modelUpdateBox = editingBoxes.get(0);
+                    assertFalse(modelUpdateBox.isSelected());
+                    assertEquals("indeterminate", modelUpdateBox.getClientProperty("JButton.selectedState"));
+                    assertGroupCheckBoxState(findGroupToggleCheckBox(editingSection), false, true);
 
-                    final JButton referenceButton = findButtonByName(
-                            topSection,
-                            OptimizationCatalog.EXTENDED_INTERPOLATION_SIBLING_ELISION.contributionId() + ".reference");
-                    assertTrue(referenceButton != null, "Comment_4556 toggle must render its reference link button");
+                    // Saving without touching the indeterminate bundle preserves mixed config.json values.
+                    assertTrue(rendered.save().getAsBoolean());
+                    assertTrue(service.enabled(OptimizationCatalog.MODEL_UPDATE_SKIP.key()));
+                    assertFalse(service.enabled(OptimizationCatalog.MODEL_INSTANCE_COALESCE.key()));
+
+                    // Clicking an indeterminate bundle checkbox checks all compatible members and clears indeterminate.
+                    modelUpdateBox.doClick();
+                    assertTrue(modelUpdateBox.isSelected());
+                    assertNull(modelUpdateBox.getClientProperty("JButton.selectedState"));
+                    assertGroupCheckBoxState(findGroupToggleCheckBox(editingSection), true, false);
+
+                    final JButton referenceButton =
+                            findButtonByName(editingSection, warpRow.contributionId() + ".reference");
+                    assertTrue(
+                            referenceButton != null, "warp bundle toggle must render the Comment_4556 reference link");
                     assertEquals(expectedUri.toString(), referenceButton.getToolTipText());
                     rendered.tabs().setSize(780, 560);
                     layoutTree(rendered.tabs());
                     assertTrue(
-                            sectionBoxes.get(0).getWidth() > referenceButton.getWidth(),
+                            editingBoxes.get(1).getWidth() > referenceButton.getWidth(),
                             "checkbox caption must retain primary row width beside its reference link");
                     referenceButton.doClick();
                     assertEquals(expectedUri, openedUri.get(), "clicking reference link must open Comment_4556 URL");
 
-                    for (final JCheckBox box : sectionBoxes) {
-                        assertTrue(
-                                box.isSelected(),
-                                "promoted hotpath toggle must start enabled by default: " + box.getName());
+                    // Turning off editing and assets bundles persists false for every underlying member key.
+                    for (final JCheckBox box : editingBoxes) {
                         box.doClick();
                     }
+                    findCheckBoxByName(checkboxes(form), atlasRow.contributionId())
+                            .doClick();
+                    findCheckBoxByName(checkboxes(form), meshRow.contributionId())
+                            .doClick();
+                    findCheckBoxByName(checkboxes(form), modelIoRow.contributionId())
+                            .doClick();
                     assertTrue(rendered.save().getAsBoolean());
                 }
             });
@@ -1359,46 +1372,27 @@ class DeclarativeSettingsRendererTest {
             final var persistedRoot = new RuntimeConfigRepository(home, ignored -> {}).read();
             final PerformanceSettingsConfig reloaded = PerformanceSettingsConfig.load(home, ignored -> {});
             final NativeOptimizationConfig nativeReloaded = NativeOptimizationConfig.load(home, ignored -> {});
-            final String atlasKey = OptimizationCatalog.ATLAS_LOADING.key();
-            assertEquals(Boolean.FALSE, persistedRoot.path(atlasKey).booleanValue());
-            assertTrue(persistedRoot.path(atlasKey).isBoolean());
-            assertFalse(nativeReloaded.choice(OptimizationCatalog.ATLAS_LOADING).enabled());
-            final String spatialKey = OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX.key();
-            assertEquals(Boolean.FALSE, persistedRoot.path(spatialKey).booleanValue());
-            assertTrue(persistedRoot.path(spatialKey).isBoolean());
-            assertFalse(nativeReloaded
-                    .choice(OptimizationCatalog.TRIANGULATION_SPATIAL_INDEX)
-                    .enabled());
-            final String modelOpenKey = OptimizationCatalog.MODEL_OPEN_ACCELERATION.key();
-            assertEquals(Boolean.FALSE, persistedRoot.path(modelOpenKey).booleanValue());
-            assertTrue(persistedRoot.path(modelOpenKey).isBoolean());
-            assertFalse(nativeReloaded
-                    .choice(OptimizationCatalog.MODEL_OPEN_ACCELERATION)
-                    .enabled());
-            final String runtimeExportKey = OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION.key();
-            assertEquals(Boolean.FALSE, persistedRoot.path(runtimeExportKey).booleanValue());
-            assertTrue(persistedRoot.path(runtimeExportKey).isBoolean());
-            assertFalse(nativeReloaded
-                    .choice(OptimizationCatalog.RUNTIME_EXPORT_ACCELERATION)
-                    .enabled());
-            final String meshEditKey = OptimizationCatalog.MESH_EDIT_ACCELERATION.key();
-            assertEquals(Boolean.FALSE, persistedRoot.path(meshEditKey).booleanValue());
-            assertTrue(persistedRoot.path(meshEditKey).isBoolean());
-            assertFalse(nativeReloaded
-                    .choice(OptimizationCatalog.MESH_EDIT_ACCELERATION)
-                    .enabled());
-            for (final Optimization optimization : hotpath) {
+            final List<Optimization> expectedDisabled = new java.util.ArrayList<>();
+            for (final OptimizationCatalog.UiRow row : OptimizationCatalog.uiRows()) {
+                if (OptimizationCatalog.SECTION_EDITING.equals(row.section())
+                        || List.of("assets-atlas", "assets-mesh", "assets-model-io")
+                                .contains(row.contributionId())) {
+                    expectedDisabled.addAll(row.members());
+                }
+            }
+            for (final Optimization optimization : expectedDisabled) {
+                final boolean rootScoped = optimization.access() == Optimization.Access.PERSISTED_ROOT;
+                final var jsonNode = rootScoped
+                        ? persistedRoot.path(optimization.key())
+                        : persistedRoot.path("launcher").path(optimization.key());
                 assertEquals(
                         Boolean.FALSE,
-                        persistedRoot.path("launcher").path(optimization.key()).booleanValue(),
-                        "config.json launcher." + optimization.key() + " must persist false");
+                        jsonNode.booleanValue(),
+                        "config.json " + optimization.key() + " must persist false");
                 final PerformanceSettingsConfig.Field field =
                         PerformanceSettingsConfig.Field.forKey(optimization.key());
                 assertEquals("false", reloaded.value(field).value());
-                assertEquals("global-config", reloaded.value(field).source());
                 assertFalse(nativeReloaded.choice(optimization).enabled());
-                assertEquals(
-                        "global-config", nativeReloaded.choice(optimization).source());
             }
         } finally {
             CoreWindows.clearTestSettingsLinkObserver();
@@ -1608,6 +1602,7 @@ class DeclarativeSettingsRendererTest {
             stored.put(optimization.key(), false);
         }
         stored.put(OptimizationCatalog.UPLOAD_ELISION.key(), true);
+        stored.put(OptimizationCatalog.MESH_SETUP_ELISION.key(), true);
         final OptimizationSettingsService service = new OptimizationSettingsService() {
             @Override
             public boolean enabled(final String key) {
@@ -1641,44 +1636,46 @@ class DeclarativeSettingsRendererTest {
                 final JScrollPane scroll =
                         assertInstanceOf(JScrollPane.class, rendered.tabs().getComponentAt(0));
                 final List<JPanel> sections = findCollapsibleSections(scroll);
-                final JPanel renderingSection = sections.get(OptimizationCatalog.SECTIONS.indexOf("rendering"));
-                final JPanel uploadSection = sections.get(OptimizationCatalog.SECTIONS.indexOf("upload"));
+                final JPanel renderingSection =
+                        sections.get(OptimizationCatalog.SECTIONS.indexOf(OptimizationCatalog.SECTION_RENDERING));
+                final JPanel legacySection =
+                        sections.get(OptimizationCatalog.SECTIONS.indexOf(OptimizationCatalog.SECTION_LEGACY));
                 final JCheckBox renderingGroup = findGroupToggleCheckBox(renderingSection);
-                final JCheckBox uploadGroup = findGroupToggleCheckBox(uploadSection);
+                final JCheckBox legacyGroup = findGroupToggleCheckBox(legacySection);
                 final JCheckBox uniformBox = findCheckBoxByName(
-                        checkboxes(renderingSection), OptimizationCatalog.UNIFORM_LOCATION_CACHE.contributionId());
-                final JCheckBox shaderUniformBox = findCheckBoxByName(
-                        checkboxes(renderingSection), OptimizationCatalog.SHADER_UNIFORM.contributionId());
-                final JCheckBox uploadElisionBox = findCheckBoxByName(
-                        checkboxes(uploadSection), OptimizationCatalog.UPLOAD_ELISION.contributionId());
+                        checkboxes(legacySection), OptimizationCatalog.UNIFORM_LOCATION_CACHE.contributionId());
+                final JCheckBox pipelineBox =
+                        findCheckBoxByName(checkboxes(renderingSection), "rendering-pipeline-cache");
+                final JCheckBox uploadElisionBox =
+                        findCheckBoxByName(checkboxes(renderingSection), "rendering-upload-elision");
                 final JCheckBox inputElisionBox = findCheckBoxByName(
-                        checkboxes(uploadSection), OptimizationCatalog.INPUT_PATH_ELISION.contributionId());
+                        checkboxes(legacySection), OptimizationCatalog.INPUT_PATH_ELISION.contributionId());
 
-                // 1. With uploadElision ON, toggling rendering ON must skip conflicting uniformLocationCache.
+                // 1. With uploadElision ON, toggling legacy ON must skip conflicting uniformLocationCache.
                 assertTrue(uploadElisionBox.isSelected());
                 assertFalse(uniformBox.isSelected());
-                renderingGroup.doClick();
-                assertTrue(shaderUniformBox.isSelected(), "non-conflicting rendering options turn ON");
+                legacyGroup.doClick();
+                assertTrue(inputElisionBox.isSelected(), "non-conflicting legacy options turn ON");
                 assertFalse(uniformBox.isSelected(), "conflicting uniformLocationCache stays OFF");
-                assertGroupCheckBoxState(renderingGroup, false, true);
+                assertGroupCheckBoxState(legacyGroup, false, true);
 
-                // Clicking rendering again when only conflicting opt-in remains OFF turns compatible items OFF.
-                renderingGroup.doClick();
-                assertFalse(shaderUniformBox.isSelected());
-                assertGroupCheckBoxState(renderingGroup, false, false);
+                // Clicking legacy again when only conflicting opt-in remains OFF turns compatible items OFF.
+                legacyGroup.doClick();
+                assertFalse(inputElisionBox.isSelected());
+                assertGroupCheckBoxState(legacyGroup, false, false);
 
-                // 2. Turn uploadElision OFF, turn rendering ALL ON (including uniformLocationCache), then toggle upload
-                // ON.
+                // 2. Turn uploadElision OFF, turn legacy ALL ON (including uniformLocationCache), then toggle
+                // rendering ON.
                 uploadElisionBox.doClick();
                 assertFalse(uploadElisionBox.isSelected());
-                renderingGroup.doClick();
+                legacyGroup.doClick();
                 assertTrue(uniformBox.isSelected());
-                assertGroupCheckBoxState(renderingGroup, true, false);
+                assertGroupCheckBoxState(legacyGroup, true, false);
 
-                uploadGroup.doClick();
-                assertTrue(inputElisionBox.isSelected(), "non-conflicting upload options turn ON");
-                assertFalse(uploadElisionBox.isSelected(), "conflicting uploadElision stays OFF");
-                assertGroupCheckBoxState(uploadGroup, false, true);
+                renderingGroup.doClick();
+                assertTrue(pipelineBox.isSelected(), "non-conflicting rendering options turn ON");
+                assertFalse(uploadElisionBox.isSelected(), "conflicting uploadElision bundle stays OFF");
+                assertGroupCheckBoxState(renderingGroup, false, true);
             }
         });
 

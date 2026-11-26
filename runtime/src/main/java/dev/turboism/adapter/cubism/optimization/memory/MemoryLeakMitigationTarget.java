@@ -40,6 +40,7 @@ public record MemoryLeakMitigationTarget(
     private static final Set<String> PRE_53_RENDERING_CACHE_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.03");
     private static final Set<String> PARTS_LEGACY_CLOSE_VERSIONS = ReviewedVersions.between("5.0.00", "5.1.03");
     private static final Set<String> PARTS_MID_CLOSE_VERSIONS = ReviewedVersions.between("5.2.00", "5.2.02");
+    private static final Set<String> PARTS_MID_TRAVERSAL_VERSIONS = ReviewedVersions.between("5.2.00", "5.2.03");
     private static final Set<String> DEFORMER_50_EARLY_VERSIONS = ReviewedVersions.between("5.0.00", "5.0.02");
     private static final Set<String> DEFORMER_50_MID_VERSIONS = ReviewedVersions.between("5.0.03", "5.0.04");
     private static final Set<String> DEFORMER_50_LATE_VERSIONS = ReviewedVersions.between("5.0.05", "5.0.06");
@@ -134,7 +135,18 @@ public record MemoryLeakMitigationTarget(
 
     public static final String GL_WRAPPER_OWNER = "com/live2d/graphics3d/view/glWrapper/a";
     public static final String GL_WRAPPER_LISTENER_OWNER = "com/live2d/graphics3d/view/glWrapper/a$b";
+    public static final String GL_JPANEL_WRAPPER_LISTENER_OWNER =
+            "com/live2d/graphics3d/view/glWrapper/GLJPanelWrapper$c";
     public static final String GL_WRAPPER_DESTROY_METHOD = "c";
+
+    // ---- Parts draw-order traversal owners ----
+    public static final String PARTS_TRAVERSAL_OWNER_LEGACY = "com/live2d/cubism/doc/model/parts/k";
+    public static final String PARTS_NODE_OWNER_LEGACY = "com/live2d/cubism/doc/model/parts/j";
+    public static final String PARTS_TRAVERSAL_OWNER_MID = "com/live2d/cubism/doc/model/parts/i";
+    public static final String PARTS_NODE_OWNER_MID = "com/live2d/cubism/doc/model/parts/h";
+    public static final String PARTS_TRAVERSAL_OWNER_MODERN = "com/live2d/cubism/doc/model/parts/r";
+    public static final String PARTS_NODE_OWNER_MODERN = "com/live2d/cubism/doc/model/parts/q";
+    public static final String PARTS_TRAVERSAL_METHOD = "a";
     public static final String GL_EVENT_DISPOSE_METHOD = "dispose";
     public static final String GL_EVENT_DISPOSE_DESCRIPTOR = "(Lcom/jogamp/opengl/GLAutoDrawable;)V";
     public static final String ENTITY_DISPOSE_METHOD = "dispose";
@@ -239,11 +251,39 @@ public record MemoryLeakMitigationTarget(
         return REVIEWED_CLASSES;
     }
 
+    /** Returns the parts draw-order traversal helper class owner for this host version. */
+    public String partsTraversalOwner() {
+        if (PARTS_LEGACY_CLOSE_VERSIONS.contains(version)) {
+            return PARTS_TRAVERSAL_OWNER_LEGACY;
+        }
+        if (PARTS_MID_TRAVERSAL_VERSIONS.contains(version)) {
+            return PARTS_TRAVERSAL_OWNER_MID;
+        }
+        return PARTS_TRAVERSAL_OWNER_MODERN;
+    }
+
+    /** Returns the parts draw-order group node class owner for this host version. */
+    public String partsNodeOwner() {
+        if (PARTS_LEGACY_CLOSE_VERSIONS.contains(version)) {
+            return PARTS_NODE_OWNER_LEGACY;
+        }
+        if (PARTS_MID_TRAVERSAL_VERSIONS.contains(version)) {
+            return PARTS_NODE_OWNER_MID;
+        }
+        return PARTS_NODE_OWNER_MODERN;
+    }
+
+    /** Returns the descriptor of the tail-recursive parts traversal method for this host version. */
+    public String partsTraversalDescriptor() {
+        return "(ZLjava/util/Set;Lcom/live2d/cubism/doc/model/CModel;ZZLjava/util/List;L" + partsNodeOwner() + ";)V";
+    }
+
     /** Returns the rewritten host class names for a reviewed target version. */
     public List<String> rewrittenOwners() {
         return List.of(
                 PARTS_PANEL_OWNER,
                 deformerPanelOwner,
+                partsTraversalOwner(),
                 GL_BUFFER_FLOAT_OWNER,
                 GL_BUFFER_INT_OWNER,
                 G_ENTITY_OWNER,
@@ -254,6 +294,7 @@ public record MemoryLeakMitigationTarget(
                 G_TEXTURE_2D_OWNER,
                 GL_WRAPPER_OWNER,
                 GL_WRAPPER_LISTENER_OWNER,
+                GL_JPANEL_WRAPPER_LISTENER_OWNER,
                 UNDO_MANAGER_OWNER,
                 MODELING_DOC_OWNER,
                 SCENE_DOC_OWNER,

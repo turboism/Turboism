@@ -45,7 +45,12 @@ final class EditModelTopologyCache {
     Object[] partSources = new Object[0];
     boolean[] partVisHierarchy = new boolean[0];
     final IdentityHashMap<Object, Integer> partSourceIndexByRef = new IdentityHashMap<>();
-    long lastKeyformEditEpoch;
+    long lastDeformerKeyformEpoch;
+    long lastMeshKeyformEpoch;
+    long lastGridMutationEpoch;
+    long lastLocalMeshEpoch;
+    long lastDirectLocalMeshEpoch;
+    int emptyOrNullGMeshCount;
     int lastAliasesCount;
     boolean hasAnyConflictPolygon;
 
@@ -63,6 +68,7 @@ final class EditModelTopologyCache {
     Object[] visibleMeshes;
     Object[] visibleMeshSources;
     final IdentityHashMap<Object, Integer> visibleMeshIndexByRef = new IdentityHashMap<>();
+    final IdentityHashMap<Object, int[]> visibleMeshIndicesBySource = new IdentityHashMap<>();
     int[] meshParentDeformerIdx;
     boolean hasArtPaths;
     int[] artPathDeformerIdx;
@@ -488,7 +494,9 @@ final class EditModelTopologyCache {
         final List<Object> visibleSources = new ArrayList<>(allList.size());
         final List<Integer> parentIndices = new ArrayList<>(allList.size());
         visibleMeshIndexByRef.clear();
+        visibleMeshIndicesBySource.clear();
         final Map<Object, Integer> visibleIndexByGuid = new java.util.HashMap<>(allList.size());
+        final IdentityHashMap<Object, List<Integer>> bySourceLists = new IdentityHashMap<>(allList.size());
 
         for (final Object m : allArtMeshes) {
             final Object src = (Object) h.meshGetSource.invokeExact(m);
@@ -506,7 +514,18 @@ final class EditModelTopologyCache {
             visibleSources.add(src);
             parentIndices.add(pIdx);
             visibleMeshIndexByRef.put(m, visIdx);
+            if (src != null) {
+                bySourceLists.computeIfAbsent(src, unused -> new ArrayList<>(1)).add(visIdx);
+            }
             visibleIndexByGuid.put((Object) h.meshGetGuid.invokeExact(m), visIdx);
+        }
+        for (final Map.Entry<Object, List<Integer>> entry : bySourceLists.entrySet()) {
+            final List<Integer> list = entry.getValue();
+            final int[] arr = new int[list.size()];
+            for (int k = 0; k < list.size(); k++) {
+                arr[k] = list.get(k);
+            }
+            visibleMeshIndicesBySource.put(entry.getKey(), arr);
         }
         visibleMeshes = visible.toArray();
         visibleMeshSources = visibleSources.toArray();
@@ -594,19 +613,31 @@ final class EditModelTopologyCache {
         for (int i = 0; i < n; i++) {
             final boolean captureSelected =
                     activeEditSources != null && activeEditSources.containsKey(deformerSources[i]);
-            recordDeformerSnapshot(i, captureSelected, h, fullArrayHashes);
+            recordDeformerSnapshot(i, captureSelected, true, h, fullArrayHashes);
         }
     }
 
     void recordDeformerSnapshot(
             final int i, final boolean captureSelectedDeep, final EditSubtreeHandles h, final LongAdder fullArrayHashes)
             throws Throwable {
+        recordDeformerSnapshot(i, captureSelectedDeep, true, h, fullArrayHashes);
+    }
+
+    void recordDeformerSnapshot(
+            final int i,
+            final boolean captureSelectedDeep,
+            final boolean recomputeKeyformStamp,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
+            throws Throwable {
         final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         final Object d = deformers[i];
         final Object src = deformerSources[i];
         lastDefSourceUpdateVer[i] = acc.sourceGetUpdateVersion(src);
         lastDefCopiedUpdateVer[i] = acc.deformerGetCopiedUpdateVersion(d);
-        lastDefKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
+        if (recomputeKeyformStamp) {
+            lastDefKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
+        }
         final Object form = acc.deformerGetInterpolatedForm(d);
         lastDefInterpForm[i] = form;
         lastDefInterpEditVer[i] = form == null ? -1 : acc.formGetEditVersion(form);
@@ -634,27 +665,40 @@ final class EditModelTopologyCache {
         lastMeshParentGuid = new Object[mCount];
         lastMeshKeyformCount = new int[mCount];
         lastMeshGMeshPosRefs = new float[mCount][];
+        emptyOrNullGMeshCount = mCount;
         for (int i = 0; i < mCount; i++) {
             final Object mSrc = visibleMeshSources[i];
             final Object parentSrc = h.acc.controllableSourceGetParent(mSrc);
             final Integer pIdx = parentSrc == null ? null : partSourceIndexByRef.get(parentSrc);
             meshParentPartIdx[i] = pIdx != null ? pIdx : -1;
             final boolean captureSelected = activeEditSources != null && activeEditSources.containsKey(mSrc);
-            recordMeshSnapshot(i, captureSelected, h, fullArrayHashes);
+            recordMeshSnapshot(i, captureSelected, true, h, fullArrayHashes);
         }
     }
 
     void recordMeshSnapshot(
             final int i, final boolean captureSelectedDeep, final EditSubtreeHandles h, final LongAdder fullArrayHashes)
             throws Throwable {
+        recordMeshSnapshot(i, captureSelectedDeep, true, h, fullArrayHashes);
+    }
+
+    void recordMeshSnapshot(
+            final int i,
+            final boolean captureSelectedDeep,
+            final boolean recomputeKeyformStamp,
+            final EditSubtreeHandles h,
+            final LongAdder fullArrayHashes)
+            throws Throwable {
         final EditSubtreeCompiledAccessors.HostOps acc = h.acc;
         final Object m = visibleMeshes[i];
         final Object src = visibleMeshSources[i];
         lastMeshVer[i] = acc.meshSourceGetMeshVersion(src);
         lastMeshCopiedVer[i] = acc.meshGetCopiedMeshVersion(m);
-        lastMeshKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
-        final List<?> kfs = acc.sourceGetKeyforms(src);
-        lastMeshKeyformCount[i] = kfs == null ? 0 : kfs.size();
+        if (recomputeKeyformStamp) {
+            lastMeshKeyformVersionStamp[i] = computeKeyformVersionStamp(src, h);
+            final List<?> kfs = acc.sourceGetKeyforms(src);
+            lastMeshKeyformCount[i] = kfs == null ? 0 : kfs.size();
+        }
         lastMeshParentGuid[i] = acc.controllableSourceGetParentGuid(src);
         final Object form = acc.meshGetInterpolatedForm(m);
         lastMeshInterpForm[i] = form;
@@ -667,7 +711,14 @@ final class EditModelTopologyCache {
         }
         final Object container = acc.meshGetContainer(m);
         final Object gmesh = container == null ? null : acc.meshContainerGetMesh(container);
-        lastMeshGMeshPosRefs[i] = gmesh == null ? null : acc.meshBaseGetPositions(gmesh);
+        final float[] prevPos = lastMeshGMeshPosRefs[i];
+        final boolean prevEmpty = prevPos == null || prevPos.length == 0;
+        final float[] newPos = gmesh == null ? null : acc.meshBaseGetPositions(gmesh);
+        final boolean newEmpty = newPos == null || newPos.length == 0;
+        if (prevEmpty != newEmpty) {
+            emptyOrNullGMeshCount += newEmpty ? 1 : -1;
+        }
+        lastMeshGMeshPosRefs[i] = newPos;
     }
 
     private void snapshotAllGlueStates(final EditSubtreeHandles h) throws Throwable {

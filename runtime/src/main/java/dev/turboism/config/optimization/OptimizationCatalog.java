@@ -41,9 +41,27 @@ public final class OptimizationCatalog {
     public static final URI EXTENDED_INTERPOLATION_SIBLING_REFERENCE_URI =
             URI.create("https://community.live2d.com/discussion/comment/4556#Comment_4556");
 
+    /** Section id for editing and deformation optimizations. */
+    public static final String SECTION_EDITING = "editing";
+
+    /** Section id for rendering and GPU optimizations. */
+    public static final String SECTION_RENDERING = "rendering";
+
+    /** Section id for mesh, atlas, and asset I/O optimizations. */
+    public static final String SECTION_ASSETS = "assets";
+
+    /** Section id for JVM and memory settings. */
+    public static final String SECTION_JVM = "jvm";
+
+    /** Section id for legacy and experimental optimizations collapsed by default. */
+    public static final String SECTION_LEGACY = "legacy";
+
+    private static final String BUNDLE_LABEL_PREFIX = "settings.optimization.bundle.";
+    private static final String TOOLTIP_SUFFIX = ".tooltip";
+
     /** Performance-page sections in render order; a {@link Optimization.Placement} names one. */
     public static final List<String> SECTIONS =
-            List.of("hotpath", "heavy-model", "model", "rendering", "upload", "mesh", "jvm");
+            List.of(SECTION_EDITING, SECTION_RENDERING, SECTION_ASSETS, SECTION_JVM, SECTION_LEGACY);
 
     // ---------------------------------------------------------------- launcher-hosted preferences
 
@@ -54,7 +72,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.modelUpdateSkip"),
             List.of("TURBOISM_MODEL_UPDATE_SKIP"),
             Set.of("cubism.model-update.unchanged-frame-skip"),
-            Optional.of(new Optimization.Placement("heavy-model", 62)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 51)),
             "settings.optimization.model-update-skip",
             "settings.optimization.model-update-skip.tooltip",
             List.of());
@@ -66,7 +84,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.incrementalUpdate"),
             List.of("TURBOISM_INCREMENTAL_UPDATE"),
             Set.of("cubism.model-update.incremental"),
-            Optional.of(new Optimization.Placement("model", 72)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 121)),
             "settings.optimization.incremental-update",
             "settings.optimization.incremental-update.tooltip",
             List.of());
@@ -82,7 +100,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.incrementalUpdateAffecters"),
             List.of(PROTOCOL_INCREMENTAL_UPDATE_AFFECTERS),
             Set.of("cubism.model-update.incremental"),
-            Optional.of(new Optimization.Placement("model", 73)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 122)),
             "settings.optimization.incremental-update-affecters",
             "settings.optimization.incremental-update-affecters.tooltip",
             List.of(new Optimization.Relation(
@@ -95,7 +113,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.uniformLocationCache"),
             List.of("TURBOISM_UNIFORM_LOCATION"),
             Set.of("cubism.render.uniform-location-cache"),
-            Optional.of(new Optimization.Placement("rendering", 81)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 124)),
             "settings.optimization.uniform-location-cache",
             "settings.optimization.uniform-location-cache.tooltip",
             List.of());
@@ -115,7 +133,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.uploadElision"),
             List.of("TURBOISM_UPLOAD_ELISION", "TURBOISM_LINE_RENDERER_UPLOAD_SPLIT"),
             Set.of("cubism.render.upload-elision", "cubism.render.line-renderer-upload-split"),
-            Optional.of(new Optimization.Placement("upload", 91)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 75)),
             "settings.optimization.upload-elision",
             "settings.optimization.upload-elision.tooltip",
             List.of(
@@ -137,7 +155,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.meshSetupElision"),
             List.of("TURBOISM_MESH_SETUP_ELISION"),
             Set.of("cubism.render.mesh-setup-elision"),
-            Optional.of(new Optimization.Placement("upload", 93)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 76)),
             "settings.optimization.mesh-setup-elision",
             "settings.optimization.mesh-setup-elision.tooltip",
             List.of(new Optimization.Relation(
@@ -150,7 +168,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.inputPathElision"),
             List.of("TURBOISM_INPUT_PATH"),
             Set.of("cubism.render.input-path-elision"),
-            Optional.of(new Optimization.Placement("upload", 92)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 125)),
             "settings.optimization.input-path-elision",
             "settings.optimization.input-path-elision.tooltip",
             List.of());
@@ -162,7 +180,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.mesaGlThread"),
             List.of("TURBOISM_DEFERRED_GL_ERROR_CHECK"),
             Set.of("cubism.render.mesa-gl-thread"),
-            Optional.of(new Optimization.Placement("heavy-model", 61)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 79)),
             "settings.optimization.mesa-gl-thread",
             "settings.optimization.mesa-gl-thread.tooltip",
             List.of());
@@ -174,7 +192,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.asyncReadback"),
             List.of("TURBOISM_ASYNC_READBACK"),
             Set.of("cubism.render.async-readback"),
-            Optional.of(new Optimization.Placement("heavy-model", 69)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 123)),
             "settings.optimization.async-readback",
             "settings.optimization.async-readback.tooltip",
             List.of());
@@ -190,7 +208,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.meshInterpolation", "turboism.meshInterpolation.enabled"),
             List.of("TURBOISM_MESH_INTERPOLATION"),
             Set.of("cubism.mesh.interpolation"),
-            Optional.of(new Optimization.Placement("model", 74)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 56)),
             "settings.optimization.mesh-interpolation",
             "settings.optimization.mesh-interpolation.tooltip",
             List.of());
@@ -203,7 +221,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.shaderUniform", "turboism.shaderUniform.enabled"),
             List.of("TURBOISM_SHADER_UNIFORM"),
             Set.of("cubism.shader.uniform"),
-            Optional.of(new Optimization.Placement("rendering", 82)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 72)),
             "settings.optimization.shader-uniform",
             "settings.optimization.shader-uniform.tooltip",
             List.of());
@@ -215,7 +233,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.matrixScratch"),
             List.of("TURBOISM_MATRIX_SCRATCH"),
             Set.of("cubism.render.matrix-scratch"),
-            Optional.of(new Optimization.Placement("rendering", 83)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 73)),
             "settings.optimization.matrix-scratch",
             "settings.optimization.matrix-scratch.tooltip",
             List.of());
@@ -227,7 +245,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.imageArchiveReuse"),
             List.of("TURBOISM_IMAGE_ARCHIVE_REUSE"),
             Set.of("cubism.image-archive-reuse"),
-            Optional.of(new Optimization.Placement("mesh", 105)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 128)),
             "settings.optimization.image-archive-reuse",
             "settings.optimization.image-archive-reuse.tooltip",
             List.of());
@@ -239,7 +257,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.floatArrayParseCache"),
             List.of("TURBOISM_FLOAT_ARRAY_PARSE_CACHE"),
             Set.of("cubism.float-array-parse-cache"),
-            Optional.of(new Optimization.Placement("mesh", 106)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 129)),
             "settings.optimization.float-array-parse-cache",
             "settings.optimization.float-array-parse-cache.tooltip",
             List.of());
@@ -251,7 +269,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.textureUploadPreparation"),
             List.of("TURBOISM_TEXTURE_UPLOAD_PREPARATION"),
             Set.of("cubism.texture-upload-preparation"),
-            Optional.of(new Optimization.Placement("heavy-model", 70)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 127)),
             "settings.optimization.texture-upload-preparation",
             "settings.optimization.texture-upload-preparation.tooltip",
             List.of());
@@ -263,7 +281,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.warpPositionProjection"),
             List.of("TURBOISM_WARP_POSITION_PROJECTION"),
             Set.of("cubism.warp-position-projection"),
-            Optional.of(new Optimization.Placement("rendering", 84)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 130)),
             "settings.optimization.warp-position-projection",
             "settings.optimization.warp-position-projection.tooltip",
             List.of());
@@ -275,7 +293,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.reinitPairElision"),
             List.of("TURBOISM_REINIT_PAIR_ELISION"),
             Set.of("cubism.model.reinit-pair-elision"),
-            Optional.of(new Optimization.Placement("heavy-model", 66)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 131)),
             "settings.optimization.reinit-pair-elision",
             "settings.optimization.reinit-pair-elision.tooltip",
             List.of());
@@ -287,7 +305,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.clipMaskDeduplication"),
             List.of("TURBOISM_CLIP_MASK_DEDUPE"),
             Set.of("cubism.render.clip-mask-dedupe"),
-            Optional.of(new Optimization.Placement("heavy-model", 63)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 77)),
             "settings.optimization.clip-mask-deduplication",
             "settings.optimization.clip-mask-deduplication.tooltip",
             List.of());
@@ -303,7 +321,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.clipMaskScissorClear"),
             List.of(PROTOCOL_CLIP_MASK_SCISSOR_CLEAR),
             Set.of("cubism.render.clip-mask-dedupe"),
-            Optional.of(new Optimization.Placement("heavy-model", 64)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 78)),
             "settings.optimization.clip-mask-scissor-clear",
             "settings.optimization.clip-mask-scissor-clear.tooltip",
             List.of(new Optimization.Relation(
@@ -316,7 +334,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.extendedInterpolationIncrementalSetup"),
             List.of("TURBOISM_EXTENDED_INTERPOLATION_INCREMENTAL_SETUP"),
             Set.of("cubism.editor-model.extended-interpolation-incremental-setup"),
-            Optional.of(new Optimization.Placement("heavy-model", 65)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 58)),
             "settings.optimization.extended-interpolation-incremental-setup",
             "settings.optimization.extended-interpolation-incremental-setup.tooltip",
             List.of());
@@ -328,7 +346,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.modelInstanceCoalesce"),
             List.of("TURBOISM_MODEL_INSTANCE_COALESCE"),
             Set.of("cubism.model-instance-update-coalesce"),
-            Optional.of(new Optimization.Placement("heavy-model", 67)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 52)),
             "settings.optimization.model-instance-coalesce",
             "settings.optimization.model-instance-coalesce.tooltip",
             List.of());
@@ -340,7 +358,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.inspectorPropertyBypass"),
             List.of("TURBOISM_INSPECTOR_PROPERTY_BYPASS"),
             Set.of("cubism.editor-model.inspector-property-bypass"),
-            Optional.of(new Optimization.Placement("heavy-model", 68)),
+            Optional.of(new Optimization.Placement(SECTION_LEGACY, 126)),
             "settings.optimization.inspector-property-bypass",
             "settings.optimization.inspector-property-bypass.tooltip",
             List.of());
@@ -356,7 +374,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.extendedInterpolationSiblingElision"),
             List.of("TURBOISM_EXTENDED_INTERPOLATION_SIBLING_ELISION"),
             Set.of("cubism.editor-model.extended-interpolation-sibling-elision"),
-            Optional.of(new Optimization.Placement("hotpath", 51)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 57)),
             "settings.optimization.extended-interpolation-sibling-elision",
             "settings.optimization.extended-interpolation-sibling-elision.tooltip",
             List.of(),
@@ -374,7 +392,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.warpGridInterpolation"),
             List.of("TURBOISM_WARP_GRID_INTERPOLATION"),
             Set.of("cubism.deformer.warp-grid-interpolation"),
-            Optional.of(new Optimization.Placement("hotpath", 52)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 54)),
             "settings.optimization.warp-grid-interpolation",
             "settings.optimization.warp-grid-interpolation.tooltip",
             List.of());
@@ -389,7 +407,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.warpNormalPointElision"),
             List.of("TURBOISM_WARP_NORMAL_POINT_ELISION"),
             Set.of("cubism.deformer.warp-normal-point-elision"),
-            Optional.of(new Optimization.Placement("hotpath", 53)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 55)),
             "settings.optimization.warp-normal-point-elision",
             "settings.optimization.warp-normal-point-elision.tooltip",
             List.of());
@@ -404,7 +422,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.cameraMatrixCache"),
             List.of("TURBOISM_CAMERA_MATRIX_CACHE"),
             Set.of("cubism.render.camera-matrix-cache"),
-            Optional.of(new Optimization.Placement("hotpath", 54)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 74)),
             "settings.optimization.camera-matrix-cache",
             "settings.optimization.camera-matrix-cache.tooltip",
             List.of());
@@ -420,7 +438,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.renderPassTraversal"),
             List.of("TURBOISM_RENDER_PASS_TRAVERSAL"),
             Set.of("cubism.render.render-pass-traversal"),
-            Optional.of(new Optimization.Placement("hotpath", 55)),
+            Optional.of(new Optimization.Placement(SECTION_RENDERING, 71)),
             "settings.optimization.render-pass-traversal",
             "settings.optimization.render-pass-traversal.tooltip",
             List.of());
@@ -436,7 +454,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.meshHitTest"),
             List.of("TURBOISM_MESH_HIT_TEST"),
             Set.of("cubism.mesh.hit-test"),
-            Optional.of(new Optimization.Placement("hotpath", 56)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 61)),
             "settings.optimization.mesh-hit-test",
             "settings.optimization.mesh-hit-test.tooltip",
             List.of());
@@ -452,7 +470,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.sceneHandlerCache"),
             List.of("TURBOISM_SCENE_HANDLER_CACHE"),
             Set.of("cubism.input.scene-handler-cache"),
-            Optional.of(new Optimization.Placement("hotpath", 57)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 60)),
             "settings.optimization.scene-handler-cache",
             "settings.optimization.scene-handler-cache.tooltip",
             List.of());
@@ -468,7 +486,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.cursorValidationElision"),
             List.of("TURBOISM_CURSOR_VALIDATION_ELISION"),
             Set.of("cubism.input.cursor-validation-elision"),
-            Optional.of(new Optimization.Placement("hotpath", 58)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 59)),
             "settings.optimization.cursor-validation-elision",
             "settings.optimization.cursor-validation-elision.tooltip",
             List.of());
@@ -483,7 +501,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.parameterRowRepaint"),
             List.of("TURBOISM_PARAMETER_ROW_REPAINT"),
             Set.of("cubism.ui.parameter-row-repaint"),
-            Optional.of(new Optimization.Placement("hotpath", 59)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 62)),
             "settings.optimization.parameter-row-repaint",
             "settings.optimization.parameter-row-repaint.tooltip",
             List.of());
@@ -497,7 +515,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.meshTriangulationHashFix"),
             List.of("TURBOISM_MESH_TRIANGULATION_HASH"),
             Set.of("cubism.mesh.triangulation-hash"),
-            Optional.of(new Optimization.Placement("mesh", 101)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 96)),
             "settings.mesh-triangulation.hash-degeneracy",
             "settings.mesh-triangulation.hash-degeneracy.tooltip",
             List.of());
@@ -514,7 +532,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.meshTriangulationEdgeIndex"),
             List.of("TURBOISM_TRIANGULATION_EDGE_INDEX"),
             Set.of("TURBOISM_TRIANGULATION_EDGE_INDEX", "cubism.mesh.triangulation-edge-index"),
-            Optional.of(new Optimization.Placement("mesh", 102)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 97)),
             "settings.mesh-triangulation.edge-index",
             "settings.mesh-triangulation.edge-index.tooltip",
             List.of());
@@ -526,7 +544,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.atlasTileBbox"),
             List.of("TURBOISM_ATLAS_TILE_BBOX"),
             Set.of("cubism.textureatlas.tile-bbox"),
-            Optional.of(new Optimization.Placement("mesh", 103)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 93)),
             "settings.atlas.tile-bbox",
             "settings.atlas.tile-bbox.tooltip",
             List.of());
@@ -538,7 +556,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.atlasCacheReuse"),
             List.of("TURBOISM_ATLAS_CACHE_REUSE"),
             Set.of("cubism.textureatlas.cache-reuse"),
-            Optional.of(new Optimization.Placement("mesh", 104)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 94)),
             "settings.atlas.cache-reuse",
             "settings.atlas.cache-reuse.tooltip",
             List.of());
@@ -551,7 +569,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.atlasLoading"),
             List.of("TURBOISM_TEXTURE_ATLAS_LOADING"),
             Set.of("cubism.texture-atlas.loading"),
-            Optional.of(new Optimization.Placement("mesh", 107)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 92)),
             "settings.optimization.atlas-loading",
             "settings.optimization.atlas-loading.tooltip",
             List.of());
@@ -564,7 +582,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.triangulationSpatialIndex"),
             List.of("TURBOISM_TRIANGULATION_SPATIAL_INDEX"),
             Set.of("cubism.mesh.triangulation-spatial-index"),
-            Optional.of(new Optimization.Placement("mesh", 108)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 98)),
             "settings.optimization.triangulation-spatial-index",
             "settings.optimization.triangulation-spatial-index.tooltip",
             List.of());
@@ -577,7 +595,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.warpDeformEditAcceleration"),
             List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION", "TURBOISM_EDIT_DRAG_RESPONSIVENESS"),
             Set.of("cubism.deformer.warp-deform-edit-acceleration"),
-            Optional.of(new Optimization.Placement("rendering", 85)),
+            Optional.of(new Optimization.Placement(SECTION_EDITING, 53)),
             "settings.optimization.warp-deform-edit-acceleration",
             "settings.optimization.warp-deform-edit-acceleration.tooltip",
             List.of());
@@ -590,7 +608,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.meshEditAcceleration"),
             List.of("TURBOISM_MESH_EDIT_ACCELERATION"),
             Set.of("cubism.mesh.edit-acceleration"),
-            Optional.of(new Optimization.Placement("mesh", 109)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 95)),
             "settings.optimization.mesh-edit-acceleration",
             "settings.optimization.mesh-edit-acceleration.tooltip",
             List.of());
@@ -603,7 +621,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.modelOpenAcceleration"),
             List.of("TURBOISM_MODEL_OPEN_ACCELERATION"),
             Set.of("cubism.model.open-acceleration"),
-            Optional.of(new Optimization.Placement("model", 75)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 99)),
             "settings.optimization.model-open-acceleration",
             "settings.optimization.model-open-acceleration.tooltip",
             List.of());
@@ -616,7 +634,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.runtimeExportAcceleration"),
             List.of("TURBOISM_RUNTIME_EXPORT_ACCELERATION"),
             Set.of("cubism.model.runtime-export-acceleration"),
-            Optional.of(new Optimization.Placement("model", 76)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 100)),
             "settings.optimization.runtime-export-acceleration",
             "settings.optimization.runtime-export-acceleration.tooltip",
             List.of());
@@ -629,7 +647,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.atlasInteractiveRender"),
             List.of("TURBOISM_ATLAS_INTERACTIVE_RENDER"),
             Set.of("cubism.textureatlas.interactive-render"),
-            Optional.of(new Optimization.Placement("rendering", 86)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 91)),
             "settings.optimization.atlas-interactive-render",
             "settings.optimization.atlas-interactive-render.tooltip",
             List.of());
@@ -642,7 +660,7 @@ public final class OptimizationCatalog {
             List.of("turboism.optimization.memoryLeakMitigation"),
             List.of("TURBOISM_MEMORY_LEAK_MITIGATION"),
             Set.of("cubism.memory-leak-mitigation"),
-            Optional.of(new Optimization.Placement("model", 77)),
+            Optional.of(new Optimization.Placement(SECTION_ASSETS, 101)),
             "settings.optimization.memory-leak-mitigation",
             "settings.optimization.memory-leak-mitigation.tooltip",
             List.of());
@@ -777,9 +795,118 @@ public final class OptimizationCatalog {
             REDUNDANT_STATE_ELISION,
             SORTING_INFO_CACHE);
 
-    static {
-        validate(ALL);
+    /**
+     * One toggle row rendered on the Performance settings page, controlling one or more persisted
+     * optimizations together.
+     */
+    public record UiRow(
+            /** Settings row id used as component name and tooltip lookup key. */
+            String contributionId,
+            /** Section id declared in {@link #SECTIONS}. */
+            String section,
+            /** Render order index within the Performance tab. */
+            int index,
+            /** Persisted optimizations persisted atomically by this row. */
+            List<Optimization> members,
+            /** Localization key for the row checkbox label. */
+            String labelKey,
+            /** Localization key for the row tooltip. */
+            String tooltipKey,
+            /** Optional external HTTPS reference link rendered beside the row. */
+            Optional<Optimization.ReferenceLink> referenceLink) {
+
+        public UiRow {
+            contributionId = requireNonBlank(contributionId, "contributionId");
+            section = requireNonBlank(section, "section");
+            members = List.copyOf(Objects.requireNonNull(members, "members"));
+            if (members.isEmpty()) {
+                throw new IllegalArgumentException("UiRow " + contributionId + " must reference at least one option");
+            }
+            labelKey = requireNonBlank(labelKey, "labelKey");
+            tooltipKey = requireNonBlank(tooltipKey, "tooltipKey");
+            referenceLink = Objects.requireNonNull(referenceLink, "referenceLink");
+        }
     }
+
+    /** Performance-tab toggle rows in render order, consolidating micro-toggles by function. */
+    private static final List<UiRow> UI_ROWS = List.of(
+            bundledRow(
+                    "editing-model-update",
+                    SECTION_EDITING,
+                    51,
+                    List.of(MODEL_UPDATE_SKIP, MODEL_INSTANCE_COALESCE),
+                    Optional.empty()),
+            bundledRow(
+                    "editing-warp-interpolation",
+                    SECTION_EDITING,
+                    52,
+                    List.of(
+                            WARP_DEFORM_EDIT_ACCELERATION,
+                            WARP_GRID_INTERPOLATION,
+                            WARP_NORMAL_POINT_ELISION,
+                            MESH_INTERPOLATION,
+                            EXTENDED_INTERPOLATION_SIBLING_ELISION,
+                            EXTENDED_INTERPOLATION_INCREMENTAL_SETUP),
+                    EXTENDED_INTERPOLATION_SIBLING_ELISION.referenceLink()),
+            bundledRow(
+                    "editing-canvas-input",
+                    SECTION_EDITING,
+                    53,
+                    List.of(CURSOR_VALIDATION_ELISION, SCENE_HANDLER_CACHE, MESH_HIT_TEST, PARAMETER_ROW_REPAINT),
+                    Optional.empty()),
+            bundledRow(
+                    "rendering-pipeline-cache",
+                    SECTION_RENDERING,
+                    71,
+                    List.of(RENDER_PASS_TRAVERSAL, SHADER_UNIFORM, MATRIX_SCRATCH, CAMERA_MATRIX_CACHE),
+                    Optional.empty()),
+            bundledRow(
+                    "rendering-upload-elision",
+                    SECTION_RENDERING,
+                    72,
+                    List.of(UPLOAD_ELISION, MESH_SETUP_ELISION),
+                    Optional.empty()),
+            bundledRow(
+                    "rendering-clip-mask",
+                    SECTION_RENDERING,
+                    73,
+                    List.of(CLIP_MASK_DEDUPLICATION, CLIP_MASK_SCISSOR_CLEAR),
+                    Optional.empty()),
+            singleRow(MESA_GL_THREAD, 74),
+            bundledRow(
+                    "assets-atlas",
+                    SECTION_ASSETS,
+                    91,
+                    List.of(ATLAS_INTERACTIVE_RENDER, ATLAS_LOADING, ATLAS_TILE_BBOX, ATLAS_CACHE_REUSE),
+                    Optional.empty()),
+            bundledRow(
+                    "assets-mesh",
+                    SECTION_ASSETS,
+                    92,
+                    List.of(
+                            MESH_EDIT_ACCELERATION,
+                            MESH_TRIANGULATION_HASH,
+                            TRIANGULATION_EDGE_INDEX,
+                            TRIANGULATION_SPATIAL_INDEX),
+                    Optional.empty()),
+            bundledRow(
+                    "assets-model-io",
+                    SECTION_ASSETS,
+                    93,
+                    List.of(MODEL_OPEN_ACCELERATION, RUNTIME_EXPORT_ACCELERATION),
+                    Optional.empty()),
+            singleRow(MEMORY_LEAK_MITIGATION, 94),
+            singleRow(INCREMENTAL_UPDATE, 121),
+            singleRow(INCREMENTAL_UPDATE_AFFECTERS, 122),
+            singleRow(ASYNC_READBACK, 123),
+            singleRow(UNIFORM_LOCATION_CACHE, 124),
+            singleRow(INPUT_PATH_ELISION, 125),
+            singleRow(INSPECTOR_PROPERTY_BYPASS, 126),
+            singleRow(TEXTURE_UPLOAD_PREPARATION, 127),
+            singleRow(IMAGE_ARCHIVE_REUSE, 128),
+            singleRow(FLOAT_ARRAY_PARSE_CACHE, 129),
+            singleRow(WARP_POSITION_PROJECTION, 130),
+            singleRow(REINIT_PAIR_ELISION, 131));
 
     /** Switches that stay off by default unless enabled explicitly or via Heavy Editing. */
     private static final Set<Optimization> DEFAULT_OFF_OPTIMIZATIONS = Set.of(
@@ -794,6 +921,11 @@ public final class OptimizationCatalog {
             WARP_POSITION_PROJECTION,
             REINIT_PAIR_ELISION,
             INSPECTOR_PROPERTY_BYPASS);
+
+    static {
+        validate(ALL);
+        validateUiRows(ALL, UI_ROWS);
+    }
 
     /**
      * Keys that shipped default-off in v0.70.2 and were later promoted to default-on; legacy
@@ -843,11 +975,23 @@ public final class OptimizationCatalog {
 
     private static final Map<String, Optimization> BY_PROTOCOL = indexProtocols(ALL);
 
+    private static final Map<String, UiRow> BY_UI_CONTRIBUTION_ID = indexUiRows(UI_ROWS);
+
     private OptimizationCatalog() {}
 
     /** All entries in declaration order; the launcher/installer/docs views derive from this. */
     public static List<Optimization> all() {
         return ALL;
+    }
+
+    /** Returns Performance-tab UI toggle rows in render order. */
+    public static List<UiRow> uiRows() {
+        return UI_ROWS;
+    }
+
+    /** Returns the Performance-tab UI row matching {@code contributionId}, or empty. */
+    public static Optional<UiRow> uiRowByContributionId(final String contributionId) {
+        return Optional.ofNullable(contributionId == null ? null : BY_UI_CONTRIBUTION_ID.get(contributionId));
     }
 
     /** The entries that persist a preference, i.e. the ones with a config key and a settings row. */
@@ -954,6 +1098,93 @@ public final class OptimizationCatalog {
             for (final String protocol : entry.protocols()) index.put(protocol, entry);
         }
         return Collections.unmodifiableMap(index);
+    }
+
+    private static Map<String, UiRow> indexUiRows(final List<UiRow> rows) {
+        final Map<String, UiRow> index = new LinkedHashMap<>();
+        for (final UiRow row : rows) {
+            index.put(row.contributionId(), row);
+        }
+        return Collections.unmodifiableMap(index);
+    }
+
+    private static UiRow bundledRow(
+            final String contributionId,
+            final String section,
+            final int index,
+            final List<Optimization> members,
+            final Optional<Optimization.ReferenceLink> referenceLink) {
+        final String labelKey = BUNDLE_LABEL_PREFIX + contributionId;
+        return new UiRow(contributionId, section, index, members, labelKey, labelKey + TOOLTIP_SUFFIX, referenceLink);
+    }
+
+    private static UiRow singleRow(final Optimization optimization, final int index) {
+        final Optimization.Placement placement = optimization.placement().orElseThrow();
+        return new UiRow(
+                optimization.contributionId(),
+                placement.section(),
+                index,
+                List.of(optimization),
+                optimization.labelKey(),
+                optimization.tooltipKey(),
+                optimization.referenceLink());
+    }
+
+    private static String requireNonBlank(final String value, final String field) {
+        Objects.requireNonNull(value, field);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        return value;
+    }
+
+    /** Enforces complete, disjoint UI coverage and default-state separation across sections. */
+    private static void validateUiRows(final List<Optimization> entries, final List<UiRow> rows) {
+        final Set<String> ids = new LinkedHashSet<>();
+        final Set<String> slots = new LinkedHashSet<>();
+        final Set<Optimization> covered = new LinkedHashSet<>();
+        final Set<Optimization> expectedPersisted = new LinkedHashSet<>();
+        for (final Optimization entry : entries) {
+            if (entry.persisted()) {
+                expectedPersisted.add(entry);
+            }
+        }
+        for (final UiRow row : rows) {
+            if (!SECTIONS.contains(row.section()) || SECTION_JVM.equals(row.section())) {
+                throw new IllegalArgumentException(
+                        "UiRow " + row.contributionId() + " uses invalid section " + row.section());
+            }
+            if (!ids.add(row.contributionId())) {
+                throw new IllegalArgumentException("Duplicate UiRow contributionId: " + row.contributionId());
+            }
+            if (!slots.add(row.section() + '#' + row.index())) {
+                throw new IllegalArgumentException(
+                        "UiRow " + row.contributionId() + " reuses slot " + row.section() + '#' + row.index());
+            }
+            final boolean isLegacyRow = SECTION_LEGACY.equals(row.section());
+            for (final Optimization member : row.members()) {
+                if (!member.persisted()) {
+                    throw new IllegalArgumentException(
+                            "UiRow " + row.contributionId() + " cannot include diagnostic probe");
+                }
+                if (!covered.add(member)) {
+                    throw new IllegalArgumentException(
+                            "Optimization " + member.key() + " is bound by more than one UiRow");
+                }
+                final boolean defaultOn = !DEFAULT_OFF_OPTIMIZATIONS.contains(member);
+                if (isLegacyRow == defaultOn) {
+                    throw new IllegalArgumentException("Optimization " + member.key()
+                            + " default polarity disagrees with section " + row.section());
+                }
+                if (!row.section().equals(member.placement().orElseThrow().section())) {
+                    throw new IllegalArgumentException("Optimization " + member.key()
+                            + " placement disagrees with UiRow section " + row.section());
+                }
+            }
+        }
+        if (!covered.equals(expectedPersisted)) {
+            throw new IllegalArgumentException("UiRows must cover every persisted optimization");
+        }
     }
 
     /**

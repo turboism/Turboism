@@ -749,13 +749,196 @@ final class EditSubtreeMethodWeavers {
                 mv.visitJumpInsn(Opcodes.IFNONNULL, done);
             }
             emitActiveGuard(mv, done);
-            SlotBridgeEmitter.emitGetSlot(mv, epochSlotProperty);
+            emitAtomicSlotIncrement(mv, epochSlotProperty);
+            mv.visitLabel(done);
+        }
+    }
+
+    private static final String ATOMIC_LONG_OWNER = "java/util/concurrent/atomic/AtomicLong";
+    private static final String ATOMIC_INCREMENT_METHOD = "incrementAndGet";
+    private static final String ATOMIC_INCREMENT_DESC = "()J";
+
+    /**
+     * Emits an optional {@code AtomicLong.incrementAndGet()} call on a property-backed slot.
+     */
+    private static void emitAtomicSlotIncrement(final MethodVisitor mv, final String slotProperty) {
+        final Label popSkip = new Label();
+        final Label next = new Label();
+        SlotBridgeEmitter.emitGetSlot(mv, slotProperty);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_LONG_OWNER);
+        mv.visitJumpInsn(Opcodes.IFEQ, popSkip);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_LONG_OWNER);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, ATOMIC_LONG_OWNER, ATOMIC_INCREMENT_METHOD, ATOMIC_INCREMENT_DESC, false);
+        mv.visitInsn(Opcodes.POP2);
+        mv.visitJumpInsn(Opcodes.GOTO, next);
+        mv.visitLabel(popSkip);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitLabel(next);
+    }
+
+    /**
+     * Routes {@code ACForm} mutations to ArtMesh keyform epoch, deformer source registry, or local mesh epoch.
+     */
+    static final class AcFormMutationAdapter extends MethodVisitor {
+
+        private static final String THREAD_LOCAL_OWNER = "java/lang/ThreadLocal";
+        private static final String THREAD_LOCAL_GET_METHOD = "get";
+        private static final String THREAD_LOCAL_GET_DESC = "()Ljava/lang/Object;";
+        private static final String DEFORMER_MUTATION_MH_DESC = "(Ljava/lang/Object;)V";
+
+        private final boolean onReturn;
+
+        AcFormMutationAdapter(final MethodVisitor delegate, final boolean onReturn) {
+            super(Opcodes.ASM9, delegate);
+            this.onReturn = onReturn;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            if (!onReturn) {
+                emitHook();
+            }
+        }
+
+        @Override
+        public void visitInsn(final int opcode) {
+            if (onReturn && opcode == Opcodes.RETURN) {
+                emitHook();
+            }
+            super.visitInsn(opcode);
+        }
+
+        private void emitHook() {
+            final Label done = new Label();
+            final Label runtimeInstance = new Label();
+            final Label deformerKeyform = new Label();
+            final Label popSkip = new Label();
+
+            // Fast-skip runtime deformer instances (_instance != null && !(this instanceof CArtMeshForm)).
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(
+                    Opcodes.GETFIELD,
+                    WarpDeformEditTarget.ACFORM_OWNER,
+                    WarpDeformEditTarget.ACFORM_INSTANCE_FIELD,
+                    WarpDeformEditTarget.ACFORM_INSTANCE_DESCRIPTOR);
+            mv.visitJumpInsn(Opcodes.IFNONNULL, runtimeInstance);
+
+            emitActiveGuard(mv, done);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitTypeInsn(Opcodes.INSTANCEOF, WarpDeformEditTarget.CART_MESH_FORM_OWNER);
+            mv.visitJumpInsn(Opcodes.IFEQ, deformerKeyform);
+            emitAtomicSlotIncrement(mv, WarpDeformEditBridge.MESH_KEYFORM_EPOCH_PROPERTY);
+            mv.visitJumpInsn(Opcodes.GOTO, done);
+
+            mv.visitLabel(deformerKeyform);
+            SlotBridgeEmitter.emitMethodHandleConsult(mv, WarpDeformEditBridge.DEFORMER_MUTATION_PROPERTY, popSkip);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    WarpDeformEditTarget.ACFORM_OWNER,
+                    WarpDeformEditTarget.ACFORM_GET_SOURCE_INTERNAL_METHOD,
+                    WarpDeformEditTarget.ACFORM_GET_SOURCE_INTERNAL_DESCRIPTOR,
+                    false);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, DEFORMER_MUTATION_MH_DESC, false);
+            mv.visitJumpInsn(Opcodes.GOTO, done);
+
+            mv.visitLabel(runtimeInstance);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitTypeInsn(Opcodes.INSTANCEOF, WarpDeformEditTarget.CART_MESH_FORM_OWNER);
+            mv.visitJumpInsn(Opcodes.IFEQ, done);
+            emitActiveGuard(mv, done);
+            emitNotFastMeshTransformGuard(mv, done);
+            emitAtomicSlotIncrement(mv, WarpDeformEditBridge.LOCAL_MESH_EPOCH_PROPERTY);
+            mv.visitJumpInsn(Opcodes.GOTO, done);
+
+            mv.visitLabel(popSkip);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(done);
+        }
+
+        static void emitNotFastMeshTransformGuard(final MethodVisitor mv, final Label skipLabel) {
+            final Label popProceed = new Label();
+            final Label proceed = new Label();
+            SlotBridgeEmitter.emitGetSlot(mv, WarpDeformEditBridge.FAST_MESH_TRANSFORM_THREAD_PROPERTY);
             mv.visitInsn(Opcodes.DUP);
-            mv.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_LONG_OWNER);
-            mv.visitJumpInsn(Opcodes.IFEQ, popSkip);
-            mv.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_LONG_OWNER);
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ATOMIC_LONG_OWNER, INCREMENT_METHOD, INCREMENT_DESC, false);
-            mv.visitInsn(Opcodes.POP2);
+            mv.visitTypeInsn(Opcodes.INSTANCEOF, THREAD_LOCAL_OWNER);
+            mv.visitJumpInsn(Opcodes.IFEQ, popProceed);
+            mv.visitTypeInsn(Opcodes.CHECKCAST, THREAD_LOCAL_OWNER);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, THREAD_LOCAL_OWNER, THREAD_LOCAL_GET_METHOD, THREAD_LOCAL_GET_DESC, false);
+            mv.visitJumpInsn(Opcodes.IFNONNULL, skipLabel);
+            mv.visitJumpInsn(Opcodes.GOTO, proceed);
+            mv.visitLabel(popProceed);
+            mv.visitInsn(Opcodes.POP);
+            mv.visitLabel(proceed);
+        }
+    }
+
+    /**
+     * Increments {@code localMeshEpoch} (and optionally {@code meshKeyformEpoch}) on method entry,
+     * optionally skipping fast parallel mesh transforms.
+     */
+    static final class LocalMeshEpochEntryAdapter extends MethodVisitor {
+
+        private final boolean guardFastMeshTransform;
+        private final boolean alsoMeshKeyformEpoch;
+        private final boolean alsoDirectMeshEpoch;
+
+        LocalMeshEpochEntryAdapter(
+                final MethodVisitor delegate,
+                final boolean guardFastMeshTransform,
+                final boolean alsoMeshKeyformEpoch,
+                final boolean alsoDirectMeshEpoch) {
+            super(Opcodes.ASM9, delegate);
+            this.guardFastMeshTransform = guardFastMeshTransform;
+            this.alsoMeshKeyformEpoch = alsoMeshKeyformEpoch;
+            this.alsoDirectMeshEpoch = alsoDirectMeshEpoch;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label done = new Label();
+            emitActiveGuard(mv, done);
+            if (guardFastMeshTransform) {
+                AcFormMutationAdapter.emitNotFastMeshTransformGuard(mv, done);
+            }
+            emitAtomicSlotIncrement(mv, WarpDeformEditBridge.LOCAL_MESH_EPOCH_PROPERTY);
+            if (alsoMeshKeyformEpoch) {
+                emitAtomicSlotIncrement(mv, WarpDeformEditBridge.MESH_KEYFORM_EPOCH_PROPERTY);
+            }
+            if (alsoDirectMeshEpoch) {
+                emitAtomicSlotIncrement(mv, WarpDeformEditBridge.DIRECT_LOCAL_MESH_EPOCH_PROPERTY);
+            }
+            mv.visitLabel(done);
+        }
+    }
+
+    /**
+     * Records a mutated deformer source instance on entry into {@code ACDeformerSource}/{@code CWarpDeformerSource}.
+     */
+    static final class DeformerSourceMutationAdapter extends MethodVisitor {
+
+        private static final String DEFORMER_MUTATION_MH_DESC = "(Ljava/lang/Object;)V";
+
+        DeformerSourceMutationAdapter(final MethodVisitor delegate) {
+            super(Opcodes.ASM9, delegate);
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            final Label done = new Label();
+            final Label popSkip = new Label();
+            emitActiveGuard(mv, done);
+            SlotBridgeEmitter.emitMethodHandleConsult(mv, WarpDeformEditBridge.DEFORMER_MUTATION_PROPERTY, popSkip);
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT_METHOD, DEFORMER_MUTATION_MH_DESC, false);
             mv.visitJumpInsn(Opcodes.GOTO, done);
             mv.visitLabel(popSkip);
             mv.visitInsn(Opcodes.POP);

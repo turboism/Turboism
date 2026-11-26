@@ -32,6 +32,7 @@ import javax.swing.JPanel;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -364,6 +365,445 @@ class ParameterRowRepaintArtifactTest {
         }
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void morphTargetKeyCacheMemoizesAcrossRowsAndInvalidatesOnEveryMutation() throws Exception {
+        final Map<String, byte[]> stubBytecode = buildSyntheticHostClasses();
+        final ParameterRowRepaintTarget target = ParameterRowRepaintTarget.all()
+                .get(ParameterRowRepaintTarget.all().size() - 1);
+        final byte[] controllerRefBytes = buildSyntheticControllerWithUpdate(stubBytecode, target);
+        stubBytecode.put(target.controllerOwner().replace('/', '.'), controllerRefBytes);
+        final InMemoryDefiningLoader loader =
+                new InMemoryDefiningLoader(getClass().getClassLoader(), stubBytecode);
+        final Path fakeArtifact = Path.of("synthetic-cubism.jar");
+        final ParameterRowRepaintTransformer transformer =
+                new ParameterRowRepaintTransformer(loader, fakeArtifact, controllerRefBytes, target);
+
+        final ProtectionDomain domain = domain(fakeArtifact);
+        final Map<String, byte[]> wovenBytecode = new LinkedHashMap<>(stubBytecode);
+        for (final String owner : target.rewrittenOwners()) {
+            final String binaryName = owner.replace('/', '.');
+            final byte[] raw = stubBytecode.get(binaryName);
+            assertNotNull(raw, "missing synthetic owner " + binaryName);
+            final byte[] woven = transformer.transform(null, loader, owner, null, domain, raw);
+            assertNotNull(woven, () -> "transform failed on " + owner + ": " + transformer.failure());
+            wovenBytecode.put(binaryName, woven);
+        }
+        assertEquals(4, transformer.matches());
+        assertEquals(target.expectedSites(), transformer.sites());
+        assertNull(transformer.failure());
+
+        final InMemoryDefiningLoader wovenLoader =
+                new InMemoryDefiningLoader(getClass().getClassLoader(), wovenBytecode);
+        final InMemoryDefiningLoader refLoader =
+                new InMemoryDefiningLoader(getClass().getClassLoader(), stubBytecode);
+
+        try (var bridge = new ParameterRowRepaintBridge(wovenLoader, target)) {
+            bridge.install();
+
+            final MorphScenario woven = new MorphScenario(wovenLoader);
+            final MorphScenario ref = new MorphScenario(refLoader);
+
+            // Model 1 initial repaint pass over 25 parameters: 1 model scan -> 24 cache hits, 0
+            // getAllObjects/getMorphTargetList.
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+            assertEquals(0, woven.getAllObjectsCalls());
+            assertEquals(0, woven.getMorphTargetListCalls());
+            assertEquals(1L, bridge.snapshot().get("morphCacheMisses"));
+
+            final var threadBean =
+                    (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+            final long tid = Thread.currentThread().getId();
+            for (int row = 1; row < 25; row++) {
+                final List<Float> expected = ref.collectRowKeys(0);
+                final List<Float> actual = woven.collectRowKeys(0);
+                assertEquals(expected, actual);
+            }
+            assertEquals(0, woven.getAllObjectsCalls());
+            assertEquals(0, woven.getMorphTargetListCalls());
+            assertEquals(24L, bridge.snapshot().get("morphCacheHits"));
+
+            // Second parameter lookup with no mutations allocates zero temporary lists on cache hit.
+            final Object cachedRow = woven.newRowInfo();
+            final long bytesBefore = threadBean.getThreadAllocatedBytes(tid);
+            woven.populateRow(cachedRow, 0);
+            final long bytesDelta = threadBean.getThreadAllocatedBytes(tid) - bytesBefore;
+            assertTrue(bytesDelta < 1024, "expected minimal allocation on cache hit, got " + bytesDelta);
+
+            // KeyFormMorphTargetSet mutators: add, remove(target), replaceParameter, addAll, remove(Iterable), clear,
+            // reinit.
+            woven.addMorphKey(0, 0, 0.75f);
+            ref.addMorphKey(0, 0, 0.75f);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+            assertEquals(0, woven.getAllObjectsCalls());
+
+            woven.setKeyValue(0, -0.5f);
+            ref.setKeyValue(0, -0.5f);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+
+            woven.setParameter(0, 1);
+            ref.setParameter(0, 1);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+            assertEquals(ref.collectRowKeys(1), woven.collectRowKeys(1));
+
+            woven.setParameterAndKeyValue(0, 0, 0.25f);
+            ref.setParameterAndKeyValue(0, 0, 0.25f);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+
+            woven.replaceParameter(0, 2);
+            ref.replaceParameter(0, 2);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+            assertEquals(ref.collectRowKeys(2), woven.collectRowKeys(2));
+
+            woven.removeFirstMorph(0);
+            ref.removeFirstMorph(0);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+            assertEquals(ref.collectRowKeys(2), woven.collectRowKeys(2));
+
+            woven.clearMorphs(0);
+            ref.clearMorphs(0);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+
+            woven.addAllAndRemoveAll(0, 0, 0.55f);
+            ref.addAllAndRemoveAll(0, 0, 0.55f);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+
+            woven.reinitAndDeserializeMorph(0, 0, 0.42f);
+            ref.reinitAndDeserializeMorph(0, 0, 0.42f);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+
+            woven.accessSetGuidAndReinitSet(0, 2);
+            ref.accessSetGuidAndReinitSet(0, 2);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+            assertEquals(ref.collectRowKeys(2), woven.collectRowKeys(2));
+
+            // Source list structural mutation (adding a new controllable source directly to CModelSource) invalidates
+            // automatically.
+            woven.addExtraSourceWithMorph(0, 0.9f);
+            ref.addExtraSourceWithMorph(0, 0.9f);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+
+            // Switching to a second CModel isolates cache per model without cross-model leakage.
+            final List<Float> secondModelKeys = woven.collectRowKeysForSecondModel(0, 0.33f);
+            assertEquals(List.of(0.33f), secondModelKeys);
+            assertEquals(ref.collectRowKeys(0), woven.collectRowKeys(0));
+        }
+
+        // After bridge close(), woven host falls back cleanly to Cubism implementation without throwing.
+        final MorphScenario postClose = new MorphScenario(wovenLoader);
+        assertEquals(List.of(0.1f), postClose.collectRowKeys(0));
+        assertTrue(postClose.getAllObjectsCalls() >= 1);
+    }
+
+    @Test
+    void allAvailableJarsWeaveAllFourOwnersAndPassStrictVerifyAll() throws Exception {
+        final Path root = referenceRoot();
+        final List<Path> jars = new ArrayList<>();
+        try (var stream = Files.walk(root, JAR_WALK_DEPTH)) {
+            stream.filter(p -> p.getFileName().toString().equals("Live2D_Cubism.jar"))
+                    .sorted()
+                    .forEach(jars::add);
+        }
+        final String extraJarProp = System.getProperty("turboism.test.cubismExtraJar", "");
+        final Path extra5305 = extraJarProp.isBlank()
+                ? Path.of(
+                        System.getProperty("user.home"),
+                        ".local",
+                        "share",
+                        "cubism-reference",
+                        "5.3.05",
+                        "proton",
+                        "pfx",
+                        "drive_c",
+                        "Program Files",
+                        "Live2D Cubism 5.3",
+                        "app",
+                        "lib",
+                        "Live2D_Cubism.jar")
+                : Path.of(extraJarProp);
+        if (Files.isRegularFile(extra5305)) {
+            jars.add(extra5305);
+        }
+
+        final Path tempRoot = Files.createTempDirectory("paramrow-strict-verify");
+        try {
+            final List<String> manifestLines = new ArrayList<>();
+            int verifiedJars = 0;
+            for (final Path jarPath : jars) {
+                final var digest = dev.turboism.mapping.verification.HostArtifactDigest.cached(jarPath);
+                final var maybeTarget = ParameterRowRepaintTarget.of(digest);
+                if (maybeTarget.isEmpty()) {
+                    continue;
+                }
+                final ParameterRowRepaintTarget target = maybeTarget.get();
+                verifiedJars++;
+                final Path patchDir = tempRoot.resolve(target.version());
+                try (var loader = loader(jarPath.getParent())) {
+                    final ProtectionDomain domain = domain(jarPath);
+                    final byte[] controllerRef = bytes(jarPath, target.controllerOwner());
+                    final ParameterRowRepaintTransformer transformer =
+                            new ParameterRowRepaintTransformer(loader, jarPath, controllerRef, target);
+                    for (final String owner : target.rewrittenOwners()) {
+                        final byte[] raw = bytes(jarPath, owner);
+                        final byte[] woven = transformer.transform(null, loader, owner, null, domain, raw);
+                        assertNotNull(
+                                woven,
+                                () -> "transform failed on " + target.version() + " " + owner + ": "
+                                        + transformer.failure());
+                        final Path outFile = patchDir.resolve(owner + TEST_CLASS_SUFFIX);
+                        Files.createDirectories(outFile.getParent());
+                        Files.write(outFile, woven);
+                        manifestLines.add(target.version() + "\t" + jarPath + "\t" + patchDir + "\t" + owner);
+                    }
+                    assertEquals(4, transformer.matches(), target.version());
+                    assertEquals(target.expectedSites(), transformer.sites(), target.version());
+                    assertNull(transformer.failure(), target.version());
+                }
+            }
+            assertTrue(verifiedJars > 0, "expected at least one reviewed Cubism JAR");
+
+            final Path manifest = tempRoot.resolve("manifest.txt");
+            Files.write(manifest, manifestLines);
+            final String javaExe =
+                    Path.of(System.getProperty("java.home"), "bin", "java").toString();
+            final Process process = new ProcessBuilder(
+                            javaExe,
+                            "-Xverify:all",
+                            "-cp",
+                            System.getProperty("java.class.path"),
+                            StrictVerifyRunner.class.getName(),
+                            manifest.toString(),
+                            Integer.toString(manifestLines.size()))
+                    .redirectErrorStream(true)
+                    .start();
+            final String output = new String(process.getInputStream().readAllBytes());
+            assertTrue(process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS), "Strict -Xverify:all timed out");
+            assertEquals(0, process.exitValue(), () -> "Strict -Xverify:all failed:\n" + output);
+        } finally {
+            try (var walk = Files.walk(tempRoot)) {
+                walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (final java.io.IOException ignored) {
+                        // Best-effort temp cleanup.
+                    }
+                });
+            }
+        }
+    }
+
+    public static final class StrictVerifyRunner {
+        public static void main(final String[] args) throws Exception {
+            final Path manifest = Path.of(args[0]);
+            final int expectedCount = Integer.parseInt(args[1]);
+            final List<String> lines = Files.readAllLines(manifest);
+            if (lines.size() != expectedCount) {
+                throw new IllegalStateException("Expected " + expectedCount + " entries, got " + lines.size());
+            }
+            final Map<String, ClassLoader> loaders = new LinkedHashMap<>();
+            try {
+                for (final String line : lines) {
+                    final String[] parts = line.split("\t", 4);
+                    final String version = parts[0];
+                    final Path jarPath = Path.of(parts[1]);
+                    final Path patchDir = Path.of(parts[2]);
+                    final String owner = parts[3];
+                    final ClassLoader loader = loaders.computeIfAbsent(version, ignored -> {
+                        try {
+                            return openUnverifiedLoader(jarPath, patchDir);
+                        } catch (final Exception failure) {
+                            throw new IllegalStateException(failure);
+                        }
+                    });
+                    final Class<?> loaded = Class.forName(owner.replace('/', '.'), false, loader);
+                    loaded.getDeclaredMethods();
+                }
+            } finally {
+                for (final ClassLoader loader : loaders.values()) {
+                    if (loader instanceof java.io.Closeable closeable) {
+                        closeable.close();
+                    }
+                }
+            }
+        }
+
+        private static ClassLoader openUnverifiedLoader(final Path jarPath, final Path patchDir)
+                throws java.io.IOException {
+            final List<JarFile> extraJars = new ArrayList<>();
+            try (var walk = Files.walk(jarPath.getParent(), JAR_WALK_DEPTH)) {
+                for (final Path p :
+                        walk.filter(f -> f.toString().endsWith(".jar")).toList()) {
+                    extraJars.add(new JarFile(p.toFile(), false));
+                }
+            }
+            return new UnverifiedJarLoader(patchDir, extraJars, StrictVerifyRunner.class.getClassLoader());
+        }
+    }
+
+    private static final class UnverifiedJarLoader extends ClassLoader implements java.io.Closeable {
+        private final Path patchDir;
+        private final List<JarFile> jars;
+
+        private UnverifiedJarLoader(final Path patchDir, final List<JarFile> jars, final ClassLoader parent) {
+            super(parent);
+            this.patchDir = patchDir;
+            this.jars = jars;
+        }
+
+        @Override
+        protected Class<?> findClass(final String name) throws ClassNotFoundException {
+            final String entryName = name.replace('.', '/') + TEST_CLASS_SUFFIX;
+            final Path patched = patchDir.resolve(entryName);
+            if (Files.isRegularFile(patched)) {
+                try {
+                    final byte[] raw = Files.readAllBytes(patched);
+                    return defineClass(name, raw, 0, raw.length);
+                } catch (final java.io.IOException failure) {
+                    throw new ClassNotFoundException(name, failure);
+                }
+            }
+            for (final JarFile jar : jars) {
+                final var entry = jar.getJarEntry(entryName);
+                if (entry != null) {
+                    try (var in = jar.getInputStream(entry)) {
+                        final byte[] raw = in.readAllBytes();
+                        return defineClass(name, raw, 0, raw.length);
+                    } catch (final java.io.IOException failure) {
+                        throw new ClassNotFoundException(name, failure);
+                    }
+                }
+            }
+            if (name.startsWith("org.jdom.") || name.startsWith("com.jogamp.") || name.startsWith("com.formdev.")) {
+                final ClassWriter cw = new ClassWriter(0);
+                cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, name.replace('.', '/'), null, "java/lang/Object", null);
+                cw.visitEnd();
+                final byte[] stub = cw.toByteArray();
+                return defineClass(name, stub, 0, stub.length);
+            }
+            throw new ClassNotFoundException(name);
+        }
+
+        @Override
+        protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded == null && (name.startsWith("com.live2d.") || name.startsWith("kotlin."))) {
+                    try {
+                        loaded = findClass(name);
+                    } catch (final ClassNotFoundException ignored) {
+                        // Fall through to parent loader.
+                    }
+                }
+                if (loaded != null) {
+                    if (resolve) {
+                        resolveClass(loaded);
+                    }
+                    return loaded;
+                }
+            }
+            return super.loadClass(name, resolve);
+        }
+
+        @Override
+        public void close() throws java.io.IOException {
+            for (final JarFile jar : jars) {
+                jar.close();
+            }
+        }
+    }
+
+    private static byte[] buildSyntheticControllerWithUpdate(
+            final Map<String, byte[]> out, final ParameterRowRepaintTarget target) {
+        final String controllerOwner = target.controllerOwner();
+        final String highlightInner = target.highlightInnerOwner();
+        defineSimpleClass(out, highlightInner, "java/lang/Object", cw -> {
+            cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null)
+                    .visitEnd();
+            addDefaultInit(cw, "java/lang/Object");
+            addGetter(
+                    cw,
+                    ParameterRowRepaintTarget.HIGHLIGHT_GUID_METHOD,
+                    "()Lcom/live2d/type/CParameterGuid;",
+                    highlightInner,
+                    "guid",
+                    "Lcom/live2d/type/CParameterGuid;",
+                    Opcodes.ARETURN);
+        });
+
+        final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, controllerOwner, null, "java/lang/Object", null);
+        cw.visitField(
+                        Opcodes.ACC_PRIVATE,
+                        ParameterRowRepaintTarget.CHILDREN_BOX_FIELD,
+                        ParameterRowRepaintTarget.CHILDREN_BOX_DESCRIPTOR,
+                        null,
+                        null)
+                .visitEnd();
+        cw.visitField(
+                        Opcodes.ACC_PRIVATE,
+                        ParameterRowRepaintTarget.ROW_LIST_FIELD,
+                        ParameterRowRepaintTarget.ROW_LIST_DESCRIPTOR,
+                        null,
+                        null)
+                .visitEnd();
+        cw.visitField(
+                        Opcodes.ACC_PRIVATE,
+                        ParameterRowRepaintTarget.SELECTED_OBJECTS_FIELD,
+                        ParameterRowRepaintTarget.SELECTED_OBJECTS_DESCRIPTOR,
+                        null,
+                        null)
+                .visitEnd();
+        cw.visitField(Opcodes.ACC_PRIVATE, target.highlightField(), target.highlightFieldDescriptor(), null, null)
+                .visitEnd();
+        cw.visitField(Opcodes.ACC_PUBLIC, "selectedRows", "Ljava/util/List;", null, null)
+                .visitEnd();
+        cw.visitField(Opcodes.ACC_PUBLIC, "showKeyforms", "Z", null, null).visitEnd();
+        addDefaultInit(cw, "java/lang/Object");
+        addGetter(
+                cw,
+                ParameterRowRepaintTarget.GET_SELECTED_ROWS_METHOD,
+                "()Ljava/util/List;",
+                controllerOwner,
+                "selectedRows",
+                "Ljava/util/List;",
+                Opcodes.ARETURN);
+        addGetter(cw, target.showKeyformsMethod(), "()Z", controllerOwner, "showKeyforms", "Z", Opcodes.IRETURN);
+        addVoidNoopMethod(cw, "a", "(Ljava/lang/String;)V");
+        addVoidNoopMethod(
+                cw, ParameterRowRepaintTarget.VALUE_SYNC_METHOD, ParameterRowRepaintTarget.VALUE_SYNC_DESCRIPTOR);
+        final MethodVisitor mv = cw.visitMethod(
+                Opcodes.ACC_PUBLIC,
+                ParameterRowRepaintTarget.UPDATE_METHOD,
+                ParameterRowRepaintTarget.UPDATE_DESCRIPTOR,
+                null,
+                null);
+        mv.visitCode();
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitVarInsn(Opcodes.ASTORE, 3);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitVarInsn(Opcodes.ASTORE, 4);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitLdcInsn(ParameterRowRepaintTarget.SELECTION_LOG_MARKER);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, controllerOwner, "a", "(Ljava/lang/String;)V", false);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitVarInsn(Opcodes.ALOAD, 4);
+        mv.visitVarInsn(Opcodes.ALOAD, 3);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                controllerOwner,
+                ParameterRowRepaintTarget.VALUE_SYNC_METHOD,
+                ParameterRowRepaintTarget.VALUE_SYNC_DESCRIPTOR,
+                false);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitLdcInsn(ParameterRowRepaintTarget.STRUCTURE_LOG_MARKER);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, controllerOwner, "a", "(Ljava/lang/String;)V", false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
     private static void assertAllRowsRepaintedOnce(final SyntheticPaletteFixture fixture) throws Exception {
         for (int i = 0; i < SIBLING_ROW_COUNT; i++) {
             assertEquals(1, fixture.rowRepaints(i), "row " + i);
@@ -517,6 +957,20 @@ class ParameterRowRepaintArtifactTest {
                     .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
         });
+
+        defineInterface(out, "com/live2d/core/a", cw -> {});
+        defineInterface(out, "com/live2d/core/ICopyable", cw -> {});
+        defineSimpleClass(
+                out,
+                "com/live2d/serialize/XmlReader",
+                "java/lang/Object",
+                cw -> addDefaultInit(cw, "java/lang/Object"));
+        defineSimpleClass(out, "org/jdom/Element", "java/lang/Object", cw -> addDefaultInit(cw, "java/lang/Object"));
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/doc/model/ACForm",
+                "java/lang/Object",
+                cw -> addDefaultInit(cw, "java/lang/Object"));
 
         defineSimpleClass(out, "com/live2d/cubism/doc/model/id/CParameterId", "java/lang/Object", cw -> {
             cw.visitField(Opcodes.ACC_PUBLIC, "id", "Ljava/lang/String;", null, null)
@@ -943,7 +1397,8 @@ class ParameterRowRepaintArtifactTest {
                 out,
                 "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
                 "java/lang/Object",
-                new String[] {"com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget"},
+                new String[] {"com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTarget", "com/live2d/core/ICopyable"
+                },
                 cw -> {
                     cw.visitField(Opcodes.ACC_PUBLIC, "guid", "Lcom/live2d/type/CParameterGuid;", null, null)
                             .visitEnd();
@@ -966,6 +1421,77 @@ class ParameterRowRepaintArtifactTest {
                             "keyValue",
                             "Ljava/lang/Float;",
                             Opcodes.ARETURN);
+
+                    final String mtOwner = "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget";
+                    final MethodVisitor setPkv = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "setParameterAndKeyValue",
+                            "(Lcom/live2d/type/CParameterGuid;Ljava/lang/Float;)V",
+                            null,
+                            null);
+                    setPkv.visitCode();
+                    setPkv.visitVarInsn(Opcodes.ALOAD, 0);
+                    setPkv.visitVarInsn(Opcodes.ALOAD, 1);
+                    setPkv.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "guid", "Lcom/live2d/type/CParameterGuid;");
+                    setPkv.visitVarInsn(Opcodes.ALOAD, 0);
+                    setPkv.visitVarInsn(Opcodes.ALOAD, 2);
+                    setPkv.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "keyValue", "Ljava/lang/Float;");
+                    setPkv.visitInsn(Opcodes.RETURN);
+                    setPkv.visitMaxs(2, 3);
+                    setPkv.visitEnd();
+
+                    final MethodVisitor setP = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC, "setParameter", "(Lcom/live2d/type/CParameterGuid;)V", null, null);
+                    setP.visitCode();
+                    setP.visitVarInsn(Opcodes.ALOAD, 0);
+                    setP.visitVarInsn(Opcodes.ALOAD, 1);
+                    setP.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "guid", "Lcom/live2d/type/CParameterGuid;");
+                    setP.visitInsn(Opcodes.RETURN);
+                    setP.visitMaxs(2, 2);
+                    setP.visitEnd();
+
+                    final MethodVisitor reinit = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "reinit",
+                            "(Lcom/live2d/core/ICopyable;Lcom/live2d/core/a;)V",
+                            null,
+                            null);
+                    reinit.visitCode();
+                    final Label reinitDone = new Label();
+                    reinit.visitVarInsn(Opcodes.ALOAD, 1);
+                    reinit.visitTypeInsn(Opcodes.INSTANCEOF, mtOwner);
+                    reinit.visitJumpInsn(Opcodes.IFEQ, reinitDone);
+                    reinit.visitVarInsn(Opcodes.ALOAD, 0);
+                    reinit.visitVarInsn(Opcodes.ALOAD, 1);
+                    reinit.visitTypeInsn(Opcodes.CHECKCAST, mtOwner);
+                    reinit.visitFieldInsn(Opcodes.GETFIELD, mtOwner, "guid", "Lcom/live2d/type/CParameterGuid;");
+                    reinit.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "guid", "Lcom/live2d/type/CParameterGuid;");
+                    reinit.visitVarInsn(Opcodes.ALOAD, 0);
+                    reinit.visitVarInsn(Opcodes.ALOAD, 1);
+                    reinit.visitTypeInsn(Opcodes.CHECKCAST, mtOwner);
+                    reinit.visitFieldInsn(Opcodes.GETFIELD, mtOwner, "keyValue", "Ljava/lang/Float;");
+                    reinit.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "keyValue", "Ljava/lang/Float;");
+                    reinit.visitLabel(reinitDone);
+                    reinit.visitInsn(Opcodes.RETURN);
+                    reinit.visitMaxs(2, 3);
+                    reinit.visitEnd();
+
+                    addVoidNoopMethod(cw, "deserialize", "(Lorg/jdom/Element;Lcom/live2d/serialize/XmlReader;)V");
+
+                    final MethodVisitor accSet = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+                            "access$setParameterGuid$p",
+                            "(Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget;"
+                                    + "Lcom/live2d/type/CParameterGuid;)V",
+                            null,
+                            null);
+                    accSet.visitCode();
+                    accSet.visitVarInsn(Opcodes.ALOAD, 0);
+                    accSet.visitVarInsn(Opcodes.ALOAD, 1);
+                    accSet.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "guid", "Lcom/live2d/type/CParameterGuid;");
+                    accSet.visitInsn(Opcodes.RETURN);
+                    accSet.visitMaxs(2, 2);
+                    accSet.visitEnd();
                 });
 
         defineInterface(
@@ -983,19 +1509,251 @@ class ParameterRowRepaintArtifactTest {
                 out,
                 "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
                 "java/lang/Object",
-                new String[] {"com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTargetSet"},
+                new String[] {
+                    "com/live2d/cubism/doc/model/morphTarget/IKeyFormMorphTargetSet", "com/live2d/core/ICopyable"
+                },
                 cw -> {
+                    final String setOwner = "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet";
+                    final String mtOwner = "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget";
                     cw.visitField(Opcodes.ACC_PUBLIC, "morphTargets", "Ljava/util/List;", null, null)
                             .visitEnd();
-                    addDefaultInit(cw, "java/lang/Object");
+                    cw.visitField(Opcodes.ACC_PUBLIC, "getMorphTargetListCalls", "I", null, null)
+                            .visitEnd();
+                    final MethodVisitor init = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+                    init.visitCode();
+                    init.visitVarInsn(Opcodes.ALOAD, 0);
+                    init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+                    init.visitVarInsn(Opcodes.ALOAD, 0);
+                    init.visitTypeInsn(Opcodes.NEW, "java/util/ArrayList");
+                    init.visitInsn(Opcodes.DUP);
+                    init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+                    init.visitFieldInsn(Opcodes.PUTFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    init.visitInsn(Opcodes.RETURN);
+                    init.visitMaxs(0, 0);
+                    init.visitEnd();
+
                     addGetter(
                             cw,
                             "getMorphTargets",
                             "()Ljava/util/List;",
-                            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+                            setOwner,
                             "morphTargets",
                             "Ljava/util/List;",
                             Opcodes.ARETURN);
+
+                    final MethodVisitor mAdd = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "add",
+                            "(Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget;)V",
+                            null,
+                            null);
+                    mAdd.visitCode();
+                    mAdd.visitVarInsn(Opcodes.ALOAD, 0);
+                    mAdd.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mAdd.visitVarInsn(Opcodes.ALOAD, 1);
+                    mAdd.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
+                    mAdd.visitInsn(Opcodes.POP);
+                    mAdd.visitInsn(Opcodes.RETURN);
+                    mAdd.visitMaxs(0, 0);
+                    mAdd.visitEnd();
+
+                    final MethodVisitor mAddAll =
+                            cw.visitMethod(Opcodes.ACC_PUBLIC, "addAll", "(Ljava/lang/Iterable;)V", null, null);
+                    mAddAll.visitCode();
+                    mAddAll.visitVarInsn(Opcodes.ALOAD, 1);
+                    mAddAll.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/lang/Iterable", "iterator", "()Ljava/util/Iterator;", true);
+                    mAddAll.visitVarInsn(Opcodes.ASTORE, 2);
+                    final Label aaLoop = new Label();
+                    final Label aaEnd = new Label();
+                    mAddAll.visitLabel(aaLoop);
+                    mAddAll.visitVarInsn(Opcodes.ALOAD, 2);
+                    mAddAll.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Iterator", "hasNext", "()Z", true);
+                    mAddAll.visitJumpInsn(Opcodes.IFEQ, aaEnd);
+                    mAddAll.visitVarInsn(Opcodes.ALOAD, 0);
+                    mAddAll.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mAddAll.visitVarInsn(Opcodes.ALOAD, 2);
+                    mAddAll.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/Iterator", "next", "()Ljava/lang/Object;", true);
+                    mAddAll.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
+                    mAddAll.visitInsn(Opcodes.POP);
+                    mAddAll.visitJumpInsn(Opcodes.GOTO, aaLoop);
+                    mAddAll.visitLabel(aaEnd);
+                    mAddAll.visitInsn(Opcodes.RETURN);
+                    mAddAll.visitMaxs(0, 0);
+                    mAddAll.visitEnd();
+
+                    final MethodVisitor mRem = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "remove",
+                            "(Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget;)V",
+                            null,
+                            null);
+                    mRem.visitCode();
+                    mRem.visitVarInsn(Opcodes.ALOAD, 0);
+                    mRem.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mRem.visitVarInsn(Opcodes.ALOAD, 1);
+                    mRem.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "remove", "(Ljava/lang/Object;)Z", true);
+                    mRem.visitInsn(Opcodes.POP);
+                    mRem.visitInsn(Opcodes.RETURN);
+                    mRem.visitMaxs(0, 0);
+                    mRem.visitEnd();
+
+                    final MethodVisitor mRemAll =
+                            cw.visitMethod(Opcodes.ACC_PRIVATE, "remove", "(Ljava/lang/Iterable;)V", null, null);
+                    mRemAll.visitCode();
+                    mRemAll.visitVarInsn(Opcodes.ALOAD, 1);
+                    mRemAll.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/lang/Iterable", "iterator", "()Ljava/util/Iterator;", true);
+                    mRemAll.visitVarInsn(Opcodes.ASTORE, 2);
+                    final Label raLoop = new Label();
+                    final Label raEnd = new Label();
+                    mRemAll.visitLabel(raLoop);
+                    mRemAll.visitVarInsn(Opcodes.ALOAD, 2);
+                    mRemAll.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Iterator", "hasNext", "()Z", true);
+                    mRemAll.visitJumpInsn(Opcodes.IFEQ, raEnd);
+                    mRemAll.visitVarInsn(Opcodes.ALOAD, 0);
+                    mRemAll.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mRemAll.visitVarInsn(Opcodes.ALOAD, 2);
+                    mRemAll.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/Iterator", "next", "()Ljava/lang/Object;", true);
+                    mRemAll.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "remove", "(Ljava/lang/Object;)Z", true);
+                    mRemAll.visitInsn(Opcodes.POP);
+                    mRemAll.visitJumpInsn(Opcodes.GOTO, raLoop);
+                    mRemAll.visitLabel(raEnd);
+                    mRemAll.visitInsn(Opcodes.RETURN);
+                    mRemAll.visitMaxs(0, 0);
+                    mRemAll.visitEnd();
+
+                    final MethodVisitor mClear = cw.visitMethod(Opcodes.ACC_PUBLIC, "clear", "()V", null, null);
+                    mClear.visitCode();
+                    mClear.visitVarInsn(Opcodes.ALOAD, 0);
+                    mClear.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mClear.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "clear", "()V", true);
+                    mClear.visitInsn(Opcodes.RETURN);
+                    mClear.visitMaxs(0, 0);
+                    mClear.visitEnd();
+
+                    final MethodVisitor mRep = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "replaceParameter",
+                            "(Lcom/live2d/type/CParameterGuid;Lcom/live2d/type/CParameterGuid;)V",
+                            null,
+                            null);
+                    mRep.visitCode();
+                    mRep.visitInsn(Opcodes.ICONST_0);
+                    mRep.visitVarInsn(Opcodes.ISTORE, 3);
+                    final Label rpLoop = new Label();
+                    final Label rpNext = new Label();
+                    final Label rpEnd = new Label();
+                    mRep.visitLabel(rpLoop);
+                    mRep.visitVarInsn(Opcodes.ILOAD, 3);
+                    mRep.visitVarInsn(Opcodes.ALOAD, 0);
+                    mRep.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mRep.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "size", "()I", true);
+                    mRep.visitJumpInsn(Opcodes.IF_ICMPGE, rpEnd);
+                    mRep.visitVarInsn(Opcodes.ALOAD, 0);
+                    mRep.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    mRep.visitVarInsn(Opcodes.ILOAD, 3);
+                    mRep.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "get", "(I)Ljava/lang/Object;", true);
+                    mRep.visitTypeInsn(Opcodes.CHECKCAST, mtOwner);
+                    mRep.visitVarInsn(Opcodes.ASTORE, 4);
+                    mRep.visitVarInsn(Opcodes.ALOAD, 1);
+                    mRep.visitVarInsn(Opcodes.ALOAD, 4);
+                    mRep.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            mtOwner,
+                            "getParameterGuid",
+                            "()Lcom/live2d/type/CParameterGuid;",
+                            false);
+                    mRep.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            "java/util/Objects",
+                            "equals",
+                            "(Ljava/lang/Object;Ljava/lang/Object;)Z",
+                            false);
+                    mRep.visitJumpInsn(Opcodes.IFEQ, rpNext);
+                    mRep.visitVarInsn(Opcodes.ALOAD, 4);
+                    mRep.visitVarInsn(Opcodes.ALOAD, 2);
+                    mRep.visitFieldInsn(Opcodes.PUTFIELD, mtOwner, "guid", "Lcom/live2d/type/CParameterGuid;");
+                    mRep.visitLabel(rpNext);
+                    mRep.visitIincInsn(3, 1);
+                    mRep.visitJumpInsn(Opcodes.GOTO, rpLoop);
+                    mRep.visitLabel(rpEnd);
+                    mRep.visitInsn(Opcodes.RETURN);
+                    mRep.visitMaxs(0, 0);
+                    mRep.visitEnd();
+
+                    addVoidNoopMethod(cw, "reinit", "(Lcom/live2d/core/ICopyable;Lcom/live2d/core/a;)V");
+
+                    final MethodVisitor getList = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "getMorphTargetList",
+                            "(Lcom/live2d/type/CParameterGuid;)Ljava/util/List;",
+                            null,
+                            null);
+                    getList.visitCode();
+                    getList.visitVarInsn(Opcodes.ALOAD, 0);
+                    getList.visitInsn(Opcodes.DUP);
+                    getList.visitFieldInsn(Opcodes.GETFIELD, setOwner, "getMorphTargetListCalls", "I");
+                    getList.visitInsn(Opcodes.ICONST_1);
+                    getList.visitInsn(Opcodes.IADD);
+                    getList.visitFieldInsn(Opcodes.PUTFIELD, setOwner, "getMorphTargetListCalls", "I");
+                    getList.visitTypeInsn(Opcodes.NEW, "java/util/ArrayList");
+                    getList.visitInsn(Opcodes.DUP);
+                    getList.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+                    getList.visitVarInsn(Opcodes.ASTORE, 2);
+                    getList.visitInsn(Opcodes.ICONST_0);
+                    getList.visitVarInsn(Opcodes.ISTORE, 3);
+                    final Label glLoop = new Label();
+                    final Label glNext = new Label();
+                    final Label glEnd = new Label();
+                    getList.visitLabel(glLoop);
+                    getList.visitVarInsn(Opcodes.ILOAD, 3);
+                    getList.visitVarInsn(Opcodes.ALOAD, 0);
+                    getList.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    getList.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "size", "()I", true);
+                    getList.visitJumpInsn(Opcodes.IF_ICMPGE, glEnd);
+                    getList.visitVarInsn(Opcodes.ALOAD, 0);
+                    getList.visitFieldInsn(Opcodes.GETFIELD, setOwner, "morphTargets", "Ljava/util/List;");
+                    getList.visitVarInsn(Opcodes.ILOAD, 3);
+                    getList.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "get", "(I)Ljava/lang/Object;", true);
+                    getList.visitTypeInsn(Opcodes.CHECKCAST, mtOwner);
+                    getList.visitVarInsn(Opcodes.ASTORE, 4);
+                    getList.visitVarInsn(Opcodes.ALOAD, 1);
+                    getList.visitVarInsn(Opcodes.ALOAD, 4);
+                    getList.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            mtOwner,
+                            "getParameterGuid",
+                            "()Lcom/live2d/type/CParameterGuid;",
+                            false);
+                    getList.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            "java/util/Objects",
+                            "equals",
+                            "(Ljava/lang/Object;Ljava/lang/Object;)Z",
+                            false);
+                    getList.visitJumpInsn(Opcodes.IFEQ, glNext);
+                    getList.visitVarInsn(Opcodes.ALOAD, 2);
+                    getList.visitVarInsn(Opcodes.ALOAD, 4);
+                    getList.visitMethodInsn(
+                            Opcodes.INVOKEINTERFACE, "java/util/List", "add", "(Ljava/lang/Object;)Z", true);
+                    getList.visitInsn(Opcodes.POP);
+                    getList.visitLabel(glNext);
+                    getList.visitIincInsn(3, 1);
+                    getList.visitJumpInsn(Opcodes.GOTO, glLoop);
+                    getList.visitLabel(glEnd);
+                    getList.visitVarInsn(Opcodes.ALOAD, 2);
+                    getList.visitInsn(Opcodes.ARETURN);
+                    getList.visitMaxs(0, 0);
+                    getList.visitEnd();
                 });
 
         defineClassWithInterfaces(
@@ -1106,6 +1864,113 @@ class ParameterRowRepaintArtifactTest {
                 "com/live2d/cubism/doc/model/ACParameterControllable",
                 cw -> addDefaultInit(cw, "com/live2d/cubism/doc/model/ACParameterControllable"));
 
+        for (final String setOwner : List.of(
+                "com/live2d/cubism/doc/model/drawable/CDrawableSourceSet",
+                "com/live2d/cubism/doc/model/deformer/CDeformerSourceSet",
+                "com/live2d/cubism/doc/model/affecter/CAffecterSourceSet",
+                "com/live2d/cubism/doc/model/parts/CPartSourceSet",
+                "com/live2d/cubism/doc/model/alias/CAliasSourceSet")) {
+            defineSimpleClass(out, setOwner, "java/lang/Object", cw -> {
+                cw.visitField(Opcodes.ACC_PUBLIC, "sources", "Ljava/util/List;", null, null)
+                        .visitEnd();
+                final MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+                ctor.visitCode();
+                ctor.visitVarInsn(Opcodes.ALOAD, 0);
+                ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+                ctor.visitVarInsn(Opcodes.ALOAD, 0);
+                ctor.visitTypeInsn(Opcodes.NEW, "java/util/ArrayList");
+                ctor.visitInsn(Opcodes.DUP);
+                ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+                ctor.visitFieldInsn(Opcodes.PUTFIELD, setOwner, "sources", "Ljava/util/List;");
+                ctor.visitInsn(Opcodes.RETURN);
+                ctor.visitMaxs(0, 0);
+                ctor.visitEnd();
+                addGetter(
+                        cw,
+                        "getSources",
+                        "()Ljava/util/List;",
+                        setOwner,
+                        "sources",
+                        "Ljava/util/List;",
+                        Opcodes.ARETURN);
+            });
+        }
+
+        defineSimpleClass(out, "com/live2d/cubism/doc/model/CModelSource", "java/lang/Object", cw -> {
+            final String msOwner = "com/live2d/cubism/doc/model/CModelSource";
+            final List<String[]> fields = List.of(
+                    new String[] {
+                        "drawableSourceSet",
+                        "com/live2d/cubism/doc/model/drawable/CDrawableSourceSet",
+                        "getDrawableSourceSet"
+                    },
+                    new String[] {
+                        "deformerSourceSet",
+                        "com/live2d/cubism/doc/model/deformer/CDeformerSourceSet",
+                        "getDeformerSourceSet"
+                    },
+                    new String[] {
+                        "affecterSourceSet",
+                        "com/live2d/cubism/doc/model/affecter/CAffecterSourceSet",
+                        "getAffecterSourceSet"
+                    },
+                    new String[] {
+                        "partSourceSet", "com/live2d/cubism/doc/model/parts/CPartSourceSet", "getPartSourceSet"
+                    },
+                    new String[] {
+                        "aliasSourceSet", "com/live2d/cubism/doc/model/alias/CAliasSourceSet", "getAliasSourceSet"
+                    });
+            for (final String[] spec : fields) {
+                cw.visitField(Opcodes.ACC_PUBLIC, spec[0], "L" + spec[1] + ";", null, null)
+                        .visitEnd();
+            }
+            cw.visitField(Opcodes.ACC_PUBLIC, "allObjectsCalls", "I", null, null)
+                    .visitEnd();
+            final MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+            ctor.visitCode();
+            ctor.visitVarInsn(Opcodes.ALOAD, 0);
+            ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            for (final String[] spec : fields) {
+                ctor.visitVarInsn(Opcodes.ALOAD, 0);
+                ctor.visitTypeInsn(Opcodes.NEW, spec[1]);
+                ctor.visitInsn(Opcodes.DUP);
+                ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, spec[1], "<init>", "()V", false);
+                ctor.visitFieldInsn(Opcodes.PUTFIELD, msOwner, spec[0], "L" + spec[1] + ";");
+            }
+            ctor.visitInsn(Opcodes.RETURN);
+            ctor.visitMaxs(0, 0);
+            ctor.visitEnd();
+            for (final String[] spec : fields) {
+                addGetter(cw, spec[2], "()L" + spec[1] + ";", msOwner, spec[0], "L" + spec[1] + ";", Opcodes.ARETURN);
+            }
+            final MethodVisitor all =
+                    cw.visitMethod(Opcodes.ACC_PUBLIC, "getAllObjects", "()Ljava/util/List;", null, null);
+            all.visitCode();
+            all.visitVarInsn(Opcodes.ALOAD, 0);
+            all.visitInsn(Opcodes.DUP);
+            all.visitFieldInsn(Opcodes.GETFIELD, msOwner, "allObjectsCalls", "I");
+            all.visitInsn(Opcodes.ICONST_1);
+            all.visitInsn(Opcodes.IADD);
+            all.visitFieldInsn(Opcodes.PUTFIELD, msOwner, "allObjectsCalls", "I");
+            all.visitTypeInsn(Opcodes.NEW, "java/util/ArrayList");
+            all.visitInsn(Opcodes.DUP);
+            all.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+            all.visitVarInsn(Opcodes.ASTORE, 1);
+            for (final String[] spec : fields) {
+                all.visitVarInsn(Opcodes.ALOAD, 1);
+                all.visitVarInsn(Opcodes.ALOAD, 0);
+                all.visitFieldInsn(Opcodes.GETFIELD, msOwner, spec[0], "L" + spec[1] + ";");
+                all.visitMethodInsn(Opcodes.INVOKEVIRTUAL, spec[1], "getSources", "()Ljava/util/List;", false);
+                all.visitMethodInsn(
+                        Opcodes.INVOKEINTERFACE, "java/util/List", "addAll", "(Ljava/util/Collection;)Z", true);
+                all.visitInsn(Opcodes.POP);
+            }
+            all.visitVarInsn(Opcodes.ALOAD, 1);
+            all.visitInsn(Opcodes.ARETURN);
+            all.visitMaxs(0, 0);
+            all.visitEnd();
+        });
+
         defineSimpleClass(out, "com/live2d/cubism/doc/model/CModel", "java/lang/Object", cw -> {
             cw.visitField(
                             Opcodes.ACC_PUBLIC,
@@ -1115,6 +1980,8 @@ class ParameterRowRepaintArtifactTest {
                             null)
                     .visitEnd();
             cw.visitField(Opcodes.ACC_PUBLIC, "allObjects", "Ljava/util/List;", null, null)
+                    .visitEnd();
+            cw.visitField(Opcodes.ACC_PUBLIC, "source", "Lcom/live2d/cubism/doc/model/CModelSource;", null, null)
                     .visitEnd();
             addDefaultInit(cw, "java/lang/Object");
             addGetter(
@@ -1133,7 +2000,193 @@ class ParameterRowRepaintArtifactTest {
                     "allObjects",
                     "Ljava/util/List;",
                     Opcodes.ARETURN);
+            addGetter(
+                    cw,
+                    "getSource",
+                    "()Lcom/live2d/cubism/doc/model/CModelSource;",
+                    "com/live2d/cubism/doc/model/CModel",
+                    "source",
+                    "Lcom/live2d/cubism/doc/model/CModelSource;",
+                    Opcodes.ARETURN);
         });
+
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget$a$a",
+                "java/lang/Object",
+                cw -> {
+                    final String baseOwner = "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget$a$a";
+                    cw.visitField(
+                                    Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                                    "a",
+                                    "Lcom/live2d/type/CArrayList;",
+                                    null,
+                                    null)
+                            .visitEnd();
+                    final MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+                    ctor.visitCode();
+                    ctor.visitVarInsn(Opcodes.ALOAD, 0);
+                    ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+                    ctor.visitVarInsn(Opcodes.ALOAD, 0);
+                    ctor.visitTypeInsn(Opcodes.NEW, "com/live2d/type/CArrayList");
+                    ctor.visitInsn(Opcodes.DUP);
+                    ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "com/live2d/type/CArrayList", "<init>", "()V", false);
+                    ctor.visitFieldInsn(Opcodes.PUTFIELD, baseOwner, "a", "Lcom/live2d/type/CArrayList;");
+                    ctor.visitInsn(Opcodes.RETURN);
+                    ctor.visitMaxs(0, 0);
+                    ctor.visitEnd();
+                    addGetter(
+                            cw,
+                            "b",
+                            "()Lcom/live2d/type/CArrayList;",
+                            baseOwner,
+                            "a",
+                            "Lcom/live2d/type/CArrayList;",
+                            Opcodes.ARETURN);
+                    final MethodVisitor baseA = cw.visitMethod(
+                            Opcodes.ACC_PROTECTED,
+                            "a",
+                            "(Lcom/live2d/cubism/doc/model/CModel;Lcom/live2d/type/CParameterGuid;)V",
+                            null,
+                            null);
+                    baseA.visitCode();
+                    baseA.visitInsn(Opcodes.RETURN);
+                    baseA.visitMaxs(0, 0);
+                    baseA.visitEnd();
+                    final MethodVisitor pop = cw.visitMethod(
+                            Opcodes.ACC_PUBLIC,
+                            "populate",
+                            "(Lcom/live2d/cubism/doc/model/CModel;Lcom/live2d/type/CParameterGuid;)V",
+                            null,
+                            null);
+                    pop.visitCode();
+                    pop.visitVarInsn(Opcodes.ALOAD, 0);
+                    pop.visitVarInsn(Opcodes.ALOAD, 1);
+                    pop.visitVarInsn(Opcodes.ALOAD, 2);
+                    pop.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            baseOwner,
+                            "a",
+                            "(Lcom/live2d/cubism/doc/model/CModel;Lcom/live2d/type/CParameterGuid;)V",
+                            false);
+                    pop.visitInsn(Opcodes.RETURN);
+                    pop.visitMaxs(0, 0);
+                    pop.visitEnd();
+                });
+
+        defineSimpleClass(
+                out,
+                "com/live2d/cubism/doc/model/morphTarget/ag$h",
+                "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget$a$a",
+                cw -> {
+                    addDefaultInit(cw, "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget$a$a");
+                    final MethodVisitor m = cw.visitMethod(
+                            Opcodes.ACC_PROTECTED,
+                            "a",
+                            "(Lcom/live2d/cubism/doc/model/CModel;Lcom/live2d/type/CParameterGuid;)V",
+                            null,
+                            null);
+                    m.visitCode();
+                    // local 3: LinkedHashSet<Float> seen, 4: List sources, 5: i, 6: List targets, 7: j, 8: Float kv
+                    m.visitTypeInsn(Opcodes.NEW, "java/util/LinkedHashSet");
+                    m.visitInsn(Opcodes.DUP);
+                    m.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/LinkedHashSet", "<init>", "()V", false);
+                    m.visitVarInsn(Opcodes.ASTORE, 3);
+                    m.visitVarInsn(Opcodes.ALOAD, 1);
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/CModel",
+                            "getSource",
+                            "()Lcom/live2d/cubism/doc/model/CModelSource;",
+                            false);
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/CModelSource",
+                            "getAllObjects",
+                            "()Ljava/util/List;",
+                            false);
+                    m.visitVarInsn(Opcodes.ASTORE, 4);
+                    m.visitInsn(Opcodes.ICONST_0);
+                    m.visitVarInsn(Opcodes.ISTORE, 5);
+                    final Label outerLoop = new Label();
+                    final Label outerEnd = new Label();
+                    m.visitLabel(outerLoop);
+                    m.visitVarInsn(Opcodes.ILOAD, 5);
+                    m.visitVarInsn(Opcodes.ALOAD, 4);
+                    m.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "size", "()I", true);
+                    m.visitJumpInsn(Opcodes.IF_ICMPGE, outerEnd);
+                    m.visitVarInsn(Opcodes.ALOAD, 4);
+                    m.visitVarInsn(Opcodes.ILOAD, 5);
+                    m.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "get", "(I)Ljava/lang/Object;", true);
+                    m.visitTypeInsn(Opcodes.CHECKCAST, "com/live2d/cubism/doc/model/ACParameterControllableSource");
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                            "getKeyformMorphTargetSet",
+                            "()Lcom/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet;",
+                            false);
+                    m.visitVarInsn(Opcodes.ALOAD, 2);
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet",
+                            "getMorphTargetList",
+                            "(Lcom/live2d/type/CParameterGuid;)Ljava/util/List;",
+                            false);
+                    m.visitVarInsn(Opcodes.ASTORE, 6);
+                    m.visitInsn(Opcodes.ICONST_0);
+                    m.visitVarInsn(Opcodes.ISTORE, 7);
+                    final Label innerLoop = new Label();
+                    final Label innerNext = new Label();
+                    final Label innerEnd = new Label();
+                    m.visitLabel(innerLoop);
+                    m.visitVarInsn(Opcodes.ILOAD, 7);
+                    m.visitVarInsn(Opcodes.ALOAD, 6);
+                    m.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "size", "()I", true);
+                    m.visitJumpInsn(Opcodes.IF_ICMPGE, innerEnd);
+                    m.visitVarInsn(Opcodes.ALOAD, 6);
+                    m.visitVarInsn(Opcodes.ILOAD, 7);
+                    m.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/List", "get", "(I)Ljava/lang/Object;", true);
+                    m.visitTypeInsn(Opcodes.CHECKCAST, "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget");
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget",
+                            "getKeyValue",
+                            "()Ljava/lang/Float;",
+                            false);
+                    m.visitInsn(Opcodes.DUP);
+                    m.visitVarInsn(Opcodes.ASTORE, 8);
+                    m.visitJumpInsn(Opcodes.IFNULL, innerNext);
+                    m.visitVarInsn(Opcodes.ALOAD, 3);
+                    m.visitVarInsn(Opcodes.ALOAD, 8);
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL, "java/util/LinkedHashSet", "add", "(Ljava/lang/Object;)Z", false);
+                    m.visitInsn(Opcodes.POP);
+                    m.visitLabel(innerNext);
+                    m.visitIincInsn(7, 1);
+                    m.visitJumpInsn(Opcodes.GOTO, innerLoop);
+                    m.visitLabel(innerEnd);
+                    m.visitIincInsn(5, 1);
+                    m.visitJumpInsn(Opcodes.GOTO, outerLoop);
+                    m.visitLabel(outerEnd);
+                    m.visitVarInsn(Opcodes.ALOAD, 0);
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget$a$a",
+                            "b",
+                            "()Lcom/live2d/type/CArrayList;",
+                            false);
+                    m.visitVarInsn(Opcodes.ALOAD, 3);
+                    m.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "com/live2d/type/CArrayList",
+                            "addAll",
+                            "(Ljava/util/Collection;)Z",
+                            false);
+                    m.visitInsn(Opcodes.POP);
+                    m.visitInsn(Opcodes.RETURN);
+                    m.visitMaxs(0, 0);
+                    m.visitEnd();
+                });
 
         defineInterface(out, "com/live2d/cubism/view/palette/parameter/ui/B", cw -> {
             cw.visitMethod(
@@ -2247,6 +3300,256 @@ class ParameterRowRepaintArtifactTest {
                 }
             }
             throw new NoSuchFieldException(type.getName() + "." + fieldName);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static final class MorphScenario {
+        private final ClassLoader loader;
+        private final Object model;
+        private final Object modelSource;
+        private final List<Object> guids = new ArrayList<>();
+        private final List<Object> morphSets = new ArrayList<>();
+        private final Class<?> rowInfoClass;
+
+        MorphScenario(final ClassLoader loader) throws Exception {
+            this.loader = loader;
+            this.rowInfoClass = Class.forName("com.live2d.cubism.doc.model.morphTarget.ag$h", true, loader);
+            this.model = SyntheticPaletteFixture.instantiate(loader, "com.live2d.cubism.doc.model.CModel");
+            this.modelSource = SyntheticPaletteFixture.instantiate(loader, "com.live2d.cubism.doc.model.CModelSource");
+            SyntheticPaletteFixture.setField(model, "source", modelSource);
+
+            for (int i = 0; i < 3; i++) {
+                guids.add(SyntheticPaletteFixture.createGuid(loader, "M_PARAM_" + i));
+            }
+
+            final Object drawableSet = SyntheticPaletteFixture.getField(modelSource, "drawableSourceSet");
+            final List<Object> drawableSources =
+                    (List<Object>) SyntheticPaletteFixture.getField(drawableSet, "sources");
+            for (int i = 0; i < 30; i++) {
+                final Object src = SyntheticPaletteFixture.instantiate(
+                        loader, "com.live2d.cubism.doc.model.ACParameterControllableSource");
+                final Object mset = SyntheticPaletteFixture.instantiate(
+                        loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet");
+                SyntheticPaletteFixture.setField(src, "morphSet", mset);
+                drawableSources.add(src);
+                morphSets.add(mset);
+            }
+
+            final Object initialMt = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(initialMt, "guid", guids.get(0));
+            SyntheticPaletteFixture.setField(initialMt, "keyValue", 0.1f);
+            msetAdd(morphSets.get(0), initialMt);
+        }
+
+        private void msetAdd(final Object set, final Object target) throws Exception {
+            set.getClass()
+                    .getMethod(
+                            "add",
+                            Class.forName("com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget", false, loader))
+                    .invoke(set, target);
+        }
+
+        Object newRowInfo() throws Exception {
+            return rowInfoClass.getConstructor().newInstance();
+        }
+
+        void populateRow(final Object rowInfo, final int paramIndex) throws Exception {
+            rowInfoClass
+                    .getMethod(
+                            "populate",
+                            Class.forName("com.live2d.cubism.doc.model.CModel", false, loader),
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader))
+                    .invoke(rowInfo, model, guids.get(paramIndex));
+        }
+
+        List<Float> collectRowKeys(final int paramIndex) throws Exception {
+            final Object rowInfo = newRowInfo();
+            populateRow(rowInfo, paramIndex);
+            return new ArrayList<>(
+                    (List<Float>) rowInfo.getClass().getMethod("b").invoke(rowInfo));
+        }
+
+        List<Float> collectRowKeysForSecondModel(final int paramIndex, final float value) throws Exception {
+            final Object secondModel =
+                    SyntheticPaletteFixture.instantiate(loader, "com.live2d.cubism.doc.model.CModel");
+            final Object secondSource =
+                    SyntheticPaletteFixture.instantiate(loader, "com.live2d.cubism.doc.model.CModelSource");
+            SyntheticPaletteFixture.setField(secondModel, "source", secondSource);
+            final Object src = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.ACParameterControllableSource");
+            final Object mset = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet");
+            final Object mt = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(mt, "guid", guids.get(paramIndex));
+            SyntheticPaletteFixture.setField(mt, "keyValue", value);
+            msetAdd(mset, mt);
+            SyntheticPaletteFixture.setField(src, "morphSet", mset);
+            final Object defSet = SyntheticPaletteFixture.getField(secondSource, "deformerSourceSet");
+            ((List<Object>) SyntheticPaletteFixture.getField(defSet, "sources")).add(src);
+
+            final Object rowInfo = newRowInfo();
+            rowInfoClass
+                    .getMethod(
+                            "populate",
+                            Class.forName("com.live2d.cubism.doc.model.CModel", false, loader),
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader))
+                    .invoke(rowInfo, secondModel, guids.get(paramIndex));
+            return new ArrayList<>(
+                    (List<Float>) rowInfo.getClass().getMethod("b").invoke(rowInfo));
+        }
+
+        int getAllObjectsCalls() throws Exception {
+            return (int) SyntheticPaletteFixture.getField(modelSource, "allObjectsCalls");
+        }
+
+        int getMorphTargetListCalls() throws Exception {
+            int total = 0;
+            for (final Object mset : morphSets) {
+                total += (int) SyntheticPaletteFixture.getField(mset, "getMorphTargetListCalls");
+            }
+            return total;
+        }
+
+        void addMorphKey(final int setIndex, final int paramIndex, final float value) throws Exception {
+            final Object mt = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(mt, "guid", guids.get(paramIndex));
+            SyntheticPaletteFixture.setField(mt, "keyValue", value);
+            msetAdd(morphSets.get(setIndex), mt);
+        }
+
+        void setKeyValue(final int setIndex, final float value) throws Exception {
+            final List<Object> targets =
+                    (List<Object>) SyntheticPaletteFixture.getField(morphSets.get(setIndex), "morphTargets");
+            final Object mt = targets.get(0);
+            mt.getClass()
+                    .getMethod(
+                            "setParameterAndKeyValue",
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader),
+                            Float.class)
+                    .invoke(mt, guids.get(0), value);
+        }
+
+        void setParameter(final int setIndex, final int nextParamIndex) throws Exception {
+            final List<Object> targets =
+                    (List<Object>) SyntheticPaletteFixture.getField(morphSets.get(setIndex), "morphTargets");
+            final Object mt = targets.get(0);
+            mt.getClass()
+                    .getMethod("setParameter", Class.forName("com.live2d.type.CParameterGuid", false, loader))
+                    .invoke(mt, guids.get(nextParamIndex));
+        }
+
+        void setParameterAndKeyValue(final int setIndex, final int nextParamIndex, final float value) throws Exception {
+            final List<Object> targets =
+                    (List<Object>) SyntheticPaletteFixture.getField(morphSets.get(setIndex), "morphTargets");
+            final Object mt = targets.get(0);
+            mt.getClass()
+                    .getMethod(
+                            "setParameterAndKeyValue",
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader),
+                            Float.class)
+                    .invoke(mt, guids.get(nextParamIndex), value);
+        }
+
+        void replaceParameter(final int fromIndex, final int toIndex) throws Exception {
+            morphSets
+                    .get(0)
+                    .getClass()
+                    .getMethod(
+                            "replaceParameter",
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader),
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader))
+                    .invoke(morphSets.get(0), guids.get(fromIndex), guids.get(toIndex));
+        }
+
+        void removeFirstMorph(final int setIndex) throws Exception {
+            final List<Object> targets =
+                    (List<Object>) SyntheticPaletteFixture.getField(morphSets.get(setIndex), "morphTargets");
+            morphSets
+                    .get(setIndex)
+                    .getClass()
+                    .getMethod(
+                            "remove",
+                            Class.forName("com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget", false, loader))
+                    .invoke(morphSets.get(setIndex), targets.get(0));
+        }
+
+        void clearMorphs(final int setIndex) throws Exception {
+            morphSets.get(setIndex).getClass().getMethod("clear").invoke(morphSets.get(setIndex));
+        }
+
+        void addAllAndRemoveAll(final int setIndex, final int paramIndex, final float value) throws Exception {
+            final Object mt = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(mt, "guid", guids.get(paramIndex));
+            SyntheticPaletteFixture.setField(mt, "keyValue", value);
+            final Object set = morphSets.get(setIndex);
+            set.getClass().getMethod("addAll", Iterable.class).invoke(set, List.of(mt));
+            final var rem = set.getClass().getDeclaredMethod("remove", Iterable.class);
+            rem.setAccessible(true);
+            rem.invoke(set, List.of(mt));
+        }
+
+        void reinitAndDeserializeMorph(final int setIndex, final int paramIndex, final float value) throws Exception {
+            final Object mt = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(mt, "guid", guids.get(paramIndex));
+            SyntheticPaletteFixture.setField(mt, "keyValue", value);
+            msetAdd(morphSets.get(setIndex), mt);
+            final Object copy = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(copy, "guid", guids.get(paramIndex));
+            SyntheticPaletteFixture.setField(copy, "keyValue", value + 0.1f);
+            mt.getClass()
+                    .getMethod(
+                            "reinit",
+                            Class.forName("com.live2d.core.ICopyable", false, loader),
+                            Class.forName("com.live2d.core.a", false, loader))
+                    .invoke(mt, copy, null);
+            mt.getClass()
+                    .getMethod(
+                            "deserialize",
+                            Class.forName("org.jdom.Element", false, loader),
+                            Class.forName("com.live2d.serialize.XmlReader", false, loader))
+                    .invoke(mt, null, null);
+        }
+
+        void accessSetGuidAndReinitSet(final int setIndex, final int targetParamIndex) throws Exception {
+            final List<Object> targets =
+                    (List<Object>) SyntheticPaletteFixture.getField(morphSets.get(setIndex), "morphTargets");
+            final Object mt = targets.get(0);
+            Class.forName("com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget", false, loader)
+                    .getMethod(
+                            "access$setParameterGuid$p",
+                            Class.forName("com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget", false, loader),
+                            Class.forName("com.live2d.type.CParameterGuid", false, loader))
+                    .invoke(null, mt, guids.get(targetParamIndex));
+            morphSets
+                    .get(setIndex)
+                    .getClass()
+                    .getMethod(
+                            "reinit",
+                            Class.forName("com.live2d.core.ICopyable", false, loader),
+                            Class.forName("com.live2d.core.a", false, loader))
+                    .invoke(morphSets.get(setIndex), null, null);
+        }
+
+        void addExtraSourceWithMorph(final int paramIndex, final float value) throws Exception {
+            final Object src = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.ACParameterControllableSource");
+            final Object mset = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTargetSet");
+            final Object mt = SyntheticPaletteFixture.instantiate(
+                    loader, "com.live2d.cubism.doc.model.morphTarget.KeyFormMorphTarget");
+            SyntheticPaletteFixture.setField(mt, "guid", guids.get(paramIndex));
+            SyntheticPaletteFixture.setField(mt, "keyValue", value);
+            msetAdd(mset, mt);
+            SyntheticPaletteFixture.setField(src, "morphSet", mset);
+            final Object aliasSet = SyntheticPaletteFixture.getField(modelSource, "aliasSourceSet");
+            ((List<Object>) SyntheticPaletteFixture.getField(aliasSet, "sources")).add(src);
         }
     }
 }
