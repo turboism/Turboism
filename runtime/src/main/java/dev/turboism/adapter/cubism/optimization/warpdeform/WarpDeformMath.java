@@ -16,6 +16,19 @@ public final class WarpDeformMath {
     private static final float THREE_F = 3.0f;
     private static final float HALF_F = 0.5f;
     private static final float TEN_F = 10.0f;
+    private static final float COONS_WEIGHT_EXP_F = 2.0f;
+    private static final float CUBIC_EXP_F = 3.0f;
+    private static final float QUAD_EXP_F = 2.0f;
+    private static final float NEG_FIVE_SIXTHS_F = 0.8333333f;
+    private static final float ONE_HALF_F = 1.5f;
+    private static final float ONE_THIRD_F = 0.33333334f;
+    private static final float FOUR_THIRDS_F = 1.3333334f;
+    private static final float PATCH_SNAP_EPS_F = 1.0e-4f;
+    private static final float SIMPLEX_STEP_F = 0.001f;
+    private static final float SIMPLEX_TOL_F = 1.0e-4f;
+    private static final int SIMPLEX_MAX_ITER = 100000;
+    private static final int SIMPLEX_SLOTS = 4;
+    private static final int COONS_CTRL_STRIDE = 10;
     private static final double ZERO_D = 0.0d;
     private static final double ONE_D = 1.0d;
     private static final double HALF_D = 0.5d;
@@ -24,6 +37,8 @@ public final class WarpDeformMath {
     private static final int COORD_STRIDE = 2;
 
     private static final ThreadLocal<float[]> BEZIER_LATTICE_SCRATCH = new ThreadLocal<>();
+    private static final ThreadLocal<CoonsInvertScratch> COONS_INVERT_SCRATCH =
+            ThreadLocal.withInitial(CoonsInvertScratch::new);
 
     private WarpDeformMath() {}
 
@@ -673,5 +688,563 @@ public final class WarpDeformMath {
 
     private static float dist(final float ax, final float ay, final float bx, final float by) {
         return (float) Math.sqrt(distSq(ax, ay, bx, by));
+    }
+
+    /**
+     * Evaluates a Coons-blended cubic Bezier patch matching {@code extension.a.f.a(c, c, c, c, float, float)}.
+     *
+     * @param gridPts packed patch control points with {@value #COONS_CTRL_STRIDE} floats per node
+     * @param nwIdx flattened node index of the top-left corner
+     * @param neIdx flattened node index of the top-right corner
+     * @param swIdx flattened node index of the bottom-left corner
+     * @param seIdx flattened node index of the bottom-right corner
+     * @param u normalized patch U coordinate
+     * @param v normalized patch V coordinate
+     * @param out two-element output {@code [x, y]}
+     */
+    public static void evalCoonsPatch(
+            final float[] gridPts,
+            final int nwIdx,
+            final int neIdx,
+            final int swIdx,
+            final int seIdx,
+            final float u,
+            final float v,
+            final float[] out) {
+        final int o00 = nwIdx * COONS_CTRL_STRIDE;
+        final int o10 = neIdx * COONS_CTRL_STRIDE;
+        final int o01 = swIdx * COONS_CTRL_STRIDE;
+        final int o11 = seIdx * COONS_CTRL_STRIDE;
+        evalCoonsPatchOffsets(gridPts, o00, o10, o01, o11, u, v, out);
+    }
+
+    /**
+     * Inverts a Coons Bezier patch using the 2D Nelder-Mead solver matching {@code extension.a.f.a(..., GVector2, float, float)}.
+     *
+     * @param gridPts packed patch control points with {@value #COONS_CTRL_STRIDE} floats per node
+     * @param nwIdx flattened node index of the top-left corner
+     * @param neIdx flattened node index of the top-right corner
+     * @param swIdx flattened node index of the bottom-left corner
+     * @param seIdx flattened node index of the bottom-right corner
+     * @param targetX target deformed canvas X
+     * @param targetY target deformed canvas Y
+     * @param u0 initial U guess
+     * @param v0 initial V guess
+     * @param outUVResidual four-element output {@code [u, v, residualX, residualY]}
+     */
+    public static void invertCoonsPatch(
+            final float[] gridPts,
+            final int nwIdx,
+            final int neIdx,
+            final int swIdx,
+            final int seIdx,
+            final float targetX,
+            final float targetY,
+            final float u0,
+            final float v0,
+            final float[] outUVResidual) {
+        final int o00 = nwIdx * COONS_CTRL_STRIDE;
+        final int o10 = neIdx * COONS_CTRL_STRIDE;
+        final int o01 = swIdx * COONS_CTRL_STRIDE;
+        final int o11 = seIdx * COONS_CTRL_STRIDE;
+        final CoonsInvertScratch scratch = COONS_INVERT_SCRATCH.get();
+        invertCoonsPatchOffsets(gridPts, o00, o10, o01, o11, targetX, targetY, u0, v0, scratch, outUVResidual);
+    }
+
+    /**
+     * Evaluates a spline-interpolated warp grid matching {@code extension.a.f.a(float[], int, int, float, float)}.
+     *
+     * @return {@code true} when {@code out[0..1]} was written; {@code false} to fall back to host error checks
+     */
+    public static boolean evalBicubicGrid(
+            final float[] points, final int col, final int row, final float u, final float v, final float[] out) {
+        if (points == null || col < 2 || row < 2 || out == null || out.length < COORD_STRIDE) {
+            return false;
+        }
+        int cx = clampInt((int) (u * (float) col), 0, col - 2);
+        int cy = clampInt((int) (v * (float) row), 0, row - 2);
+        float tx = u * (float) col - (float) cx;
+        float ty = v * (float) row - (float) cy;
+        if (cx != 0) {
+            cx--;
+            tx += ONE_F;
+        }
+        if (cy != 0) {
+            cy--;
+            ty += ONE_F;
+        }
+        final CoonsInvertScratch scratch = COONS_INVERT_SCRATCH.get();
+        final float[] colX = scratch.colX;
+        final float[] colY = scratch.colY;
+        final float[] tmp = scratch.evalTmp;
+        final int colStride = col + 1;
+        int nCols = 0;
+        final int maxIx = Math.min(cx + 3, col);
+        for (int ix = cx; ix <= maxIx; ix++) {
+            if (row >= 3) {
+                final int i0 = (cy * colStride + ix) * COORD_STRIDE;
+                final int i1 = ((cy + 1) * colStride + ix) * COORD_STRIDE;
+                final int i2 = ((cy + 2) * colStride + ix) * COORD_STRIDE;
+                final int i3 = ((cy + 3) * colStride + ix) * COORD_STRIDE;
+                evalCatmull4(
+                        points[i0],
+                        points[i0 + 1],
+                        points[i1],
+                        points[i1 + 1],
+                        points[i2],
+                        points[i2 + 1],
+                        points[i3],
+                        points[i3 + 1],
+                        ty / THREE_F,
+                        tmp);
+            } else {
+                final int i0 = (cy * colStride + ix) * COORD_STRIDE;
+                final int i1 = ((cy + 1) * colStride + ix) * COORD_STRIDE;
+                final int i2 = ((cy + 2) * colStride + ix) * COORD_STRIDE;
+                evalCatmull3(
+                        points[i0],
+                        points[i0 + 1],
+                        points[i1],
+                        points[i1 + 1],
+                        points[i2],
+                        points[i2 + 1],
+                        ty / TWO_F,
+                        tmp);
+            }
+            colX[nCols] = tmp[0];
+            colY[nCols] = tmp[1];
+            nCols++;
+        }
+        if (nCols == 4) {
+            evalCatmull4(colX[0], colY[0], colX[1], colY[1], colX[2], colY[2], colX[3], colY[3], tx / THREE_F, out);
+            return true;
+        }
+        if (nCols == 3) {
+            evalCatmull3(colX[0], colY[0], colX[1], colY[1], colX[2], colY[2], tx / TWO_F, out);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Evaluates an entire control-point drag batch matching {@code extension.a.d.a(d, i, i, int, int, float[])}.
+     *
+     * <p>Writes transformed {@code [x, y]} pairs into {@code outPositions} and updated {@code [u, v]}
+     * parameters into {@code outParams} in strict row-major order.</p>
+     */
+    public static void evaluateExtensionDragBatch(
+            final float[] oldGridPts,
+            final int oldCol,
+            final int oldRow,
+            final float[] newGridPts,
+            final int newCol,
+            final int newRow,
+            final float[] prevParams,
+            final int wCol,
+            final int wRow,
+            final float[] deformedPoints,
+            final float[] outParams,
+            final float[] outPositions) {
+        final boolean gridCountChanged = newCol != oldCol || newRow != oldRow;
+        final float invNewCol = ONE_F / (float) newCol;
+        final float invNewRow = ONE_F / (float) newRow;
+        final float invOldCol = ONE_F / (float) oldCol;
+        final float invOldRow = ONE_F / (float) oldRow;
+        final int oldRowStride = oldRow + 1;
+        final int newRowStride = newRow + 1;
+        final int wStride = wCol + 1;
+        final CoonsInvertScratch scratch = COONS_INVERT_SCRATCH.get();
+        final float[] uvRes = scratch.uvRes;
+        final float[] evalOut = scratch.evalTmp;
+
+        for (int iy = 0; iy <= wRow; iy++) {
+            final float fracY = (float) iy / (float) wRow;
+            final int pNewY = clampInt((int) (fracY / invNewRow + PATCH_SNAP_EPS_F), 0, newRow - 1);
+            int pOldY = (int) (fracY / invOldRow + PATCH_SNAP_EPS_F);
+            if (pOldY == oldRow) {
+                pOldY = oldRow - 1;
+            }
+            for (int ix = 0; ix <= wCol; ix++) {
+                final float fracX = (float) ix / (float) wCol;
+                final int pNewX = clampInt((int) (fracX / invNewCol + PATCH_SNAP_EPS_F), 0, newCol - 1);
+                final int ptIdx = iy * wStride + ix;
+                final int pairOff = ptIdx * COORD_STRIDE;
+
+                final float u0;
+                final float v0;
+                if (gridCountChanged) {
+                    u0 = (fracX - (float) pNewX / (float) newCol) / invNewCol;
+                    v0 = (fracY - (float) pNewY / (float) newRow) / invNewRow;
+                } else {
+                    u0 = prevParams[pairOff] - (float) pNewX;
+                    v0 = prevParams[pairOff + 1] - (float) pNewY;
+                }
+
+                final int n00 = (pNewX * newRowStride + pNewY) * COONS_CTRL_STRIDE;
+                final int n10 = ((pNewX + 1) * newRowStride + pNewY) * COONS_CTRL_STRIDE;
+                final int n01 = (pNewX * newRowStride + pNewY + 1) * COONS_CTRL_STRIDE;
+                final int n11 = ((pNewX + 1) * newRowStride + pNewY + 1) * COONS_CTRL_STRIDE;
+                invertCoonsPatchOffsets(
+                        newGridPts,
+                        n00,
+                        n10,
+                        n01,
+                        n11,
+                        deformedPoints[pairOff],
+                        deformedPoints[pairOff + 1],
+                        u0,
+                        v0,
+                        scratch,
+                        uvRes);
+
+                int pOldX = (int) (fracX / invOldCol + PATCH_SNAP_EPS_F);
+                if (pOldX == oldCol) {
+                    pOldX = oldCol - 1;
+                }
+                final int o00 = (pOldX * oldRowStride + pOldY) * COONS_CTRL_STRIDE;
+                final int o10 = ((pOldX + 1) * oldRowStride + pOldY) * COONS_CTRL_STRIDE;
+                final int o01 = (pOldX * oldRowStride + pOldY + 1) * COONS_CTRL_STRIDE;
+                final int o11 = ((pOldX + 1) * oldRowStride + pOldY + 1) * COONS_CTRL_STRIDE;
+                evalCoonsPatchOffsets(oldGridPts, o00, o10, o01, o11, uvRes[0], uvRes[1], evalOut);
+
+                outPositions[pairOff] = evalOut[0] + uvRes[2];
+                outPositions[pairOff + 1] = evalOut[1] + uvRes[3];
+                outParams[pairOff] = uvRes[0] + (float) pOldX;
+                outParams[pairOff + 1] = uvRes[1] + (float) pOldY;
+            }
+        }
+    }
+
+    private static int clampInt(final int v, final int min, final int max) {
+        return v < min ? min : (v > max ? max : v);
+    }
+
+    private static void evalCubicExtensionPow(
+            final float p0x,
+            final float p0y,
+            final float h0x,
+            final float h0y,
+            final float p1x,
+            final float p1y,
+            final float h1x,
+            final float h1y,
+            final float t,
+            final float[] out) {
+        final float om = ONE_F - t;
+        final float w0 = (float) Math.pow((double) om, (double) CUBIC_EXP_F);
+        final float w1 = (float) Math.pow((double) om, (double) QUAD_EXP_F);
+        final float w2 = (float) Math.pow((double) t, (double) QUAD_EXP_F);
+        final float w3 = (float) Math.pow((double) t, (double) CUBIC_EXP_F);
+        final float t0x = w0 * p0x;
+        final float t0y = w0 * p0y;
+        final float t1x = t * (w1 * (THREE_F * h0x));
+        final float t1y = t * (w1 * (THREE_F * h0y));
+        final float t2x = w2 * (om * (THREE_F * h1x));
+        final float t2y = w2 * (om * (THREE_F * h1y));
+        final float t3x = w3 * p1x;
+        final float t3y = w3 * p1y;
+        out[0] = ((t0x + t1x) + t2x) + t3x;
+        out[1] = ((t0y + t1y) + t2y) + t3y;
+    }
+
+    private static void evalCoonsPatchOffsets(
+            final float[] g,
+            final int o00,
+            final int o10,
+            final int o01,
+            final int o11,
+            final float u,
+            final float v,
+            final float[] out) {
+        if (v == ZERO_F || v == ONE_F) {
+            evalCoonsHorizontalFirst(g, o00, o10, o01, o11, u, v, out);
+            return;
+        }
+        if (u == ZERO_F || u == ONE_F) {
+            evalCoonsVerticalFirst(g, o00, o10, o01, o11, u, v, out);
+            return;
+        }
+        evalCoonsVerticalFirst(g, o00, o10, o01, o11, u, v, out);
+        final float bx = out[0];
+        final float by = out[1];
+        evalCoonsHorizontalFirst(g, o00, o10, o01, o11, u, v, out);
+        final float cx = out[0];
+        final float cy = out[1];
+        final float wv = (float) Math.pow((double) Math.abs(v * (ONE_F - v)), (double) COONS_WEIGHT_EXP_F);
+        final float wu = (float) Math.pow((double) Math.abs(u * (ONE_F - u)), (double) COONS_WEIGHT_EXP_F);
+        final float inv = ONE_F / (wv + wu);
+        out[0] = inv * (wv * bx + wu * cx);
+        out[1] = inv * (wv * by + wu * cy);
+    }
+
+    private static void evalCoonsVerticalFirst(
+            final float[] g,
+            final int o00,
+            final int o10,
+            final int o01,
+            final int o11,
+            final float u,
+            final float v,
+            final float[] out) {
+        final float omv = ONE_F - v;
+        evalCubicExtensionPow(
+                g[o00], g[o00 + 1], g[o00 + 4], g[o00 + 5], g[o01], g[o01 + 1], g[o01 + 2], g[o01 + 3], v, out);
+        final float p0x = out[0];
+        final float p0y = out[1];
+        final float h0x = (p0x + omv * (g[o00 + 8] - g[o00])) + v * (g[o01 + 8] - g[o01]);
+        final float h0y = (p0y + omv * (g[o00 + 9] - g[o00 + 1])) + v * (g[o01 + 9] - g[o01 + 1]);
+
+        evalCubicExtensionPow(
+                g[o10], g[o10 + 1], g[o10 + 4], g[o10 + 5], g[o11], g[o11 + 1], g[o11 + 2], g[o11 + 3], v, out);
+        final float p1x = out[0];
+        final float p1y = out[1];
+        final float h1x = (p1x + omv * (g[o10 + 6] - g[o10])) + v * (g[o11 + 6] - g[o11]);
+        final float h1y = (p1y + omv * (g[o10 + 7] - g[o10 + 1])) + v * (g[o11 + 7] - g[o11 + 1]);
+
+        evalCubicExtensionPow(p0x, p0y, h0x, h0y, p1x, p1y, h1x, h1y, u, out);
+    }
+
+    private static void evalCoonsHorizontalFirst(
+            final float[] g,
+            final int o00,
+            final int o10,
+            final int o01,
+            final int o11,
+            final float u,
+            final float v,
+            final float[] out) {
+        final float omu = ONE_F - u;
+        evalCubicExtensionPow(
+                g[o00], g[o00 + 1], g[o00 + 8], g[o00 + 9], g[o10], g[o10 + 1], g[o10 + 6], g[o10 + 7], u, out);
+        final float p0x = out[0];
+        final float p0y = out[1];
+        final float h0x = (p0x + omu * (g[o00 + 4] - g[o00])) + u * (g[o10 + 4] - g[o10]);
+        final float h0y = (p0y + omu * (g[o00 + 5] - g[o00 + 1])) + u * (g[o10 + 5] - g[o10 + 1]);
+
+        evalCubicExtensionPow(
+                g[o01], g[o01 + 1], g[o01 + 8], g[o01 + 9], g[o11], g[o11 + 1], g[o11 + 6], g[o11 + 7], u, out);
+        final float p1x = out[0];
+        final float p1y = out[1];
+        final float h1x = (p1x + omu * (g[o01 + 2] - g[o01])) + u * (g[o11 + 2] - g[o11]);
+        final float h1y = (p1y + omu * (g[o01 + 3] - g[o01 + 1])) + u * (g[o11 + 3] - g[o11 + 1]);
+
+        evalCubicExtensionPow(p0x, p0y, h0x, h0y, p1x, p1y, h1x, h1y, v, out);
+    }
+
+    private static float evalCoonsObjectiveSq(
+            final float[] g,
+            final int o00,
+            final int o10,
+            final int o01,
+            final int o11,
+            final float targetX,
+            final float targetY,
+            final float u,
+            final float v,
+            final float[] evalTmp) {
+        evalCoonsPatchOffsets(g, o00, o10, o01, o11, u, v, evalTmp);
+        final float dx = evalTmp[0] - targetX;
+        final float dy = evalTmp[1] - targetY;
+        return dx * dx + dy * dy;
+    }
+
+    private static void invertCoonsPatchOffsets(
+            final float[] g,
+            final int o00,
+            final int o10,
+            final int o01,
+            final int o11,
+            final float targetX,
+            final float targetY,
+            final float u0,
+            final float v0,
+            final CoonsInvertScratch scratch,
+            final float[] outUVResidual) {
+        final float[] evalTmp = scratch.evalTmp;
+        if (evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, u0, v0, evalTmp) < SIMPLEX_TOL_F) {
+            outUVResidual[0] = u0;
+            outUVResidual[1] = v0;
+            outUVResidual[2] = ZERO_F;
+            outUVResidual[3] = ZERO_F;
+            return;
+        }
+        final float[] sx = scratch.sx;
+        final float[] sy = scratch.sy;
+        final float[] scores = scratch.scores;
+        final int[] pRef = scratch.pRef;
+
+        sx[0] = u0;
+        sy[0] = v0;
+        sx[1] = u0 + SIMPLEX_STEP_F * ONE_F;
+        sy[1] = v0;
+        sx[2] = u0;
+        sy[2] = v0 + SIMPLEX_STEP_F * ONE_F;
+        pRef[0] = 0;
+        pRef[1] = 1;
+        pRef[2] = 2;
+        scores[0] = evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, sx[0], sy[0], evalTmp);
+        scores[1] = evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, sx[1], sy[1], evalTmp);
+        scores[2] = evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, sx[2], sy[2], evalTmp);
+
+        int iter = 0;
+        int bestIdx;
+        while (true) {
+            iter++;
+            int s0 = 0;
+            int s1 = 1;
+            int s2 = 2;
+            if (Float.compare(scores[s0], scores[s1]) > 0) {
+                s0 = 1;
+                s1 = 0;
+            }
+            if (Float.compare(scores[s1], scores[s2]) > 0) {
+                final int tmp = s1;
+                s1 = s2;
+                s2 = tmp;
+                if (Float.compare(scores[s0], scores[s1]) > 0) {
+                    final int tmp2 = s0;
+                    s0 = s1;
+                    s1 = tmp2;
+                }
+            }
+
+            final int ref0 = pRef[s0];
+            final int ref2 = pRef[s2];
+            final float distX = (float) Math.pow((double) (sx[ref0] - sx[ref2]), TWO_D);
+            final float distY = (float) Math.pow((double) (sy[ref0] - sy[ref2]), TWO_D);
+            final float simplexDist = (float) Math.pow((double) (distX + distY), (double) HALF_F);
+            if (simplexDist < SIMPLEX_TOL_F || iter > SIMPLEX_MAX_ITER) {
+                bestIdx = s0;
+                break;
+            }
+
+            final int ref1 = pRef[s1];
+            final float mx = (sx[ref0] + sx[ref1]) / TWO_F;
+            final float my = (sy[ref0] + sy[ref1]) / TWO_F;
+            final float rx = mx + ONE_F * (mx - sx[ref2]);
+            final float ry = my + ONE_F * (my - sy[ref2]);
+            final float fr = evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, rx, ry, evalTmp);
+
+            if (scores[s0] <= fr && fr < scores[s1]) {
+                final int slot = freeSimplexSlot(ref0, ref1);
+                sx[slot] = rx;
+                sy[slot] = ry;
+                pRef[s2] = slot;
+                scores[s2] = fr;
+                continue;
+            }
+            if (fr < scores[s0]) {
+                final float ex = mx + ONE_F * (rx - mx);
+                final float ey = my + ONE_F * (ry - my);
+                final float fe = evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, ex, ey, evalTmp);
+                final int slot = freeSimplexSlot(ref0, ref1);
+                if (fe < fr) {
+                    sx[slot] = ex;
+                    sy[slot] = ey;
+                    scores[s2] = fe;
+                } else {
+                    sx[slot] = rx;
+                    sy[slot] = ry;
+                    scores[s2] = fr;
+                }
+                pRef[s2] = slot;
+                continue;
+            }
+
+            final float cx = mx + HALF_F * (sx[ref2] - mx);
+            final float cy = my + HALF_F * (sy[ref2] - my);
+            final float fc = evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, cx, cy, evalTmp);
+            if (fc < scores[s2]) {
+                final int slot = freeSimplexSlot(ref0, ref1);
+                sx[slot] = cx;
+                sy[slot] = cy;
+                pRef[s2] = slot;
+                scores[s2] = fc;
+                continue;
+            }
+
+            // Replicate rotate3d.a.h shrink aliasing: newSimplex aliases simplex[s0] in-place.
+            final float bestScore = scores[s0];
+            final float ox1 = sx[ref1];
+            final float oy1 = sy[ref1];
+            sx[ref0] = sx[ref0] + TWO_F * (ox1 - sx[ref0]);
+            sy[ref0] = sy[ref0] + TWO_F * (oy1 - sy[ref0]);
+            final float sc1 =
+                    evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, sx[ref0], sy[ref0], evalTmp);
+            final float ox2 = sx[ref2];
+            final float oy2 = sy[ref2];
+            sx[ref0] = sx[ref0] + TWO_F * (ox2 - sx[ref0]);
+            sy[ref0] = sy[ref0] + TWO_F * (oy2 - sy[ref0]);
+            final float sc2 =
+                    evalCoonsObjectiveSq(g, o00, o10, o01, o11, targetX, targetY, sx[ref0], sy[ref0], evalTmp);
+            pRef[0] = ref0;
+            pRef[1] = ref0;
+            pRef[2] = ref0;
+            scores[0] = bestScore;
+            scores[1] = sc1;
+            scores[2] = sc2;
+        }
+
+        final float bestU = sx[pRef[bestIdx]];
+        final float bestV = sy[pRef[bestIdx]];
+        evalCoonsPatchOffsets(g, o00, o10, o01, o11, bestU, bestV, evalTmp);
+        outUVResidual[0] = bestU;
+        outUVResidual[1] = bestV;
+        outUVResidual[2] = targetX - evalTmp[0];
+        outUVResidual[3] = targetY - evalTmp[1];
+    }
+
+    private static int freeSimplexSlot(final int usedA, final int usedB) {
+        for (int s = 0; s < SIMPLEX_SLOTS; s++) {
+            if (s != usedA && s != usedB) {
+                return s;
+            }
+        }
+        return 0;
+    }
+
+    private static void evalCatmull4(
+            final float p0x,
+            final float p0y,
+            final float p1x,
+            final float p1y,
+            final float p2x,
+            final float p2y,
+            final float p3x,
+            final float p3y,
+            final float t,
+            final float[] out) {
+        final float h1x = (((NEG_FIVE_SIXTHS_F * (-p0x)) + (THREE_F * p1x)) - (ONE_HALF_F * p2x)) + (ONE_THIRD_F * p3x);
+        final float h1y = (((NEG_FIVE_SIXTHS_F * (-p0y)) + (THREE_F * p1y)) - (ONE_HALF_F * p2y)) + (ONE_THIRD_F * p3y);
+        final float h2x = (((NEG_FIVE_SIXTHS_F * (-p3x)) + (THREE_F * p2x)) - (ONE_HALF_F * p1x)) + (ONE_THIRD_F * p0x);
+        final float h2y = (((NEG_FIVE_SIXTHS_F * (-p3y)) + (THREE_F * p2y)) - (ONE_HALF_F * p1y)) + (ONE_THIRD_F * p0y);
+        evalCubicExtensionPow(p0x, p0y, h1x, h1y, p3x, p3y, h2x, h2y, t, out);
+    }
+
+    private static void evalCatmull3(
+            final float p0x,
+            final float p0y,
+            final float p1x,
+            final float p1y,
+            final float p2x,
+            final float p2y,
+            final float t,
+            final float[] out) {
+        final float h1x = (FOUR_THIRDS_F * p1x) - (ONE_THIRD_F * p2x);
+        final float h1y = (FOUR_THIRDS_F * p1y) - (ONE_THIRD_F * p2y);
+        final float h2x = (FOUR_THIRDS_F * p1x) - (ONE_THIRD_F * p0x);
+        final float h2y = (FOUR_THIRDS_F * p1y) - (ONE_THIRD_F * p0y);
+        evalCubicExtensionPow(p0x, p0y, h1x, h1y, p2x, p2y, h2x, h2y, t, out);
+    }
+
+    private static final class CoonsInvertScratch {
+        final float[] sx = new float[SIMPLEX_SLOTS];
+        final float[] sy = new float[SIMPLEX_SLOTS];
+        final float[] scores = new float[3];
+        final int[] pRef = new int[3];
+        final float[] evalTmp = new float[COORD_STRIDE];
+        final float[] uvRes = new float[4];
+        final float[] colX = new float[4];
+        final float[] colY = new float[4];
     }
 }

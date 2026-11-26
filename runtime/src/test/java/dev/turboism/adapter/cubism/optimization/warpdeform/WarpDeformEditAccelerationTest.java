@@ -46,6 +46,7 @@ import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -324,6 +325,7 @@ class WarpDeformEditAccelerationTest {
                 verifyBezierPointsParity(origLoader, rewLoader);
                 verifyWarpDrawParityAndDirtyGating(origRes, rewLoader, gridPos, bridge);
                 verifyActionFloatLoopParity(origLoader, rewLoader, target);
+                verifyExtensionBezierParity(origLoader, rewLoader, target, bridge);
 
                 final Map<String, Long> stats = bridge.snapshot();
                 assertEquals(1L, stats.get("active"), () -> "jar=" + jar + " stats=" + stats);
@@ -476,6 +478,7 @@ class WarpDeformEditAccelerationTest {
                 runDeepDagAndMorphTargetParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runPartVisibilityAndMeshKeyformInvalidationParity(
                         origLoader, rewLoader, warpEditTarget, warpEditBridge);
+                runLocalMeshEpochFastSkipAndMutationParity(origLoader, rewLoader, warpEditTarget, warpEditBridge);
                 runSelectionDrawDirtyGatingParityOnComposedLoader(rewLoader, warpEditTarget, warpEditBridge);
                 runKeyformGridAndBindingParity(origLoader, rewLoader, warpEditBridge);
             }
@@ -3710,6 +3713,333 @@ class WarpDeformEditAccelerationTest {
         orig.invokeUpdate();
         rew.invokeUpdate();
         assertAllMeshesRawFloatParity(orig, rew, "part-restored-mesh-keyform-updated");
+    }
+
+    private static void verifyExtensionBezierParity(
+            final ClassLoader origLoader,
+            final ClassLoader rewLoader,
+            final WarpDeformEditTarget target,
+            final WarpDeformEditBridge bridge)
+            throws Exception {
+        if (!target.targetClasses().contains(WarpDeformEditTarget.EXTENSION_BEZIER_EVAL_OWNER)) {
+            return;
+        }
+        final Map<String, Long> beforeStats = bridge.snapshot();
+        final String extDName = WarpDeformEditTarget.EXTENSION_BEZIER_EVAL_OWNER.replace('/', '.');
+        final String extFName = WarpDeformEditTarget.EXTENSION_BEZIER_MATH_OWNER.replace('/', '.');
+        final String extCName = extDName.substring(0, extDName.length() - 1) + "c";
+        final String extIName = extDName.substring(0, extDName.length() - 1) + "i";
+        final String vecName = WarpDeformEditTarget.GVECTOR2_OWNER.replace('/', '.');
+
+        final Class<?> origDCls = Class.forName(extDName, true, origLoader);
+        final Class<?> rewDCls = Class.forName(extDName, true, rewLoader);
+        final Class<?> origFCls = Class.forName(extFName, true, origLoader);
+        final Class<?> rewFCls = Class.forName(extFName, true, rewLoader);
+        final Class<?> origCCls = Class.forName(extCName, true, origLoader);
+        final Class<?> rewCCls = Class.forName(extCName, true, rewLoader);
+        final Class<?> origICls = Class.forName(extIName, true, origLoader);
+        final Class<?> rewICls = Class.forName(extIName, true, rewLoader);
+        final Class<?> origVecCls = Class.forName(vecName, true, origLoader);
+        final Class<?> rewVecCls = Class.forName(vecName, true, rewLoader);
+
+        final int divCol = 8;
+        final int divRow = 6;
+        final int bezCol = 2;
+        final int bezRow = 2;
+        final Object origD0 = origDCls.getConstructor(
+                        Class.forName(WarpDeformEditTarget.BEZIER_GRID_OWNER.replace('/', '.'), true, origLoader))
+                .newInstance(buildSampleBezierGrid(origLoader, 0.0f, 0.0f));
+        final Object rewD0 = rewDCls.getConstructor(
+                        Class.forName(WarpDeformEditTarget.BEZIER_GRID_OWNER.replace('/', '.'), true, rewLoader))
+                .newInstance(buildSampleBezierGrid(rewLoader, 0.0f, 0.0f));
+        final Object origD1 = origDCls.getConstructor(
+                        Class.forName(WarpDeformEditTarget.BEZIER_GRID_OWNER.replace('/', '.'), true, origLoader))
+                .newInstance(buildSampleBezierGrid(origLoader, 14.5f, -9.25f));
+        final Object rewD1 = rewDCls.getConstructor(
+                        Class.forName(WarpDeformEditTarget.BEZIER_GRID_OWNER.replace('/', '.'), true, rewLoader))
+                .newInstance(buildSampleBezierGrid(rewLoader, 14.5f, -9.25f));
+
+        final Object origPrevI = origICls.getConstructor(int.class, int.class, int.class, int.class)
+                .newInstance(divCol, divRow, bezCol, bezRow);
+        final Object rewPrevI = rewICls.getConstructor(int.class, int.class, int.class, int.class)
+                .newInstance(divCol, divRow, bezCol, bezRow);
+        final Object origCurI = origICls.getConstructor(int.class, int.class, int.class, int.class)
+                .newInstance(divCol, divRow, bezCol, bezRow);
+        final Object rewCurI = rewICls.getConstructor(int.class, int.class, int.class, int.class)
+                .newInstance(divCol, divRow, bezCol, bezRow);
+
+        final int gridCount = (divCol + 1) * (divRow + 1);
+        final float[] baseParams = new float[gridCount * 2];
+        for (int idx = 0; idx < gridCount; idx++) {
+            final int colIdx = idx % (divCol + 1);
+            final int rowIdx = idx / (divCol + 1);
+            baseParams[idx * 2] = colIdx * 24.0f + (rowIdx % 2 == 0 ? 1.5f : -2.25f);
+            baseParams[idx * 2 + 1] = rowIdx * 26.0f + (colIdx % 2 == 0 ? -1.0f : 3.0f);
+        }
+        final float[] origCurParams = baseParams.clone();
+        final float[] rewCurParams = baseParams.clone();
+
+        final Method origDrag =
+                origDCls.getMethod("a", origDCls, origICls, origICls, int.class, int.class, float[].class);
+        final Method rewDrag = rewDCls.getMethod("a", rewDCls, rewICls, rewICls, int.class, int.class, float[].class);
+        final List<?> origDragOut =
+                (List<?>) origDrag.invoke(origD1, origD0, origPrevI, origCurI, divCol, divRow, origCurParams);
+        final List<?> rewDragOut =
+                (List<?>) rewDrag.invoke(rewD1, rewD0, rewPrevI, rewCurI, divCol, divRow, rewCurParams);
+        assertEquals(origDragOut.size(), rewDragOut.size(), "extension drag output size mismatch");
+        assertRawFloatArraysEqual(origCurParams, rewCurParams, "extension drag curParams");
+        for (int i = 0; i < origDragOut.size(); i++) {
+            assertVectorRawBitParity(origDragOut.get(i), rewDragOut.get(i), "extension drag vec " + i);
+        }
+
+        // Verify Coons evaluation & Nelder-Mead inverse (including exterior shrink target) + bicubic grid eval.
+        final Field origDNodesField = origDCls.getDeclaredField("d");
+        final Field rewDNodesField = rewDCls.getDeclaredField("d");
+        origDNodesField.setAccessible(true);
+        rewDNodesField.setAccessible(true);
+        final List<?> origNodes = (List<?>) origDNodesField.get(origD1);
+        final List<?> rewNodes = (List<?>) rewDNodesField.get(rewD1);
+
+        final Method origCoonsEval =
+                origFCls.getDeclaredMethod("a", origCCls, origCCls, origCCls, origCCls, float.class, float.class);
+        final Method rewCoonsEval =
+                rewFCls.getDeclaredMethod("a", rewCCls, rewCCls, rewCCls, rewCCls, float.class, float.class);
+        for (final float[] uv : new float[][] {{0.0f, 0.0f}, {1.0f, 1.0f}, {0.37f, 0.61f}, {0.82f, 0.19f}}) {
+            final Object origCoons = origCoonsEval.invoke(
+                    null, origNodes.get(0), origNodes.get(3), origNodes.get(1), origNodes.get(4), uv[0], uv[1]);
+            final Object rewCoons = rewCoonsEval.invoke(
+                    null, rewNodes.get(0), rewNodes.get(3), rewNodes.get(1), rewNodes.get(4), uv[0], uv[1]);
+            assertVectorRawBitParity(origCoons, rewCoons, "extension coons eval (" + uv[0] + "," + uv[1] + ")");
+        }
+
+        final Method origCoonsInvert = origFCls.getDeclaredMethod(
+                "a", origCCls, origCCls, origCCls, origCCls, origVecCls, float.class, float.class);
+        final Method rewCoonsInvert =
+                rewFCls.getDeclaredMethod("a", rewCCls, rewCCls, rewCCls, rewCCls, rewVecCls, float.class, float.class);
+        final Constructor<?> origVecCtor = origVecCls.getConstructor(float.class, float.class);
+        final Constructor<?> rewVecCtor = rewVecCls.getConstructor(float.class, float.class);
+        for (final float[] tgt : new float[][] {{45.0f, 35.0f}, {260.0f, 195.0f}}) {
+            final Object origPair = origCoonsInvert.invoke(
+                    null,
+                    origNodes.get(0),
+                    origNodes.get(3),
+                    origNodes.get(1),
+                    origNodes.get(4),
+                    origVecCtor.newInstance(tgt[0], tgt[1]),
+                    0.45f,
+                    0.55f);
+            final Object rewPair = rewCoonsInvert.invoke(
+                    null,
+                    rewNodes.get(0),
+                    rewNodes.get(3),
+                    rewNodes.get(1),
+                    rewNodes.get(4),
+                    rewVecCtor.newInstance(tgt[0], tgt[1]),
+                    0.45f,
+                    0.55f);
+            final Method origPairGetK = origPair.getClass().getMethod("a");
+            final Method rewPairGetK = rewPair.getClass().getMethod("a");
+            final Method origPairGetVec = origPair.getClass().getMethod("b");
+            final Method rewPairGetVec = rewPair.getClass().getMethod("b");
+            origPairGetK.setAccessible(true);
+            rewPairGetK.setAccessible(true);
+            origPairGetVec.setAccessible(true);
+            rewPairGetVec.setAccessible(true);
+            final Object origK = origPairGetK.invoke(origPair);
+            final Object rewK = rewPairGetK.invoke(rewPair);
+            assertEquals(
+                    Float.floatToRawIntBits(
+                            (float) origK.getClass().getMethod("a").invoke(origK)),
+                    Float.floatToRawIntBits(
+                            (float) rewK.getClass().getMethod("a").invoke(rewK)),
+                    "extension coons invert u bit mismatch for (" + tgt[0] + "," + tgt[1] + ")");
+            assertEquals(
+                    Float.floatToRawIntBits(
+                            (float) origK.getClass().getMethod("b").invoke(origK)),
+                    Float.floatToRawIntBits(
+                            (float) rewK.getClass().getMethod("b").invoke(rewK)),
+                    "extension coons invert v bit mismatch for (" + tgt[0] + "," + tgt[1] + ")");
+            assertVectorRawBitParity(
+                    origPairGetVec.invoke(origPair), rewPairGetVec.invoke(rewPair), "extension coons invert residual");
+        }
+
+        final Method origBicubic =
+                origFCls.getDeclaredMethod("a", float[].class, int.class, int.class, float.class, float.class);
+        final Method rewBicubic =
+                rewFCls.getDeclaredMethod("a", float[].class, int.class, int.class, float.class, float.class);
+        final float[] bicubicPts = new float[5 * 4 * 2];
+        for (int r = 0; r <= 3; r++) {
+            for (int c = 0; c <= 4; c++) {
+                final int idx = (r * 5 + c) * 2;
+                bicubicPts[idx] = c * 30.0f + r * 4.5f;
+                bicubicPts[idx + 1] = r * 25.0f - c * 2.25f;
+            }
+        }
+        for (final float[] uv : new float[][] {{0.0f, 0.0f}, {1.0f, 1.0f}, {0.31f, 0.67f}, {-0.25f, 1.35f}}) {
+            final Object origVec = origBicubic.invoke(null, bicubicPts, 4, 3, uv[0], uv[1]);
+            final Object rewVec = rewBicubic.invoke(null, bicubicPts, 4, 3, uv[0], uv[1]);
+            assertVectorRawBitParity(origVec, rewVec, "extension bicubic (" + uv[0] + "," + uv[1] + ")");
+        }
+
+        final Map<String, Long> afterStats = bridge.snapshot();
+        assertTrue(afterStats.get("extBezierDragCalls") > beforeStats.get("extBezierDragCalls"));
+        assertTrue(afterStats.get("extCoonsEvalCalls") > beforeStats.get("extCoonsEvalCalls"));
+        assertTrue(afterStats.get("extCoonsInvertCalls") > beforeStats.get("extCoonsInvertCalls"));
+        assertTrue(afterStats.get("extBicubicEvalCalls") > beforeStats.get("extBicubicEvalCalls"));
+    }
+
+    private static Object buildSampleBezierGrid(final ClassLoader loader, final float shiftX, final float shiftY)
+            throws Exception {
+        final Class<?> bgCls = Class.forName(WarpDeformEditTarget.BEZIER_GRID_OWNER.replace('/', '.'), true, loader);
+        final Class<?> bpCls = Class.forName(WarpDeformEditTarget.BEZIER_PT_OWNER.replace('/', '.'), true, loader);
+        final Class<?> vCls = Class.forName(WarpDeformEditTarget.GVECTOR2_OWNER.replace('/', '.'), true, loader);
+        final Constructor<?> vCtor = vCls.getConstructor(float.class, float.class);
+        final Object bg = bgCls.getConstructor(int.class, int.class).newInstance(2, 2);
+        final Object[][] refs = (Object[][]) bgCls.getMethod("getBezierPtRef").invoke(bg);
+        for (int ix = 0; ix <= 2; ix++) {
+            for (int iy = 0; iy <= 2; iy++) {
+                final float dx = (ix == 1 && iy == 1) ? shiftX : shiftX * 0.25f;
+                final float dy = (ix == 1 && iy == 1) ? shiftY : shiftY * 0.25f;
+                final float ax = ix * 100f + (iy == 1 ? 15f : 0f) + dx;
+                final float ay = iy * 80f + (ix == 1 ? -12f : 0f) + dy;
+                refs[ix][iy] = bpCls.getConstructor(vCls, vCls, vCls, vCls, vCls)
+                        .newInstance(
+                                vCtor.newInstance(ax, ay),
+                                vCtor.newInstance(ax + 4f, ay - 26f),
+                                vCtor.newInstance(ax - 3f, ay + 26f),
+                                vCtor.newInstance(ax - 32f, ay + 5f),
+                                vCtor.newInstance(ax + 32f, ay - 4f));
+            }
+        }
+        return bg;
+    }
+
+    private static void assertVectorRawBitParity(final Object expected, final Object actual, final String context)
+            throws Exception {
+        final float ex = (float) expected.getClass().getMethod("getX").invoke(expected);
+        final float ey = (float) expected.getClass().getMethod("getY").invoke(expected);
+        final float ax = (float) actual.getClass().getMethod("getX").invoke(actual);
+        final float ay = (float) actual.getClass().getMethod("getY").invoke(actual);
+        assertEquals(Float.floatToRawIntBits(ex), Float.floatToRawIntBits(ax), context + " X bit mismatch");
+        assertEquals(Float.floatToRawIntBits(ey), Float.floatToRawIntBits(ay), context + " Y bit mismatch");
+    }
+
+    private static void runLocalMeshEpochFastSkipAndMutationParity(
+            final ClassLoader origLoader,
+            final ClassLoader rewLoader,
+            final WarpDeformEditTarget target,
+            final WarpDeformEditBridge bridge)
+            throws Exception {
+        final SyntheticModelHarness orig = buildSyntheticHierarchy(origLoader, target);
+        final SyntheticModelHarness rew = buildSyntheticHierarchy(rewLoader, target);
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "local-mesh-epoch-baseline");
+
+        final float[] dragged = rew.baseRootGridPositions.get(0).clone();
+        dragged[0] += 4.0f;
+        dragWarpDeformer(orig.rootWarp, dragged.clone());
+        dragWarpDeformer(rew.rootWarp, dragged.clone());
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "local-mesh-epoch-warm");
+
+        // Consecutive parent-deformer drag ticks must keep fastModelUpdates advancing with zero fullArrayHashes growth.
+        for (int tick = 1; tick <= 3; tick++) {
+            dragged[0] += 1.5f;
+            dragged[1] -= 0.75f;
+            final Map<String, Long> before = bridge.snapshot();
+            dragWarpDeformer(orig.rootWarp, dragged.clone());
+            dragWarpDeformer(rew.rootWarp, dragged.clone());
+            orig.invokeUpdate();
+            rew.invokeUpdate();
+            final Map<String, Long> after = bridge.snapshot();
+            assertEquals(
+                    before.get("fastModelUpdates") + 1L,
+                    after.get("fastModelUpdates"),
+                    "tick " + tick + " must take fastModelUpdates");
+            assertEquals(
+                    before.get("fullArrayHashes"),
+                    after.get("fullArrayHashes"),
+                    "tick " + tick + " must fast-skip full array hashing");
+            assertAllMeshesRawFloatParity(orig, rew, "local-mesh-epoch-drag-tick-" + tick);
+        }
+
+        // Mutate a sibling ArtMesh form directly via setPositions() without setUpdated() -> epoch must detect change.
+        final Object origSibling = orig.subtreeBMeshes.get(0);
+        final Object rewSibling = rew.subtreeBMeshes.get(0);
+        final Object origSiblingSrc =
+                origSibling.getClass().getMethod("getSource").invoke(origSibling);
+        final Object rewSiblingSrc =
+                rewSibling.getClass().getMethod("getSource").invoke(rewSibling);
+        final Object origMeshForm =
+                ((List<?>) origSiblingSrc.getClass().getMethod("getKeyforms").invoke(origSiblingSrc)).get(0);
+        final Object rewMeshForm =
+                ((List<?>) rewSiblingSrc.getClass().getMethod("getKeyforms").invoke(rewSiblingSrc)).get(0);
+        final float[] editedMeshPos =
+                ((float[]) rewMeshForm.getClass().getMethod("getPositions").invoke(rewMeshForm)).clone();
+        editedMeshPos[0] += 9.5f;
+        editedMeshPos[1] -= 5.25f;
+        origMeshForm.getClass().getMethod("setPositions", float[].class).invoke(origMeshForm, editedMeshPos.clone());
+        rewMeshForm.getClass().getMethod("setPositions", float[].class).invoke(rewMeshForm, editedMeshPos.clone());
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "direct-mesh-form-setPositions-without-setUpdated");
+
+        // Mutate draw order directly on ACDrawableForm -> must propagate during warm drag.
+        origMeshForm.getClass().getMethod("setDrawOrder", int.class).invoke(origMeshForm, 77);
+        rewMeshForm.getClass().getMethod("setDrawOrder", int.class).invoke(rewMeshForm, 77);
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertEquals(
+                origSibling.getClass().getMethod("getDrawOrder").invoke(origSibling),
+                rewSibling.getClass().getMethod("getDrawOrder").invoke(rewSibling),
+                "drawOrder mismatch after direct ACDrawableForm.setDrawOrder");
+        assertAllMeshesRawFloatParity(orig, rew, "direct-draw-order-mutation");
+
+        // Toggle visibility directly on CArtMeshSource -> must detect visibility change & restoration.
+        origSiblingSrc.getClass().getMethod("setVisible", boolean.class).invoke(origSiblingSrc, false);
+        rewSiblingSrc.getClass().getMethod("setVisible", boolean.class).invoke(rewSiblingSrc, false);
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertEquals(
+                origSibling.getClass().getMethod("isInvisible").invoke(origSibling),
+                rewSibling.getClass().getMethod("isInvisible").invoke(rewSibling),
+                "isInvisible mismatch when mesh source hidden");
+        assertAllMeshesRawFloatParity(orig, rew, "direct-mesh-source-hide");
+
+        origSiblingSrc.getClass().getMethod("setVisible", boolean.class).invoke(origSiblingSrc, true);
+        rewSiblingSrc.getClass().getMethod("setVisible", boolean.class).invoke(rewSiblingSrc, true);
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "direct-mesh-source-unhide");
+
+        // Simulate Undo/Redo keyform replacement via CWarpDeformerSource.setKeyforms().
+        final List<?> origKfs =
+                (List<?>) orig.rootWarpSrc.getClass().getMethod("getKeyforms").invoke(orig.rootWarpSrc);
+        final List<?> rewKfs =
+                (List<?>) rew.rootWarpSrc.getClass().getMethod("getKeyforms").invoke(rew.rootWarpSrc);
+        final float[] revertedPos = orig.baseRootGridPositions.get(0).clone();
+        revertedPos[0] -= 3.0f;
+        origKfs.get(0).getClass().getMethod("setPositions", float[].class).invoke(origKfs.get(0), revertedPos.clone());
+        rewKfs.get(0).getClass().getMethod("setPositions", float[].class).invoke(rewKfs.get(0), revertedPos.clone());
+        final Class<?> origCListCls = Class.forName("com.live2d.type.CArrayList", true, origLoader);
+        final Class<?> rewCListCls = Class.forName("com.live2d.type.CArrayList", true, rewLoader);
+        orig.rootWarpSrc
+                .getClass()
+                .getMethod("setKeyforms", origCListCls)
+                .invoke(
+                        orig.rootWarpSrc,
+                        origCListCls.getConstructor(Collection.class).newInstance(origKfs));
+        rew.rootWarpSrc
+                .getClass()
+                .getMethod("setKeyforms", rewCListCls)
+                .invoke(
+                        rew.rootWarpSrc,
+                        rewCListCls.getConstructor(Collection.class).newInstance(rewKfs));
+        orig.invokeUpdate();
+        rew.invokeUpdate();
+        assertAllMeshesRawFloatParity(orig, rew, "undo-redo-warp-setKeyforms");
     }
 
     private static void verifyKeyformParityStandaloneJar(final Path jar) throws Throwable {

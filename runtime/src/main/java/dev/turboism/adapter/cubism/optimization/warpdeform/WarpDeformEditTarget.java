@@ -250,6 +250,142 @@ public record WarpDeformEditTarget(HostArtifactDigest digest, String version, Li
     /** Backing entity field descriptor on {@code ACForm}. */
     public static final String ACFORM_INSTANCE_DESCRIPTOR = "Lcom/live2d/graphics3d/entity/GEntity;";
 
+    /** Internal source-getter method name on {@code ACForm}. */
+    public static final String ACFORM_GET_SOURCE_INTERNAL_METHOD = "get_source$cubism";
+
+    /** Host internal name for {@code ACParameterControllableSource}. */
+    public static final String AC_CONTROLLABLE_SOURCE_OWNER =
+            "com/live2d/cubism/doc/model/ACParameterControllableSource";
+
+    /** Internal source-getter descriptor on {@code ACForm}. */
+    public static final String ACFORM_GET_SOURCE_INTERNAL_DESCRIPTOR = "()L" + AC_CONTROLLABLE_SOURCE_OWNER + ";";
+
+    /** Host internal name for {@code ACDeformerSource}. */
+    public static final String AC_DEFORMER_SOURCE_OWNER = "com/live2d/cubism/doc/model/deformer/ACDeformerSource";
+
+    /** Host internal name for {@code CArtMeshSource}. */
+    public static final String ART_MESH_SOURCE_OWNER = "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource";
+
+    /** Host internal name for {@code ACDrawableForm}. */
+    public static final String AC_DRAWABLE_FORM_OWNER = "com/live2d/cubism/doc/model/drawable/ACDrawableForm";
+
+    /** Host internal name for {@code CWarpDeformerSource.setKeyforms}. */
+    public static final String SET_KEYFORMS_METHOD = "setKeyforms";
+
+    /** JVM descriptor for {@code setKeyforms(CArrayList)}. */
+    public static final String SET_KEYFORMS_DESCRIPTOR = "(Lcom/live2d/type/CArrayList;)V";
+
+    /** Method name of {@code ACDeformerSource.setUpdatedFlag}. */
+    public static final String SET_UPDATED_FLAG_METHOD = "setUpdatedFlag";
+
+    /** Void no-arg JVM descriptor. */
+    public static final String VOID_NO_ARG_DESCRIPTOR = "()V";
+
+    /** Method name of {@code CArtMesh.setAnimatedForm}. */
+    public static final String SET_ANIMATED_FORM_METHOD = "setAnimatedForm";
+
+    /** Method name of {@code CArtMesh.setLocalAnimatedForm}. */
+    public static final String SET_LOCAL_ANIMATED_FORM_METHOD = "setLocalAnimatedForm";
+
+    /** Method name of {@code CArtMesh.setInterpolatedForm}. */
+    public static final String SET_INTERPOLATED_FORM_METHOD = "setInterpolatedForm";
+
+    /** Method name of {@code CArtMesh.setDeformedForm}. */
+    public static final String SET_DEFORMED_FORM_METHOD = "setDeformedForm";
+
+    /** JVM descriptor accepting {@code ACForm}. */
+    public static final String ACFORM_PARAM_DESCRIPTOR = "(L" + ACFORM_OWNER + ";)V";
+
+    /** JVM descriptor accepting {@code CArtMeshForm}. */
+    public static final String ART_MESH_FORM_PARAM_DESCRIPTOR = "(L" + CART_MESH_FORM_OWNER + ";)V";
+
+    /** Method name of {@code CArtMesh.setCopiedMeshVersion}. */
+    public static final String SET_COPIED_MESH_VERSION_METHOD = "setCopiedMeshVersion";
+
+    /** Single-int setter JVM descriptor. */
+    public static final String SET_INT_DESCRIPTOR = "(I)V";
+
+    /** Method name of {@code CArtMesh.recover}. */
+    public static final String RECOVER_METHOD = "recover";
+
+    /** Method name of {@code CArtMeshSource.setMeshUpdatedFlag__testImpl}. */
+    public static final String SET_MESH_UPDATED_TEST_METHOD = "setMeshUpdatedFlag__testImpl";
+
+    /** Method name of {@code CArtMeshSource/CArtMeshForm.setPositions}. */
+    public static final String SET_POSITIONS_METHOD = "setPositions";
+
+    /** Single float-array setter JVM descriptor. */
+    public static final String SET_POSITIONS_DESCRIPTOR = "([F)V";
+
+    /** Method name of {@code ACDrawableForm.setDrawOrder}. */
+    public static final String SET_DRAW_ORDER_METHOD = "setDrawOrder";
+
+    /** Method name of {@code ACParameterControllableSource.setVisible}. */
+    public static final String SET_VISIBLE_METHOD = "setVisible";
+
+    /** Single-boolean setter JVM descriptor. */
+    public static final String SET_BOOLEAN_DESCRIPTOR = "(Z)V";
+
+    /** Method name of {@code ACParameterControllableSource.internal_setVisibilityAndLockInHierarchy$cubism}. */
+    public static final String INTERNAL_SET_VIS_LOCK_METHOD = "internal_setVisibilityAndLockInHierarchy$cubism";
+
+    /** Two-boolean visibility/lock JVM descriptor. */
+    public static final String INTERNAL_SET_VIS_LOCK_DESCRIPTOR = "(ZZ)V";
+
+    /** Method name of {@code ACParameterControllableSource.setParentGuid}. */
+    public static final String SET_PARENT_GUID_METHOD = "setParentGuid";
+
+    /** Single {@code CPartGuid} setter JVM descriptor. */
+    public static final String SET_PARENT_GUID_DESCRIPTOR = "(Lcom/live2d/type/CPartGuid;)V";
+
+    /** Method name of {@code ACParameterControllableSource.internal_setParent}. */
+    public static final String INTERNAL_SET_PARENT_METHOD = "internal_setParent";
+
+    /** Single {@code CPartSource} setter JVM descriptor. */
+    public static final String INTERNAL_SET_PARENT_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/parts/CPartSource;)V";
+
+    /** Method name of {@code GMeshContainer.setMesh}. */
+    public static final String SET_MESH_METHOD = "setMesh";
+
+    /** Single base-mesh setter JVM descriptor. */
+    public static final String SET_MESH_DESCRIPTOR = "(L" + MESH_BASE_OWNER + ";)V";
+
+    /** Host internal name for Cubism 5.3+ Bezier drag helper {@code extension/a/d}. */
+    public static final String EXTENSION_BEZIER_EVAL_OWNER = "com/live2d/cubism/doc/model/extension/a/d";
+
+    /** Host internal name for Cubism 5.3+ Bezier surface math {@code extension/a/f}. */
+    public static final String EXTENSION_BEZIER_MATH_OWNER = "com/live2d/cubism/doc/model/extension/a/f";
+
+    /** Method name of {@code extension.a.d} control-point drag batch evaluator and {@code extension.a.f} solvers. */
+    public static final String EXTENSION_METHOD_A = "a";
+
+    /** Method descriptor of {@code extension.a.d.a(d, i, i, int, int, float[])}. */
+    public static final String EXTENSION_BEZIER_DRAG_EVAL_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/extension/a/d;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/i;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/i;"
+            + "II[F)Ljava/util/List;";
+
+    /** Method descriptor of {@code extension.a.f.a(c, c, c, c, float, float)}. */
+    public static final String EXTENSION_COONS_EVAL_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "FF)Lcom/live2d/graphics3d/type/GVector2;";
+
+    /** Method descriptor of {@code extension.a.f.a(c, c, c, c, GVector2, float, float)}. */
+    public static final String EXTENSION_COONS_INVERT_DESCRIPTOR = "(Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/cubism/doc/model/extension/a/c;"
+            + "Lcom/live2d/graphics3d/type/GVector2;"
+            + "FF)Lcom/live2d/cubism/doc/model/extension/a/j;";
+
+    /** Method descriptor of {@code extension.a.f.a(float[], int, int, float, float)}. */
+    public static final String EXTENSION_BICUBIC_EVAL_DESCRIPTOR = "([FIIFF)Lcom/live2d/graphics3d/type/GVector2;";
+
+    /** Method descriptor of {@code extension.a.f.a(float[], int, int)}. */
+    public static final String EXTENSION_SPLINE_LINES_DESCRIPTOR = "([FII)Ljava/util/List;";
+
     /** Method name of {@code ACForm.setUpdated}. */
     public static final String SET_UPDATED_METHOD = "setUpdated";
 
