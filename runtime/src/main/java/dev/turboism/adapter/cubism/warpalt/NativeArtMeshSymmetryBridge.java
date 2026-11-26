@@ -16,10 +16,13 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 
@@ -109,11 +112,30 @@ public final class NativeArtMeshSymmetryBridge {
     private static final ThreadLocal<ScratchVectors> SCRATCH_VECTORS = new ThreadLocal<>();
     private static final Set<String> REPORTED = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static volatile int mode;
+    private static volatile ArtMeshMirrorAxisStore axisStore;
     private static final RuntimeArtMeshMirrorService SERVICE = new RuntimeArtMeshMirrorService();
 
     /** Returns the participation service for independent ArtMesh mirror editing. */
     public static RuntimeArtMeshMirrorService service() {
         return SERVICE;
+    }
+
+    /** Binds the runtime directory used to persist per-ArtMesh mirror axis states across restarts. */
+    public static void bindPersistenceDirectory(Path runtimeDataDir) {
+        ArtMeshMirrorAxisStore previous = axisStore;
+        axisStore = runtimeDataDir == null ? null : ArtMeshMirrorAxisStore.at(runtimeDataDir);
+        if (previous != null) {
+            previous.close();
+        }
+    }
+
+    /** Flushes pending mirror axis writes and detaches the persistence store on shutdown. */
+    public static void flushAndUnbindPersistence() {
+        ArtMeshMirrorAxisStore previous = axisStore;
+        axisStore = null;
+        if (previous != null) {
+            previous.close();
+        }
     }
 
     static boolean isEnabled() {
@@ -123,6 +145,8 @@ public final class NativeArtMeshSymmetryBridge {
     static void resetAxes() {
         synchronized (STATES) {
             for (State state : STATES.values()) {
+                clearPersistedMeshAxis(state);
+                state.locked = false;
                 state.axis = null;
                 state.drag = 0;
                 state.vertexGesture = false;
@@ -145,6 +169,8 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     private static final class State {
+        final String modelGuid;
+        final Map<String, ArtMeshMirrorAxisStore.SavedAxis> sessionAxes = new HashMap<>();
         java.lang.ref.WeakReference<Object> view;
         ArtMeshMirrorAxis axis;
         Set<String> selectedMeshes = Set.of();
@@ -173,6 +199,14 @@ public final class NativeArtMeshSymmetryBridge {
         final Map<float[], Pairing> pairs = new IdentityHashMap<>();
         final Map<float[], Set<Integer>> written = new IdentityHashMap<>();
         final Map<float[], BitSet> writtenBits = new IdentityHashMap<>();
+
+        State() {
+            this(null);
+        }
+
+        State(String modelGuid) {
+            this.modelGuid = modelGuid;
+        }
     }
 
     private record Pairing(int[] counterparts) {}
@@ -202,6 +236,7 @@ public final class NativeArtMeshSymmetryBridge {
         APPLYING.remove();
         SCRATCH_VECTORS.remove();
         REPORTED.clear();
+        flushAndUnbindPersistence();
     }
 
     private static boolean enabled() {
@@ -222,7 +257,11 @@ public final class NativeArtMeshSymmetryBridge {
         Object model = handles.getCurrentModel.invokeExact(edit);
         Object source = handles.getModelSource(model).invokeExact(model);
         synchronized (STATES) {
-            State state = STATES.computeIfAbsent(source, ignored -> new State());
+            State state = STATES.get(source);
+            if (state == null) {
+                state = new State(resolveModelGuid(source));
+                STATES.put(source, state);
+            }
             if (state.view == null || state.view.get() != view) {
                 state.view = new java.lang.ref.WeakReference<>(view);
             }
@@ -292,7 +331,11 @@ public final class NativeArtMeshSymmetryBridge {
                 if (id == MouseEvent.MOUSE_RELEASED) {
                     state.movement = null;
                     state.vertexGesture = false;
-                    boolean captured = state.drag != 0 || state.consumedGesture;
+                    boolean wasAxisDrag = state.drag != 0;
+                    boolean captured = wasAxisDrag || state.consumedGesture;
+                    if (wasAxisDrag && state.axis != null) {
+                        persistCurrentMeshAxis(state);
+                    }
                     state.drag = 0;
                     state.consumedGesture = false;
                     state.pairs.clear();
@@ -321,6 +364,7 @@ public final class NativeArtMeshSymmetryBridge {
                 ProjectedAxis projection = projectAxis(handles, camera, state.axis);
                 if (distance(screen, lockButtonPosition(projection)) <= BUTTON_HIT_RADIUS_PX) {
                     state.locked = !state.locked;
+                    persistCurrentMeshAxis(state);
                     state.vertexGesture = false;
                     state.consumedGesture = true;
                     handles.repaintCanvas.invokeExact(view);
@@ -419,7 +463,8 @@ public final class NativeArtMeshSymmetryBridge {
             if (sel.getSource == null || sel.getGuid == null) continue;
             Object source = sel.getSource.invokeExact(selection);
             if (source != null && ART_MESH_SOURCE_TYPES.get(source.getClass())) {
-                String guid = String.valueOf(sel.getGuid.invokeExact(selection));
+                String guid = extractGuidString(sel.getGuid.invokeExact(selection));
+                if (guid == null) continue;
                 if (previous.contains(guid)) {
                     matched++;
                 } else {
@@ -438,7 +483,8 @@ public final class NativeArtMeshSymmetryBridge {
             if (sel.getSource == null || sel.getGuid == null) continue;
             Object source = sel.getSource.invokeExact(selection);
             if (source != null && ART_MESH_SOURCE_TYPES.get(source.getClass())) {
-                selected.add(String.valueOf(sel.getGuid.invokeExact(selection)));
+                String guid = extractGuidString(sel.getGuid.invokeExact(selection));
+                if (guid != null) selected.add(guid);
             }
         }
         if (!selected.equals(previous)) {
@@ -448,7 +494,11 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     private static void clearAxisForSelectionChange(State state, Set<String> nextSelection) {
+        if (state.drag != 0 && state.axis != null) {
+            persistCurrentMeshAxis(state);
+        }
         state.selectedMeshes = nextSelection;
+        state.locked = false;
         state.axis = null;
         state.drag = 0;
         state.vertexGesture = false;
@@ -460,6 +510,8 @@ public final class NativeArtMeshSymmetryBridge {
     }
 
     private static void resetAxisState(Object view, State state) throws Throwable {
+        clearPersistedMeshAxis(state);
+        state.locked = false;
         state.axis = null;
         state.pairs.clear();
         initialize(view, state);
@@ -484,11 +536,78 @@ public final class NativeArtMeshSymmetryBridge {
             Object mesh = getArtMesh.invokeExact(model, guid);
             if (mesh != null) forms.add(handles.getCalculatedForm.invokeExact(mesh));
         }
-        state.axis = axisForCalculatedForms(forms, mode);
-        if (state.axis != null) {
+        ArtMeshMirrorAxis defaultAxis = axisForCalculatedForms(forms, mode);
+        state.locked = false;
+        if (defaultAxis != null) {
+            String meshGuid = singleSelectedMeshGuid(state);
+            if (meshGuid != null) {
+                ArtMeshMirrorAxisStore.SavedAxis saved = loadSavedAxis(state, meshGuid);
+                if (saved != null) {
+                    defaultAxis.restore(new ArtMeshMirrorAxis.Point(saved.pivotX(), saved.pivotY()), saved.angle());
+                    state.locked = saved.locked();
+                }
+            }
             Object camera = handles.getCameraManager.invokeExact(view);
-            state.axis.setRotationRadius(DEFAULT_ROTATION_RADIUS
-                    / projectAxis(handles, camera, state.axis).scale());
+            defaultAxis.setRotationRadius(DEFAULT_ROTATION_RADIUS
+                    / projectAxis(handles, camera, defaultAxis).scale());
+        }
+        state.axis = defaultAxis;
+    }
+
+    private static String singleSelectedMeshGuid(State state) {
+        if (state.selectedMeshes.size() != 1) {
+            return null;
+        }
+        return state.selectedMeshes.iterator().next();
+    }
+
+    private static ArtMeshMirrorAxisStore.SavedAxis loadSavedAxis(State state, String meshGuid) {
+        ArtMeshMirrorAxisStore.SavedAxis sessionSaved = state.sessionAxes.get(meshGuid);
+        if (sessionSaved != null) {
+            return sessionSaved;
+        }
+        ArtMeshMirrorAxisStore store = axisStore;
+        if (store == null || state.modelGuid == null) {
+            return null;
+        }
+        ArtMeshMirrorAxisStore.SavedAxis diskSaved = store.get(state.modelGuid, meshGuid);
+        if (diskSaved != null) {
+            state.sessionAxes.put(meshGuid, diskSaved);
+        }
+        return diskSaved;
+    }
+
+    private static void persistCurrentMeshAxis(State state) {
+        if (state.axis == null) {
+            return;
+        }
+        String meshGuid = singleSelectedMeshGuid(state);
+        if (meshGuid == null) {
+            return;
+        }
+        if (state.axis.isAtInitialState() && !state.locked) {
+            clearPersistedMeshAxis(state);
+            return;
+        }
+        ArtMeshMirrorAxis.Point pivot = state.axis.pivot();
+        ArtMeshMirrorAxisStore.SavedAxis saved =
+                new ArtMeshMirrorAxisStore.SavedAxis(pivot.x(), pivot.y(), state.axis.angle(), state.locked);
+        state.sessionAxes.put(meshGuid, saved);
+        ArtMeshMirrorAxisStore store = axisStore;
+        if (store != null && state.modelGuid != null) {
+            store.put(state.modelGuid, meshGuid, saved);
+        }
+    }
+
+    private static void clearPersistedMeshAxis(State state) {
+        String meshGuid = singleSelectedMeshGuid(state);
+        if (meshGuid == null) {
+            return;
+        }
+        state.sessionAxes.remove(meshGuid);
+        ArtMeshMirrorAxisStore store = axisStore;
+        if (store != null && state.modelGuid != null) {
+            store.remove(state.modelGuid, meshGuid);
         }
     }
 
@@ -1768,6 +1887,73 @@ public final class NativeArtMeshSymmetryBridge {
             }
         }
     };
+
+    private static final ClassValue<Optional<MethodHandle>> MODEL_SOURCE_GUID = new ClassValue<>() {
+        @Override
+        protected Optional<MethodHandle> computeValue(Class<?> sourceType) {
+            return Optional.ofNullable(tryUnreflectObjectGetter(sourceType, "getGuid"));
+        }
+    };
+
+    private static final ClassValue<Optional<MethodHandle>> GUID_UUID_STRING = new ClassValue<>() {
+        @Override
+        protected Optional<MethodHandle> computeValue(Class<?> guidType) {
+            return Optional.ofNullable(tryUnreflectObjectGetter(guidType, "getUuidString"));
+        }
+    };
+
+    private static MethodHandle tryUnreflectObjectGetter(Class<?> type, String name) {
+        try {
+            return ViewUiHandles.unreflect(MethodHandles.lookup(), type, name, 0)
+                    .asType(OBJECT_GETTER_TYPE);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private static String resolveModelGuid(Object source) {
+        if (source == null) {
+            return null;
+        }
+        MethodHandle getter = MODEL_SOURCE_GUID.get(source.getClass()).orElse(null);
+        if (getter == null) {
+            return null;
+        }
+        try {
+            return extractGuidString(getter.invokeExact(source));
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
+    private static String extractGuidString(Object rawGuid) {
+        if (rawGuid == null) {
+            return null;
+        }
+        String text;
+        if (rawGuid instanceof String value) {
+            text = value;
+        } else {
+            MethodHandle uuidGetter = GUID_UUID_STRING.get(rawGuid.getClass()).orElse(null);
+            if (uuidGetter != null) {
+                try {
+                    Object uuid = uuidGetter.invokeExact(rawGuid);
+                    text = uuid == null ? null : String.valueOf(uuid);
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
+                    text = null;
+                }
+            } else {
+                text = String.valueOf(rawGuid);
+            }
+        }
+        if (text == null) {
+            return null;
+        }
+        String stripped = text.strip();
+        return stripped.isEmpty() ? null : stripped;
+    }
 
     private static final ClassValue<MethodHandle> MODEL_SOURCES = new ClassValue<>() {
         @Override

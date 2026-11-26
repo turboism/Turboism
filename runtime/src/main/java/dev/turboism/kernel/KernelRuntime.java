@@ -117,6 +117,7 @@ public final class KernelRuntime implements AutoCloseable {
 
             @Override
             public void closeHostIngress() {
+                dev.turboism.adapter.cubism.warpalt.NativeArtMeshSymmetryBridge.flushAndUnbindPersistence();
                 hostIngress.close();
             }
 
