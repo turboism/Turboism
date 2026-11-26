@@ -22,12 +22,27 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import javax.swing.SwingUtilities;
 
 /** Fail-closed static entrypoint used only by the exact mesh-mirror transformer. */
 public final class NativeMeshMirrorBridge {
     private static final AtomicReference<Binding> INSTALLED = new AtomicReference<>();
     private static final AtomicReference<Object> CURRENT_PANEL = new AtomicReference<>();
     private static final AtomicReference<Object> CURRENT_CONTEXT = new AtomicReference<>();
+    private static final String CURRENT_EDIT_MODE = "currentEditMode";
+    private static final String EDIT_DATA_LIST = "getEditDataList";
+    private static final String EDITABLE_MESH = "b";
+    private static final String CREATE_ACTION_PACK = "createActionPack";
+    private static final String FRAME_FOR_MESH = "a";
+    private static final String MESH_POSITIONS = "getGlPositions";
+    private static final String TO_MIRROR_SPACE = "b";
+    private static final String GET_X = "getX";
+    private static final String GET_Y = "getY";
+    private static final String MIRROR_POSITION = "c";
+    private static final int XY_STRIDE = 2;
+    private static final int ORIGIN = 0;
+    private static final float MIDPOINT = 0.5f;
+    private static final AtomicReference<SelectionBounds> SELECTED_MESHES = new AtomicReference<>();
     private static final NativeMeshMirrorAxisGesture AXIS_GESTURE = new NativeMeshMirrorAxisGesture();
     /**
      * The host builds the mirror widget exactly once, from a static initializer, well before
@@ -86,6 +101,7 @@ public final class NativeMeshMirrorBridge {
     public static void uninstall() {
         AXIS_GESTURE.clear();
         INSTALLED.set(null);
+        SELECTED_MESHES.set(null);
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);
         PENDING.set(null);
@@ -169,8 +185,7 @@ public final class NativeMeshMirrorBridge {
     public static boolean adjustHit(
             final boolean original, final Object mirrorState, final Object source, final float threshold) {
         final Binding binding = INSTALLED.get();
-        if (binding == null || !binding.enabled || binding.axis.currentAngleDegrees() == 0.0f || source == null)
-            return original;
+        if (binding == null || !binding.enabled || source == null) return original;
         try {
             final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
             return line == null
@@ -201,6 +216,7 @@ public final class NativeMeshMirrorBridge {
         final Object previousPanel = CURRENT_PANEL.getAndSet(panel);
         if (previousPanel != null && previousPanel != panel) {
             AXIS_GESTURE.clear();
+            SELECTED_MESHES.set(null);
             binding.ui.resetSession();
             binding.axis.clearPivot();
         }
@@ -247,7 +263,7 @@ public final class NativeMeshMirrorBridge {
                         (nativeSegment.start.x() + nativeSegment.end.x()) * 0.5f,
                         (nativeSegment.start.y() + nativeSegment.end.y()) * 0.5f);
             }
-            binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
+            observeGuideAxis(binding, nativeSegment.view, axisValue, vertical, pivot);
             final MeshMirrorGeometry.Line line = binding.axis.guideLine();
             if (line == null) return false;
             final MeshMirrorGeometry.Segment segment =
@@ -304,32 +320,30 @@ public final class NativeMeshMirrorBridge {
                 if (pivot == null) {
                     pivot = new MeshMirrorGeometry.Point((startX + endX) * 0.5f, (startY + endY) * 0.5f);
                 }
-                binding.axis.observeAxis(axisValue, vertical, pivot.x(), pivot.y());
-                final MeshMirrorGeometry.Line line = binding.axis.guideLine();
-                if (line != null) {
-                    MeshMirrorGeometry.Point firstCorner = new MeshMirrorGeometry.Point(startX, startY);
-                    MeshMirrorGeometry.Point oppositeCorner = new MeshMirrorGeometry.Point(endX, endY);
-                    Object view = null;
-                    try {
-                        final Object panel = CURRENT_PANEL.get();
-                        final Object controller = invoke(property(panel, "toolMode"), "getCtrl$cubism");
-                        final Object pack = property(controller, "completePack");
-                        view = property(pack, "currentViewContext");
-                        final MeshMirrorGeometry.Point[] bounds =
-                                viewportBounds(view, pack, drawer.getClass().getClassLoader());
-                        firstCorner = bounds[0];
-                        oppositeCorner = bounds[1];
-                    } catch (ReflectiveOperationException | RuntimeException ignored) {
-                        // Retain the native segment's extent if viewport access is unavailable.
-                    }
-                    final MeshMirrorGeometry.Segment segment =
-                            MeshMirrorGeometry.covering(line, firstCorner, oppositeCorner);
-                    final Object resolvedStart = vector(start, segment.start());
-                    final Object resolvedEnd = vector(start, segment.end());
-                    invokeLegacyAxisCall(drawer, resolvedStart, resolvedEnd, color, first, second, flags, defaults);
-                    if (handles) AXIS_GESTURE.draw(binding.axis, line, view, drawer, color);
-                    return;
+                MeshMirrorGeometry.Point firstCorner = new MeshMirrorGeometry.Point(startX, startY);
+                MeshMirrorGeometry.Point oppositeCorner = new MeshMirrorGeometry.Point(endX, endY);
+                Object view = null;
+                try {
+                    final Object panel = CURRENT_PANEL.get();
+                    final Object controller = invoke(property(panel, "toolMode"), "getCtrl$cubism");
+                    final Object pack = property(controller, "completePack");
+                    view = property(pack, "currentViewContext");
+                    final MeshMirrorGeometry.Point[] bounds =
+                            viewportBounds(view, pack, drawer.getClass().getClassLoader());
+                    firstCorner = bounds[0];
+                    oppositeCorner = bounds[1];
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    // Retain the native segment's extent if viewport access is unavailable.
                 }
+                observeGuideAxis(binding, view, axisValue, vertical, pivot);
+                final MeshMirrorGeometry.Line line = binding.axis.guideLine();
+                final MeshMirrorGeometry.Segment segment =
+                        MeshMirrorGeometry.covering(line, firstCorner, oppositeCorner);
+                final Object resolvedStart = vector(start, segment.start());
+                final Object resolvedEnd = vector(start, segment.end());
+                invokeLegacyAxisCall(drawer, resolvedStart, resolvedEnd, color, first, second, flags, defaults);
+                if (handles) AXIS_GESTURE.draw(binding.axis, line, view, drawer, color);
+                return;
             }
         } catch (ReflectiveOperationException | RuntimeException failure) {
             // The native segment is drawn below when the custom path is unavailable.
@@ -369,15 +383,15 @@ public final class NativeMeshMirrorBridge {
     private static Object adjust(
             final Object original, final Object mirrorState, final Object source, final boolean projection) {
         final Binding binding = INSTALLED.get();
-        if (binding == null || !binding.enabled || binding.axis.currentAngleDegrees() == 0.0f || source == null)
-            return original;
+        if (binding == null || !binding.enabled || source == null) return original;
         try {
             final MeshMirrorGeometry.Line line = binding.axis.resolveLine();
             if (line == null) return original;
             final MeshMirrorGeometry.Point point = projection
                     ? MeshMirrorGeometry.project(line, coordinate(source, "getX"), coordinate(source, "getY"))
                     : MeshMirrorGeometry.reflect(line, coordinate(source, "getX"), coordinate(source, "getY"));
-            final Constructor<?> constructor = source.getClass().getConstructor(float.class, float.class);
+            final Object vectorType = original == null ? source : original;
+            final Constructor<?> constructor = vectorType.getClass().getConstructor(float.class, float.class);
             return constructor.newInstance(point.x(), point.y());
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return original;
@@ -408,6 +422,7 @@ public final class NativeMeshMirrorBridge {
     /** Clears cached host UI and context identities after a context transition. */
     public static void clearHostContext() {
         AXIS_GESTURE.clear();
+        SELECTED_MESHES.set(null);
         CURRENT_PANEL.set(null);
         CURRENT_CONTEXT.set(null);
         final Binding binding = INSTALLED.get();
@@ -464,6 +479,91 @@ public final class NativeMeshMirrorBridge {
             new MeshMirrorGeometry.Point(coordinate(docBottomRight, "getX"), coordinate(docBottomRight, "getY"))
         };
     }
+
+    @SuppressWarnings("ReferenceEquality")
+    private static void observeGuideAxis(
+            final Binding binding,
+            final Object view,
+            final float position,
+            final boolean vertical,
+            final MeshMirrorGeometry.Point fallback) {
+        final SelectionBounds selection = hasAxisHandles(binding) ? selectionBounds(view) : null;
+        if (selection == null || selection.center() == null) {
+            binding.axis.observeAxis(position, vertical, fallback.x(), fallback.y());
+            return;
+        }
+        final MeshMirrorGeometry.Point center = selection.center();
+        if (!binding.axis.observeSelectionAxis(position, vertical, center)) return;
+        final Object panel = CURRENT_PANEL.get();
+        final float centeredPosition = vertical ? center.x() : center.y();
+        SwingUtilities.invokeLater(() -> {
+            if (INSTALLED.get() != binding
+                    || CURRENT_PANEL.get() != panel
+                    || SELECTED_MESHES.get() != selection
+                    || !binding.axis.needsNativeCenter(center, position, centeredPosition)) return;
+            try {
+                if (selectionBounds(view) != selection) return;
+                final Object mirror = NativeMeshMirrorCounterpartOps.hostMirror(view);
+                if (mirror == null || number(invoke(mirror, MIRROR_POSITION)).floatValue() != position) return;
+                final float actual = NativeMeshMirrorAxisGesture.syncPositionInput(panel, mirror, centeredPosition);
+                binding.axis.acceptNativeCenter(center, position, centeredPosition, actual);
+                repaintCanvas(panel);
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                diagnostic("SELECTION_AXIS_POSITION_SYNC_FAILED");
+            }
+        });
+    }
+
+    private static SelectionBounds selectionBounds(final Object view) {
+        if (view == null) return null;
+        try {
+            final Object editMode = property(view, CURRENT_EDIT_MODE);
+            final Object editData = invoke(editMode, EDIT_DATA_LIST);
+            final SelectionBounds cached = SELECTED_MESHES.get();
+            if (cached != null
+                    && cached.view() == view
+                    && cached.editMode() == editMode
+                    && cached.editData() == editData) return cached;
+            if (!(editData instanceof List<?> entries) || entries.isEmpty()) return null;
+            final SelectionBounds selection = new SelectionBounds(view, editMode, editData, meshCenter(view, entries));
+            SELECTED_MESHES.set(selection);
+            return selection;
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    /** Uses the same mesh-to-document transform that supplies positions to the host mirror methods. */
+    private static MeshMirrorGeometry.Point meshCenter(final Object view, final List<?> entries)
+            throws ReflectiveOperationException {
+        final Object cursorOrigin = point(view.getClass().getClassLoader(), ORIGIN, ORIGIN);
+        final Object pack = invoke(view, CREATE_ACTION_PACK, null, cursorOrigin);
+        float minX = Float.POSITIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+        for (Object entry : entries) {
+            final Object mesh = invoke(entry, EDITABLE_MESH);
+            final Object frame = call(pack, FRAME_FOR_MESH, new Class<?>[] {mesh.getClass()}, mesh);
+            final float[] positions = (float[]) invoke(mesh, MESH_POSITIONS);
+            for (int i = 0; i + 1 < positions.length; i += XY_STRIDE) {
+                final Object local = vector(view, new MeshMirrorGeometry.Point(positions[i], positions[i + 1]));
+                final Object document = invoke(frame, TO_MIRROR_SPACE, local);
+                final float x = coordinate(document, GET_X);
+                final float y = coordinate(document, GET_Y);
+                if (!Float.isFinite(x) || !Float.isFinite(y)) continue;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+        }
+        return minX == Float.POSITIVE_INFINITY
+                ? null
+                : new MeshMirrorGeometry.Point(minX * MIDPOINT + maxX * MIDPOINT, minY * MIDPOINT + maxY * MIDPOINT);
+    }
+
+    private record SelectionBounds(Object view, Object editMode, Object editData, MeshMirrorGeometry.Point center) {}
 
     private static boolean observePanelPivot(final Binding binding, final Object panel) {
         try {

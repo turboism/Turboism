@@ -26,6 +26,9 @@ public interface MeshToolbarHostOperations {
 
     /** Exact native slider ownership and integer value access. */
     interface SliderHandle extends Registration {
+        /** Synchronizes visibility with the active tool of the slider owner. */
+        void setVisible(boolean visible);
+
         /** Reads the current native slider value. */
         int value();
 

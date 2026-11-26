@@ -66,6 +66,28 @@ class MeshToolbarContributionProviderTest {
     }
 
     @Test
+    void showsTheRadiusOnlyForTheActiveOwner() {
+        MeshToolCoordinator coordinator = new MeshToolCoordinator();
+        RecordingHost host = new RecordingHost();
+        var provider = new MeshToolbarContributionProvider(admission(4L), host, coordinator);
+        coordinator.register("plugin.a", 1L, tool("brush"), (permission, operation) -> {}, false);
+        coordinator.register("plugin.b", 1L, tool("other"), (permission, operation) -> {}, false);
+        var owner = new MeshToolbarContributionDescriptor("plugin.a", 1L, "brush", "Brush", "icons/brush.png", 0);
+        var other = new MeshToolbarContributionDescriptor("plugin.b", 1L, "other", "Other", "icons/other.png", 1);
+        var radius = new MeshToolbarSliderContributionDescriptor(
+                "plugin.a", 1L, "radius", "Radius", 8, 128, 32, 0, ignored -> {});
+        try (Registration ignored =
+                provider.apply(4L, List.of(owner.contribution(), other.contribution(), radius.contribution()))) {
+            coordinator.beginSession(new TestSession(4L));
+            assertFalse(host.sliders.get(0).visible);
+            host.actions.get(0).run();
+            assertTrue(host.sliders.get(0).visible);
+            host.actions.get(1).run();
+            assertFalse(host.sliders.get(0).visible);
+        }
+    }
+
+    @Test
     void changedRadiusSurvivesRebuildAndNewProviderWithoutCallingPluginUnderRebuild() {
         MeshToolCoordinator coordinator = new MeshToolCoordinator();
         RecordingHost host = new RecordingHost();
@@ -225,12 +247,18 @@ class MeshToolbarContributionProviderTest {
         private final String id;
         private final List<String> closed;
         int value;
+        boolean visible;
         boolean done;
 
         Slider(String id, int value, List<String> closed) {
             this.id = id;
             this.value = value;
             this.closed = closed;
+        }
+
+        @Override
+        public void setVisible(final boolean visible) {
+            this.visible = visible;
         }
 
         @Override

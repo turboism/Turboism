@@ -39,6 +39,7 @@ public final class RuntimeMeshEditUiService {
     private final List<Attachment> attachments = new ArrayList<>();
     private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver = new AtomicReference<>();
     private final java.util.concurrent.atomic.AtomicLong epoch = new java.util.concurrent.atomic.AtomicLong();
+    private Object updatingAngleInput;
 
     /**
      * Mounts the requested control on the native tool area; one contribution may be active.
@@ -187,7 +188,7 @@ public final class RuntimeMeshEditUiService {
         invoke(slider, SET_VALUE, axis.currentAngleDegrees());
         final java.util.concurrent.atomic.AtomicLong changeSequence = new java.util.concurrent.atomic.AtomicLong();
         final Object changed = proxy(function1, unitInstance, (proxy, method, arguments) -> {
-            if ("invoke".equals(method.getName())) {
+            if ("invoke".equals(method.getName()) && updatingAngleInput != slider) {
                 changeSequence.incrementAndGet();
                 active.onAngleChanged()
                         .accept(number(invoke(slider, "getValue")).floatValue());
@@ -232,7 +233,13 @@ public final class RuntimeMeshEditUiService {
 
     void syncAngleInput(final Object panel, final float degrees) throws ReflectiveOperationException {
         final Attachment attachment = find(panel);
-        if (attachment != null) invoke(attachment.input(), SET_VALUE, degrees);
+        if (attachment == null) return;
+        updatingAngleInput = attachment.input();
+        try {
+            invoke(attachment.input(), SET_VALUE, degrees);
+        } finally {
+            updatingAngleInput = null;
+        }
     }
 
     /** Preferred host wrapper (CVBox); null when the reviewed static helper is absent. */

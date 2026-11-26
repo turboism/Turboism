@@ -150,19 +150,21 @@ final class NativeMeshMirrorAxisGesture {
         final float angle = drag.rotate() ? angleAt(drag.angle(), pivot, start, target) : drag.angle();
         final RuntimeMeshMirrorAxisService.Placement placement = axis.placement(center, angle);
         if (placement == null || !Float.isFinite(placement.position())) return;
-        final Object positionInput = invoke(panel, AXIS_POSITION_INPUT);
-        final float previous = number(invoke(mirror, MIRROR_POSITION)).floatValue();
-        float actual = previous;
-        if (placement.position() != previous) {
-            invoke(positionInput, SET_VALUE, placement.position());
-            actual = number(invoke(positionInput, GET_VALUE)).floatValue();
-            if (actual != number(invoke(mirror, MIRROR_POSITION)).floatValue()) {
-                call(mirror, MIRROR_METHOD, FLOAT_PARAMETER, actual);
-            }
-        }
-        axis.setCurrentAngleDegrees(angle);
-        axis.applyPlacement(placement, actual);
+        axis.applyPlacement(placement, syncPositionInput(panel, mirror, placement.position()), angle);
         if (drag.rotate()) ui.syncAngleInput(panel, axis.currentAngleDegrees());
+    }
+
+    static float syncPositionInput(final Object panel, final Object mirror, final float position)
+            throws ReflectiveOperationException {
+        final float previous = number(invoke(mirror, MIRROR_POSITION)).floatValue();
+        if (position == previous) return previous;
+        final Object positionInput = invoke(panel, AXIS_POSITION_INPUT);
+        invoke(positionInput, SET_VALUE, position);
+        final float actual = number(invoke(positionInput, GET_VALUE)).floatValue();
+        if (actual != number(invoke(mirror, MIRROR_POSITION)).floatValue()) {
+            call(mirror, MIRROR_METHOD, FLOAT_PARAMETER, actual);
+        }
+        return actual;
     }
 
     static float angleAt(final float initial, final Point pivot, final Point start, final Point target) {

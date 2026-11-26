@@ -110,6 +110,44 @@ final class NativeMeshMirrorAxisDrawingTest {
         }
     }
 
+    @Test
+    void centersSelectedTransformedMeshesAndReflectsNativePointSubclassesAfterRotation() throws Exception {
+        try (URLClassLoader loader = host()) {
+            final Object draw =
+                    loader.loadClass("fixture.Draw").getConstructor().newInstance();
+            final Object view = draw.getClass().getMethod("a").invoke(draw);
+            view.getClass().getMethod("selectMeshes").invoke(view);
+            final RuntimeMeshMirrorAxisService axis = new RuntimeMeshMirrorAxisService();
+            final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
+            ui.contributeMirrorAxisAngleControl(
+                    new MirrorAxisAngleControl("angle", "Angle", "", -180, 180, 0.1f, axis::setCurrentAngleDegrees));
+            final GestureMirror mirror = new GestureMirror();
+            NativeMeshMirrorBridge.install(axis, ui);
+            NativeMeshMirrorBridge.attachControl(new Object(), new GesturePanel());
+            NativeMeshMirrorBridge.mirrorForTesting(mirror);
+
+            assertTrue(NativeMeshMirrorBridge.drawAxis(draw, 200, true, 1, "axis"));
+            javax.swing.SwingUtilities.invokeAndWait(() -> {});
+            assertEquals(new MeshMirrorGeometry.Point(340, 230), axis.handleCenter(axis.guideLine()));
+            assertEquals(340, mirror.c());
+            assertTrue(mouse(view, MouseEvent.MOUSE_PRESSED, 340, 294));
+            assertTrue(mouse(view, MouseEvent.MOUSE_DRAGGED, 404, 230));
+            assertTrue(mouse(view, MouseEvent.MOUSE_RELEASED, 404, 230));
+            assertTrue(NativeMeshMirrorBridge.drawAxis(draw, mirror.c(), true, 1, "axis"));
+
+            final Object source =
+                    loader.loadClass("fixture.Draw$PointRef").getConstructor().newInstance();
+            final Class<?> vector = loader.loadClass("com.live2d.graphics3d.type.GVector2");
+            final Object original =
+                    vector.getConstructor(float.class, float.class).newInstance(330f, 280f);
+            final Object reflected = NativeMeshMirrorBridge.adjustPoint(original, mirror, source);
+            final Object projected = NativeMeshMirrorBridge.adjustAxisPoint(original, mirror, source);
+            assertEquals(350f, vector.getMethod("getX").invoke(reflected));
+            assertEquals(180f, vector.getMethod("getY").invoke(reflected));
+            assertEquals(230f, vector.getMethod("getY").invoke(projected));
+        }
+    }
+
     private static boolean mouse(final Object view, final int id, final int x, final int y) throws Exception {
         final MouseEvent raw = new MouseEvent(
                 new JPanel(),
@@ -196,7 +234,11 @@ final class NativeMeshMirrorAxisDrawingTest {
                 """);
         source(files, "com/live2d/graphics3d/type/GVector2.java", """
                 package com.live2d.graphics3d.type;
-                public record GVector2(float x,float y) { public float getX(){return x;} public float getY(){return y;} }
+                public class GVector2 {
+                    private final float x, y;
+                    public GVector2(float x,float y){this.x=x;this.y=y;}
+                    public float getX(){return x;} public float getY(){return y;}
+                }
                 """);
         source(files, "com/live2d/graphics3d/component/a/c.java", """
                 package com.live2d.graphics3d.component.a;
@@ -207,6 +249,7 @@ final class NativeMeshMirrorAxisDrawingTest {
                 import com.live2d.type.CPoint;
                 import com.live2d.graphics3d.type.GVector2;
                 import java.awt.event.MouseEvent;
+                import java.util.List;
                 public class Draw {
                     final View view=new View(); final Drawer drawer=new Drawer();
                     public View a(){return view;} public Pack b(){return new Pack();}
@@ -218,6 +261,13 @@ final class NativeMeshMirrorAxisDrawingTest {
                         public Area getViewArea(){return new Area();}
                         public View getCameraManager(){return this;}
                         public View getCurrentEditMode(){return this;}
+                        private List<Entry> editData = List.of();
+                        public List<Entry> getEditDataList(){return editData;}
+                        public FramePack createActionPack(Input event,CPoint point){return new FramePack();}
+                        public void selectMeshes(){
+                            editData = List.of(new Entry(new Mesh(new float[] {10, 20, 30, 70}, 300)),
+                                               new Entry(new Mesh(new float[] {10, 30, 30, 80}, 340)));
+                        }
                         public boolean isSafeEditOnPlaneXY(){return true;}
                         public void repaintCanvas(){}
                         public GVector2 componentToDocument(CPoint p){return new GVector2(p.getX()/zoom+pan,p.getY()/zoom+pan);}
@@ -228,6 +278,17 @@ final class NativeMeshMirrorAxisDrawingTest {
                     public record Input(MouseEvent f) {
                         public CPoint K(){return new CPoint(f.getX(), f.getY());}
                     }
+                    public static final class PointRef extends GVector2 {
+                        public PointRef(){super(350,280);}
+                    }
+                    public record Entry(Mesh b) {}
+                    public record Mesh(float[] positions,int offset) {
+                        public float[] getGlPositions(){return positions;}
+                    }
+                    public record Frame(int offset) {
+                        public GVector2 b(GVector2 point){return new GVector2(point.getX()+offset, point.getY()+180);}
+                    }
+                    public static class FramePack {public Frame a(Mesh mesh){return new Frame(mesh.offset());}}
                     public class Render {public Drawer b(){return drawer;}}
                     public static class Scene {public Object getObjectsOnCanvas(){return this;}}
                     public static class Area {public Rect getViewAreaViewport(){return new Rect();}}

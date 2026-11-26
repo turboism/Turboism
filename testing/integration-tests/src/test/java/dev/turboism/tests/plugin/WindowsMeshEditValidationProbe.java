@@ -270,7 +270,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         if (!onEdt(() -> controls.button().isShowing())) {
             executeCommand(report, "selectionBrush.showToolPalette", EditorCommand.SHOW_TOOL_PALETTE);
         }
-        requireBrushControlsVisible(controls, report, "beforeActivation");
+        requireBrushSliderHidden(controls, report, "beforeActivation");
         report.add("tool.count=" + controls.toolCount());
         report.add("slider.count=" + controls.sliderCount());
         report.add("slider.minimum=" + controls.minimum());
@@ -284,13 +284,19 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 controls.minimum() == 8 && controls.maximum() == 128,
                 controls.toString());
         require(report, "selectionBrush.sliderDefault", controls.value() == 32, controls.toString());
-        setSliderValue(controls.slider(), 8);
-        require(report, "selectionBrush.sliderMinimum", sliderValue(controls.slider()) == 8, controls.toString());
-        setSliderValue(controls.slider(), 128);
-        require(report, "selectionBrush.sliderMaximum", sliderValue(controls.slider()) == 128, controls.toString());
-        setSliderValue(controls.slider(), 8);
-
         clickBrushTool(controls.button());
+        awaitOverlay(1);
+        final BrushControls active = awaitBrushControls();
+        setSliderValue(active.slider(), 8);
+        require(report, "selectionBrush.sliderMinimum", sliderValue(active.slider()) == 8, active.toString());
+        setSliderValue(active.slider(), 128);
+        require(report, "selectionBrush.sliderMaximum", sliderValue(active.slider()) == 128, active.toString());
+        setSliderValue(active.slider(), 8);
+        clickBrushTool(active.button());
+        awaitOverlay(0);
+        final BrushControls inactive = awaitBrushControls();
+        requireBrushSliderHidden(inactive, report, "afterToggleOff");
+        clickBrushTool(inactive.button());
         final JComponent overlay = awaitOverlay(1);
         requireBrushControlsVisible(awaitBrushControls(), report, "afterActivation");
         require(
@@ -417,7 +423,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 rebuiltGeometry.equals(geometryBefore),
                 rebuiltGeometry.toString());
         final BrushControls rebuilt = awaitBrushControls();
-        requireBrushControlsVisible(rebuilt, report, "afterSessionRebuild");
+        requireBrushSliderHidden(rebuilt, report, "afterSessionRebuild");
         require(
                 report,
                 "selectionBrush.radiusAfterSessionRebuild",
@@ -428,6 +434,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, "selectionBrush.rebuildReplaced", replaced, "before=" + controls + " after=" + rebuilt);
         clickBrushTool(rebuilt.button());
         final JComponent rebuiltOverlay = awaitOverlay(1);
+        requireBrushControlsVisible(awaitBrushControls(), report, "afterRebuildActivation");
         require(
                 report,
                 "selectionBrush.radiusAfterRebuildActivation",
@@ -1139,6 +1146,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 before.equals(awaitNativeSelection(session)),
                 "Escape committed a partial stroke");
         final BrushControls resumed = awaitBrushControls();
+        requireBrushSliderHidden(resumed, report, "afterEscape");
         require(report, "selectionBrush.radiusAfterEscape", resumed.value() == 8, "Escape reset the displayed radius");
         clickBrushTool(resumed.button());
         final JComponent replacement = awaitOverlay(1);
@@ -1172,6 +1180,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 "selectionBrush.nativeToolSwitch",
                 awaitOverlay(0) == null,
                 "native tool retained brush overlay");
+        requireBrushSliderHidden(awaitBrushControls(), report, "afterNativeSwitch");
         dispatchBrushEvent(replacement, MouseEvent.MOUSE_RELEASED, point, 0);
         require(
                 report,
@@ -1381,6 +1390,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         }
         if (Thread.currentThread().isInterrupted()) throw new InterruptedException("mesh-toolbar wait interrupted");
         throw new IllegalStateException("Selection Brush controls were not uniquely materialized: " + last);
+    }
+
+    private static void requireBrushSliderHidden(
+            final BrushControls controls, final List<String> report, final String phase) throws Exception {
+        require(
+                report,
+                "selectionBrush.sliderHidden." + phase,
+                awaitControlVisible(controls.button())
+                        && !onEdt(() -> controls.slider().isShowing()),
+                onEdt(() -> controlAncestors(controls.slider()).toString()));
     }
 
     private static void requireBrushControlsVisible(

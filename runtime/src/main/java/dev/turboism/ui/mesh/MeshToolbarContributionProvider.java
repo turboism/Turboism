@@ -219,6 +219,16 @@ public final class MeshToolbarContributionProvider implements EditorUiContributi
             for (int index = 0; index < buttons.size(); index++) {
                 buttons.get(index).setSelected(isActive(tools.get(index)));
             }
+            for (int index = 0; index < sliderHandles.size(); index++) {
+                final MeshToolbarSliderContributionDescriptor slider = sliders.get(index);
+                final List<MeshToolbarContributionDescriptor> owners = tools.stream()
+                        .filter(tool -> tool.pluginId().equals(slider.pluginId())
+                                && tool.pluginGeneration() == slider.pluginGeneration())
+                        .toList();
+                sliderHandles
+                        .get(index)
+                        .setVisible(owners.isEmpty() || owners.stream().anyMatch(this::isActive));
+            }
         }
 
         private void syncSelectedSafely() {
