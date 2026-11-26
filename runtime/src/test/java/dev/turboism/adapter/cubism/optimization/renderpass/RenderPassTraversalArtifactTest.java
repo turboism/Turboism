@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.renderpass;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,6 +16,9 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -29,6 +33,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.jar.JarFile;
 import javax.swing.SwingUtilities;
@@ -36,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -73,6 +79,19 @@ class RenderPassTraversalArtifactTest {
     private static final String THROW_INDEX_OVERFLOW_METHOD = "throwIndexOverflow";
     private static final String GET_LIST_METHOD = "getList";
     private static final String GET_RENDERER_METHOD = "getRenderer";
+    private static final Set<String> GMATERIAL_MODIFIED_METHODS = Set.of(
+            RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD
+                    + RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR,
+            "getFloat(Ljava/lang/String;Ljava/lang/Integer;)Ljava/lang/Float;",
+            "setFloat(Ljava/lang/String;FLjava/lang/Integer;)V",
+            "setInt(Ljava/lang/String;ILjava/lang/Integer;)V",
+            "setColor(Ljava/lang/String;Lcom/live2d/type/CColor;Ljava/lang/Integer;)V",
+            "getColor(Ljava/lang/String;Ljava/lang/Integer;)Lcom/live2d/type/CColor;",
+            "setMatrix(Ljava/lang/String;Lcom/live2d/graphics3d/type/GMatrix44;Ljava/lang/Integer;)V",
+            RenderEntityMaterialTransformer.SET_VECTOR4_METHOD + RenderEntityMaterialTransformer.SET_VECTOR4_DESCRIPTOR,
+            "getVector4(Ljava/lang/String;Ljava/lang/Integer;)Lcom/live2d/graphics3d/type/GVector4;",
+            "setVector3(Ljava/lang/String;Lcom/live2d/graphics3d/type/GVector3;Ljava/lang/Integer;)V",
+            "setVector2(Ljava/lang/String;Lcom/live2d/graphics3d/type/GVector2;Ljava/lang/Integer;)V");
     private static final int MAX_WALK_DEPTH = 2;
     private static final int EXPECTED_REVIEWED_VERSIONS =
             ReviewedHostArtifacts.reviewedCubismVersions().size();
@@ -945,6 +964,16 @@ class RenderPassTraversalArtifactTest {
                                     materialOrig,
                                     RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD,
                                     RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR)));
+                    assertNull(guardCheck.transform(
+                            null,
+                            transformLoader,
+                            RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                            null,
+                            domain,
+                            injectNop(
+                                    materialOrig,
+                                    RenderEntityMaterialTransformer.SET_VECTOR4_METHOD,
+                                    RenderEntityMaterialTransformer.SET_VECTOR4_DESCRIPTOR)));
                 } else {
                     assertNull(
                             guardCheck.transform(
@@ -968,8 +997,7 @@ class RenderPassTraversalArtifactTest {
                         entityOrig,
                         entityPatched,
                         RenderPassTraversalTarget.ENTITY_OWNER,
-                        GET_RENDERER_METHOD,
-                        "()Lcom/live2d/graphics3d/component/AGRenderer;",
+                        java.util.Set.of(GET_RENDERER_METHOD + "()Lcom/live2d/graphics3d/component/AGRenderer;"),
                         target.version());
 
                 final String entityDot = GENTITY_DOT;
@@ -989,12 +1017,12 @@ class RenderPassTraversalArtifactTest {
                             materialOrig);
                     assertNotNull(materialPatched, target.version() + ": " + transformer.failure());
                     assertEquals(0, countCollectionsToListInClearValues(materialPatched), target.version());
+                    assertMaterialPairLookupUsesConstantDynamic(materialPatched, target.version());
                     assertUnrelatedMethodsKeepShape(
                             materialOrig,
                             materialPatched,
                             RenderEntityMaterialTransformer.MATERIAL_OWNER,
-                            RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD,
-                            RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR,
+                            GMATERIAL_MODIFIED_METHODS,
                             target.version());
                     rewrittenLoader.installOverride(
                             GMATERIAL_DOT,
@@ -1006,7 +1034,14 @@ class RenderPassTraversalArtifactTest {
 
                 verifyEntityGetRendererParity(baselineLoader, rewrittenLoader, target.version());
                 if (materialPatched != null) {
-                    verifyMaterialClearValuesParityAndReducedAlloc(baselineLoader, rewrittenLoader, target.version());
+                    verifyMaterialClearValuesAndPairCacheParity(
+                            baselineLoader,
+                            rewrittenLoader,
+                            target.version(),
+                            artifact,
+                            jogl,
+                            materialOrig,
+                            materialPatched);
                 }
             }
         }
@@ -1046,8 +1081,15 @@ class RenderPassTraversalArtifactTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static void verifyMaterialClearValuesParityAndReducedAlloc(
-            final ClassLoader baseLoader, final ClassLoader patLoader, final String version) throws Throwable {
+    private static void verifyMaterialClearValuesAndPairCacheParity(
+            final ClassLoader baseLoader,
+            final ClassLoader patLoader,
+            final String version,
+            final Path artifact,
+            final Path jogl,
+            final byte[] materialOrig,
+            final byte[] materialPatched)
+            throws Throwable {
         final Class<?> baseMatClass = Class.forName(GMATERIAL_DOT, true, baseLoader);
         final Class<?> patMatClass = Class.forName(GMATERIAL_DOT, true, patLoader);
         final Object baseMat = baseMatClass.getConstructor().newInstance();
@@ -1069,13 +1111,10 @@ class RenderPassTraversalArtifactTest {
         patClear.invoke(patMat, removeNegative);
         assertEquals(baseMap, patMap, version + " clearValues parity");
 
-        final var lookup = java.lang.invoke.MethodHandles.publicLookup();
-        final var clearType =
-                java.lang.invoke.MethodType.methodType(void.class, Object.class, kotlin.jvm.functions.Function2.class);
-        final java.lang.invoke.MethodHandle baseClearHandle =
-                lookup.unreflect(baseClear).asType(clearType);
-        final java.lang.invoke.MethodHandle patClearHandle =
-                lookup.unreflect(patClear).asType(clearType);
+        final var lookup = MethodHandles.publicLookup();
+        final var clearType = MethodType.methodType(void.class, Object.class, kotlin.jvm.functions.Function2.class);
+        final MethodHandle baseClearHandle = lookup.unreflect(baseClear).asType(clearType);
+        final MethodHandle patClearHandle = lookup.unreflect(patClear).asType(clearType);
         final kotlin.jvm.functions.Function2<String, Integer, Boolean> removeNegativeIds = (n, id) -> id < 0;
         final List<kotlin.Pair<String, Integer>> keys = new ArrayList<>();
         for (int i = 0; i < 24; i++) {
@@ -1115,6 +1154,207 @@ class RenderPassTraversalArtifactTest {
                 patAllocTotal < baseAllocTotal,
                 version + " in-place clearValues must allocate less than CollectionsKt.toList baseline: pat="
                         + patAllocTotal + " base=" + baseAllocTotal);
+
+        final String pairKey = RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY;
+        final Object previousPairResolver = System.getProperties().remove(pairKey);
+        try {
+            // Install the resolver before the first ConstantDynamic call so JVM latches the bridge slot.
+            try (RenderPassTraversalBridge bridge = new RenderPassTraversalBridge(patLoader)) {
+                assertTrue(bridge.hasUniformPairResolver(), version + " uniform pair resolver must compile");
+                bridge.install();
+                exerciseMaterialPairMethodsParity(
+                        baseLoader, patLoader, baseMat, patMat, baseMap, patMap, version + "-condy");
+
+                final Class<?> vec4Class = Class.forName("com.live2d.graphics3d.type.GVector4", true, patLoader);
+                final Object vec4 = vec4Class.getConstructor().newInstance();
+                final Method setVec4 = patMatClass.getMethod(
+                        RenderEntityMaterialTransformer.SET_VECTOR4_METHOD, String.class, vec4Class, Integer.class);
+                final Method getVec4 = patMatClass.getMethod("getVector4", String.class, Integer.class);
+                final MethodHandle setVec4Handle = lookup.unreflect(setVec4)
+                        .asType(MethodType.methodType(
+                                void.class, Object.class, String.class, Object.class, Integer.class));
+                final MethodHandle getVec4Handle = lookup.unreflect(getVec4)
+                        .asType(MethodType.methodType(Object.class, Object.class, String.class, Integer.class));
+                final Integer seven = Integer.valueOf(7);
+
+                for (int w = 0; w < 3000; w++) {
+                    setVec4Handle.invokeExact(patMat, "baseColor", vec4, (Integer) null);
+                    setVec4Handle.invokeExact(patMat, "pointSteps", vec4, seven);
+                    final Object unused = (Object) getVec4Handle.invokeExact(patMat, "baseColor", (Integer) null);
+                    assertNotNull(unused);
+                }
+
+                long minSetBase = Long.MAX_VALUE;
+                long minSetIdx = Long.MAX_VALUE;
+                long minGetBase = Long.MAX_VALUE;
+                for (int s = 0; s < 64; s++) {
+                    final long a0 = allocMx.getThreadAllocatedBytes(tid);
+                    setVec4Handle.invokeExact(patMat, "baseColor", vec4, (Integer) null);
+                    minSetBase = Math.min(minSetBase, allocMx.getThreadAllocatedBytes(tid) - a0);
+
+                    final long b0 = allocMx.getThreadAllocatedBytes(tid);
+                    setVec4Handle.invokeExact(patMat, "pointSteps", vec4, seven);
+                    minSetIdx = Math.min(minSetIdx, allocMx.getThreadAllocatedBytes(tid) - b0);
+
+                    final long c0 = allocMx.getThreadAllocatedBytes(tid);
+                    final Object got = (Object) getVec4Handle.invokeExact(patMat, "baseColor", (Integer) null);
+                    minGetBase = Math.min(minGetBase, allocMx.getThreadAllocatedBytes(tid) - c0);
+                    assertNotNull(got);
+                }
+                assertEquals(0L, minSetBase, version + " GMaterial.setVector4(baseColor, null) must allocate 0 bytes");
+                assertEquals(0L, minSetIdx, version + " GMaterial.setVector4(pointSteps, 7) must allocate 0 bytes");
+                assertEquals(0L, minGetBase, version + " GMaterial.getVector4(baseColor, null) must allocate 0 bytes");
+            }
+            assertNull(System.getProperties().get(pairKey), version + " bridge.close must restore resolver property");
+
+            try (HostClassLoader fallbackLoader = hostLoader(artifact.getParent(), jogl)) {
+                fallbackLoader.installOverride(
+                        GMATERIAL_DOT,
+                        materialPatched,
+                        Class.forName(GMATERIAL_DOT, false, baseLoader).getProtectionDomain());
+                final Class<?> fbMatClass = Class.forName(GMATERIAL_DOT, true, fallbackLoader);
+                final Object fbMat = fbMatClass.getConstructor().newInstance();
+                final var fbMap = (java.util.HashMap<kotlin.Pair<String, Integer>, Object>)
+                        fbMatClass.getMethod("getUniformMap$core").invoke(fbMat);
+                exerciseMaterialPairMethodsParity(
+                        baseLoader, fallbackLoader, baseMat, fbMat, baseMap, fbMap, version + "-fb");
+            }
+
+            final byte[] v8Material = rewriteClassVersion(materialOrig, Opcodes.V1_8);
+            final byte[] entityOrig = readClassBytes(artifact, RenderPassTraversalTarget.ENTITY_OWNER);
+            final RenderEntityMaterialTransformer v8Transformer =
+                    new RenderEntityMaterialTransformer(patLoader, artifact, entityOrig, v8Material);
+            final byte[] v8Patched = v8Transformer.transform(
+                    null,
+                    patLoader,
+                    RenderEntityMaterialTransformer.MATERIAL_OWNER,
+                    null,
+                    Class.forName(GMATERIAL_DOT, false, baseLoader).getProtectionDomain(),
+                    v8Material);
+            assertNotNull(v8Patched, version + " <55 material transform failed: " + v8Transformer.failure());
+            assertZeroMaterialConstantDynamic(v8Patched, version + " <55 GMaterial");
+        } finally {
+            if (previousPairResolver == null) System.getProperties().remove(pairKey);
+            else System.getProperties().put(pairKey, previousPairResolver);
+        }
+    }
+
+    private static void exerciseMaterialPairMethodsParity(
+            final ClassLoader baseLoader,
+            final ClassLoader patLoader,
+            final Object baseMat,
+            final Object patMat,
+            final java.util.HashMap<kotlin.Pair<String, Integer>, Object> baseMap,
+            final java.util.HashMap<kotlin.Pair<String, Integer>, Object> patMap,
+            final String label)
+            throws Exception {
+        final Class<?> baseMatClass = baseMat.getClass();
+        final Class<?> patMatClass = patMat.getClass();
+        baseMap.clear();
+        patMap.clear();
+
+        final Class<?> baseColorClass = Class.forName("com.live2d.type.CColor", true, baseLoader);
+        final Class<?> patColorClass = Class.forName("com.live2d.type.CColor", true, patLoader);
+        final Class<?> baseMatrixClass = Class.forName("com.live2d.graphics3d.type.GMatrix44", true, baseLoader);
+        final Class<?> patMatrixClass = Class.forName("com.live2d.graphics3d.type.GMatrix44", true, patLoader);
+        final Class<?> baseVec4Class = Class.forName("com.live2d.graphics3d.type.GVector4", true, baseLoader);
+        final Class<?> patVec4Class = Class.forName("com.live2d.graphics3d.type.GVector4", true, patLoader);
+        final Class<?> baseVec3Class = Class.forName("com.live2d.graphics3d.type.GVector3", true, baseLoader);
+        final Class<?> patVec3Class = Class.forName("com.live2d.graphics3d.type.GVector3", true, patLoader);
+        final Class<?> baseVec2Class = Class.forName("com.live2d.graphics3d.type.GVector2", true, baseLoader);
+        final Class<?> patVec2Class = Class.forName("com.live2d.graphics3d.type.GVector2", true, patLoader);
+
+        final Object baseVec4 = baseVec4Class.getConstructor().newInstance();
+        final Object patVec4 = patVec4Class.getConstructor().newInstance();
+        final Object baseVec3 = baseVec3Class.getConstructor().newInstance();
+        final Object patVec3 = patVec3Class.getConstructor().newInstance();
+        final Object baseVec2 = baseVec2Class.getConstructor().newInstance();
+        final Object patVec2 = patVec2Class.getConstructor().newInstance();
+        final Object baseColor = baseColorClass.getConstructor().newInstance();
+        final Object patColor = patColorClass.getConstructor().newInstance();
+        final Object baseMatrix = baseMatrixClass.getConstructor().newInstance();
+        final Object patMatrix = patMatrixClass.getConstructor().newInstance();
+
+        for (final Integer id : new Integer[] {null, 0, 7}) {
+            baseMatClass
+                    .getMethod("setFloat", String.class, float.class, Integer.class)
+                    .invoke(baseMat, "opacity", 0.5f, id);
+            patMatClass
+                    .getMethod("setFloat", String.class, float.class, Integer.class)
+                    .invoke(patMat, "opacity", 0.5f, id);
+            assertEquals(
+                    baseMatClass
+                            .getMethod("getFloat", String.class, Integer.class)
+                            .invoke(baseMat, "opacity", id),
+                    patMatClass
+                            .getMethod("getFloat", String.class, Integer.class)
+                            .invoke(patMat, "opacity", id),
+                    label + " getFloat " + id);
+
+            baseMatClass
+                    .getMethod("setInt", String.class, int.class, Integer.class)
+                    .invoke(baseMat, "mode", 3, id);
+            patMatClass
+                    .getMethod("setInt", String.class, int.class, Integer.class)
+                    .invoke(patMat, "mode", 3, id);
+
+            baseMatClass
+                    .getMethod("setColor", String.class, baseColorClass, Integer.class)
+                    .invoke(baseMat, "tintColor", baseColor, id);
+            patMatClass
+                    .getMethod("setColor", String.class, patColorClass, Integer.class)
+                    .invoke(patMat, "tintColor", patColor, id);
+            assertNotNull(baseMatClass
+                    .getMethod("getColor", String.class, Integer.class)
+                    .invoke(baseMat, "tintColor", id));
+            assertNotNull(patMatClass
+                    .getMethod("getColor", String.class, Integer.class)
+                    .invoke(patMat, "tintColor", id));
+
+            baseMatClass
+                    .getMethod("setMatrix", String.class, baseMatrixClass, Integer.class)
+                    .invoke(baseMat, "mvpMatrix", baseMatrix, id);
+            patMatClass
+                    .getMethod("setMatrix", String.class, patMatrixClass, Integer.class)
+                    .invoke(patMat, "mvpMatrix", patMatrix, id);
+
+            baseMatClass
+                    .getMethod("setVector4", String.class, baseVec4Class, Integer.class)
+                    .invoke(baseMat, "baseColor", baseVec4, id);
+            patMatClass
+                    .getMethod("setVector4", String.class, patVec4Class, Integer.class)
+                    .invoke(patMat, "baseColor", patVec4, id);
+            assertNotNull(baseMatClass
+                    .getMethod("getVector4", String.class, Integer.class)
+                    .invoke(baseMat, "baseColor", id));
+            assertNotNull(patMatClass
+                    .getMethod("getVector4", String.class, Integer.class)
+                    .invoke(patMat, "baseColor", id));
+
+            baseMatClass
+                    .getMethod("setVector3", String.class, baseVec3Class, Integer.class)
+                    .invoke(baseMat, "vec3", baseVec3, id);
+            patMatClass
+                    .getMethod("setVector3", String.class, patVec3Class, Integer.class)
+                    .invoke(patMat, "vec3", patVec3, id);
+
+            baseMatClass
+                    .getMethod("setVector2", String.class, baseVec2Class, Integer.class)
+                    .invoke(baseMat, "vec2", baseVec2, id);
+            patMatClass
+                    .getMethod("setVector2", String.class, patVec2Class, Integer.class)
+                    .invoke(patMat, "vec2", patVec2, id);
+        }
+        assertEquals(baseMap.keySet(), patMap.keySet(), label + " uniform map keys parity");
+        for (final kotlin.Pair<String, Integer> key : baseMap.keySet()) {
+            assertEquals(baseMap.get(key) != null, patMap.get(key) != null, label + " key=" + key);
+        }
+        assertNull(
+                patMatClass.getMethod("getVector4", String.class, Integer.class).invoke(patMat, "missing", 99), label);
+        assertNull(
+                patMatClass.getMethod("getFloat", String.class, Integer.class).invoke(patMat, "missing", 99), label);
+        assertNull(
+                patMatClass.getMethod("getColor", String.class, Integer.class).invoke(patMat, "missing", 99), label);
     }
 
     private static void verifyEntityMaterialStrictBytecode(final List<Path> artifacts) throws Exception {
@@ -1178,7 +1418,37 @@ class RenderPassTraversalArtifactTest {
                                 null, tLoader, RenderEntityMaterialTransformer.MATERIAL_OWNER, null, dom, mOrig);
                         if (mPatched == null) throw new AssertionError("GMaterial failed " + artifact);
                         runLoader.installOverride(GMATERIAL_DOT, mPatched, matSignedDom);
-                        Class.forName(GMATERIAL_DOT, true, runLoader);
+                        try (RenderPassTraversalBridge bridge = new RenderPassTraversalBridge(runLoader)) {
+                            bridge.install();
+                            final Class<?> matCls = Class.forName(GMATERIAL_DOT, true, runLoader);
+                            final Class<?> vec4Cls =
+                                    Class.forName("com.live2d.graphics3d.type.GVector4", true, runLoader);
+                            final Object mat = matCls.getConstructor().newInstance();
+                            final Object vec4 = vec4Cls.getConstructor().newInstance();
+                            final Method setVec4 = matCls.getMethod("setVector4", String.class, vec4Cls, Integer.class);
+                            final Method getVec4 = matCls.getMethod("getVector4", String.class, Integer.class);
+                            setVec4.invoke(mat, "multiplyColor", vec4, null);
+                            setVec4.invoke(mat, "pointSteps", vec4, 7);
+                            if (getVec4.invoke(mat, "multiplyColor", null) != vec4
+                                    || getVec4.invoke(mat, "pointSteps", 7) != vec4) {
+                                throw new AssertionError("GMaterial condy verify failed " + artifact);
+                            }
+                        }
+                        try (HostClassLoader fallbackLoader = hostLoader(artifact.getParent())) {
+                            fallbackLoader.installOverride(GMATERIAL_DOT, mPatched, matSignedDom);
+                            final Class<?> fbMatCls = Class.forName(GMATERIAL_DOT, true, fallbackLoader);
+                            final Class<?> fbVec4Cls =
+                                    Class.forName("com.live2d.graphics3d.type.GVector4", true, fallbackLoader);
+                            final Object fbMat = fbMatCls.getConstructor().newInstance();
+                            final Object fbVec4 = fbVec4Cls.getConstructor().newInstance();
+                            final Method fbSetVec4 =
+                                    fbMatCls.getMethod("setVector4", String.class, fbVec4Cls, Integer.class);
+                            final Method fbGetVec4 = fbMatCls.getMethod("getVector4", String.class, Integer.class);
+                            fbSetVec4.invoke(fbMat, "baseColor", fbVec4, null);
+                            if (fbGetVec4.invoke(fbMat, "baseColor", null) != fbVec4) {
+                                throw new AssertionError("GMaterial fallback verify failed " + artifact);
+                            }
+                        }
                     }
                     Class.forName(GENTITY_DOT, true, runLoader);
                 }
@@ -1237,12 +1507,126 @@ class RenderPassTraversalArtifactTest {
         return count[0];
     }
 
+    private static void assertMaterialPairLookupUsesConstantDynamic(final byte[] bytes, final String version) {
+        final String clearSig = RenderEntityMaterialTransformer.CLEAR_VALUES_METHOD
+                + RenderEntityMaterialTransformer.CLEAR_VALUES_DESCRIPTOR;
+        for (final String sig : GMATERIAL_MODIFIED_METHODS) {
+            if (clearSig.equals(sig)) {
+                continue;
+            }
+            final int split = sig.indexOf('(');
+            final String methodName = sig.substring(0, split);
+            final String methodDesc = sig.substring(split);
+            final List<String> condyKeys = new ArrayList<>();
+            final int[] newPairCount = {0};
+            new ClassReader(bytes)
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        final int access,
+                                        final String name,
+                                        final String desc,
+                                        final String signature,
+                                        final String[] exceptions) {
+                                    if (!methodName.equals(name) || !methodDesc.equals(desc)) {
+                                        return null;
+                                    }
+                                    return new MethodVisitor(Opcodes.ASM9) {
+                                        @Override
+                                        public void visitLdcInsn(final Object value) {
+                                            if (value instanceof ConstantDynamic condy) {
+                                                condyKeys.add(condy.getName());
+                                                assertEquals(
+                                                        "Ljava/lang/Object;",
+                                                        condy.getDescriptor(),
+                                                        version + ":" + sig);
+                                                for (int i = 0; i < condy.getBootstrapMethodArgumentCount(); i++) {
+                                                    condyKeys.add(String.valueOf(condy.getBootstrapMethodArgument(i)));
+                                                }
+                                            }
+                                        }
+
+                                        @Override
+                                        public void visitTypeInsn(final int opcode, final String type) {
+                                            if (opcode == Opcodes.NEW && "kotlin/Pair".equals(type)) {
+                                                newPairCount[0]++;
+                                            }
+                                        }
+
+                                        @Override
+                                        public void visitMethodInsn(
+                                                final int op,
+                                                final String owner,
+                                                final String called,
+                                                final String d,
+                                                final boolean itf) {
+                                            assertFalse(
+                                                    "java/lang/System".equals(owner) && "getProperties".equals(called),
+                                                    version + ":" + sig + " must not call System.getProperties()");
+                                        }
+                                    };
+                                }
+                            },
+                            ClassReader.SKIP_DEBUG);
+            assertTrue(
+                    condyKeys.contains(RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY),
+                    version + ":" + sig + " missing UNIFORM_PAIR condy: " + condyKeys);
+            assertEquals(1, newPairCount[0], version + ":" + sig + " must keep 1 fallback NEW kotlin/Pair");
+        }
+    }
+
+    private static void assertZeroMaterialConstantDynamic(final byte[] bytes, final String label) {
+        final int[] condyCount = {0};
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String desc,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitLdcInsn(final Object value) {
+                                        if (value instanceof ConstantDynamic) {
+                                            condyCount[0]++;
+                                        }
+                                    }
+                                };
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG);
+        assertEquals(0, condyCount[0], label + " must not emit ConstantDynamic below classfile 55");
+    }
+
+    private static byte[] rewriteClassVersion(final byte[] bytes, final int version) {
+        final ClassReader reader = new ClassReader(bytes);
+        final ClassWriter writer = new ClassWriter(0);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public void visit(
+                            final int originalVersion,
+                            final int access,
+                            final String name,
+                            final String signature,
+                            final String superName,
+                            final String[] interfaces) {
+                        super.visit(version, access, name, signature, superName, interfaces);
+                    }
+                },
+                0);
+        return writer.toByteArray();
+    }
+
     private static void assertUnrelatedMethodsKeepShape(
             final byte[] original,
             final byte[] patched,
             final String owner,
-            final String targetName,
-            final String targetDesc,
+            final Set<String> modifiedMethodSignatures,
             final String version) {
         new ClassReader(original)
                 .accept(
@@ -1250,7 +1634,7 @@ class RenderPassTraversalArtifactTest {
                             @Override
                             public MethodVisitor visitMethod(
                                     int access, String name, String desc, String sig, String[] ex) {
-                                if (!targetName.equals(name) || !targetDesc.equals(desc)) {
+                                if (!modifiedMethodSignatures.contains(name + desc)) {
                                     assertEquals(
                                             ReviewedMethodShape.read(original, owner, name, desc),
                                             ReviewedMethodShape.read(patched, owner, name, desc),

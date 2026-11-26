@@ -9,7 +9,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.adapter.cubism.optimization.camera.CameraMatrixCacheBridge;
 import dev.turboism.adapter.cubism.optimization.deferred.DeferredGlErrorCheckTransformer;
+import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchBridge;
+import dev.turboism.adapter.cubism.optimization.geometry.MatrixScratchTransformer;
 import dev.turboism.adapter.cubism.optimization.meshsetup.SkippedFrameMeshSetupElisionBridge;
+import dev.turboism.adapter.cubism.optimization.renderpass.RenderPassTraversalBridge;
 import dev.turboism.adapter.cubism.optimization.uniform.UniformLocationHookBridge;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.lang.instrument.ClassFileTransformer;
@@ -45,6 +48,14 @@ final class VerifiedCondyRollbackTest {
         properties.remove(DeferredGlErrorCheckTransformer.ENABLE_PROPERTY);
         properties.remove(CameraMatrixCacheBridge.GET_PROPERTY);
         properties.remove(SkippedFrameMeshSetupElisionBridge.PREDICATE_PROPERTY);
+        properties.remove(MatrixScratchTransformer.ADMISSION_PROPERTY);
+        properties.remove(MatrixScratchBridge.CALLBACK_PROPERTY);
+        properties.remove(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY);
+        properties.remove(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY);
+        properties.remove(MatrixScratchBridge.STATS_PROPERTY);
+        properties.remove(RenderPassTraversalBridge.PRE_DRAW_LABELS_PROPERTY);
+        properties.remove(RenderPassTraversalBridge.POST_DRAW_LABELS_PROPERTY);
+        properties.remove(RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY);
     }
 
     @Test
@@ -93,7 +104,9 @@ final class VerifiedCondyRollbackTest {
                         var deferred = new VerifiedDeferredGlErrorCheckInstaller(context, false);
                         var camera = new VerifiedCameraMatrixCacheInstaller(context);
                         var meshSetup = new VerifiedSkippedFrameMeshSetupElisionInstaller(context);
-                        var sorting = new VerifiedSortingInfoCacheInstaller(context)) {
+                        var sorting = new VerifiedSortingInfoCacheInstaller(context);
+                        var matrixScratch = new VerifiedMatrixScratchInstaller(context);
+                        var renderPass = new VerifiedRenderPassTraversalInstaller(context)) {
                     uniform.install();
                     assertTrue(
                             System.getProperties().get(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY)
@@ -102,6 +115,8 @@ final class VerifiedCondyRollbackTest {
                     camera.install();
                     meshSetup.install();
                     sorting.install();
+                    matrixScratch.install();
+                    renderPass.install();
 
                     assertFalse(recorder.rewritten.isEmpty(), "cycle " + cycle + " must retransform target classes");
                     assertNotNull(
@@ -109,12 +124,25 @@ final class VerifiedCondyRollbackTest {
                     assertNotNull(recorder.observedAtFirstRetransform.get(CameraMatrixCacheBridge.GET_PROPERTY));
                     assertNotNull(recorder.observedAtFirstRetransform.get(
                             SkippedFrameMeshSetupElisionBridge.PREDICATE_PROPERTY));
+                    assertTrue(
+                            recorder.observedAtFirstRetransform.get(MatrixScratchTransformer.ADMISSION_PROPERTY)
+                                    instanceof AtomicBoolean);
+                    assertNotNull(
+                            recorder.observedAtFirstRetransform.get(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY));
+                    assertNotNull(
+                            recorder.observedAtFirstRetransform.get(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY));
+                    assertNotNull(
+                            recorder.observedAtFirstRetransform.get(RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY));
 
+                    renderPass.close();
+                    matrixScratch.close();
                     sorting.close();
                     meshSetup.close();
                     camera.close();
                     deferred.close();
                     uniform.close();
+                    assertTrue(renderPass.restored());
+                    assertTrue(matrixScratch.restored());
                     assertTrue(deferred.restored());
                     assertTrue(camera.restored());
                     assertTrue(meshSetup.restored());
@@ -125,6 +153,10 @@ final class VerifiedCondyRollbackTest {
                 assertNull(System.getProperties().get(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY));
                 assertNull(System.getProperties().get(CameraMatrixCacheBridge.GET_PROPERTY));
                 assertNull(System.getProperties().get(SkippedFrameMeshSetupElisionBridge.PREDICATE_PROPERTY));
+                assertNull(System.getProperties().get(MatrixScratchTransformer.ADMISSION_PROPERTY));
+                assertNull(System.getProperties().get(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY));
+                assertNull(System.getProperties().get(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY));
+                assertNull(System.getProperties().get(RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY));
             }
         }
     }
@@ -168,6 +200,10 @@ final class VerifiedCondyRollbackTest {
             captureSlotSnapshot(UniformLocationHookBridge.DEFER_ACTIVE_PROPERTY);
             captureSlotSnapshot(CameraMatrixCacheBridge.GET_PROPERTY);
             captureSlotSnapshot(SkippedFrameMeshSetupElisionBridge.PREDICATE_PROPERTY);
+            captureSlotSnapshot(MatrixScratchTransformer.ADMISSION_PROPERTY);
+            captureSlotSnapshot(MatrixScratchBridge.RENDER_CALLBACK_PROPERTY);
+            captureSlotSnapshot(MatrixScratchBridge.SORTING_CALLBACK_PROPERTY);
+            captureSlotSnapshot(RenderPassTraversalBridge.UNIFORM_PAIR_PROPERTY);
 
             byte[] bytes;
             try (var input = type.getResourceAsStream("/" + type.getName().replace('.', '/') + ".class")) {

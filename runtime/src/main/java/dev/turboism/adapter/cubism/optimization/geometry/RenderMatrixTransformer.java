@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.optimization.geometry;
 import dev.turboism.adapter.cubism.optimization.HostClassWriters;
 import dev.turboism.adapter.cubism.optimization.HostCodeSource;
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.SlotBridgeEmitter;
 import java.lang.instrument.ClassFileTransformer;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
@@ -79,15 +80,6 @@ public final class RenderMatrixTransformer implements ClassFileTransformer {
     private static final int RENDER_EXTRA_LOCALS = 2;
 
     private static final String THROWABLE = "java/lang/Throwable";
-    private static final String BOOLEAN = "java/lang/Boolean";
-    private static final String GET_BOOLEAN = "getBoolean";
-    private static final String GET_BOOLEAN_DESC = "(Ljava/lang/String;)Z";
-    private static final String SYSTEM = "java/lang/System";
-    private static final String GET_PROPERTIES = "getProperties";
-    private static final String GET_PROPERTIES_DESC = "()Ljava/util/Properties;";
-    private static final String PROPERTIES = "java/util/Properties";
-    private static final String PROPERTIES_GET = "get";
-    private static final String PROPERTIES_GET_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
     private static final String ATOMIC_BOOLEAN = "java/util/concurrent/atomic/AtomicBoolean";
     private static final String ATOMIC_GET = "get";
     private static final String ATOMIC_GET_DESC = "()Z";
@@ -172,7 +164,7 @@ public final class RenderMatrixTransformer implements ClassFileTransformer {
             final Class<?> type,
             final ProtectionDomain domain,
             final byte[] bytes) {
-        if (actualLoader != loader || bytes == null) {
+        if (bytes == null) {
             return null;
         }
         final boolean isMeshRenderer = MESH_RENDERER_OWNER.equals(name);
@@ -181,7 +173,7 @@ public final class RenderMatrixTransformer implements ClassFileTransformer {
             return null;
         }
         try {
-            if (!HostCodeSource.matchesArtifact(domain, artifact)) {
+            if (actualLoader != loader || !HostCodeSource.matchesArtifact(domain, artifact)) {
                 failure = "renderer matrix source mismatch: " + name;
                 return null;
             }
@@ -351,37 +343,26 @@ public final class RenderMatrixTransformer implements ClassFileTransformer {
         mv.visitVarInsn(Opcodes.ASTORE, bridgeSlot);
 
         final Label start = new Label();
-        final Label popTwoAndEnd = new Label();
-        final Label popOneAndEnd = new Label();
+        final Label popAdmissionAndEnd = new Label();
         final Label end = new Label();
         final Label failed = new Label();
         final Label done = new Label();
 
         mv.visitTryCatchBlock(start, end, failed, THROWABLE);
         mv.visitLabel(start);
-        mv.visitLdcInsn(MatrixScratchTransformer.ENABLE_PROPERTY);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, BOOLEAN, GET_BOOLEAN, GET_BOOLEAN_DESC, false);
-        mv.visitJumpInsn(Opcodes.IFEQ, end);
-
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, SYSTEM, GET_PROPERTIES, GET_PROPERTIES_DESC, false);
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitLdcInsn(MatrixScratchTransformer.ADMISSION_PROPERTY);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROPERTIES, PROPERTIES_GET, PROPERTIES_GET_DESC, false);
+        SlotBridgeEmitter.emitGetSlot(mv, MatrixScratchTransformer.ADMISSION_PROPERTY);
         mv.visitInsn(Opcodes.DUP);
         mv.visitTypeInsn(Opcodes.INSTANCEOF, ATOMIC_BOOLEAN);
-        mv.visitJumpInsn(Opcodes.IFEQ, popTwoAndEnd);
+        mv.visitJumpInsn(Opcodes.IFEQ, popAdmissionAndEnd);
         mv.visitTypeInsn(Opcodes.CHECKCAST, ATOMIC_BOOLEAN);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ATOMIC_BOOLEAN, ATOMIC_GET, ATOMIC_GET_DESC, false);
-        mv.visitJumpInsn(Opcodes.IFEQ, popOneAndEnd);
+        mv.visitJumpInsn(Opcodes.IFEQ, end);
 
-        mv.visitLdcInsn(callbackProperty);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROPERTIES, PROPERTIES_GET, PROPERTIES_GET_DESC, false);
+        SlotBridgeEmitter.emitGetSlot(mv, callbackProperty);
         mv.visitVarInsn(Opcodes.ASTORE, bridgeSlot);
         mv.visitJumpInsn(Opcodes.GOTO, end);
 
-        mv.visitLabel(popTwoAndEnd);
-        mv.visitInsn(Opcodes.POP);
-        mv.visitLabel(popOneAndEnd);
+        mv.visitLabel(popAdmissionAndEnd);
         mv.visitInsn(Opcodes.POP);
         mv.visitLabel(end);
         mv.visitJumpInsn(Opcodes.GOTO, done);
@@ -392,7 +373,7 @@ public final class RenderMatrixTransformer implements ClassFileTransformer {
         mv.visitVarInsn(Opcodes.ASTORE, bridgeSlot);
         mv.visitLabel(done);
 
-        // Emit native exception handlers in visitMaxs so gate catch blocks stay isolated at entry.
+        // Native handlers are buffered separately and emitted after entry gate handlers in visitMaxs.
         deferredHandlers.clear();
     }
 

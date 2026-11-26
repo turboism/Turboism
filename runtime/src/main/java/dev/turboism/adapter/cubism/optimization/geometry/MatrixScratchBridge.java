@@ -9,7 +9,11 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -70,9 +74,20 @@ public final class MatrixScratchBridge implements AutoCloseable {
             "(L" + MatrixScratchTransformer.MATRIX + ";)L" + MatrixScratchTransformer.MATRIX + ";";
 
     private static final String ENTITY_OWNER = "com/live2d/graphics3d/entity/GEntity";
+    private static final String COMPONENTS_OWNER = "com/live2d/graphics3d/entity/Components";
     private static final String VECTOR3_OWNER = "com/live2d/graphics3d/type/GVector3";
     private static final String GET_ENTITY_METHOD = "getEntity";
     private static final String GET_ENTITY_DESCRIPTOR = "()L" + ENTITY_OWNER + ";";
+    private static final String GET_COMPONENTS_METHOD = "getComponents";
+    private static final String GET_COMPONENTS_DESCRIPTOR = "()L" + COMPONENTS_OWNER + ";";
+    private static final String COMPONENTS_LIST_METHOD = "a";
+    private static final String COMPONENTS_LIST_DESCRIPTOR = "()Ljava/util/List;";
+    private static final String LIST_INTERNAL = "java/util/List";
+    private static final String RANDOM_ACCESS_INTERNAL = "java/util/RandomAccess";
+    private static final String LIST_SIZE_METHOD = "size";
+    private static final String LIST_SIZE_DESCRIPTOR = "()I";
+    private static final String LIST_GET_METHOD = "get";
+    private static final String LIST_GET_DESCRIPTOR = "(I)Ljava/lang/Object;";
     private static final String GET_PARENT_METHOD = "getParentEntity";
     private static final String GET_PARENT_DESCRIPTOR = "()L" + ENTITY_OWNER + ";";
     private static final String GET_TRANSFORM_METHOD = "getTransform";
@@ -104,15 +119,23 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final String VOID_DESCRIPTOR = "()V";
     private static final String BI_PREDICATE_INTERNAL = "java/util/function/BiPredicate";
     private static final String BI_FUNCTION_INTERNAL = "java/util/function/BiFunction";
+    private static final String FUNCTION_INTERNAL = "java/util/function/Function";
     private static final String CONSUMER_INTERNAL = "java/util/function/Consumer";
     private static final String ACCESSOR_PACKAGE = "dev/turboism/adapter/cubism/optimization/geometry/";
     private static final String BOOT_INTERNAL = ACCESSOR_PACKAGE + "MatrixAccessorBoot";
     private static final String ACCESSOR_INTERNAL = ACCESSOR_PACKAGE + "MatrixHostAccessor";
+    private static final String SORTING_ACCESSOR_INTERNAL = ACCESSOR_PACKAGE + "SortingHostAccessor";
     private static final String BOOT_HANDLE_FIELD = "handle";
     private static final String ACCESSOR_VAR_FIELD = "STATIC_MATRIX";
     private static final String READ_NODE_METHOD = "readNode";
     private static final String READ_NODE_DESCRIPTOR =
             "(L" + MatrixScratchTransformer.OWNER + ";" + OBJECT_ARRAY_DESCRIPTOR + ")Z";
+    private static final String TEST_METHOD = "test";
+    private static final String TEST_DESCRIPTOR = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
+    private static final String FUNCTION_APPLY_METHOD = "apply";
+    private static final String FUNCTION_APPLY_DESCRIPTOR = "(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String BI_FUNCTION_APPLY_DESCRIPTOR =
+            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;";
 
     private static final float DEGREES_TO_RADIANS = (float) (Math.PI / 180.0);
     private static final float ZERO_F = 0.0f;
@@ -181,6 +204,13 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private static final int POS_X_INDEX = 0;
     private static final int POS_Y_INDEX = 1;
     private static final int POS_Z_INDEX = 2;
+    private static final int SORTING_PACKET_FLAGS_INDEX = 0;
+    private static final int SORTING_PACKET_POSITIONS_INDEX = 1;
+    private static final int SORTING_PACKET_TRANSFORM_INDEX = 2;
+    private static final int SORTING_PACKET_SIZE = 3;
+    private static final int SORTING_STATUS_FALLBACK = 0;
+    private static final int SORTING_STATUS_ZERO = 1;
+    private static final int FLAG_ARRAY_INDEX = 0;
     private static final int MATRIX_IDX_X0 = 0;
     private static final int MATRIX_IDX_Y0 = 1;
     private static final int MATRIX_IDX_Z0 = 2;
@@ -205,7 +235,6 @@ public final class MatrixScratchBridge implements AutoCloseable {
     private final BiPredicate<Object, Object> selfReader;
     private final BiFunction<Object, Object, Object> parentReader;
     private final Consumer<Object> matrixAllocator;
-    private final MethodHandle matrixDataHandle;
     private final RenderAccessors renderAccessors;
 
     private final AtomicBoolean active = new AtomicBoolean();
@@ -269,8 +298,8 @@ public final class MatrixScratchBridge implements AutoCloseable {
                 MethodType.methodType(float[].class, Object.class));
         final MethodHandle staticMatrixHandle =
                 HostHandles.getter(transformType, STATIC_MATRIX_FIELD, STATIC_MATRIX_DESCRIPTOR, objectUnary);
-        this.matrixDataHandle = matrixDataHandle;
-        this.renderAccessors = resolveRenderAccessors(loader, matrixType, getTransformHandle);
+        this.renderAccessors =
+                resolveRenderAccessors(loader, entityType, transformType, matrixType, getTransformHandle);
 
         final Object compiled = compileHostAccessor(loader, transformType);
         if (compiled != null) {
@@ -330,6 +359,11 @@ public final class MatrixScratchBridge implements AutoCloseable {
     /** Returns whether optional renderer and camera fast-path accessors resolved on this loader. */
     public boolean supportsRenderFastPaths() {
         return renderAccessors != null;
+    }
+
+    /** Returns whether sorting-Z resolution uses the compiled monomorphic host accessor. */
+    boolean usesCompiledRenderAccessors() {
+        return renderAccessors != null && renderAccessors.compiled();
     }
 
     /** Returns an immutable snapshot of bridge telemetry counters across all threads. */
@@ -446,32 +480,22 @@ public final class MatrixScratchBridge implements AutoCloseable {
         final ThreadState state = threadState.get();
         state.calls++;
         try {
-            final Object container = (Object) renderAccessors.getMeshContainer().invokeExact(meshRenderer);
-            if (container == null) {
-                return encodeValidFloat(ZERO_F);
+            if (!renderAccessors.rendererProbe().test(meshRenderer, state.sortingPacket)) {
+                state.sortingPacket[SORTING_PACKET_POSITIONS_INDEX] = null;
+                state.sortingPacket[SORTING_PACKET_TRANSFORM_INDEX] = null;
+                return state.sortingFlags[FLAG_ARRAY_INDEX] == SORTING_STATUS_ZERO
+                        ? encodeValidFloat(ZERO_F)
+                        : SORTING_FALLBACK;
             }
-            final Object mesh = (Object) renderAccessors.getMesh().invokeExact(container);
-            if (mesh == null) {
-                return encodeValidFloat(ZERO_F);
-            }
-            final float[] positions = (float[]) renderAccessors.getPositions().invokeExact(mesh);
-            if (positions.length == 0) {
-                return encodeValidFloat(ZERO_F);
-            }
+            final float[] positions = (float[]) state.sortingPacket[SORTING_PACKET_POSITIONS_INDEX];
+            final int step = state.sortingFlags[FLAG_ARRAY_INDEX];
+            final Object transform = state.sortingPacket[SORTING_PACKET_TRANSFORM_INDEX];
+            state.sortingPacket[SORTING_PACKET_POSITIONS_INDEX] = null;
+            state.sortingPacket[SORTING_PACKET_TRANSFORM_INDEX] = null;
+
             final float vx = positions[POS_X_INDEX];
             final float vy = positions[POS_Y_INDEX];
-            final float vz =
-                    (int) renderAccessors.getStep().invokeExact(mesh) == MESH_STEP_2D ? ZERO_F : positions[POS_Z_INDEX];
-
-            final Object entity = (Object) renderAccessors.rendererGetEntity().invokeExact(meshRenderer);
-            if (entity == null) {
-                return SORTING_FALLBACK;
-            }
-            final Object transform =
-                    (Object) renderAccessors.entityGetTransform().invokeExact(entity);
-            if (transform == null) {
-                return SORTING_FALLBACK;
-            }
+            final float vz = step == MESH_STEP_2D ? ZERO_F : positions[POS_Z_INDEX];
             final float[] world = resolveWorldData(transform, state, null, state.scratchC, false);
             if (world == null) {
                 return SORTING_FALLBACK;
@@ -491,25 +515,27 @@ public final class MatrixScratchBridge implements AutoCloseable {
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             // Let native bytecode reproduce ArrayIndexOutOfBoundsException or NoninvertibleTransformException.
+            state.sortingPacket[SORTING_PACKET_POSITIONS_INDEX] = null;
+            state.sortingPacket[SORTING_PACKET_TRANSFORM_INDEX] = null;
             state.failures++;
             return SORTING_FALLBACK;
         }
     }
 
     @SuppressWarnings("unchecked")
-    private float[] resolveWorldToCameraData(final Object camera, final ThreadState state) throws Throwable {
+    private float[] resolveWorldToCameraData(final Object camera, final ThreadState state) {
         final Object camCacheFn = System.getProperties().get(CAMERA_CACHE_GET_PROPERTY);
         if (camCacheFn instanceof Function<?, ?> getter) {
             final Object cachedMatrix = ((Function<Object, Object>) getter).apply(camera);
             if (cachedMatrix != null) {
-                final float[] cachedData = (float[]) matrixDataHandle.invokeExact(cachedMatrix);
+                final float[] cachedData =
+                        (float[]) renderAccessors.matrixDataReader().apply(cachedMatrix);
                 if (cachedData != null && cachedData.length >= MATRIX_LENGTH) {
                     return cachedData;
                 }
             }
         }
-        final Object camTransform =
-                (Object) renderAccessors.cameraGetTransform().invokeExact(camera);
+        final Object camTransform = renderAccessors.cameraOrInvert().apply(camera, null);
         if (camTransform == null) {
             return null;
         }
@@ -520,9 +546,9 @@ public final class MatrixScratchBridge implements AutoCloseable {
             return null;
         }
         System.arraycopy(camWorld, 0, state.cameraWorldScratch.data, 0, MATRIX_LENGTH);
-        final Object inverted = (Object) renderAccessors
-                .matrixInvertInto()
-                .invokeExact(state.cameraWorldScratch.instance, state.cameraInverseScratch.instance);
+        final Object inverted = renderAccessors
+                .cameraOrInvert()
+                .apply(state.cameraWorldScratch.instance, state.cameraInverseScratch.instance);
         return inverted == null ? null : state.cameraInverseScratch.data;
     }
 
@@ -669,21 +695,45 @@ public final class MatrixScratchBridge implements AutoCloseable {
     }
 
     private static RenderAccessors resolveRenderAccessors(
-            final ClassLoader loader, final Class<?> matrixType, final MethodHandle entityGetTransform) {
+            final ClassLoader loader,
+            final Class<?> entityType,
+            final Class<?> transformType,
+            final Class<?> matrixType,
+            final MethodHandle entityGetTransform) {
         try {
             final Class<?> meshRendererType = Class.forName(RenderMatrixTransformer.MESH_RENDERER_DOT, false, loader);
             final Class<?> containerType = Class.forName(MESH_CONTAINER_OWNER.replace('/', '.'), false, loader);
             final Class<?> meshType = Class.forName(MESH_OWNER.replace('/', '.'), false, loader);
             final Class<?> cameraType = Class.forName(CAMERA_OWNER.replace('/', '.'), false, loader);
+            final Class<?> componentsType = tryLoadOptionalClass(loader, COMPONENTS_OWNER.replace('/', '.'));
+
+            final Object compiled = compileRenderAccessor(
+                    loader,
+                    meshRendererType,
+                    containerType,
+                    meshType,
+                    entityType,
+                    componentsType,
+                    transformType,
+                    cameraType,
+                    matrixType);
+            if (compiled != null) {
+                @SuppressWarnings("unchecked")
+                final var rendererProbe = (BiPredicate<Object, Object>) compiled;
+                @SuppressWarnings("unchecked")
+                final var matrixDataReader = (Function<Object, Object>) compiled;
+                @SuppressWarnings("unchecked")
+                final var cameraOrInvert = (BiFunction<Object, Object, Object>) compiled;
+                return new RenderAccessors(
+                        meshRendererType, cameraType, true, rendererProbe, matrixDataReader, cameraOrInvert);
+            }
 
             final MethodType objectUnary = MethodType.methodType(Object.class, Object.class);
             final MethodType floatArrayUnary = MethodType.methodType(float[].class, Object.class);
             final MethodType intUnary = MethodType.methodType(int.class, Object.class);
             final MethodType objectBinary = MethodType.methodType(Object.class, Object.class, Object.class);
 
-            return new RenderAccessors(
-                    meshRendererType,
-                    cameraType,
+            final FallbackRenderAccessors fallback = new FallbackRenderAccessors(
                     HostHandles.virtual(
                             meshRendererType, GET_MESH_CONTAINER_METHOD, GET_MESH_CONTAINER_DESCRIPTOR, objectUnary),
                     HostHandles.virtual(containerType, GET_MESH_METHOD, GET_MESH_DESCRIPTOR, objectUnary),
@@ -692,10 +742,315 @@ public final class MatrixScratchBridge implements AutoCloseable {
                     HostHandles.virtual(meshRendererType, GET_ENTITY_METHOD, GET_ENTITY_DESCRIPTOR, objectUnary),
                     entityGetTransform,
                     HostHandles.virtual(cameraType, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, objectUnary),
+                    HostHandles.virtual(matrixType, MATRIX_DATA_METHOD, MATRIX_DATA_DESCRIPTOR, floatArrayUnary),
                     HostHandles.virtual(matrixType, MATRIX_INVERT_METHOD, MATRIX_INVERT_DESCRIPTOR, objectBinary));
+            return new RenderAccessors(
+                    meshRendererType, cameraType, false, fallback, fallback, fallback::applyCameraOrInvert);
         } catch (final ReflectiveOperationException optionalMissing) {
             return null;
         }
+    }
+
+    private static Class<?> tryLoadOptionalClass(final ClassLoader loader, final String binaryName) {
+        try {
+            return Class.forName(binaryName, false, loader);
+        } catch (final ClassNotFoundException missing) {
+            return null;
+        }
+    }
+
+    private static Object compileRenderAccessor(
+            final ClassLoader loader,
+            final Class<?> meshRendererType,
+            final Class<?> containerType,
+            final Class<?> meshType,
+            final Class<?> entityType,
+            final Class<?> componentsType,
+            final Class<?> transformType,
+            final Class<?> cameraType,
+            final Class<?> matrixType) {
+        if (componentsType == null
+                || !Modifier.isPublic(meshRendererType.getModifiers())
+                || !Modifier.isPublic(containerType.getModifiers())
+                || !Modifier.isPublic(meshType.getModifiers())
+                || !Modifier.isPublic(entityType.getModifiers())
+                || !Modifier.isPublic(componentsType.getModifiers())
+                || !Modifier.isFinal(componentsType.getModifiers())
+                || !Modifier.isPublic(transformType.getModifiers())
+                || !Modifier.isPublic(cameraType.getModifiers())
+                || !Modifier.isPublic(matrixType.getModifiers())) {
+            return null;
+        }
+        if (!hasPublicMethod(meshRendererType, GET_MESH_CONTAINER_METHOD, containerType)
+                || !hasPublicMethod(meshRendererType, GET_ENTITY_METHOD, entityType)
+                || !hasPublicMethod(entityType, GET_COMPONENTS_METHOD, componentsType)
+                || !hasPublicMethod(componentsType, COMPONENTS_LIST_METHOD, List.class)
+                || !hasPublicMethod(containerType, GET_MESH_METHOD, meshType)
+                || !hasPublicMethod(meshType, GET_POSITIONS_METHOD, float[].class)
+                || !hasPublicMethod(meshType, GET_STEP_METHOD, int.class)
+                || !hasPublicMethod(entityType, GET_TRANSFORM_METHOD, transformType)
+                || !hasPublicMethod(cameraType, GET_TRANSFORM_METHOD, transformType)
+                || !hasPublicMethod(matrixType, MATRIX_DATA_METHOD, float[].class)
+                || !hasPublicMethod(matrixType, MATRIX_INVERT_METHOD, matrixType, matrixType)) {
+            return null;
+        }
+        try {
+            final AccessorClassLoader accessorLoader = new AccessorClassLoader(loader);
+            final Class<?> accessorClass = accessorLoader.define(
+                    SORTING_ACCESSOR_INTERNAL.replace('/', '.'), buildSortingAccessorClass(loader));
+            return accessorClass.getConstructor().newInstance();
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
+    private static boolean hasPublicMethod(
+            final Class<?> owner, final String name, final Class<?> returnType, final Class<?>... parameterTypes) {
+        for (final Method method : owner.getMethods()) {
+            if (name.equals(method.getName())
+                    && Modifier.isPublic(method.getModifiers())
+                    && !Modifier.isStatic(method.getModifiers())
+                    && method.getReturnType() == returnType
+                    && Arrays.equals(method.getParameterTypes(), parameterTypes)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static byte[] buildSortingAccessorClass(final ClassLoader loader) {
+        final ClassWriter writer = HostClassWriters.newFrameWriter(loader);
+        writer.visit(
+                Opcodes.V17,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+                SORTING_ACCESSOR_INTERNAL,
+                null,
+                OBJECT_INTERNAL,
+                new String[] {BI_PREDICATE_INTERNAL, FUNCTION_INTERNAL, BI_FUNCTION_INTERNAL});
+
+        final MethodVisitor init =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, null, null);
+        init.visitCode();
+        init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, OBJECT_INTERNAL, CONSTRUCTOR_NAME, VOID_DESCRIPTOR, false);
+        init.visitInsn(Opcodes.RETURN);
+        init.visitMaxs(0, 0);
+        init.visitEnd();
+
+        emitSortingTestMethod(writer);
+        emitSortingMatrixDataMethod(writer);
+        emitSortingCameraOrInvertMethod(writer);
+
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static void emitSortingTestMethod(final ClassWriter writer) {
+        final int argRenderer = 1;
+        final int argPacket = 2;
+        final int localRenderer = 3;
+        final int localPacket = 4;
+        final int localFlags = 5;
+        final int localEntity = 6;
+        final int localComponents = 7;
+        final int localCount = 8;
+        final int localIndex = 9;
+        final int localMesh = 10;
+        final int localPositions = 11;
+        final int localTransform = 12;
+
+        final MethodVisitor mv = writer.visitMethod(Opcodes.ACC_PUBLIC, TEST_METHOD, TEST_DESCRIPTOR, null, null);
+        mv.visitCode();
+
+        final Label loopHead = new Label();
+        final Label nonRandomAccess = new Label();
+        final Label foundContainer = new Label();
+        final Label containerReady = new Label();
+        final Label popZero = new Label();
+        final Label returnZero = new Label();
+        final Label popFallback = new Label();
+
+        mv.visitVarInsn(Opcodes.ALOAD, argRenderer);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, RenderMatrixTransformer.MESH_RENDERER_OWNER);
+        mv.visitVarInsn(Opcodes.ASTORE, localRenderer);
+
+        mv.visitVarInsn(Opcodes.ALOAD, argPacket);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, OBJECT_ARRAY_DESCRIPTOR);
+        mv.visitVarInsn(Opcodes.ASTORE, localPacket);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localPacket);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.AALOAD);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, INT_ARRAY_INTERNAL);
+        mv.visitVarInsn(Opcodes.ASTORE, localFlags);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localRenderer);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                RenderMatrixTransformer.MESH_RENDERER_OWNER,
+                GET_ENTITY_METHOD,
+                GET_ENTITY_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitJumpInsn(Opcodes.IFNULL, popFallback);
+        mv.visitVarInsn(Opcodes.ASTORE, localEntity);
+
+        // Scan Components.a() by index on RandomAccess lists so GMeshContainer lookup allocates no Iterator.
+        mv.visitVarInsn(Opcodes.ALOAD, localEntity);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_COMPONENTS_METHOD, GET_COMPONENTS_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitJumpInsn(Opcodes.IFNULL, popFallback);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, COMPONENTS_OWNER, COMPONENTS_LIST_METHOD, COMPONENTS_LIST_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitJumpInsn(Opcodes.IFNULL, popFallback);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, RANDOM_ACCESS_INTERNAL);
+        mv.visitJumpInsn(Opcodes.IFEQ, nonRandomAccess);
+
+        mv.visitVarInsn(Opcodes.ASTORE, localComponents);
+        mv.visitVarInsn(Opcodes.ALOAD, localComponents);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_INTERNAL, LIST_SIZE_METHOD, LIST_SIZE_DESCRIPTOR, true);
+        mv.visitVarInsn(Opcodes.ISTORE, localCount);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitVarInsn(Opcodes.ISTORE, localIndex);
+
+        mv.visitLabel(loopHead);
+        mv.visitVarInsn(Opcodes.ILOAD, localIndex);
+        mv.visitVarInsn(Opcodes.ILOAD, localCount);
+        mv.visitJumpInsn(Opcodes.IF_ICMPGE, returnZero);
+        mv.visitVarInsn(Opcodes.ALOAD, localComponents);
+        mv.visitVarInsn(Opcodes.ILOAD, localIndex);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_INTERNAL, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, MESH_CONTAINER_OWNER);
+        mv.visitJumpInsn(Opcodes.IFNE, foundContainer);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitIincInsn(localIndex, 1);
+        mv.visitJumpInsn(Opcodes.GOTO, loopHead);
+
+        mv.visitLabel(nonRandomAccess);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitVarInsn(Opcodes.ALOAD, localRenderer);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                RenderMatrixTransformer.MESH_RENDERER_OWNER,
+                GET_MESH_CONTAINER_METHOD,
+                GET_MESH_CONTAINER_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitJumpInsn(Opcodes.IFNULL, popZero);
+        mv.visitJumpInsn(Opcodes.GOTO, containerReady);
+
+        mv.visitLabel(foundContainer);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, MESH_CONTAINER_OWNER);
+
+        mv.visitLabel(containerReady);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MESH_CONTAINER_OWNER, GET_MESH_METHOD, GET_MESH_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitJumpInsn(Opcodes.IFNULL, popZero);
+        mv.visitVarInsn(Opcodes.ASTORE, localMesh);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localMesh);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, MESH_OWNER, GET_POSITIONS_METHOD, FLOAT_ARRAY_GETTER_DESCRIPTOR, false);
+        mv.visitVarInsn(Opcodes.ASTORE, localPositions);
+        mv.visitVarInsn(Opcodes.ALOAD, localPositions);
+        mv.visitJumpInsn(Opcodes.IFNULL, returnZero);
+        mv.visitVarInsn(Opcodes.ALOAD, localPositions);
+        mv.visitInsn(Opcodes.ARRAYLENGTH);
+        mv.visitJumpInsn(Opcodes.IFEQ, returnZero);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localPacket);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitVarInsn(Opcodes.ALOAD, localPositions);
+        mv.visitInsn(Opcodes.AASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localFlags);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitVarInsn(Opcodes.ALOAD, localMesh);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MESH_OWNER, GET_STEP_METHOD, INT_GETTER_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.IASTORE);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localEntity);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ENTITY_OWNER, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitJumpInsn(Opcodes.IFNULL, popFallback);
+        mv.visitVarInsn(Opcodes.ASTORE, localTransform);
+
+        mv.visitVarInsn(Opcodes.ALOAD, localPacket);
+        mv.visitInsn(Opcodes.ICONST_2);
+        mv.visitVarInsn(Opcodes.ALOAD, localTransform);
+        mv.visitInsn(Opcodes.AASTORE);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(popZero);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitLabel(returnZero);
+        mv.visitVarInsn(Opcodes.ALOAD, localFlags);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IASTORE);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(popFallback);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitVarInsn(Opcodes.ALOAD, localFlags);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IASTORE);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitSortingMatrixDataMethod(final ClassWriter writer) {
+        final MethodVisitor mv =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, FUNCTION_APPLY_METHOD, FUNCTION_APPLY_DESCRIPTOR, null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, MatrixScratchTransformer.MATRIX);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                MatrixScratchTransformer.MATRIX,
+                MATRIX_DATA_METHOD,
+                MATRIX_DATA_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private static void emitSortingCameraOrInvertMethod(final ClassWriter writer) {
+        final MethodVisitor mv =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, FUNCTION_APPLY_METHOD, BI_FUNCTION_APPLY_DESCRIPTOR, null, null);
+        mv.visitCode();
+        final Label invertMatrix = new Label();
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitJumpInsn(Opcodes.IFNONNULL, invertMatrix);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, CAMERA_OWNER);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CAMERA_OWNER, GET_TRANSFORM_METHOD, GET_TRANSFORM_DESCRIPTOR, false);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitLabel(invertMatrix);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, MatrixScratchTransformer.MATRIX);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, MatrixScratchTransformer.MATRIX);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                MatrixScratchTransformer.MATRIX,
+                MATRIX_INVERT_METHOD,
+                MATRIX_INVERT_DESCRIPTOR,
+                false);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
     }
 
     private static float[] resolveNodeData(final Object transform, final Object[] packet, final ThreadState state) {
@@ -1275,9 +1630,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
         }
     }
 
-    private record RenderAccessors(
-            Class<?> meshRendererType,
-            Class<?> cameraType,
+    private record FallbackRenderAccessors(
             MethodHandle getMeshContainer,
             MethodHandle getMesh,
             MethodHandle getPositions,
@@ -1285,7 +1638,80 @@ public final class MatrixScratchBridge implements AutoCloseable {
             MethodHandle rendererGetEntity,
             MethodHandle entityGetTransform,
             MethodHandle cameraGetTransform,
-            MethodHandle matrixInvertInto) {}
+            MethodHandle matrixDataReader,
+            MethodHandle matrixInvertInto)
+            implements BiPredicate<Object, Object>, Function<Object, Object> {
+
+        @Override
+        public boolean test(final Object renderer, final Object packetObj) {
+            final Object[] packet = (Object[]) packetObj;
+            final int[] flags = (int[]) packet[SORTING_PACKET_FLAGS_INDEX];
+            try {
+                final Object container = (Object) getMeshContainer.invokeExact(renderer);
+                if (container == null) {
+                    flags[FLAG_ARRAY_INDEX] = SORTING_STATUS_ZERO;
+                    return false;
+                }
+                final Object mesh = (Object) getMesh.invokeExact(container);
+                if (mesh == null) {
+                    flags[FLAG_ARRAY_INDEX] = SORTING_STATUS_ZERO;
+                    return false;
+                }
+                final float[] positions = (float[]) getPositions.invokeExact(mesh);
+                if (positions == null || positions.length == 0) {
+                    flags[FLAG_ARRAY_INDEX] = SORTING_STATUS_ZERO;
+                    return false;
+                }
+                packet[SORTING_PACKET_POSITIONS_INDEX] = positions;
+                flags[FLAG_ARRAY_INDEX] = (int) getStep.invokeExact(mesh);
+                final Object entity = (Object) rendererGetEntity.invokeExact(renderer);
+                if (entity == null) {
+                    flags[FLAG_ARRAY_INDEX] = SORTING_STATUS_FALLBACK;
+                    return false;
+                }
+                final Object transform = (Object) entityGetTransform.invokeExact(entity);
+                if (transform == null) {
+                    flags[FLAG_ARRAY_INDEX] = SORTING_STATUS_FALLBACK;
+                    return false;
+                }
+                packet[SORTING_PACKET_TRANSFORM_INDEX] = transform;
+                return true;
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw FallbackAccessors.wrapThrowable(failure);
+            }
+        }
+
+        @Override
+        public Object apply(final Object matrix) {
+            try {
+                return (float[]) matrixDataReader.invokeExact(matrix);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw FallbackAccessors.wrapThrowable(failure);
+            }
+        }
+
+        private Object applyCameraOrInvert(final Object first, final Object second) {
+            try {
+                if (second == null) {
+                    return (Object) cameraGetTransform.invokeExact(first);
+                }
+                return (Object) matrixInvertInto.invokeExact(first, second);
+            } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                throw FallbackAccessors.wrapThrowable(failure);
+            }
+        }
+    }
+
+    private record RenderAccessors(
+            Class<?> meshRendererType,
+            Class<?> cameraType,
+            boolean compiled,
+            BiPredicate<Object, Object> rendererProbe,
+            Function<Object, Object> matrixDataReader,
+            BiFunction<Object, Object, Object> cameraOrInvert) {}
 
     private static final class ScratchMatrix {
         Object instance;
@@ -1301,7 +1727,9 @@ public final class MatrixScratchBridge implements AutoCloseable {
         long staticHits;
         long failures;
         final int[] bits = new int[VECTOR_BITS_COUNT];
+        final int[] sortingFlags = new int[1];
         final Object[] packet = new Object[PACKET_SIZE];
+        final Object[] sortingPacket = new Object[SORTING_PACKET_SIZE];
         final Object[] matrixOutHolder = new Object[HOLDER_SIZE];
         final Object[] staticHolder = new Object[1];
         final float[] scratchA = new float[MATRIX_LENGTH];
@@ -1314,6 +1742,7 @@ public final class MatrixScratchBridge implements AutoCloseable {
 
         ThreadState() {
             packet[PACKET_BITS_INDEX] = bits;
+            sortingPacket[SORTING_PACKET_FLAGS_INDEX] = sortingFlags;
         }
     }
 
