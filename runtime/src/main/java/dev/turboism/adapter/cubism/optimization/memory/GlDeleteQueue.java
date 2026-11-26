@@ -59,6 +59,9 @@ final class GlDeleteQueue {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicInteger pendingQueueCount = new AtomicInteger(0);
     private final WeakIdentityMap<Object, ContextDeletes> queues = new WeakIdentityMap<>();
+    private final WeakIdentityMap<Object, ShareGroup> shareGroups = new WeakIdentityMap<>();
+    private final Object shareLock = new Object();
+    private final ThreadLocal<SweepScratch> sweepScratch = ThreadLocal.withInitial(SweepScratch::new);
     private final WeakIdentityMap<Object, BufferSlot> bufferSlots = new WeakIdentityMap<>();
     private final WeakIdentityMap<Object, TextureSlot> textureSlots = new WeakIdentityMap<>();
     private final ThreadLocal<TraversalScratch> traversalScratch = ThreadLocal.withInitial(TraversalScratch::new);
@@ -109,6 +112,10 @@ final class GlDeleteQueue {
     private final MethodHandle glGetGl3;
     private final MethodHandle contextGetCurrent;
     private final MethodHandle contextIsCreated;
+    private final MethodHandle contextIsShared;
+    private final MethodHandle contextSharedMaster;
+    private final MethodHandle contextCreatedShares;
+    private final MethodHandle contextDestroyedShares;
     private final MethodHandle glDeleteBuffersArray;
     private final MethodHandle glGenBuffersArray;
     private final MethodHandle glDeleteTexturesArray;
@@ -239,6 +246,14 @@ final class GlDeleteQueue {
                 glCtxClass, "getCurrent", "()L" + GL_CONTEXT_CLASS + ";", MethodType.methodType(Object.class));
         contextIsCreated =
                 HostHandles.virtual(glCtxClass, "isCreated", "()Z", MethodType.methodType(boolean.class, Object.class));
+        contextIsShared =
+                findOptionalVirtual(glCtxClass, "isShared", MethodType.methodType(boolean.class), boolean.class);
+        contextSharedMaster =
+                findOptionalVirtual(glCtxClass, "getSharedMaster", MethodType.methodType(glCtxClass), Object.class);
+        contextCreatedShares =
+                findOptionalVirtual(glCtxClass, "getCreatedShares", MethodType.methodType(List.class), Object.class);
+        contextDestroyedShares =
+                findOptionalVirtual(glCtxClass, "getDestroyedShares", MethodType.methodType(List.class), Object.class);
         glDeleteBuffersArray = HostHandles.virtual(
                 gl2es2If,
                 "glDeleteBuffers",
@@ -261,7 +276,7 @@ final class GlDeleteQueue {
                 MethodType.methodType(void.class, Object.class, int.class, int[].class, int.class));
     }
 
-    /** Drains pending VBO, texture, and sampler deletes for {@code gl}'s context if current. */
+    /** Drains pending VBO, texture, and sampler deletes for {@code gl}'s context and share group if current. */
     void drainForGl(final Object gl) {
         if (closed.get() || gl == null || pendingQueueCount.get() <= 0) {
             return;
@@ -272,10 +287,12 @@ final class GlDeleteQueue {
                 return;
             }
             final ContextDeletes queue = queues.get(ctx);
-            if (queue == null) {
-                return;
+            if (queue != null) {
+                drainContextQueue(gl, queue);
             }
-            drainContextQueue(gl, queue);
+            if (pendingQueueCount.get() > 0) {
+                drainSharedOrPruneDeadQueues(gl, ctx);
+            }
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
         }
@@ -318,7 +335,20 @@ final class GlDeleteQueue {
                 }
             }
             if (oldGl != null && currentId > INVALID_GL_NAME && !alreadyQueuedForCurrentId) {
-                enqueueBufferDelete(oldGl, currentId);
+                final Object oldCtx = safeGetContext(oldGl);
+                if (oldCtx != null && oldCtx == currentCtx) {
+                    enqueueBufferDelete(oldGl, currentId);
+                } else if (oldCtx != null
+                        && currentCtx != null
+                        && isContextCurrent(currentCtx)
+                        && areContextsShared(currentCtx, oldCtx)) {
+                    // Shared contexts share GL buffer names, so live current GL can delete immediately.
+                    enqueueBufferDelete(gl, currentId);
+                } else if (oldCtx != null && !isContextCreatedSafe(oldCtx) && !hasLiveSharedPeer(oldCtx)) {
+                    // Destroyed unshared contexts already released their driver-side buffer namespace.
+                } else {
+                    enqueueBufferDelete(oldGl, currentId);
+                }
             }
             nameBuf.put(0, INVALID_GL_NAME);
 
@@ -476,9 +506,26 @@ final class GlDeleteQueue {
             final Object rootGl = (Object) glGetRootGl.invokeExact(gl);
             final Object ctx = safeGetContext(gl);
             if (ctx != null) {
-                final ContextDeletes removed = queues.remove(ctx);
-                if (removed != null) {
-                    drainContextQueue(gl, removed);
+                if (isContextCurrent(ctx)) {
+                    final ContextDeletes removed = queues.remove(ctx);
+                    if (removed != null) {
+                        drainContextQueue(gl, removed);
+                    }
+                    if (pendingQueueCount.get() > 0) {
+                        drainSharedOrPruneDeadQueues(gl, ctx);
+                    }
+                } else {
+                    final ContextDeletes pending = queues.get(ctx);
+                    if (pending == null || pending.isEmpty()) {
+                        if (pending != null && !isContextCreatedSafe(ctx) && queues.removeIfSame(ctx, pending)) {
+                            recordContextPruned();
+                        }
+                    } else if (!isContextCreatedSafe(ctx) && !hasLiveSharedPeer(ctx)) {
+                        discardDeadUnsharedQueue(pending);
+                        if (queues.removeIfSame(ctx, pending)) {
+                            recordContextPruned();
+                        }
+                    }
                 }
             }
             pruneRenderingCache(gl, rootGl, ctx);
@@ -508,6 +555,9 @@ final class GlDeleteQueue {
         closed.set(true);
         pendingQueueCount.set(0);
         queues.clear();
+        synchronized (shareLock) {
+            shareGroups.clear();
+        }
         bufferSlots.clear();
         textureSlots.clear();
         traversalScratch.remove();
@@ -905,6 +955,188 @@ final class GlDeleteQueue {
                 && (boolean) contextIsCreated.invokeExact(ctx);
     }
 
+    private void drainSharedOrPruneDeadQueues(final Object gl, final Object currentCtx) throws Throwable {
+        final SweepScratch scratch = sweepScratch.get();
+        scratch.clear();
+        queues.collectEntries(scratch.contexts, scratch.queues);
+        try {
+            final int count = scratch.contexts.size();
+            for (int i = 0; i < count; i++) {
+                final Object peerCtx = scratch.contexts.get(i);
+                final ContextDeletes peerQueue = scratch.queues.get(i);
+                if (peerCtx == currentCtx || peerQueue == null) {
+                    continue;
+                }
+                if (peerQueue.isEmpty()) {
+                    if (!isContextCreatedSafe(peerCtx) && queues.removeIfSame(peerCtx, peerQueue)) {
+                        recordContextPruned();
+                    }
+                    continue;
+                }
+                if (areContextsShared(currentCtx, peerCtx)) {
+                    drainContextQueue(gl, peerQueue);
+                    if (peerQueue.isEmpty()
+                            && !isContextCreatedSafe(peerCtx)
+                            && queues.removeIfSame(peerCtx, peerQueue)) {
+                        recordContextPruned();
+                    }
+                } else if (!isContextCreatedSafe(peerCtx) && !hasLiveSharedPeer(peerCtx)) {
+                    discardDeadUnsharedQueue(peerQueue);
+                    if (queues.removeIfSame(peerCtx, peerQueue)) {
+                        recordContextPruned();
+                    }
+                }
+            }
+        } finally {
+            scratch.clear();
+        }
+    }
+
+    private void discardDeadUnsharedQueue(final ContextDeletes queue) {
+        int polled = 0;
+        while (queue.buffers.poll() != null) {
+            polled++;
+        }
+        PendingBufferRelease release;
+        while ((release = queue.bufferReleases.poll()) != null) {
+            polled++;
+            applyDeferredBufferReset(release);
+        }
+        while (queue.textures.poll() != null) {
+            polled++;
+        }
+        while (queue.samplers.poll() != null) {
+            polled++;
+        }
+        if (polled > 0) {
+            decrementPendingCount(polled);
+        }
+    }
+
+    private static MethodHandle findOptionalVirtual(
+            final Class<?> receiverType,
+            final String name,
+            final MethodType originalType,
+            final Class<?> adaptedReturnType) {
+        try {
+            return java.lang.invoke.MethodHandles.publicLookup()
+                    .findVirtual(receiverType, name, originalType)
+                    .asType(MethodType.methodType(adaptedReturnType, Object.class));
+        } catch (final NoSuchMethodException | IllegalAccessException unavailable) {
+            return null;
+        }
+    }
+
+    private boolean isContextCreatedSafe(final Object ctx) {
+        if (ctx == null) {
+            return false;
+        }
+        try {
+            return (boolean) contextIsCreated.invokeExact(ctx);
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    private boolean isContextSharedSafe(final Object ctx) {
+        if (ctx == null || contextIsShared == null) {
+            return false;
+        }
+        try {
+            return (boolean) contextIsShared.invokeExact(ctx);
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    private boolean hasLiveSharedPeer(final Object ctx) {
+        if (!isContextSharedSafe(ctx)) {
+            return false;
+        }
+        if (contextCreatedShares == null) {
+            return true;
+        }
+        final Object shares = safeInvokeObject(contextCreatedShares, ctx);
+        return shares instanceof List<?> list && !list.isEmpty();
+    }
+
+    private boolean areContextsShared(final Object ctxA, final Object ctxB) {
+        if (ctxA == null || ctxB == null) {
+            return false;
+        }
+        if (ctxA == ctxB) {
+            return true;
+        }
+        if (contextIsShared == null) {
+            return false;
+        }
+        synchronized (shareLock) {
+            ShareGroup groupA = shareGroups.get(ctxA);
+            ShareGroup groupB = shareGroups.get(ctxB);
+            if (groupA == null) {
+                groupA = registerSharesLocked(ctxA);
+            }
+            if (groupB == null) {
+                groupB = registerSharesLocked(ctxB);
+            }
+            return groupA != null && groupB != null && groupA.root() == groupB.root();
+        }
+    }
+
+    private ShareGroup registerSharesLocked(final Object ctx) {
+        if (!isContextSharedSafe(ctx)) {
+            return null;
+        }
+        ShareGroup group = shareGroups.get(ctx);
+        if (group == null) {
+            group = new ShareGroup();
+            shareGroups.put(ctx, group);
+        }
+        unionPeerLocked(group, safeInvokeObject(contextSharedMaster, ctx));
+        unionShareListLocked(group, safeInvokeObject(contextCreatedShares, ctx));
+        unionShareListLocked(group, safeInvokeObject(contextDestroyedShares, ctx));
+        return group.root();
+    }
+
+    private void unionShareListLocked(final ShareGroup group, final Object maybeList) {
+        if (!(maybeList instanceof List<?> peers)) {
+            return;
+        }
+        for (int i = 0; i < peers.size(); i++) {
+            unionPeerLocked(group, peers.get(i));
+        }
+    }
+
+    private void unionPeerLocked(final ShareGroup base, final Object peer) {
+        if (peer == null) {
+            return;
+        }
+        final ShareGroup baseRoot = base.root();
+        final ShareGroup existing = shareGroups.get(peer);
+        if (existing == null) {
+            shareGroups.put(peer, baseRoot);
+        } else {
+            final ShareGroup existingRoot = existing.root();
+            if (existingRoot != baseRoot) {
+                existingRoot.parent = baseRoot;
+            }
+        }
+    }
+
+    private static Object safeInvokeObject(final MethodHandle handle, final Object target) {
+        if (handle == null || target == null) {
+            return null;
+        }
+        try {
+            return (Object) handle.invokeExact(target);
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return null;
+        }
+    }
+
     private void pruneRenderingCache(final Object gl, final Object rootGl, final Object disposingCtx) throws Throwable {
         if (renderingLock == null || renderingMap == null) {
             return;
@@ -1119,6 +1351,33 @@ final class GlDeleteQueue {
         private final ConcurrentLinkedQueue<PendingBufferRelease> bufferReleases = new ConcurrentLinkedQueue<>();
         private final ConcurrentLinkedQueue<Integer> textures = new ConcurrentLinkedQueue<>();
         private final ConcurrentLinkedQueue<Integer> samplers = new ConcurrentLinkedQueue<>();
+
+        private boolean isEmpty() {
+            return buffers.isEmpty() && bufferReleases.isEmpty() && textures.isEmpty() && samplers.isEmpty();
+        }
+    }
+
+    private static final class SweepScratch {
+        private final List<Object> contexts = new ArrayList<>();
+        private final List<ContextDeletes> queues = new ArrayList<>();
+
+        private void clear() {
+            contexts.clear();
+            queues.clear();
+        }
+    }
+
+    private static final class ShareGroup {
+        private ShareGroup parent = this;
+
+        private ShareGroup root() {
+            ShareGroup cur = this;
+            while (cur.parent != cur) {
+                cur.parent = cur.parent.parent;
+                cur = cur.parent;
+            }
+            return cur;
+        }
     }
 
     private record PendingBufferRelease(

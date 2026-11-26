@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.optimization.memory;
 
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -94,6 +95,46 @@ final class WeakIdentityMap<K, V> {
         while (queue.poll() != null) {
             // Drain queue entries so future writes do not scan cleared slots.
         }
+    }
+
+    /** Appends live keys and values into caller-owned lists without scanning cleared entries. */
+    synchronized void collectEntries(final List<K> keysOut, final List<V> valuesOut) {
+        expungeStale();
+        for (Entry<K, V> entry : buckets) {
+            while (entry != null) {
+                final K key = entry.get();
+                if (key != null) {
+                    keysOut.add(key);
+                    valuesOut.add(entry.value);
+                }
+                entry = entry.next;
+            }
+        }
+    }
+
+    /** Removes {@code key} only when its mapped value matches identity {@code expectedValue}. */
+    synchronized boolean removeIfSame(final K key, final V expectedValue) {
+        if (key == null) {
+            return false;
+        }
+        expungeStale();
+        final int hash = System.identityHashCode(key);
+        final int index = bucketIndex(hash, buckets.length);
+        Entry<K, V> prev = null;
+        Entry<K, V> entry = buckets[index];
+        while (entry != null) {
+            final Entry<K, V> next = entry.next;
+            if (entry.identityHash == hash && entry.get() == key) {
+                if (entry.value != expectedValue) {
+                    return false;
+                }
+                unlink(index, prev, entry, next);
+                return true;
+            }
+            prev = entry;
+            entry = next;
+        }
+        return false;
     }
 
     private void unlink(final int index, final Entry<K, V> prev, final Entry<K, V> entry, final Entry<K, V> next) {

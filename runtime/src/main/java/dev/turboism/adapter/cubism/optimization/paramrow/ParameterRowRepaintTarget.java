@@ -19,6 +19,32 @@ public record ParameterRowRepaintTarget(
         String highlightField,
         String showKeyformsMethod) {
 
+    public static final String ROW_INFO_BASE_OWNER =
+            "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget$a$a";
+    public static final String GET_KEYS_LIST_METHOD = "b";
+    public static final String CARRAY_LIST_GETTER_DESCRIPTOR = "()Lcom/live2d/type/CArrayList;";
+
+    public static final String MORPH_TARGET_SET_IMPL_OWNER =
+            "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTargetSet";
+    public static final String MORPH_TARGET_IMPL_OWNER = "com/live2d/cubism/doc/model/morphTarget/KeyFormMorphTarget";
+    public static final String MORPH_ROW_INFO_METHOD = "a";
+    public static final String MORPH_ROW_INFO_DESCRIPTOR =
+            "(Lcom/live2d/cubism/doc/model/CModel;Lcom/live2d/type/CParameterGuid;)V";
+
+    private static final String MORPH_ROW_INFO_LEGACY_OWNER = "com/live2d/cubism/doc/model/morphTarget/Y$f";
+    private static final String MORPH_ROW_INFO_MID_OWNER = "com/live2d/cubism/doc/model/morphTarget/ab$h";
+    private static final String MORPH_ROW_INFO_MODERN_OWNER = "com/live2d/cubism/doc/model/morphTarget/ag$h";
+
+    private static final Set<String> LEGACY_MORPH_INFO_VERSIONS = ReviewedVersions.between("5.0.00", "5.2.03");
+    private static final Set<String> MID_MORPH_INFO_VERSIONS = ReviewedVersions.between("5.3.00", "5.3.03");
+    private static final Set<String> LEGACY_MORPH_BIND_VERSIONS = ReviewedVersions.between("5.0.00", "5.0.00");
+
+    private static final int CONTROLLER_SITES = 3;
+    private static final int MORPH_INFO_SITES = 1;
+    private static final int MORPH_TARGET_SET_SITES = 7;
+    private static final int MORPH_TARGET_LEGACY_SITES = 4;
+    private static final int MORPH_TARGET_MODERN_SITES = 5;
+
     /** Explicit system-property switch overriding the derived preference. */
     public static final String ENABLE_PROPERTY = "turboism.optimization.parameterRowRepaint";
 
@@ -498,6 +524,37 @@ public record ParameterRowRepaintTarget(
         return controllerOwner + HIGHLIGHT_INNER_SUFFIX;
     }
 
+    /** Returns the version-specific {@code SingleParameterRowWidget$a$a} morph-target collector owner. */
+    public String morphRowInfoOwner() {
+        if (LEGACY_MORPH_INFO_VERSIONS.contains(version)) {
+            return MORPH_ROW_INFO_LEGACY_OWNER;
+        }
+        if (MID_MORPH_INFO_VERSIONS.contains(version)) {
+            return MORPH_ROW_INFO_MID_OWNER;
+        }
+        return MORPH_ROW_INFO_MODERN_OWNER;
+    }
+
+    /** Returns whether {@code KeyFormMorphTarget} uses legacy {@code bind(...)} instead of {@code setParameter*}. */
+    public boolean usesLegacyMorphTargetBind() {
+        return LEGACY_MORPH_BIND_VERSIONS.contains(version);
+    }
+
+    /** Returns the expected weave site count for {@link #MORPH_TARGET_IMPL_OWNER} on this host version. */
+    public int morphTargetExpectedSites() {
+        return usesLegacyMorphTargetBind() ? MORPH_TARGET_LEGACY_SITES : MORPH_TARGET_MODERN_SITES;
+    }
+
+    /** Returns all class owners rewritten by {@link ParameterRowRepaintTransformer} in stable order. */
+    public List<String> rewrittenOwners() {
+        return List.of(controllerOwner, morphRowInfoOwner(), MORPH_TARGET_SET_IMPL_OWNER, MORPH_TARGET_IMPL_OWNER);
+    }
+
+    /** Returns the total expected weave sites across all four rewritten owners. */
+    public int expectedSites() {
+        return CONTROLLER_SITES + MORPH_INFO_SITES + MORPH_TARGET_SET_SITES + morphTargetExpectedSites();
+    }
+
     /** Returns all host methods verified before arming the weave. */
     public List<MethodDep> methodDependencies() {
         return List.of(
@@ -566,6 +623,7 @@ public record ParameterRowRepaintTarget(
                 new MethodDep(MORPH_TARGET_SET_OWNER, GET_MORPH_TARGETS_METHOD, LIST_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_OWNER, GET_PARAMETER_GUID_METHOD, PARAM_GUID_GETTER_DESCRIPTOR),
                 new MethodDep(MORPH_TARGET_OWNER, GET_KEY_VALUE_METHOD, BOXED_FLOAT_GETTER_DESCRIPTOR),
+                new MethodDep(ROW_INFO_BASE_OWNER, GET_KEYS_LIST_METHOD, CARRAY_LIST_GETTER_DESCRIPTOR),
                 new MethodDep(
                         MODELING_DOCUMENT_OWNER, GET_CURRENT_EDIT_MODE_METHOD, MODELING_EDIT_MODE_GETTER_DESCRIPTOR),
                 new MethodDep(EDIT_MODE_OWNER, IS_EDITING_METHOD, BOOLEAN_GETTER_DESCRIPTOR),

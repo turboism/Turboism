@@ -51,7 +51,7 @@ class MemoryLeakMitigationTest {
 
     private static final String ARTIFACTS_DIR_NAME = "cubism-host-artifacts";
     private static final Path DEFAULT_LOCAL_ARTIFACTS = Path.of(System.getProperty("user.home"), ARTIFACTS_DIR_NAME);
-    private static final int EXPECTED_REWRITTEN_OWNERS = 21;
+    private static final int EXPECTED_REWRITTEN_OWNERS = 23;
     private static final String XVERIFY_ALL_FLAG = "-Xverify:all";
     private static final long VERIFY_TIMEOUT_SECONDS = 30L;
     private static final int DETACHED_REUSE_VBO_ID = 73;
@@ -697,6 +697,227 @@ class MemoryLeakMitigationTest {
             assertNull(wrapper.getClass().getField("o").get(wrapper));
         } finally {
             Files.deleteIfExists(fakeJar);
+        }
+    }
+
+    @Test
+    void sharedDestroyedContextVbosDrainViaActiveSharedContextWithoutGlError() throws Exception {
+        final Path fakeJar = Files.createTempFile("memory-leak-shared-gl", ".jar");
+        try {
+            final SyntheticHost host = weaveAndBootBridge(fakeJar);
+            final Class<?> ctxCls = host.load("com/jogamp/opengl/GLContext");
+            final Field currentCtxField = ctxCls.getField("CURRENT");
+            final Class<?> glImplCls = host.load("TestGL3");
+            final Class<?> floatBufCls = host.load(MemoryLeakMitigationTarget.GL_BUFFER_FLOAT_OWNER);
+            final Class<?> gl2If = host.load(MemoryLeakMitigationTarget.GL2ES2_OWNER);
+            final Method uploadMethod = floatBufCls.getDeclaredMethod("b", gl2If, int.class);
+            uploadMethod.setAccessible(true);
+
+            final Object masterCtx = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Object ctx1 = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Object ctx2 = ctxCls.getConstructor(boolean.class).newInstance(true);
+            final Object ctxDeadUnshared = ctxCls.getConstructor(boolean.class).newInstance(false);
+
+            final List<Object> createdShares = new ArrayList<>();
+            final List<Object> destroyedShares = new ArrayList<>();
+            createdShares.add(masterCtx);
+            createdShares.add(ctx1);
+            createdShares.add(ctx2);
+
+            for (final Object sharedCtx : List.of(masterCtx, ctx1, ctx2)) {
+                ctxCls.getField("shared").setBoolean(sharedCtx, true);
+                ctxCls.getField("sharedMaster").set(sharedCtx, masterCtx);
+                ctxCls.getField("createdShares").set(sharedCtx, createdShares);
+                ctxCls.getField("destroyedShares").set(sharedCtx, destroyedShares);
+            }
+
+            final Object gl1 = glImplCls.getConstructor(ctxCls).newInstance(ctx1);
+            final Object gl2 = glImplCls.getConstructor(ctxCls).newInstance(ctx2);
+            final Object glDeadUnshared = glImplCls.getConstructor(ctxCls).newInstance(ctxDeadUnshared);
+
+            currentCtxField.set(null, ctx1);
+            final List<Object> sharedVbos = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                final Object buf = floatBufCls.getConstructor().newInstance();
+                uploadMethod.invoke(buf, gl1, 1);
+                sharedVbos.add(buf);
+            }
+            // Queue one entity-owned VBO onto ctx1 while ctx2 is active before ctx1 dies.
+            final Object queuedVbo = floatBufCls.getConstructor().newInstance();
+            floatBufCls.getMethod("a", gl2If).invoke(queuedVbo, gl1);
+            ((IntBuffer) floatBufCls.getMethod("i").invoke(queuedVbo)).put(0, 777);
+            final Object queuedEntity = host.buildMeshEditorWithBuffer(queuedVbo);
+
+            // Simulate Pprcut GLJPanelWrapper$c disposal and context destruction before ctx2 runs frames.
+            createdShares.remove(ctx1);
+            destroyedShares.add(ctx1);
+            ctxCls.getField("created").setBoolean(ctx1, false);
+            final Object jpanelListener = host.load(MemoryLeakMitigationTarget.GL_JPANEL_WRAPPER_LISTENER_OWNER)
+                    .getConstructor()
+                    .newInstance();
+            final Object drawable1 = host.load("TestDrawable")
+                    .getConstructor(host.load("com/jogamp/opengl/GL"))
+                    .newInstance(gl1);
+            jpanelListener
+                    .getClass()
+                    .getMethod("dispose", host.load("com/jogamp/opengl/GLAutoDrawable"))
+                    .invoke(jpanelListener, drawable1);
+
+            currentCtxField.set(null, ctx2);
+            host.load(MemoryLeakMitigationTarget.MESH_EDITOR_VC_OWNER)
+                    .getMethod("deactivateView")
+                    .invoke(queuedEntity);
+
+            // Prepare VBOs on active shared ctx2; ctx1's 4 migrated VBOs + 1 queued VBO must all delete on gl2.
+            for (final Object buf : sharedVbos) {
+                uploadMethod.invoke(buf, gl2, 1);
+            }
+            assertEquals(5, glImplCls.getField("deletes").getInt(gl2));
+
+            // Dead unshared context must never delete its stale VBO ID on active gl2 (0 glError).
+            final Object deadUnsharedBuf = floatBufCls.getConstructor().newInstance();
+            floatBufCls.getMethod("a", gl2If).invoke(deadUnsharedBuf, glDeadUnshared);
+            ((IntBuffer) floatBufCls.getMethod("i").invoke(deadUnsharedBuf)).put(0, 888);
+            uploadMethod.invoke(deadUnsharedBuf, gl2, 1);
+            assertEquals(5, glImplCls.getField("deletes").getInt(gl2));
+        } finally {
+            Files.deleteIfExists(fakeJar);
+        }
+    }
+
+    @Test
+    void partsTraversalRewritesDropTailrecToZeroAllocIndexedLoopWithParity() throws Exception {
+        final Path fakeJar = Files.createTempFile("memory-leak-parts-traversal", ".jar");
+        try {
+            final SyntheticHost wovenHost = weaveAndBootBridge(fakeJar);
+            final SyntheticHost refHost = new SyntheticHost(fakeJar);
+            refHost.defineAll(null);
+
+            final List<String> wovenSummary = runPartsTraversalScenario(wovenHost, true);
+            final List<String> refSummary = runPartsTraversalScenario(refHost, false);
+            assertEquals(refSummary, wovenSummary);
+
+            // Woven traversal must invoke CollectionsKt.drop zero times, whereas reference uses drop(1) per element.
+            final Class<?> wovenCollectionsKt = wovenHost.load("kotlin/collections/CollectionsKt");
+            final Class<?> refCollectionsKt = refHost.load("kotlin/collections/CollectionsKt");
+            assertEquals(0, wovenCollectionsKt.getField("dropCalls").getInt(null));
+            assertEquals(5, refCollectionsKt.getField("dropCalls").getInt(null));
+        } finally {
+            Files.deleteIfExists(fakeJar);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> runPartsTraversalScenario(final SyntheticHost host, final boolean checkZeroAlloc)
+            throws Exception {
+        final Class<?> partSrcCls = host.load("com/live2d/cubism/doc/model/parts/CPartSource");
+        final Class<?> artMeshSrcCls = host.load("com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource");
+        final Class<?> aliasSrcCls = host.load("com/live2d/cubism/doc/model/alias/CAliasSource");
+        final Class<?> modelCls = host.load("com/live2d/cubism/doc/model/CModel");
+        final Class<?> nodeQCls = host.load(MemoryLeakMitigationTarget.PARTS_NODE_OWNER_MODERN);
+        final Class<?> leafSCls = host.load("com/live2d/cubism/doc/model/parts/s");
+        final Class<?> travCls = host.load(MemoryLeakMitigationTarget.PARTS_TRAVERSAL_OWNER_MODERN);
+        final Class<?> srcBaseCls = host.load("com/live2d/cubism/doc/model/ACParameterControllableSource");
+
+        final Field localNameField = srcBaseCls.getField("localName");
+        final Field visibleField = srcBaseCls.getField("visible");
+        final Field childrenField = partSrcCls.getField("children");
+        final Field drawGroupField = partSrcCls.getField("enableDrawOrderGroup");
+
+        final Object rootSrc = partSrcCls.getConstructor().newInstance();
+        localNameField.set(rootSrc, "Root");
+
+        final Object groupPart = partSrcCls.getConstructor().newInstance();
+        localNameField.set(groupPart, "GroupPart");
+        drawGroupField.setBoolean(groupPart, true);
+
+        final Object flatPart = partSrcCls.getConstructor().newInstance();
+        localNameField.set(flatPart, "FlatPart");
+        drawGroupField.setBoolean(flatPart, false);
+
+        final Object visibleMesh = artMeshSrcCls.getConstructor().newInstance();
+        localNameField.set(visibleMesh, "VisibleMesh");
+        visibleField.setBoolean(visibleMesh, true);
+
+        final Object hiddenMesh = artMeshSrcCls.getConstructor().newInstance();
+        localNameField.set(hiddenMesh, "HiddenMesh");
+        visibleField.setBoolean(hiddenMesh, false);
+
+        final Object alias = aliasSrcCls.getConstructor().newInstance();
+        localNameField.set(alias, "AliasNode");
+
+        ((List<Object>) childrenField.get(groupPart)).addAll(List.of(visibleMesh, hiddenMesh));
+        ((List<Object>) childrenField.get(flatPart)).add(alias);
+
+        // Include non-RandomAccess LinkedList on flatPart to exercise one-time RandomAccess conversion.
+        final java.util.LinkedList<Object> linkedChildren = new java.util.LinkedList<>();
+        linkedChildren.add(alias);
+        childrenField.set(flatPart, linkedChildren);
+
+        ((List<Object>) childrenField.get(rootSrc)).addAll(List.of(groupPart, flatPart));
+
+        final java.util.Set<Object> allowed = new java.util.HashSet<>();
+        allowed.add(groupPart);
+        allowed.add(flatPart);
+        allowed.add(visibleMesh);
+        allowed.add(hiddenMesh);
+        allowed.add(alias);
+
+        final Object model = modelCls.getConstructor().newInstance();
+        final Object rootNode = nodeQCls.getConstructor(partSrcCls).newInstance(rootSrc);
+        final Method invokeA = travCls.getMethod(
+                "invokeA",
+                boolean.class,
+                java.util.Set.class,
+                modelCls,
+                boolean.class,
+                boolean.class,
+                List.class,
+                nodeQCls);
+        invokeA.invoke(null, true, allowed, model, true, false, childrenField.get(rootSrc), rootNode);
+
+        if (checkZeroAlloc) {
+            final List<Object> emptyPass = new ArrayList<>(500);
+            for (int i = 0; i < 500; i++) {
+                emptyPass.add(visibleMesh);
+            }
+            final Object scratchNode = nodeQCls.getConstructor(partSrcCls).newInstance(rootSrc);
+            final java.util.Set<Object> emptyAllowed = java.util.Collections.emptySet();
+            final var threadBean =
+                    (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+            final long tid = Thread.currentThread().getId();
+            // Warm up before measuring steady-state filtered pass allocation.
+            for (int w = 0; w < 5; w++) {
+                invokeA.invoke(null, true, emptyAllowed, model, true, true, emptyPass, scratchNode);
+            }
+            final long beforeBytes = threadBean.getThreadAllocatedBytes(tid);
+            invokeA.invoke(null, true, emptyAllowed, model, true, true, emptyPass, scratchNode);
+            final long allocated = threadBean.getThreadAllocatedBytes(tid) - beforeBytes;
+            // Reflection invoke overhead is small constant (< 2 KB); quadratic drop(1) over 500 elements is > 4 MB.
+            assertTrue(allocated < 4_096, "expected zero drop(1) list copies, allocated " + allocated + " bytes");
+        }
+
+        final List<String> summary = new ArrayList<>();
+        collectPartNodeSummary(rootNode, nodeQCls, leafSCls, localNameField, summary);
+        return summary;
+    }
+
+    private static void collectPartNodeSummary(
+            final Object node,
+            final Class<?> nodeQCls,
+            final Class<?> leafSCls,
+            final Field localNameField,
+            final List<String> out)
+            throws Exception {
+        if (nodeQCls.isInstance(node)) {
+            final Object src = nodeQCls.getField("source").get(node);
+            out.add("Q:" + localNameField.get(src));
+            for (final Object child : (List<?>) nodeQCls.getMethod("c").invoke(node)) {
+                collectPartNodeSummary(child, nodeQCls, leafSCls, localNameField, out);
+            }
+        } else if (leafSCls.isInstance(node)) {
+            final Object src = leafSCls.getField("a").get(node);
+            out.add("S:" + localNameField.get(src));
         }
     }
 
@@ -1437,8 +1658,9 @@ class MemoryLeakMitigationTest {
         private void defineAll(final MemoryLeakMitigationTransformer transformer) {
             final Map<String, byte[]> finalDefs = new HashMap<>();
             for (final Map.Entry<String, byte[]> entry : rawClasses.entrySet()) {
-                final byte[] woven =
-                        transformer.transform(null, loader, entry.getKey(), null, loader.domain, entry.getValue());
+                final byte[] woven = transformer == null
+                        ? null
+                        : transformer.transform(null, loader, entry.getKey(), null, loader.domain, entry.getValue());
                 finalDefs.put(entry.getKey(), woven != null ? woven : entry.getValue());
             }
             loader.registerAll(finalDefs);
@@ -1612,6 +1834,8 @@ class MemoryLeakMitigationTest {
                     "com/live2d/cubism/doc/model/ACParameterControllableSource",
                     "isLockedInHierarchy",
                     "lockedInHierarchy");
+            emitBooleanFieldGetter(
+                    cw, "com/live2d/cubism/doc/model/ACParameterControllableSource", "isVisibleInHierarchy", "visible");
             cw.visitEnd();
             rawClasses.put("com/live2d/cubism/doc/model/ACParameterControllableSource", cw.toByteArray());
 
@@ -1643,6 +1867,32 @@ class MemoryLeakMitigationTest {
         }
 
         private void addPartsHierarchyTypes() {
+            addSimpleInterface("com/live2d/cubism/doc/model/parts/m");
+
+            final ClassWriter acDrawableSrc = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            acDrawableSrc.visit(
+                    V17,
+                    ACC_PUBLIC,
+                    "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
+                    null,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    null);
+            emitDefaultCtor(acDrawableSrc, "com/live2d/cubism/doc/model/ACParameterControllableSource");
+            acDrawableSrc.visitEnd();
+            rawClasses.put("com/live2d/cubism/doc/model/drawable/ACDrawableSource", acDrawableSrc.toByteArray());
+
+            final ClassWriter aliasSrc = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            aliasSrc.visit(
+                    V17,
+                    ACC_PUBLIC,
+                    "com/live2d/cubism/doc/model/alias/CAliasSource",
+                    null,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    null);
+            emitDefaultCtor(aliasSrc, "com/live2d/cubism/doc/model/ACParameterControllableSource");
+            aliasSrc.visitEnd();
+            rawClasses.put("com/live2d/cubism/doc/model/alias/CAliasSource", aliasSrc.toByteArray());
+
             final ClassWriter ps = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             ps.visit(
                     V17,
@@ -1655,6 +1905,7 @@ class MemoryLeakMitigationTest {
                     .visitEnd();
             ps.visitField(ACC_PUBLIC, "childGuids", "Ljava/util/List;", null, null)
                     .visitEnd();
+            ps.visitField(ACC_PUBLIC, "enableDrawOrderGroup", "Z", null, null).visitEnd();
             final MethodVisitor psCtor = ps.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
             psCtor.visitCode();
             psCtor.visitVarInsn(ALOAD, 0);
@@ -1687,8 +1938,15 @@ class MemoryLeakMitigationTest {
                     "getChildGuids",
                     "()Ljava/util/List;",
                     "childGuids");
+            emitBooleanFieldGetter(
+                    ps,
+                    "com/live2d/cubism/doc/model/parts/CPartSource",
+                    "getEnableDrawOrderGroup",
+                    "enableDrawOrderGroup");
             ps.visitEnd();
             rawClasses.put("com/live2d/cubism/doc/model/parts/CPartSource", ps.toByteArray());
+
+            addPartsTraversalTypes();
 
             final ClassWriter am = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             am.visit(
@@ -1696,9 +1954,9 @@ class MemoryLeakMitigationTest {
                     ACC_PUBLIC,
                     "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
                     null,
-                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
                     null);
-            emitDefaultCtor(am, "com/live2d/cubism/doc/model/ACParameterControllableSource");
+            emitDefaultCtor(am, "com/live2d/cubism/doc/model/drawable/ACDrawableSource");
             emitReturnNull(am, "getAlphaComposition", "()Ljava/lang/Object;");
             emitReturnNewList(am, "getClipGuidList");
             emitBooleanGetter(am, "getInvertClippingMask", false);
@@ -1847,6 +2105,318 @@ class MemoryLeakMitigationTest {
             rawClasses.put("com/live2d/cubism/pack/CECompletePack", pk.toByteArray());
 
             addUiWidgetAndPartsPanel();
+        }
+
+        private void addPartsTraversalTypes() {
+            // kotlin/collections/CollectionsKt (first, drop, reverse)
+            final ClassWriter kt = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            kt.visit(V17, ACC_PUBLIC | ACC_FINAL, "kotlin/collections/CollectionsKt", null, "java/lang/Object", null);
+            kt.visitField(ACC_PUBLIC | ACC_STATIC, "dropCalls", "I", null, 0).visitEnd();
+            final MethodVisitor ktFirst = kt.visitMethod(
+                    ACC_PUBLIC | ACC_STATIC, "first", "(Ljava/util/List;)Ljava/lang/Object;", null, null);
+            ktFirst.visitCode();
+            ktFirst.visitVarInsn(ALOAD, 0);
+            ktFirst.visitInsn(ICONST_0);
+            ktFirst.visitMethodInsn(INVOKEINTERFACE, "java/util/List", "get", "(I)Ljava/lang/Object;", true);
+            ktFirst.visitInsn(ARETURN);
+            ktFirst.visitMaxs(0, 0);
+            ktFirst.visitEnd();
+
+            final MethodVisitor ktDrop = kt.visitMethod(
+                    ACC_PUBLIC | ACC_STATIC, "drop", "(Ljava/lang/Iterable;I)Ljava/util/List;", null, null);
+            ktDrop.visitCode();
+            ktDrop.visitFieldInsn(GETSTATIC, "kotlin/collections/CollectionsKt", "dropCalls", "I");
+            ktDrop.visitInsn(ICONST_1);
+            ktDrop.visitInsn(IADD);
+            ktDrop.visitFieldInsn(PUTSTATIC, "kotlin/collections/CollectionsKt", "dropCalls", "I");
+            ktDrop.visitTypeInsn(NEW, "java/util/ArrayList");
+            ktDrop.visitInsn(DUP);
+            ktDrop.visitVarInsn(ALOAD, 0);
+            ktDrop.visitTypeInsn(CHECKCAST, "java/util/List");
+            ktDrop.visitVarInsn(ILOAD, 1);
+            ktDrop.visitVarInsn(ALOAD, 0);
+            ktDrop.visitTypeInsn(CHECKCAST, "java/util/List");
+            ktDrop.visitMethodInsn(INVOKEINTERFACE, "java/util/List", "size", "()I", true);
+            ktDrop.visitMethodInsn(INVOKEINTERFACE, "java/util/List", "subList", "(II)Ljava/util/List;", true);
+            ktDrop.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "(Ljava/util/Collection;)V", false);
+            ktDrop.visitInsn(ARETURN);
+            ktDrop.visitMaxs(0, 0);
+            ktDrop.visitEnd();
+
+            final MethodVisitor ktRev =
+                    kt.visitMethod(ACC_PUBLIC | ACC_STATIC, "reverse", "(Ljava/util/List;)V", null, null);
+            ktRev.visitCode();
+            ktRev.visitVarInsn(ALOAD, 0);
+            ktRev.visitMethodInsn(INVOKESTATIC, "java/util/Collections", "reverse", "(Ljava/util/List;)V", false);
+            ktRev.visitInsn(RETURN);
+            ktRev.visitMaxs(0, 0);
+            ktRev.visitEnd();
+            kt.visitEnd();
+            rawClasses.put("kotlin/collections/CollectionsKt", kt.toByteArray());
+
+            // parts/s
+            final ClassWriter sCls = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            sCls.visit(V17, ACC_PUBLIC, "com/live2d/cubism/doc/model/parts/s", null, "java/lang/Object", new String[] {
+                "com/live2d/cubism/doc/model/parts/m"
+            });
+            sCls.visitField(
+                            ACC_PUBLIC | ACC_FINAL,
+                            "a",
+                            "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+                            null,
+                            null)
+                    .visitEnd();
+            sCls.visitField(ACC_PUBLIC, "order", "I", null, 0).visitEnd();
+            final MethodVisitor sc = sCls.visitMethod(
+                    ACC_PUBLIC, "<init>", "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;)V", null, null);
+            sc.visitCode();
+            sc.visitVarInsn(ALOAD, 0);
+            sc.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            sc.visitVarInsn(ALOAD, 0);
+            sc.visitVarInsn(ALOAD, 1);
+            sc.visitFieldInsn(
+                    PUTFIELD,
+                    "com/live2d/cubism/doc/model/parts/s",
+                    "a",
+                    "Lcom/live2d/cubism/doc/model/ACParameterControllableSource;");
+            sc.visitInsn(RETURN);
+            sc.visitMaxs(0, 0);
+            sc.visitEnd();
+            sCls.visitEnd();
+            rawClasses.put("com/live2d/cubism/doc/model/parts/s", sCls.toByteArray());
+
+            // parts/q
+            final String qOwner = MemoryLeakMitigationTarget.PARTS_NODE_OWNER_MODERN;
+            final ClassWriter qCls = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            qCls.visit(V17, ACC_PUBLIC, qOwner, null, "java/lang/Object", new String[] {
+                "com/live2d/cubism/doc/model/parts/m"
+            });
+            qCls.visitField(
+                            ACC_PUBLIC | ACC_FINAL,
+                            "source",
+                            "Lcom/live2d/cubism/doc/model/parts/CPartSource;",
+                            null,
+                            null)
+                    .visitEnd();
+            qCls.visitField(ACC_PUBLIC | ACC_FINAL, "c", "Ljava/util/ArrayList;", null, null)
+                    .visitEnd();
+            final MethodVisitor qc = qCls.visitMethod(
+                    ACC_PUBLIC, "<init>", "(Lcom/live2d/cubism/doc/model/parts/CPartSource;)V", null, null);
+            qc.visitCode();
+            qc.visitVarInsn(ALOAD, 0);
+            qc.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            qc.visitVarInsn(ALOAD, 0);
+            qc.visitVarInsn(ALOAD, 1);
+            qc.visitFieldInsn(PUTFIELD, qOwner, "source", "Lcom/live2d/cubism/doc/model/parts/CPartSource;");
+            qc.visitVarInsn(ALOAD, 0);
+            qc.visitTypeInsn(NEW, "java/util/ArrayList");
+            qc.visitInsn(DUP);
+            qc.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false);
+            qc.visitFieldInsn(PUTFIELD, qOwner, "c", "Ljava/util/ArrayList;");
+            qc.visitInsn(RETURN);
+            qc.visitMaxs(0, 0);
+            qc.visitEnd();
+            emitFieldGetter(qCls, qOwner, "c", "()Ljava/util/ArrayList;", "c");
+            qCls.visitEnd();
+            rawClasses.put(qOwner, qCls.toByteArray());
+
+            // parts/r with exact tailrec CollectionsKt.drop(1) shape
+            final String rOwner = MemoryLeakMitigationTarget.PARTS_TRAVERSAL_OWNER_MODERN;
+            final String rDesc =
+                    "(ZLjava/util/Set;Lcom/live2d/cubism/doc/model/CModel;ZZLjava/util/List;L" + qOwner + ";)V";
+            final ClassWriter rCls = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            rCls.visit(V17, ACC_PUBLIC | ACC_FINAL, rOwner, null, "java/lang/Object", null);
+            emitDefaultCtor(rCls, "java/lang/Object");
+
+            final MethodVisitor inv = rCls.visitMethod(ACC_PUBLIC | ACC_STATIC, "invokeA", rDesc, null, null);
+            inv.visitCode();
+            inv.visitVarInsn(ILOAD, 0);
+            inv.visitVarInsn(ALOAD, 1);
+            inv.visitVarInsn(ALOAD, 2);
+            inv.visitVarInsn(ILOAD, 3);
+            inv.visitVarInsn(ILOAD, 4);
+            inv.visitVarInsn(ALOAD, 5);
+            inv.visitVarInsn(ALOAD, 6);
+            inv.visitMethodInsn(INVOKESTATIC, rOwner, "a", rDesc, false);
+            inv.visitInsn(RETURN);
+            inv.visitMaxs(0, 0);
+            inv.visitEnd();
+
+            final MethodVisitor m = rCls.visitMethod(ACC_PRIVATE | ACC_STATIC | ACC_FINAL, "a", rDesc, null, null);
+            m.visitCode();
+            final Label loopStart = new Label();
+            final Label nonEmpty = new Label();
+            final Label checkType = new Label();
+            final Label checkDrawable = new Label();
+            final Label checkAlias = new Label();
+            final Label addLeaf = new Label();
+            final Label flatPart = new Label();
+            final Label contDrop = new Label();
+
+            m.visitLabel(loopStart);
+            m.visitVarInsn(ALOAD, 5);
+            m.visitMethodInsn(INVOKEINTERFACE, "java/util/List", "isEmpty", "()Z", true);
+            m.visitJumpInsn(IFEQ, nonEmpty);
+            m.visitInsn(RETURN);
+
+            m.visitLabel(nonEmpty);
+            m.visitVarInsn(ALOAD, 5);
+            m.visitMethodInsn(
+                    INVOKESTATIC,
+                    "kotlin/collections/CollectionsKt",
+                    "first",
+                    "(Ljava/util/List;)Ljava/lang/Object;",
+                    false);
+            m.visitTypeInsn(CHECKCAST, "com/live2d/cubism/doc/model/ACParameterControllableSource");
+            m.visitVarInsn(ASTORE, 8);
+
+            m.visitVarInsn(ILOAD, 0);
+            m.visitJumpInsn(IFEQ, contDrop);
+            m.visitVarInsn(ALOAD, 1);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitMethodInsn(INVOKEINTERFACE, "java/util/Set", "contains", "(Ljava/lang/Object;)Z", true);
+            m.visitJumpInsn(IFEQ, contDrop);
+
+            m.visitLabel(checkType);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(INSTANCEOF, "com/live2d/cubism/doc/model/parts/CPartSource");
+            m.visitJumpInsn(IFEQ, checkDrawable);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(CHECKCAST, "com/live2d/cubism/doc/model/parts/CPartSource");
+            m.visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    "com/live2d/cubism/doc/model/parts/CPartSource",
+                    "getEnableDrawOrderGroup",
+                    "()Z",
+                    false);
+            m.visitJumpInsn(IFEQ, flatPart);
+
+            m.visitTypeInsn(NEW, qOwner);
+            m.visitInsn(DUP);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(CHECKCAST, "com/live2d/cubism/doc/model/parts/CPartSource");
+            m.visitMethodInsn(
+                    INVOKESPECIAL, qOwner, "<init>", "(Lcom/live2d/cubism/doc/model/parts/CPartSource;)V", false);
+            m.visitVarInsn(ASTORE, 11);
+            m.visitVarInsn(ALOAD, 6);
+            m.visitMethodInsn(INVOKEVIRTUAL, qOwner, "c", "()Ljava/util/ArrayList;", false);
+            m.visitVarInsn(ALOAD, 11);
+            m.visitMethodInsn(INVOKEVIRTUAL, "java/util/ArrayList", "add", "(Ljava/lang/Object;)Z", false);
+            m.visitInsn(POP);
+            m.visitVarInsn(ILOAD, 0);
+            m.visitVarInsn(ALOAD, 1);
+            m.visitVarInsn(ALOAD, 2);
+            m.visitVarInsn(ILOAD, 3);
+            m.visitVarInsn(ILOAD, 4);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(CHECKCAST, "com/live2d/cubism/doc/model/parts/CPartSource");
+            m.visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    "com/live2d/cubism/doc/model/parts/CPartSource",
+                    "getChildren",
+                    "()Ljava/util/List;",
+                    false);
+            m.visitVarInsn(ALOAD, 11);
+            m.visitMethodInsn(INVOKESTATIC, rOwner, "a", rDesc, false);
+            m.visitVarInsn(ILOAD, 4);
+            m.visitJumpInsn(IFNE, contDrop);
+            m.visitVarInsn(ALOAD, 11);
+            m.visitMethodInsn(INVOKEVIRTUAL, qOwner, "c", "()Ljava/util/ArrayList;", false);
+            m.visitTypeInsn(CHECKCAST, "java/util/List");
+            m.visitMethodInsn(
+                    INVOKESTATIC, "kotlin/collections/CollectionsKt", "reverse", "(Ljava/util/List;)V", false);
+            m.visitJumpInsn(GOTO, contDrop);
+
+            m.visitLabel(flatPart);
+            m.visitVarInsn(ILOAD, 0);
+            m.visitVarInsn(ALOAD, 1);
+            m.visitVarInsn(ALOAD, 2);
+            m.visitVarInsn(ILOAD, 3);
+            m.visitVarInsn(ILOAD, 4);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(CHECKCAST, "com/live2d/cubism/doc/model/parts/CPartSource");
+            m.visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    "com/live2d/cubism/doc/model/parts/CPartSource",
+                    "getChildren",
+                    "()Ljava/util/List;",
+                    false);
+            m.visitVarInsn(ALOAD, 6);
+            m.visitMethodInsn(INVOKESTATIC, rOwner, "a", rDesc, false);
+            m.visitJumpInsn(GOTO, contDrop);
+
+            m.visitLabel(checkDrawable);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(INSTANCEOF, "com/live2d/cubism/doc/model/drawable/ACDrawableSource");
+            m.visitJumpInsn(IFEQ, checkAlias);
+            m.visitVarInsn(ILOAD, 3);
+            m.visitJumpInsn(IFEQ, addLeaf);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitMethodInsn(
+                    INVOKEVIRTUAL,
+                    "com/live2d/cubism/doc/model/ACParameterControllableSource",
+                    "isVisibleInHierarchy",
+                    "()Z",
+                    false);
+            m.visitJumpInsn(IFEQ, contDrop);
+
+            m.visitLabel(addLeaf);
+            m.visitVarInsn(ALOAD, 6);
+            m.visitMethodInsn(INVOKEVIRTUAL, qOwner, "c", "()Ljava/util/ArrayList;", false);
+            m.visitTypeInsn(NEW, "com/live2d/cubism/doc/model/parts/s");
+            m.visitInsn(DUP);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitMethodInsn(
+                    INVOKESPECIAL,
+                    "com/live2d/cubism/doc/model/parts/s",
+                    "<init>",
+                    "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;)V",
+                    false);
+            m.visitMethodInsn(INVOKEVIRTUAL, "java/util/ArrayList", "add", "(Ljava/lang/Object;)Z", false);
+            m.visitInsn(POP);
+            m.visitJumpInsn(GOTO, contDrop);
+
+            m.visitLabel(checkAlias);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitTypeInsn(INSTANCEOF, "com/live2d/cubism/doc/model/alias/CAliasSource");
+            m.visitJumpInsn(IFEQ, contDrop);
+            m.visitVarInsn(ALOAD, 6);
+            m.visitMethodInsn(INVOKEVIRTUAL, qOwner, "c", "()Ljava/util/ArrayList;", false);
+            m.visitTypeInsn(NEW, "com/live2d/cubism/doc/model/parts/s");
+            m.visitInsn(DUP);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitMethodInsn(
+                    INVOKESPECIAL,
+                    "com/live2d/cubism/doc/model/parts/s",
+                    "<init>",
+                    "(Lcom/live2d/cubism/doc/model/ACParameterControllableSource;)V",
+                    false);
+            m.visitMethodInsn(INVOKEVIRTUAL, "java/util/ArrayList", "add", "(Ljava/lang/Object;)Z", false);
+            m.visitInsn(POP);
+
+            m.visitLabel(contDrop);
+            m.visitVarInsn(ALOAD, 5);
+            m.visitTypeInsn(CHECKCAST, "java/lang/Iterable");
+            m.visitInsn(ICONST_1);
+            m.visitMethodInsn(
+                    INVOKESTATIC,
+                    "kotlin/collections/CollectionsKt",
+                    "drop",
+                    "(Ljava/lang/Iterable;I)Ljava/util/List;",
+                    false);
+            m.visitVarInsn(ASTORE, 7);
+            m.visitVarInsn(ALOAD, 6);
+            m.visitVarInsn(ASTORE, 8);
+            m.visitVarInsn(ALOAD, 7);
+            m.visitVarInsn(ASTORE, 5);
+            m.visitVarInsn(ALOAD, 8);
+            m.visitVarInsn(ASTORE, 6);
+            m.visitJumpInsn(GOTO, loopStart);
+            m.visitMaxs(0, 0);
+            m.visitEnd();
+
+            rCls.visitEnd();
+            rawClasses.put(rOwner, rCls.toByteArray());
         }
 
         private void addUiWidgetAndPartsPanel() {
@@ -2416,6 +2986,13 @@ class MemoryLeakMitigationTest {
             ctx.visitField(ACC_PUBLIC | ACC_STATIC, "CURRENT", "Lcom/jogamp/opengl/GLContext;", null, null)
                     .visitEnd();
             ctx.visitField(ACC_PUBLIC, "created", "Z", null, null).visitEnd();
+            ctx.visitField(ACC_PUBLIC, "shared", "Z", null, null).visitEnd();
+            ctx.visitField(ACC_PUBLIC, "sharedMaster", "Lcom/jogamp/opengl/GLContext;", null, null)
+                    .visitEnd();
+            ctx.visitField(ACC_PUBLIC, "createdShares", "Ljava/util/List;", null, null)
+                    .visitEnd();
+            ctx.visitField(ACC_PUBLIC, "destroyedShares", "Ljava/util/List;", null, null)
+                    .visitEnd();
             final MethodVisitor cc = ctx.visitMethod(ACC_PUBLIC, "<init>", "(Z)V", null, null);
             cc.visitCode();
             cc.visitVarInsn(ALOAD, 0);
@@ -2440,6 +3017,17 @@ class MemoryLeakMitigationTest {
             ic.visitInsn(IRETURN);
             ic.visitMaxs(0, 0);
             ic.visitEnd();
+            emitBooleanFieldGetter(ctx, "com/jogamp/opengl/GLContext", "isShared", "shared");
+            emitFieldGetter(
+                    ctx,
+                    "com/jogamp/opengl/GLContext",
+                    "getSharedMaster",
+                    "()Lcom/jogamp/opengl/GLContext;",
+                    "sharedMaster");
+            emitFieldGetter(
+                    ctx, "com/jogamp/opengl/GLContext", "getCreatedShares", "()Ljava/util/List;", "createdShares");
+            emitFieldGetter(
+                    ctx, "com/jogamp/opengl/GLContext", "getDestroyedShares", "()Ljava/util/List;", "destroyedShares");
             ctx.visitEnd();
             rawClasses.put("com/jogamp/opengl/GLContext", ctx.toByteArray());
 
@@ -3057,6 +3645,19 @@ class MemoryLeakMitigationTest {
             emitVoidMethod(gwl, "dispose", MemoryLeakMitigationTarget.GL_EVENT_DISPOSE_DESCRIPTOR);
             gwl.visitEnd();
             rawClasses.put(MemoryLeakMitigationTarget.GL_WRAPPER_LISTENER_OWNER, gwl.toByteArray());
+
+            final ClassWriter gjl = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+            gjl.visit(
+                    V17,
+                    ACC_PUBLIC,
+                    MemoryLeakMitigationTarget.GL_JPANEL_WRAPPER_LISTENER_OWNER,
+                    null,
+                    "java/lang/Object",
+                    null);
+            emitDefaultCtor(gjl, "java/lang/Object");
+            emitVoidMethod(gjl, "dispose", MemoryLeakMitigationTarget.GL_EVENT_DISPOSE_DESCRIPTOR);
+            gjl.visitEnd();
+            rawClasses.put(MemoryLeakMitigationTarget.GL_JPANEL_WRAPPER_LISTENER_OWNER, gjl.toByteArray());
 
             final ClassWriter vc = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             vc.visit(V17, ACC_PUBLIC, MemoryLeakMitigationTarget.VIEW_CONTEXT_OWNER, null, "java/lang/Object", null);

@@ -18,13 +18,14 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Rewrites the 21 reviewed Cubism host classes to wire {@link MemoryLeakMitigationBridge} lifecycle,
- * OpenGL cleanup/reuse, undo eviction, image cache pruning, and inspector/listener guards.
+ * Rewrites the 23 reviewed Cubism host classes to wire {@link MemoryLeakMitigationBridge} lifecycle,
+ * OpenGL cleanup/reuse, undo eviction, image cache pruning, zero-alloc parts traversal, and
+ * inspector/listener guards.
  */
 public final class MemoryLeakMitigationTransformer implements ClassFileTransformer {
 
-    /** Total instrumentation sites required across all 21 rewritten classes. */
-    public static final int EXPECTED_SITES = 29;
+    /** Total instrumentation sites required across all 23 rewritten classes. */
+    public static final int EXPECTED_SITES = 31;
 
     private static final int PARTS_REUSE_ARRAY_SIZE = 3;
     private static final int DEFORMER_REUSE_ARRAY_SIZE = 2;
@@ -51,11 +52,24 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
     private static final String ARRAY_LIST_OWNER = "java/util/ArrayList";
     private static final String ARRAY_LIST_ADD_METHOD = "add";
     private static final String ARRAY_LIST_ADD_DESCRIPTOR = "(Ljava/lang/Object;)Z";
+    private static final String ARRAY_LIST_COLLECTION_CTOR_DESCRIPTOR = "(Ljava/util/Collection;)V";
+    private static final String CTOR_METHOD = "<init>";
     private static final String C_IMAGE_COMPANION_OWNER = "com/live2d/graphics/CImage$a";
     private static final String SENTINEL_IMAGE_METHOD = "a";
     private static final String SENTINEL_IMAGE_DESCRIPTOR = "()Ljava/awt/image/BufferedImage;";
     private static final String LIST_OWNER = "java/util/List";
     private static final String LIST_IS_EMPTY_METHOD = "isEmpty";
+    private static final String LIST_SIZE_METHOD = "size";
+    private static final String INT_GETTER_DESCRIPTOR = "()I";
+    private static final String LIST_GET_METHOD = "get";
+    private static final String LIST_GET_DESCRIPTOR = "(I)Ljava/lang/Object;";
+    private static final String RANDOM_ACCESS_OWNER = "java/util/RandomAccess";
+    private static final String ITERABLE_OWNER = "java/lang/Iterable";
+    private static final String KOTLIN_COLLECTIONS_OWNER = "kotlin/collections/CollectionsKt";
+    private static final String KOTLIN_FIRST_METHOD = "first";
+    private static final String KOTLIN_FIRST_DESCRIPTOR = "(Ljava/util/List;)Ljava/lang/Object;";
+    private static final String KOTLIN_DROP_METHOD = "drop";
+    private static final String KOTLIN_DROP_DESCRIPTOR = "(Ljava/lang/Iterable;I)Ljava/util/List;";
 
     private final ClassLoader loader;
     private final Path artifact;
@@ -63,6 +77,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
     private final String partsCloseMethod;
     private final String deformerPanelOwner;
     private final String deformerCloseMethod;
+    private final String partsTraversalOwner;
+    private final String partsTraversalDescriptor;
     private final Set<String> transformedOwners = ConcurrentHashMap.newKeySet();
 
     private volatile String failure;
@@ -85,6 +101,9 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         this.partsCloseMethod = Objects.requireNonNull(target.partsCloseMethod(), "partsCloseMethod");
         this.deformerPanelOwner = Objects.requireNonNull(target.deformerPanelOwner(), "deformerPanelOwner");
         this.deformerCloseMethod = Objects.requireNonNull(target.deformerCloseMethod(), "deformerCloseMethod");
+        this.partsTraversalOwner = Objects.requireNonNull(target.partsTraversalOwner(), "partsTraversalOwner");
+        this.partsTraversalDescriptor =
+                Objects.requireNonNull(target.partsTraversalDescriptor(), "partsTraversalDescriptor");
     }
 
     /** Returns the latest fail-closed rejection reason, or {@code null}. */
@@ -121,10 +140,16 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             final ClassReader reader = new ClassReader(bytes);
             final ClassWriter writer = HostClassWriters.newFrameWriter(reader, loader);
             final ClassRewriteTracker tracker =
-                    new ClassRewriteTracker(name, expectedSitesForOwner(name, deformerPanelOwner));
+                    new ClassRewriteTracker(name, expectedSitesForOwner(name, deformerPanelOwner, partsTraversalOwner));
             reader.accept(
                     new OwnerDispatchClassVisitor(
-                            writer, tracker, partsCloseMethod, deformerPanelOwner, deformerCloseMethod),
+                            writer,
+                            tracker,
+                            partsCloseMethod,
+                            deformerPanelOwner,
+                            deformerCloseMethod,
+                            partsTraversalOwner,
+                            partsTraversalDescriptor),
                     ClassReader.EXPAND_FRAMES);
             if (!tracker.complete()) {
                 failure = "memory leak mitigation anchor drift on " + name + ": " + tracker.describe();
@@ -142,9 +167,13 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         }
     }
 
-    private static int expectedSitesForOwner(final String owner, final String deformerPanelOwner) {
+    private static int expectedSitesForOwner(
+            final String owner, final String deformerPanelOwner, final String partsTraversalOwner) {
         if (deformerPanelOwner.equals(owner)) {
             return 3;
+        }
+        if (partsTraversalOwner.equals(owner)) {
+            return 1;
         }
         return switch (owner) {
             case MemoryLeakMitigationTarget.PARTS_PANEL_OWNER -> 3;
@@ -188,18 +217,24 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
         private final String partsCloseMethod;
         private final String deformerPanelOwner;
         private final String deformerCloseMethod;
+        private final String partsTraversalOwner;
+        private final String partsTraversalDescriptor;
 
         private OwnerDispatchClassVisitor(
                 final ClassWriter writer,
                 final ClassRewriteTracker tracker,
                 final String partsCloseMethod,
                 final String deformerPanelOwner,
-                final String deformerCloseMethod) {
+                final String deformerCloseMethod,
+                final String partsTraversalOwner,
+                final String partsTraversalDescriptor) {
             super(Opcodes.ASM9, writer);
             this.tracker = tracker;
             this.partsCloseMethod = partsCloseMethod;
             this.deformerPanelOwner = deformerPanelOwner;
             this.deformerCloseMethod = deformerCloseMethod;
+            this.partsTraversalOwner = partsTraversalOwner;
+            this.partsTraversalDescriptor = partsTraversalDescriptor;
         }
 
         @Override
@@ -214,7 +249,15 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                 return null;
             }
             return selectMethodVisitor(
-                    tracker, delegate, name, descriptor, partsCloseMethod, deformerPanelOwner, deformerCloseMethod);
+                    tracker,
+                    delegate,
+                    name,
+                    descriptor,
+                    partsCloseMethod,
+                    deformerPanelOwner,
+                    deformerCloseMethod,
+                    partsTraversalOwner,
+                    partsTraversalDescriptor);
         }
     }
 
@@ -225,7 +268,9 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
             final String descriptor,
             final String partsCloseMethod,
             final String deformerPanelOwner,
-            final String deformerCloseMethod) {
+            final String deformerCloseMethod,
+            final String partsTraversalOwner,
+            final String partsTraversalDescriptor) {
         final String owner = tracker.owner;
         if (deformerPanelOwner.equals(owner)) {
             if (MemoryLeakMitigationTarget.PARTS_SET_TREE_METHOD.equals(name)
@@ -241,6 +286,13 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                     && MemoryLeakMitigationTarget.VOID_METHOD_DESCRIPTOR.equals(descriptor)) {
                 return new PanelCloseMethodVisitor(
                         delegate, tracker, MemoryLeakMitigationBridge.ON_DEFORMER_CLOSE_SLOT);
+            }
+            return delegate;
+        }
+        if (partsTraversalOwner.equals(owner)) {
+            if (MemoryLeakMitigationTarget.PARTS_TRAVERSAL_METHOD.equals(name)
+                    && partsTraversalDescriptor.equals(descriptor)) {
+                return new PartsDropTraversalMethodVisitor(delegate, tracker);
             }
             return delegate;
         }
@@ -324,7 +376,8 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                             delegate, tracker, MemoryLeakMitigationBridge.GL_WRAPPER_DESTROY_SLOT, SLOT_THIS);
                 }
             }
-            case MemoryLeakMitigationTarget.GL_WRAPPER_LISTENER_OWNER -> {
+            case MemoryLeakMitigationTarget.GL_WRAPPER_LISTENER_OWNER,
+                    MemoryLeakMitigationTarget.GL_JPANEL_WRAPPER_LISTENER_OWNER -> {
                 if (MemoryLeakMitigationTarget.GL_EVENT_DISPOSE_METHOD.equals(name)
                         && MemoryLeakMitigationTarget.GL_EVENT_DISPOSE_DESCRIPTOR.equals(descriptor)) {
                     return entryConsumer(
@@ -1188,6 +1241,384 @@ public final class MemoryLeakMitigationTransformer implements ClassFileTransform
                 tracker.recordSite();
             }
             super.visitInsn(opcode);
+        }
+    }
+
+    /** Replaces tail-recursive {@code CollectionsKt.drop(1)} copying with zero-allocation indexed traversal. */
+    private static final class PartsDropTraversalMethodVisitor extends MethodVisitor {
+        private static final int PARTS_LIST_VAR = 5;
+        private static final int PARTS_NODE_VAR = 6;
+        private static final int DROP_TAIL_VAR = 7;
+        private static final int SCRATCH_NODE_VAR = 8;
+        private static final int PARTS_INDEX_SLOT = 24;
+        private static final int PARTS_SIZE_SLOT = 25;
+        private static final int MIN_METHOD_ARG_MAX_VAR = 6;
+
+        private static final int ENTRY_SEEK = 0;
+        private static final int ENTRY_ALOAD_LIST = 1;
+        private static final int ENTRY_IS_EMPTY = 2;
+        private static final int ENTRY_IFEQ = 3;
+        private static final int ENTRY_RETURN = 4;
+        private static final int ENTRY_NON_EMPTY_LABEL = 5;
+        private static final int ENTRY_SECOND_ALOAD = 6;
+        private static final int ENTRY_DONE = 7;
+
+        private static final int DROP_SEEK = 0;
+        private static final int DROP_ALOAD_LIST = 1;
+        private static final int DROP_CAST_ITERABLE = 2;
+        private static final int DROP_ICONST_1 = 3;
+        private static final int DROP_CALL = 4;
+        private static final int DROP_ASTORE_TAIL = 5;
+        private static final int DROP_ALOAD_NODE = 6;
+        private static final int DROP_ASTORE_SCRATCH = 7;
+        private static final int DROP_ALOAD_TAIL = 8;
+        private static final int DROP_ASTORE_LIST = 9;
+        private static final int DROP_ALOAD_SCRATCH = 10;
+        private static final int DROP_ASTORE_NODE = 11;
+        private static final int DROP_DONE = 12;
+
+        private final ClassRewriteTracker tracker;
+        private final java.util.List<Runnable> pendingBuffer = new java.util.ArrayList<>();
+
+        private Label entryLoopLabel;
+        private Label nonEmptyLabel;
+        private boolean codeStarted;
+        private int entryStage = ENTRY_SEEK;
+        private int dropStage = DROP_SEEK;
+        private boolean entryRewritten;
+        private boolean dropRewritten;
+        private int maxVarUsed = MIN_METHOD_ARG_MAX_VAR;
+
+        private PartsDropTraversalMethodVisitor(final MethodVisitor delegate, final ClassRewriteTracker tracker) {
+            super(Opcodes.ASM9, delegate);
+            this.tracker = tracker;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            codeStarted = true;
+            // Normalize non-RandomAccess lists once per invocation so indexed reads stay O(1).
+            mv.visitVarInsn(Opcodes.ALOAD, PARTS_LIST_VAR);
+            final Label randomAccessReady = new Label();
+            mv.visitJumpInsn(Opcodes.IFNULL, randomAccessReady);
+            mv.visitVarInsn(Opcodes.ALOAD, PARTS_LIST_VAR);
+            mv.visitTypeInsn(Opcodes.INSTANCEOF, RANDOM_ACCESS_OWNER);
+            mv.visitJumpInsn(Opcodes.IFNE, randomAccessReady);
+            mv.visitVarInsn(Opcodes.ALOAD, PARTS_LIST_VAR);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE,
+                    LIST_OWNER,
+                    LIST_IS_EMPTY_METHOD,
+                    MemoryLeakMitigationTarget.BOOLEAN_GETTER_DESCRIPTOR,
+                    true);
+            mv.visitJumpInsn(Opcodes.IFNE, randomAccessReady);
+            mv.visitTypeInsn(Opcodes.NEW, ARRAY_LIST_OWNER);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitVarInsn(Opcodes.ALOAD, PARTS_LIST_VAR);
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESPECIAL, ARRAY_LIST_OWNER, CTOR_METHOD, ARRAY_LIST_COLLECTION_CTOR_DESCRIPTOR, false);
+            mv.visitVarInsn(Opcodes.ASTORE, PARTS_LIST_VAR);
+            mv.visitLabel(randomAccessReady);
+            mv.visitInsn(Opcodes.ICONST_0);
+            mv.visitVarInsn(Opcodes.ISTORE, PARTS_INDEX_SLOT);
+            mv.visitVarInsn(Opcodes.ALOAD, PARTS_LIST_VAR);
+            mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_SIZE_METHOD, INT_GETTER_DESCRIPTOR, true);
+            mv.visitVarInsn(Opcodes.ISTORE, PARTS_SIZE_SLOT);
+        }
+
+        @Override
+        public void visitLabel(final Label label) {
+            if (entryStage == ENTRY_SEEK && codeStarted && entryLoopLabel == null) {
+                entryLoopLabel = label;
+                super.visitLabel(label);
+                return;
+            }
+            if (entryStage == ENTRY_RETURN && label == nonEmptyLabel) {
+                entryStage = ENTRY_NON_EMPTY_LABEL;
+                pendingBuffer.add(() -> mv.visitLabel(label));
+                return;
+            }
+            abortActiveBuffers();
+            super.visitLabel(label);
+        }
+
+        @Override
+        public void visitFrame(
+                final int type, final int numLocal, final Object[] local, final int numStack, final Object[] stack) {
+            if ((entryStage > ENTRY_SEEK && entryStage < ENTRY_DONE)
+                    || (dropStage > DROP_SEEK && dropStage < DROP_DONE)) {
+                return;
+            }
+            super.visitFrame(type, numLocal, local, numStack, stack);
+        }
+
+        @Override
+        public void visitLineNumber(final int line, final Label start) {
+            if ((entryStage > ENTRY_SEEK && entryStage < ENTRY_DONE)
+                    || (dropStage > DROP_SEEK && dropStage < DROP_DONE)) {
+                return;
+            }
+            super.visitLineNumber(line, start);
+        }
+
+        @Override
+        public void visitVarInsn(final int opcode, final int varIndex) {
+            final int width = (opcode == Opcodes.LLOAD
+                            || opcode == Opcodes.LSTORE
+                            || opcode == Opcodes.DLOAD
+                            || opcode == Opcodes.DSTORE)
+                    ? 2
+                    : 1;
+            maxVarUsed = Math.max(maxVarUsed, varIndex + width - 1);
+            if (entryStage == ENTRY_SEEK && opcode == Opcodes.ALOAD && varIndex == PARTS_LIST_VAR) {
+                entryStage = ENTRY_ALOAD_LIST;
+                pendingBuffer.add(() -> mv.visitVarInsn(opcode, varIndex));
+                return;
+            }
+            if (entryStage == ENTRY_NON_EMPTY_LABEL && opcode == Opcodes.ALOAD && varIndex == PARTS_LIST_VAR) {
+                entryStage = ENTRY_SECOND_ALOAD;
+                pendingBuffer.add(() -> mv.visitVarInsn(opcode, varIndex));
+                return;
+            }
+            if (entryStage > ENTRY_SEEK && entryStage < ENTRY_DONE) {
+                abortEntryBuffer();
+            }
+            if (entryRewritten && !dropRewritten) {
+                if (handleDropVarInsn(opcode, varIndex)) {
+                    return;
+                }
+            }
+            super.visitVarInsn(opcode, varIndex);
+        }
+
+        private boolean handleDropVarInsn(final int opcode, final int varIndex) {
+            final int nextStage =
+                    switch (dropStage) {
+                        case DROP_SEEK ->
+                            (opcode == Opcodes.ALOAD && varIndex == PARTS_LIST_VAR) ? DROP_ALOAD_LIST : -1;
+                        case DROP_CALL ->
+                            (opcode == Opcodes.ASTORE && varIndex == DROP_TAIL_VAR) ? DROP_ASTORE_TAIL : -1;
+                        case DROP_ASTORE_TAIL ->
+                            (opcode == Opcodes.ALOAD && varIndex == PARTS_NODE_VAR) ? DROP_ALOAD_NODE : -1;
+                        case DROP_ALOAD_NODE ->
+                            (opcode == Opcodes.ASTORE && varIndex == SCRATCH_NODE_VAR) ? DROP_ASTORE_SCRATCH : -1;
+                        case DROP_ASTORE_SCRATCH ->
+                            (opcode == Opcodes.ALOAD && varIndex == DROP_TAIL_VAR) ? DROP_ALOAD_TAIL : -1;
+                        case DROP_ALOAD_TAIL ->
+                            (opcode == Opcodes.ASTORE && varIndex == PARTS_LIST_VAR) ? DROP_ASTORE_LIST : -1;
+                        case DROP_ASTORE_LIST ->
+                            (opcode == Opcodes.ALOAD && varIndex == SCRATCH_NODE_VAR) ? DROP_ALOAD_SCRATCH : -1;
+                        case DROP_ALOAD_SCRATCH ->
+                            (opcode == Opcodes.ASTORE && varIndex == PARTS_NODE_VAR) ? DROP_ASTORE_NODE : -1;
+                        default -> -1;
+                    };
+            if (nextStage > 0) {
+                dropStage = nextStage;
+                pendingBuffer.add(() -> mv.visitVarInsn(opcode, varIndex));
+                return true;
+            }
+            if (dropStage > DROP_SEEK) {
+                abortDropBuffer();
+                if (opcode == Opcodes.ALOAD && varIndex == PARTS_LIST_VAR) {
+                    dropStage = DROP_ALOAD_LIST;
+                    pendingBuffer.add(() -> mv.visitVarInsn(opcode, varIndex));
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
+            if (entryRewritten
+                    && !dropRewritten
+                    && dropStage == DROP_ALOAD_LIST
+                    && opcode == Opcodes.CHECKCAST
+                    && ITERABLE_OWNER.equals(type)) {
+                dropStage = DROP_CAST_ITERABLE;
+                pendingBuffer.add(() -> mv.visitTypeInsn(opcode, type));
+                return;
+            }
+            abortActiveBuffers();
+            super.visitTypeInsn(opcode, type);
+        }
+
+        @Override
+        public void visitInsn(final int opcode) {
+            if (entryStage == ENTRY_IFEQ && opcode == Opcodes.RETURN) {
+                entryStage = ENTRY_RETURN;
+                pendingBuffer.add(() -> mv.visitInsn(opcode));
+                return;
+            }
+            if (entryRewritten && !dropRewritten && dropStage == DROP_CAST_ITERABLE && opcode == Opcodes.ICONST_1) {
+                dropStage = DROP_ICONST_1;
+                pendingBuffer.add(() -> mv.visitInsn(opcode));
+                return;
+            }
+            abortActiveBuffers();
+            super.visitInsn(opcode);
+        }
+
+        @Override
+        public void visitMethodInsn(
+                final int opcode,
+                final String owner,
+                final String name,
+                final String descriptor,
+                final boolean isInterface) {
+            if (entryStage == ENTRY_ALOAD_LIST
+                    && opcode == Opcodes.INVOKEINTERFACE
+                    && LIST_OWNER.equals(owner)
+                    && LIST_IS_EMPTY_METHOD.equals(name)
+                    && MemoryLeakMitigationTarget.BOOLEAN_GETTER_DESCRIPTOR.equals(descriptor)) {
+                entryStage = ENTRY_IS_EMPTY;
+                pendingBuffer.add(() -> mv.visitMethodInsn(opcode, owner, name, descriptor, isInterface));
+                return;
+            }
+            if (entryStage == ENTRY_SECOND_ALOAD
+                    && opcode == Opcodes.INVOKESTATIC
+                    && KOTLIN_COLLECTIONS_OWNER.equals(owner)
+                    && KOTLIN_FIRST_METHOD.equals(name)
+                    && KOTLIN_FIRST_DESCRIPTOR.equals(descriptor)) {
+                pendingBuffer.clear();
+                mv.visitVarInsn(Opcodes.ILOAD, PARTS_INDEX_SLOT);
+                mv.visitVarInsn(Opcodes.ILOAD, PARTS_SIZE_SLOT);
+                mv.visitJumpInsn(Opcodes.IF_ICMPLT, nonEmptyLabel);
+                mv.visitInsn(Opcodes.RETURN);
+                mv.visitLabel(nonEmptyLabel);
+                mv.visitVarInsn(Opcodes.ALOAD, PARTS_LIST_VAR);
+                mv.visitVarInsn(Opcodes.ILOAD, PARTS_INDEX_SLOT);
+                mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, LIST_OWNER, LIST_GET_METHOD, LIST_GET_DESCRIPTOR, true);
+                entryRewritten = true;
+                entryStage = ENTRY_DONE;
+                return;
+            }
+            if (entryRewritten
+                    && !dropRewritten
+                    && dropStage == DROP_ICONST_1
+                    && opcode == Opcodes.INVOKESTATIC
+                    && KOTLIN_COLLECTIONS_OWNER.equals(owner)
+                    && KOTLIN_DROP_METHOD.equals(name)
+                    && KOTLIN_DROP_DESCRIPTOR.equals(descriptor)) {
+                dropStage = DROP_CALL;
+                pendingBuffer.add(() -> mv.visitMethodInsn(opcode, owner, name, descriptor, isInterface));
+                return;
+            }
+            abortActiveBuffers();
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+        }
+
+        @Override
+        public void visitJumpInsn(final int opcode, final Label label) {
+            if (entryStage == ENTRY_IS_EMPTY && opcode == Opcodes.IFEQ) {
+                nonEmptyLabel = label;
+                entryStage = ENTRY_IFEQ;
+                pendingBuffer.add(() -> mv.visitJumpInsn(opcode, label));
+                return;
+            }
+            if (entryRewritten
+                    && !dropRewritten
+                    && dropStage == DROP_ASTORE_NODE
+                    && opcode == Opcodes.GOTO
+                    && entryLoopLabel != null
+                    && label == entryLoopLabel) {
+                pendingBuffer.clear();
+                mv.visitIincInsn(PARTS_INDEX_SLOT, 1);
+                mv.visitJumpInsn(Opcodes.GOTO, label);
+                dropRewritten = true;
+                dropStage = DROP_DONE;
+                return;
+            }
+            abortActiveBuffers();
+            super.visitJumpInsn(opcode, label);
+        }
+
+        @Override
+        public void visitIntInsn(final int opcode, final int operand) {
+            abortActiveBuffers();
+            super.visitIntInsn(opcode, operand);
+        }
+
+        @Override
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
+            abortActiveBuffers();
+            super.visitFieldInsn(opcode, owner, name, descriptor);
+        }
+
+        @Override
+        public void visitLdcInsn(final Object value) {
+            abortActiveBuffers();
+            super.visitLdcInsn(value);
+        }
+
+        @Override
+        public void visitIincInsn(final int varIndex, final int increment) {
+            maxVarUsed = Math.max(maxVarUsed, varIndex);
+            abortActiveBuffers();
+            super.visitIincInsn(varIndex, increment);
+        }
+
+        @Override
+        public void visitInvokeDynamicInsn(
+                final String name,
+                final String descriptor,
+                final org.objectweb.asm.Handle bootstrapMethodHandle,
+                final Object... bootstrapMethodArguments) {
+            abortActiveBuffers();
+            super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+        }
+
+        @Override
+        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
+            abortActiveBuffers();
+            super.visitTableSwitchInsn(min, max, dflt, labels);
+        }
+
+        @Override
+        public void visitLookupSwitchInsn(final Label dflt, final int[] keys, final Label[] labels) {
+            abortActiveBuffers();
+            super.visitLookupSwitchInsn(dflt, keys, labels);
+        }
+
+        @Override
+        public void visitMultiANewArrayInsn(final String descriptor, final int numDimensions) {
+            abortActiveBuffers();
+            super.visitMultiANewArrayInsn(descriptor, numDimensions);
+        }
+
+        @Override
+        public void visitMaxs(final int maxStack, final int maxLocals) {
+            abortActiveBuffers();
+            if (entryRewritten && dropRewritten && maxVarUsed < PARTS_INDEX_SLOT) {
+                tracker.recordSite();
+            }
+            super.visitMaxs(maxStack, Math.max(maxLocals, PARTS_SIZE_SLOT + 1));
+        }
+
+        private void abortActiveBuffers() {
+            if (entryStage > ENTRY_SEEK && entryStage < ENTRY_DONE) {
+                abortEntryBuffer();
+            }
+            if (dropStage > DROP_SEEK && dropStage < DROP_DONE) {
+                abortDropBuffer();
+            }
+        }
+
+        private void abortEntryBuffer() {
+            for (final Runnable action : pendingBuffer) {
+                action.run();
+            }
+            pendingBuffer.clear();
+            entryStage = ENTRY_DONE;
+        }
+
+        private void abortDropBuffer() {
+            for (final Runnable action : pendingBuffer) {
+                action.run();
+            }
+            pendingBuffer.clear();
+            dropStage = DROP_SEEK;
         }
     }
 }

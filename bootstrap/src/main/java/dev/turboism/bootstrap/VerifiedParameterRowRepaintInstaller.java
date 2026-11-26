@@ -20,9 +20,9 @@ final class VerifiedParameterRowRepaintInstaller implements VerifiedHookInstalle
 
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
 
-    static final int EXPECTED_MATCHES = 1;
+    static final int EXPECTED_MATCHES = 4;
 
-    static final int EXPECTED_OWNERS = 1;
+    static final int EXPECTED_OWNERS = 4;
 
     private static final String FEATURE_NAME = "parameter row repaint";
     private static final String SITES_PREFIX = "sites=";
@@ -68,16 +68,28 @@ final class VerifiedParameterRowRepaintInstaller implements VerifiedHookInstalle
         for (final ParameterRowRepaintTarget.FieldDep dep : target.fieldDependencies()) {
             HostMemberVerifier.requireField(source.load(dep.owner()), dep.name(), dep.descriptor());
         }
+        final List<String> owners = target.rewrittenOwners();
+        final List<Class<?>> loadedOwners = new java.util.ArrayList<>(owners.size());
+        for (final String owner : owners) {
+            loadedOwners.add(target.controllerOwner().equals(owner) ? controllerOwner : source.load(owner));
+        }
         final ParameterRowRepaintTransformer transformer = new ParameterRowRepaintTransformer(
                 source.loader(), source.artifact(), source.referenceBytes(controllerOwner), target);
-        return List.of(WeaveTarget.single(
-                controllerOwner, transformer, EXPECTED_MATCHES, transformer::matches, transformer::failure));
+        final List<WeaveTarget> weaveTargets = new java.util.ArrayList<>(owners.size());
+        for (int i = 0; i < owners.size(); i++) {
+            final String owner = owners.get(i);
+            weaveTargets.add(WeaveTarget.single(
+                    loadedOwners.get(i), transformer, 1, () -> transformer.matchesFor(owner), transformer::failure));
+        }
+        return weaveTargets;
     }
 
     private static String sitesProven(final List<WeaveTarget> targets) {
-        final int sites =
-                targets.get(0).transformer(ParameterRowRepaintTransformer.class).sites();
-        return sites == ParameterRowRepaintTransformer.EXPECTED_SITES ? null : SITES_PREFIX + sites;
+        final ParameterRowRepaintTransformer transformer =
+                targets.get(0).transformer(ParameterRowRepaintTransformer.class);
+        final int sites = transformer.sites();
+        final int expected = transformer.expectedTotalSites();
+        return sites == expected ? null : SITES_PREFIX + sites + "/" + expected;
     }
 
     @Override

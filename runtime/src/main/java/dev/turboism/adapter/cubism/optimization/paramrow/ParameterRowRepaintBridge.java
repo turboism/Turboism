@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.paramrow;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -39,6 +42,12 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     /** Property key exposing diagnostic counters. */
     public static final String STATS_PROPERTY = "turboism.param-row.stats";
 
+    /** Property key for {@code (Object, Object, Object)boolean} morph-target key memoization. */
+    public static final String MORPH_KEYS_PROPERTY = "turboism.param-row.morph-keys";
+
+    /** Property key for {@code ()void} morph-target cache invalidation on structure/value edits. */
+    public static final String MORPH_INVALIDATE_PROPERTY = "turboism.param-row.morph-invalidate";
+
     private static final int UPDATE_ARG_COUNT = 3;
     private static final int ARG_CONTROLLER_INDEX = 0;
     private static final int ARG_DOCUMENT_INDEX = 1;
@@ -54,11 +63,14 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     private static final String STAT_RESIZED_DOUBLES = "resizedDoubles";
     private static final String STAT_INVALIDATIONS = "invalidations";
     private static final String STAT_FAILURES = "failures";
+    private static final String STAT_MORPH_CACHE_HITS = "morphCacheHits";
+    private static final String STAT_MORPH_CACHE_MISSES = "morphCacheMisses";
 
     private static final String INSTALLED_TWICE_MESSAGE = "parameter row repaint bridge already installed";
     private static final String SLOTS_OCCUPIED_MESSAGE = "parameter row repaint bridge slots occupied";
 
     private final ParameterRowPass pass;
+    private final MorphTargetKeyCache morphCache;
 
     private final AtomicBoolean active = new AtomicBoolean();
     private final Object lock = new Object();
@@ -66,6 +78,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
 
     private final Predicate<Object[]> selectionCallback = this::updateSelection;
     private final Consumer<Object> invalidateCallback = this::invalidateController;
+    private final MethodHandle morphKeysHandle;
+    private final MethodHandle morphInvalidateHandle;
     private final Supplier<Map<String, Long>> statistics = this::snapshot;
 
     private Properties installedProperties;
@@ -94,6 +108,16 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         final ParameterRowHostAccess host =
                 new ParameterRowHostAccess(loader, Objects.requireNonNull(target, "target"));
         pass = new ParameterRowPass(host, new ParameterRowKeyformHasher(host), new ParameterRowVisualSync(host));
+        morphCache = new MorphTargetKeyCache(loader, host);
+        final MethodHandles.Lookup lookup = MethodHandles.lookup();
+        morphKeysHandle = lookup.findVirtual(
+                        ParameterRowRepaintBridge.class,
+                        "populateMorphKeys",
+                        MethodType.methodType(boolean.class, Object.class, Object.class, Object.class))
+                .bindTo(this);
+        morphInvalidateHandle = lookup.findVirtual(
+                        ParameterRowRepaintBridge.class, "invalidateMorphCache", MethodType.methodType(void.class))
+                .bindTo(this);
     }
 
     /** Publishes incremental selection and invalidation callbacks into {@link System#getProperties()}. */
@@ -105,13 +129,18 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         synchronized (properties) {
             if (properties.containsKey(SELECTION_UPDATE_PROPERTY)
                     || properties.containsKey(INVALIDATE_PROPERTY)
+                    || properties.containsKey(MORPH_KEYS_PROPERTY)
+                    || properties.containsKey(MORPH_INVALIDATE_PROPERTY)
                     || properties.containsKey(STATS_PROPERTY)) {
                 throw new IllegalStateException(SLOTS_OCCUPIED_MESSAGE);
             }
             properties.put(SELECTION_UPDATE_PROPERTY, selectionCallback);
             properties.put(INVALIDATE_PROPERTY, invalidateCallback);
+            properties.put(MORPH_KEYS_PROPERTY, morphKeysHandle);
+            properties.put(MORPH_INVALIDATE_PROPERTY, morphInvalidateHandle);
             properties.put(STATS_PROPERTY, statistics);
             installedProperties = properties;
+            morphCache.clear();
             synchronized (lock) {
                 cache.clear();
             }
@@ -124,6 +153,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         if (!active.compareAndSet(true, false)) {
             return;
         }
+        morphCache.clear();
         synchronized (lock) {
             cache.clear();
         }
@@ -133,6 +163,8 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
             synchronized (properties) {
                 properties.remove(SELECTION_UPDATE_PROPERTY, selectionCallback);
                 properties.remove(INVALIDATE_PROPERTY, invalidateCallback);
+                properties.remove(MORPH_KEYS_PROPERTY, morphKeysHandle);
+                properties.remove(MORPH_INVALIDATE_PROPERTY, morphInvalidateHandle);
                 properties.remove(STATS_PROPERTY, statistics);
             }
         }
@@ -141,17 +173,32 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
     /** Returns an immutable snapshot of diagnostic counters. */
     public Map<String, Long> snapshot() {
         synchronized (lock) {
-            return Map.of(
-                    STAT_INVOCATIONS, invocations,
-                    STAT_BASELINE_PASSES, baselinePasses,
-                    STAT_INCREMENTAL_PASSES, incrementalPasses,
-                    STAT_KEYFORM_HASHED_PASSES, keyformHashedPasses,
-                    STAT_KEYFORM_ELIDED_PASSES, keyformElidedPasses,
-                    STAT_ELIDED_ROWS, elidedRows,
-                    STAT_REPAINTED_ROWS, repaintedRows,
-                    STAT_RESIZED_DOUBLES, resizedDoubles,
-                    STAT_INVALIDATIONS, invalidations,
-                    STAT_FAILURES, failures);
+            return Map.ofEntries(
+                    Map.entry(STAT_INVOCATIONS, invocations),
+                    Map.entry(STAT_BASELINE_PASSES, baselinePasses),
+                    Map.entry(STAT_INCREMENTAL_PASSES, incrementalPasses),
+                    Map.entry(STAT_KEYFORM_HASHED_PASSES, keyformHashedPasses),
+                    Map.entry(STAT_KEYFORM_ELIDED_PASSES, keyformElidedPasses),
+                    Map.entry(STAT_ELIDED_ROWS, elidedRows),
+                    Map.entry(STAT_REPAINTED_ROWS, repaintedRows),
+                    Map.entry(STAT_RESIZED_DOUBLES, resizedDoubles),
+                    Map.entry(STAT_INVALIDATIONS, invalidations),
+                    Map.entry(STAT_FAILURES, failures),
+                    Map.entry(STAT_MORPH_CACHE_HITS, morphCache.cacheHits()),
+                    Map.entry(STAT_MORPH_CACHE_MISSES, morphCache.cacheMisses()));
+        }
+    }
+
+    private boolean populateMorphKeys(final Object rowInfo, final Object model, final Object paramGuid) {
+        if (!active.get()) {
+            return false;
+        }
+        return morphCache.populateMorphKeys(rowInfo, model, paramGuid);
+    }
+
+    private void invalidateMorphCache() {
+        if (active.get()) {
+            morphCache.invalidate();
         }
     }
 
@@ -159,6 +206,7 @@ public final class ParameterRowRepaintBridge implements AutoCloseable {
         if (!active.get() || controller == null) {
             return;
         }
+        morphCache.invalidate();
         synchronized (lock) {
             cache.remove(controller);
             invalidations++;

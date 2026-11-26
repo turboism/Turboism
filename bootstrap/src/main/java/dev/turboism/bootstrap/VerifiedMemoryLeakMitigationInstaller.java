@@ -22,9 +22,9 @@ final class VerifiedMemoryLeakMitigationInstaller implements VerifiedHookInstall
 
     static final Admission ADMISSION = new Admission(HOOK_ID, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
 
-    static final int EXPECTED_MATCHES = 21;
+    static final int EXPECTED_MATCHES = 23;
 
-    static final int EXPECTED_OWNERS = 21;
+    static final int EXPECTED_OWNERS = 23;
 
     private final InstallContext context;
     private VerifiedInstall<MemoryLeakMitigationTarget> hook;
