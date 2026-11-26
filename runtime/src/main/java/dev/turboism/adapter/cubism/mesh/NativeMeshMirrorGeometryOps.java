@@ -27,10 +27,8 @@ final class NativeMeshMirrorGeometryOps {
     private static final boolean CHECK_LAYOUT_EDGE_CROSSINGS = true;
     private static final String HOST_POSITIONS = "getGlPositions";
     private static final String HOST_TRIANGLES = "getGlIndices$default";
-    private static final String HOST_REMOVE_EDGE = "removeEdge";
     private static final int HOST_TRIANGLE_DEFAULTS = 3;
     private static final int HOST_TRIANGLE_PARAMETER_COUNT = 5;
-    private static final String LAYOUT_COVERAGE_CHANGED = "geometric layout changes the existing mesh coverage";
     private static final String LAYOUT_UNDO_UNAVAILABLE = "geometric layout requires a mesh undo group";
 
     // ------------------------------------------------------------------
@@ -107,7 +105,6 @@ final class NativeMeshMirrorGeometryOps {
         Object undoOwner = null;
         boolean started = false;
         try {
-            final MeshTriangleCoverage originalCoverage = triangleCoverage(editableMesh);
             Object actionPack = NativeMeshMirrorBridge.activeMeshActionPack();
             if (actionPack == null && completePack != null) {
                 actionPack = resolveActionPackFromCompletePack(completePack, editMode);
@@ -136,7 +133,6 @@ final class NativeMeshMirrorGeometryOps {
                 }
                 addedIds.add(id);
             }
-            final List<MeshEdgeRef> addedEdges = new ArrayList<>();
             for (int index = 0; index + 1 < edgePairs.length; index += 2) {
                 final int u = edgePairs[index];
                 final int v = edgePairs[index + 1];
@@ -146,15 +142,13 @@ final class NativeMeshMirrorGeometryOps {
                     if (startId != endId) {
                         final MeshEdgeRef edge =
                                 new MeshEdgeRef(startId, endId, dev.turboism.sdk.cubism.mesh.MeshEdgeKind.INNER);
-                        if (canAddEdge(editableMesh, edge)
-                                && addEdge(editableMesh, edge, CHECK_LAYOUT_EDGE_CROSSINGS)) {
-                            addedEdges.add(edge);
+                        if (canAddEdge(editableMesh, edge)) {
+                            addEdge(editableMesh, edge, CHECK_LAYOUT_EDGE_CROSSINGS);
                         }
                     }
                 }
             }
             refreshTriangulationAndCaches(editMode, editableMesh);
-            preserveTriangleCoverage(editableMesh, originalCoverage, addedEdges);
             if (started && undoOwner != null) {
                 NativeMeshMirrorBridge.commitUndoGroup(undoOwner);
                 started = false;
@@ -234,27 +228,6 @@ final class NativeMeshMirrorGeometryOps {
         } catch (Throwable ignored) {
             FatalErrors.rethrowIfFatal(ignored);
         }
-    }
-
-    /** Keeps the points when the host cannot triangulate their new edges within the existing surface. */
-    private static void preserveTriangleCoverage(
-            final Object mesh, final MeshTriangleCoverage original, final List<MeshEdgeRef> addedEdges)
-            throws ReflectiveOperationException {
-        if (original == null || original.isEmpty() || original.matches(triangleCoverage(mesh))) return;
-        if (!addedEdges.isEmpty()) {
-            for (MeshEdgeRef edge : addedEdges) {
-                invoke(mesh, HOST_REMOVE_EDGE, edge.startPointId(), edge.endPointId());
-            }
-            if (original.matches(triangleCoverage(mesh))) return;
-        }
-        throw new IllegalStateException(LAYOUT_COVERAGE_CHANGED);
-    }
-
-    private static MeshTriangleCoverage triangleCoverage(final Object mesh) throws ReflectiveOperationException {
-        final int[] triangles = meshTriangles(mesh);
-        if (triangles == null) return null;
-        final float[] positions = (float[]) call(mesh, HOST_POSITIONS, NO_PARAMS);
-        return MeshTriangleCoverage.of(positions, triangles);
     }
 
     private static int[] meshTriangles(final Object mesh) throws ReflectiveOperationException {

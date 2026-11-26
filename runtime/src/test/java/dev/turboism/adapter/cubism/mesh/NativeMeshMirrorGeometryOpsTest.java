@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -20,13 +21,14 @@ final class NativeMeshMirrorGeometryOpsTest {
     }
 
     @Test
-    void geometricLayoutKeepsOnlyNewPointsWhenNewEdgesChangeCoverage() throws Exception {
+    void geometricLayoutRetainsAcceptedEdgesWhenHostTriangulationExpands() throws Exception {
         final Mesh mesh = new Mesh(true);
         final List<Edge> original = List.copyOf(mesh.edges);
 
         assertEquals(List.of(3, 4, 5), addLayout(mesh));
 
-        assertEquals(original, mesh.edges);
+        assertEquals(List.of(original.get(0), original.get(1), new Edge(4, 5, EdgeType.NORMAL)), mesh.edges);
+        assertArrayEquals(new int[] {0, 1, 2, 3, 4, 5}, Mesh.getGlIndices$default(mesh, null, false, 3, null));
     }
 
     private static List<Integer> addLayout(final Mesh mesh) throws ReflectiveOperationException {
