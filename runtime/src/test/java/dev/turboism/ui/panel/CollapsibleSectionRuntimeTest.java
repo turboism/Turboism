@@ -129,4 +129,23 @@ class CollapsibleSectionRuntimeTest {
         groupCheckBox.doClick();
         assertTrue(content.isVisible());
     }
+
+    @Test
+    void labeledTriStateCheckBoxPaintsIndeterminateBarAndClearsWhenSelected() {
+        javax.swing.JCheckBox checkBox = CollapsibleSection.createTriStateCheckBox("模型更新跳过", false);
+        JPanel host = SwingPanelTestSupport.newContent();
+        host.setSize(260, 40);
+        host.add(checkBox);
+        host.doLayout();
+
+        CollapsibleSection.updateGroupCheckBoxState(checkBox, false, true);
+        assertFalse(checkBox.isSelected());
+        assertEquals("indeterminate", checkBox.getClientProperty("JButton.selectedState"));
+        SwingPanelTestSupport.paint(host);
+
+        CollapsibleSection.updateGroupCheckBoxState(checkBox, true, true);
+        assertTrue(checkBox.isSelected());
+        assertEquals(null, checkBox.getClientProperty("JButton.selectedState"));
+        SwingPanelTestSupport.paint(host);
+    }
 }

@@ -37,6 +37,11 @@ final class CubismJvmSettingsContribution {
      */
     static java.util.Optional<String> tooltipKey(final String contributionId) {
         if (contributionId == null) return java.util.Optional.empty();
+        final java.util.Optional<OptimizationCatalog.UiRow> uiRow =
+                OptimizationCatalog.uiRowByContributionId(contributionId);
+        if (uiRow.isPresent()) {
+            return uiRow.map(OptimizationCatalog.UiRow::tooltipKey);
+        }
         final java.util.Optional<Optimization> optimization = OptimizationCatalog.byContributionId(contributionId);
         if (optimization.isPresent()) {
             return optimization.map(Optimization::tooltipKey).filter(key -> !key.isEmpty());
@@ -50,12 +55,11 @@ final class CubismJvmSettingsContribution {
                     case OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID ->
                         OptimizationSettingsContribution.PRESET_TOOLTIP_KEY;
                     case "performance-recommendation" -> "settings.performance.recommendation.tooltip";
-                    case "performance.section.hotpath" -> "settings.performance.section.hotpath.tooltip";
-                    case "performance.section.model" -> "settings.performance.section.model.tooltip";
+                    case "performance.section.editing" -> "settings.performance.section.editing.tooltip";
                     case "performance.section.rendering" -> "settings.performance.section.rendering.tooltip";
-                    case "performance.section.upload" -> "settings.performance.section.upload.tooltip";
-                    case "performance.section.mesh" -> "settings.performance.section.mesh.tooltip";
+                    case "performance.section.assets" -> "settings.performance.section.assets.tooltip";
                     case "performance.section.jvm" -> "settings.performance.section.jvm.tooltip";
+                    case "performance.section.legacy" -> "settings.performance.section.legacy.tooltip";
                     default -> null;
                 });
     }

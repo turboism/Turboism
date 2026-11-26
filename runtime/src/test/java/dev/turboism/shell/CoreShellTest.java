@@ -116,10 +116,22 @@ class CoreShellTest {
                 .mapToInt(c -> c.index().orElseThrow())
                 .min()
                 .orElseThrow();
-        int maxToggleIndex = context.uiHost().settingsContributions().stream()
+        int legacySectionIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> "performance.section.legacy".equals(c.id()))
+                .mapToInt(c -> c.index().orElseThrow())
+                .findFirst()
+                .orElseThrow();
+        int maxMainToggleIndex = context.uiHost().settingsContributions().stream()
                 .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Toggle)
                 .mapToInt(c -> c.index().orElseThrow())
+                .filter(index -> index < legacySectionIndex)
                 .max()
+                .orElseThrow();
+        int minLegacyToggleIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Toggle)
+                .mapToInt(c -> c.index().orElseThrow())
+                .filter(index -> index > legacySectionIndex)
+                .min()
                 .orElseThrow();
         int presetIndex = context.uiHost().settingsContributions().stream()
                 .filter(c -> OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(c.id()))
@@ -133,12 +145,22 @@ class CoreShellTest {
                 .mapToInt(c -> c.index().orElseThrow())
                 .min()
                 .orElseThrow();
+        int maxJvmInputOrChoiceIndex = context.uiHost().settingsContributions().stream()
+                .filter(c -> !OptimizationSettingsContribution.PRESET_CONTRIBUTION_ID.equals(c.id()))
+                .filter(c -> c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Text
+                        || c.control() instanceof dev.turboism.sdk.ui.settings.SettingsControl.Choice)
+                .mapToInt(c -> c.index().orElseThrow())
+                .max()
+                .orElseThrow();
         assertTrue(
                 presetIndex < minToggleIndex,
                 "The optimization preset selector must appear above all checkboxes on the Performance tab");
         assertTrue(
-                maxToggleIndex < minJvmInputOrChoiceIndex,
-                "All checkboxes must appear above JVM input fields and dropdowns on the Performance tab");
+                maxMainToggleIndex < minJvmInputOrChoiceIndex,
+                "Main optimization and JVM toggle checkboxes must appear above JVM input fields and dropdowns");
+        assertTrue(
+                maxJvmInputOrChoiceIndex < legacySectionIndex && legacySectionIndex < minLegacyToggleIndex,
+                "The Legacy & Experimental section must appear at the bottom after JVM & Memory controls");
         assertTrue(context.uiHost().settingsContributions().stream()
                 .allMatch(contribution -> contribution.tab().id().equals("performance")));
         assertEquals(1, context.uiHost().panelContributions().size());

@@ -135,24 +135,52 @@ final class OptimizationCatalogTest {
     }
 
     /**
-     * I3: walking the catalogue in placement order reproduces the reviewed settings page exactly.
-     * A reordered or retyped row fails here with the row that moved, before the rendered page can.
+     * I3: walking the UI row catalogue in render order reproduces the reviewed settings page
+     * exactly, and every persisted optimization belongs to exactly one UI row with default-OFF
+     * entries isolated in {@code legacy}.
      */
     @Test
     void placementReproducesTheGoldenLayout() throws Exception {
         final List<String> layout = goldenToggles().stream()
-                .filter(row -> OptimizationCatalog.byContributionId(row.substring(0, row.lastIndexOf(' ')))
+                .filter(row -> OptimizationCatalog.uiRowByContributionId(row.substring(0, row.lastIndexOf(' ')))
                         .isPresent())
                 .toList();
-        final List<String> actual = OptimizationCatalog.placed().stream()
-                .map(optimization -> optimization.contributionId() + " "
-                        + optimization.placement().orElseThrow().index())
+        final List<String> actual = OptimizationCatalog.uiRows().stream()
+                .map(row -> row.contributionId() + " " + row.index())
                 .toList();
-        assertEquals(43, layout.size(), "settings-layout.txt renders every persisted optimization");
+        assertEquals(
+                OptimizationCatalog.uiRows().size(),
+                layout.size(),
+                "settings-layout.txt renders every Performance UI toggle row");
         assertEquals(layout, actual, "settings-layout.txt order changed");
+
+        final List<String> coveredKeys = OptimizationCatalog.uiRows().stream()
+                .flatMap(row -> row.members().stream())
+                .map(Optimization::key)
+                .toList();
+        assertEquals(
+                OptimizationCatalog.persisted().stream()
+                        .map(Optimization::key)
+                        .collect(java.util.stream.Collectors.toSet()),
+                new java.util.HashSet<>(coveredKeys),
+                "UI rows must cover every persisted optimization");
+        assertEquals(
+                OptimizationCatalog.persisted().size(),
+                coveredKeys.size(),
+                "Each persisted optimization must belong to exactly one UI row");
+
+        for (final OptimizationCatalog.UiRow row : OptimizationCatalog.uiRows()) {
+            final boolean isLegacy = OptimizationCatalog.SECTION_LEGACY.equals(row.section());
+            for (final Optimization member : row.members()) {
+                assertEquals(
+                        !isLegacy,
+                        OptimizationCatalog.isDefaultEnabled(member),
+                        member.key() + " must be in main sections iff default-enabled, otherwise legacy");
+            }
+        }
     }
 
-    /** I4: every label, tooltip and reference link key resolves in all six bundles, so no row renders a raw key. */
+    /** I4: every label, tooltip, section and reference link key resolves in all six bundles. */
     @Test
     void everyKeyExistsInEveryBundle() throws IOException {
         for (final String bundle : BUNDLES) {
@@ -165,8 +193,17 @@ final class OptimizationCatalogTest {
                         .ifPresent(
                                 ref -> assertResolves(messages, bundle, ref.labelKey(), optimization.contributionId()));
             }
-            assertResolves(messages, bundle, "settings.performance.section.hotpath", "hotpath-section");
-            assertResolves(messages, bundle, "settings.performance.section.hotpath.tooltip", "hotpath-section");
+            for (final OptimizationCatalog.UiRow row : OptimizationCatalog.uiRows()) {
+                assertResolves(messages, bundle, row.labelKey(), row.contributionId());
+                assertResolves(messages, bundle, row.tooltipKey(), row.contributionId());
+                row.referenceLink()
+                        .ifPresent(ref -> assertResolves(messages, bundle, ref.labelKey(), row.contributionId()));
+            }
+            for (final String section : OptimizationCatalog.SECTIONS) {
+                assertResolves(messages, bundle, "settings.performance.section." + section, section + "-section");
+                assertResolves(
+                        messages, bundle, "settings.performance.section." + section + ".tooltip", section + "-section");
+            }
             assertResolves(messages, bundle, "settings.optimization.reference-open-failed", "reference-open-failed");
         }
     }
@@ -273,7 +310,7 @@ final class OptimizationCatalogTest {
 
         assertRefused("declare the protocol TURBOISM_MODEL_UPDATE_SKIP", withProtocols(other, base.protocols()), base);
 
-        assertRefused("reuses the settings row heavy-model#62", withPlacement(other, base.placement()), base);
+        assertRefused("reuses the settings row editing#51", withPlacement(other, base.placement()), base);
 
         assertRefused(
                 "is diagnostic-only but declares a persisted identity",

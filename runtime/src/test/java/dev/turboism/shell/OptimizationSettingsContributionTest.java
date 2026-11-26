@@ -128,13 +128,13 @@ class OptimizationSettingsContributionTest {
     }
 
     @Test
-    void thePageIsTheSevenSectionNotesPlusEveryPlacedRow() {
+    void thePageIsTheFiveSectionNotesPlusEveryUiRow() {
         final List<SettingsContribution> contributions =
                 OptimizationSettingsContribution.create(localization(), new RecordingSettings(false));
 
         assertEquals(
                 OptimizationCatalog.SECTIONS.size()
-                        + OptimizationCatalog.placed().size(),
+                        + OptimizationCatalog.uiRows().size(),
                 contributions.size());
         assertEquals(
                 OptimizationCatalog.SECTIONS.stream()
@@ -143,15 +143,15 @@ class OptimizationSettingsContributionTest {
                 contributions.subList(0, OptimizationCatalog.SECTIONS.size()).stream()
                         .map(SettingsContribution::id)
                         .toList(),
-                "the seven section notes come first, in catalogue section order");
+                "the five section notes come first, in catalogue section order");
         assertEquals(
-                OptimizationCatalog.placed().stream()
-                        .map(Optimization::contributionId)
+                OptimizationCatalog.uiRows().stream()
+                        .map(OptimizationCatalog.UiRow::contributionId)
                         .toList(),
                 contributions.subList(OptimizationCatalog.SECTIONS.size(), contributions.size()).stream()
                         .map(SettingsContribution::id)
                         .toList(),
-                "the rows follow in settings-layout order");
+                "the UI rows follow in settings-layout order");
     }
 
     @Test
@@ -164,16 +164,14 @@ class OptimizationSettingsContributionTest {
 
         assertEquals(
                 List.of(
-                        "performance.section.hotpath",
-                        "performance.section.heavy-model",
-                        "performance.section.model",
+                        "performance.section.editing",
                         "performance.section.rendering",
-                        "performance.section.upload",
-                        "performance.section.mesh",
-                        "performance.section.jvm"),
+                        "performance.section.assets",
+                        "performance.section.jvm",
+                        "performance.section.legacy"),
                 List.copyOf(notes.keySet()));
         assertEquals(
-                List.of(50, 60, 71, 80, 90, 100, 110),
+                List.of(50, 70, 90, 110, 120),
                 notes.values().stream().map(note -> note.index().orElseThrow()).toList(),
                 "the section notes keep the indexes the reviewed layout pins");
         for (final SettingsContribution note : notes.values()) {
@@ -192,17 +190,16 @@ class OptimizationSettingsContributionTest {
             }
         }
         final List<Integer> noteIndexes = List.copyOf(noteIndex.values());
-        for (final Optimization optimization : OptimizationCatalog.placed()) {
-            final int section = OptimizationCatalog.SECTIONS.indexOf(
-                    optimization.placement().orElseThrow().section());
-            final int index = optimization.placement().orElseThrow().index();
+        for (final OptimizationCatalog.UiRow row : OptimizationCatalog.uiRows()) {
+            final int section = OptimizationCatalog.SECTIONS.indexOf(row.section());
+            final int index = row.index();
             assertTrue(
                     index > noteIndexes.get(section),
-                    optimization.contributionId() + " renders below the header of its own section");
+                    row.contributionId() + " renders below the header of its own section");
             if (section + 1 < noteIndexes.size()) {
                 assertTrue(
                         index < noteIndexes.get(section + 1),
-                        optimization.contributionId() + " renders above the next section header");
+                        row.contributionId() + " renders above the next section header");
             }
         }
     }

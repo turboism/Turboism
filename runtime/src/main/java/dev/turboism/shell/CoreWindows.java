@@ -104,6 +104,8 @@ final class CoreWindows implements AutoCloseable {
     private static final String HTML_UNDERLINE_PREFIX = "<html><u>";
     private static final String HTML_UNDERLINE_SUFFIX = "</u></html>";
     private static final String PERFORMANCE_SECTION_PREFIX = "performance.section.";
+    private static final String LEGACY_SECTION_NOTE_ID =
+            PERFORMANCE_SECTION_PREFIX + OptimizationCatalog.SECTION_LEGACY;
     private static final int TOOLTIP_WRAP_THRESHOLD = 40;
     private static final int TOOLTIP_WIDTH_PX = 360;
     private PluginTableModel pluginTableModel;
@@ -529,8 +531,9 @@ final class CoreWindows implements AutoCloseable {
                 formatTooltipForKey(OptimizationSettingsContribution.GROUP_TOGGLE_TOOLTIP_KEY);
         final JCheckBox groupCheckBox = toggleCoordinator.createGroupCheckBox(
                 pending.noteId(), pending.title(), groupToggleTooltip, pending.toggles());
-        final JPanel section =
-                CollapsibleSection.create(pending.title(), pending.content(), true, i18n.locale(), groupCheckBox);
+        final boolean expandedByDefault = !LEGACY_SECTION_NOTE_ID.equals(pending.noteId());
+        final JPanel section = CollapsibleSection.create(
+                pending.title(), pending.content(), expandedByDefault, i18n.locale(), groupCheckBox);
         applyControlTooltip(pending.noteId(), section);
         addSection(outer, nextRow(outer), section);
     }
@@ -594,51 +597,7 @@ final class CoreWindows implements AutoCloseable {
             };
         }
         if (control instanceof SettingsControl.Toggle toggle) {
-            final boolean initial = Boolean.TRUE.equals(toggle.binding().read());
-            final JCheckBox checkbox = new JCheckBox(toggle.label(), initial);
-            checkbox.setName(toggle.id());
-            switch (toggle.id()) {
-                case CoreUpdateSettingsContribution.CONTRIBUTION_ID ->
-                    setControlTooltip(AUTOMATIC_UPDATES_TOOLTIP_KEY, checkbox);
-                case CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID ->
-                    setControlTooltip(PLUGIN_UPDATES_TOOLTIP_KEY, checkbox);
-                default -> applyControlTooltip(toggle.id(), checkbox);
-            }
-            final boolean[] accepted = {initial};
-            final boolean[] changing = {false};
-            final Optional<Optimization> optimization =
-                    toggleCoordinator != null ? OptimizationCatalog.byContributionId(toggle.id()) : Optional.empty();
-            if (toggleCoordinator != null) {
-                toggleCoordinator.registerToggle(
-                        toggle.id(), optimization, checkbox, toggle, accepted, changing, sectionToggles);
-            }
-            checkbox.addActionListener(ignored -> {
-                if (changing[0]) return;
-                final boolean proposed = checkbox.isSelected();
-                final SettingsChangeDecision decision = toggle.validator().validate(accepted[0], proposed);
-                if (decision.accepted()) {
-                    accepted[0] = proposed;
-                    if (toggleCoordinator != null) {
-                        toggleCoordinator.onToggleChanged(optimization.isPresent());
-                    }
-                    return;
-                }
-                changing[0] = true;
-                try {
-                    checkbox.setSelected(accepted[0]);
-                } finally {
-                    changing[0] = false;
-                }
-                showRejectedChange(owner, decision);
-            });
-            final java.awt.Component right = OptimizationSettingsContribution.referenceLink(i18n, toggle.id())
-                    .<java.awt.Component>map(link -> createReferenceLinkButton(toggle.id(), link))
-                    .orElseGet(JLabel::new);
-            add(panel, row, checkbox, right);
-            return () -> {
-                toggle.binding().write(accepted[0]);
-                return true;
-            };
+            return renderToggleControl(owner, panel, row, toggle, toggleCoordinator, sectionToggles);
         }
         if (control instanceof SettingsControl.Text text) {
             final String initial = Objects.toString(text.binding().read(), "");
@@ -697,6 +656,115 @@ final class CoreWindows implements AutoCloseable {
         }
         throw new IllegalArgumentException(
                 "unsupported settings control: " + control.getClass().getName());
+    }
+
+    private java.util.function.BooleanSupplier renderToggleControl(
+            final JDialog owner,
+            final JPanel panel,
+            final int row,
+            final SettingsControl.Toggle toggle,
+            final PerformanceToggleCoordinator toggleCoordinator,
+            final List<PerformanceToggleCoordinator.ToggleEntry> sectionToggles) {
+        final OptimizationSettingsContribution.OptimizationToggleBinding optBinding =
+                toggle.binding() instanceof OptimizationSettingsContribution.OptimizationToggleBinding binding
+                        ? binding
+                        : null;
+        final List<Optimization> optimizations;
+        final Map<Optimization, Boolean> initialMembers = new LinkedHashMap<>();
+        if (optBinding != null) {
+            optimizations = optBinding.optimizations();
+            for (final Optimization optimization : optimizations) {
+                initialMembers.put(optimization, optBinding.readOptimization(optimization));
+            }
+        } else {
+            final Optional<Optimization> singleOpt =
+                    toggleCoordinator != null ? OptimizationCatalog.byContributionId(toggle.id()) : Optional.empty();
+            if (singleOpt.isPresent()) {
+                optimizations = List.of(singleOpt.get());
+                initialMembers.put(
+                        singleOpt.get(), Boolean.TRUE.equals(toggle.binding().read()));
+            } else {
+                optimizations = List.of();
+            }
+        }
+        final boolean allInitial = optimizations.isEmpty()
+                ? Boolean.TRUE.equals(toggle.binding().read())
+                : optimizations.stream().allMatch(opt -> Boolean.TRUE.equals(initialMembers.get(opt)));
+        final boolean anyInitial = optimizations.isEmpty()
+                ? allInitial
+                : optimizations.stream().anyMatch(opt -> Boolean.TRUE.equals(initialMembers.get(opt)));
+        final JCheckBox checkbox = optimizations.size() > 1
+                ? CollapsibleSection.createTriStateCheckBox(toggle.label(), allInitial)
+                : new JCheckBox(toggle.label(), allInitial);
+        if (optimizations.size() > 1) {
+            CollapsibleSection.updateGroupCheckBoxState(checkbox, allInitial, anyInitial);
+        }
+        checkbox.setName(toggle.id());
+        switch (toggle.id()) {
+            case CoreUpdateSettingsContribution.CONTRIBUTION_ID ->
+                setControlTooltip(AUTOMATIC_UPDATES_TOOLTIP_KEY, checkbox);
+            case CoreUpdateSettingsContribution.PLUGIN_UPDATES_CONTRIBUTION_ID ->
+                setControlTooltip(PLUGIN_UPDATES_TOOLTIP_KEY, checkbox);
+            default -> applyControlTooltip(toggle.id(), checkbox);
+        }
+        final boolean[] accepted = {allInitial};
+        final boolean[] changing = {false};
+        final PerformanceToggleCoordinator.ToggleEntry entry = toggleCoordinator != null
+                ? toggleCoordinator.registerToggle(
+                        toggle.id(),
+                        optimizations,
+                        checkbox,
+                        toggle,
+                        initialMembers,
+                        accepted,
+                        changing,
+                        sectionToggles)
+                : null;
+        checkbox.addActionListener(ignored -> {
+            if (changing[0]) return;
+            if (entry != null) {
+                final boolean currentAll = entry.allAccepted();
+                final boolean proposed = optimizations.size() > 1 ? !currentAll : checkbox.isSelected();
+                final SettingsChangeDecision decision = toggle.validator().validate(currentAll, proposed);
+                if (decision.accepted()) {
+                    entry.applyUniformState(proposed);
+                    toggleCoordinator.onToggleChanged(!optimizations.isEmpty());
+                    return;
+                }
+                entry.syncCheckBox();
+                showRejectedChange(owner, decision);
+                return;
+            }
+            final boolean proposed = checkbox.isSelected();
+            final SettingsChangeDecision decision = toggle.validator().validate(accepted[0], proposed);
+            if (decision.accepted()) {
+                accepted[0] = proposed;
+                return;
+            }
+            changing[0] = true;
+            try {
+                checkbox.setSelected(accepted[0]);
+            } finally {
+                changing[0] = false;
+            }
+            showRejectedChange(owner, decision);
+        });
+        final java.awt.Component right = OptimizationSettingsContribution.referenceLink(i18n, toggle.id())
+                .<java.awt.Component>map(link -> createReferenceLinkButton(toggle.id(), link))
+                .orElseGet(JLabel::new);
+        add(panel, row, checkbox, right);
+        return () -> {
+            if (entry != null && optBinding != null) {
+                for (final Optimization optimization : optBinding.optimizations()) {
+                    optBinding.writeOptimization(optimization, entry.memberState(optimization));
+                }
+            } else if (entry != null) {
+                toggle.binding().write(entry.allAccepted());
+            } else {
+                toggle.binding().write(accepted[0]);
+            }
+            return true;
+        };
     }
 
     private void applyControlTooltip(final String controlId, final javax.swing.JComponent... components) {

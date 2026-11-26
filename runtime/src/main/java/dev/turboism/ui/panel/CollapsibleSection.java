@@ -26,6 +26,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.LookAndFeel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.Border;
@@ -68,7 +69,22 @@ public final class CollapsibleSection {
      * @return a configured header checkbox supporting FlatLaf and fallback indeterminate painting
      */
     public static JCheckBox createGroupCheckBox() {
-        return new TriStateHeaderCheckBox();
+        final TriStateCheckBox checkBox = new TriStateCheckBox("", false);
+        checkBox.setOpaque(false);
+        checkBox.setMargin(new Insets(0, 0, 0, 0));
+        checkBox.setHorizontalAlignment(SwingConstants.CENTER);
+        return checkBox;
+    }
+
+    /**
+     * Creates a standard-aligned tri-state checkbox for bundled settings rows.
+     *
+     * @param text checkbox label
+     * @param selected initial selection state
+     * @return a configured row checkbox supporting FlatLaf and fallback indeterminate painting
+     */
+    public static JCheckBox createTriStateCheckBox(final String text, final boolean selected) {
+        return new TriStateCheckBox(text, selected);
     }
 
     /**
@@ -312,19 +328,20 @@ public final class CollapsibleSection {
         }
     }
 
-    /** Header checkbox supporting FlatLaf native indeterminate styling plus a cross-L&F bar fallback. */
-    private static final class TriStateHeaderCheckBox extends JCheckBox {
-        private TriStateHeaderCheckBox() {
-            super("", false);
-            setOpaque(false);
-            setMargin(new Insets(0, 0, 0, 0));
-            setHorizontalAlignment(SwingConstants.CENTER);
+    /** Checkbox supporting FlatLaf native indeterminate styling plus a cross-L&F bar fallback. */
+    private static final class TriStateCheckBox extends JCheckBox {
+        private TriStateCheckBox(final String text, final boolean selected) {
+            super(text, selected);
         }
 
         @Override
         public void updateUI() {
+            final boolean wasHeader =
+                    (getText() == null || getText().isEmpty()) && getHorizontalAlignment() == SwingConstants.CENTER;
             super.updateUI();
-            setOpaque(false);
+            if (wasHeader) {
+                setOpaque(false);
+            }
         }
 
         @Override
@@ -342,8 +359,36 @@ public final class CollapsibleSection {
             final int iconWidth = boxIcon != null ? boxIcon.getIconWidth() : FALLBACK_ICON_SIZE;
             final int iconHeight = boxIcon != null ? boxIcon.getIconHeight() : FALLBACK_ICON_SIZE;
             final Insets insets = getInsets();
-            final int boxX = insets.left + Math.max(0, (getWidth() - insets.left - insets.right - iconWidth) / 2);
-            final int boxY = insets.top + Math.max(0, (getHeight() - insets.top - insets.bottom - iconHeight) / 2);
+            final int boxX;
+            final int boxY;
+            if (getHorizontalAlignment() == SwingConstants.CENTER
+                    && (getText() == null || getText().isEmpty())) {
+                boxX = insets.left + Math.max(0, (getWidth() - insets.left - insets.right - iconWidth) / 2);
+                boxY = insets.top + Math.max(0, (getHeight() - insets.top - insets.bottom - iconHeight) / 2);
+            } else {
+                final Rectangle viewRect = new Rectangle(
+                        insets.left,
+                        insets.top,
+                        Math.max(0, getWidth() - insets.left - insets.right),
+                        Math.max(0, getHeight() - insets.top - insets.bottom));
+                final Rectangle iconRect = new Rectangle();
+                final Rectangle textRect = new Rectangle();
+                SwingUtilities.layoutCompoundLabel(
+                        this,
+                        getFontMetrics(getFont()),
+                        getText() == null ? "" : getText(),
+                        boxIcon,
+                        getVerticalAlignment(),
+                        getHorizontalAlignment(),
+                        getVerticalTextPosition(),
+                        getHorizontalTextPosition(),
+                        viewRect,
+                        iconRect,
+                        textRect,
+                        getIconTextGap());
+                boxX = iconRect.x;
+                boxY = iconRect.y;
+            }
             final int barWidth = Math.max(MIN_INDETERMINATE_BAR_WIDTH, iconWidth - INDETERMINATE_BAR_INSET_X * 2);
             final int barX = boxX + (iconWidth - barWidth) / 2;
             final int barY = boxY + (iconHeight - INDETERMINATE_BAR_HEIGHT) / 2;

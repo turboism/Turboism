@@ -20,11 +20,8 @@ import java.util.OptionalInt;
 /**
  * Core-owned toggles for the declared native optimizations, rendered in the shared Performance tab.
  *
- * <p>The rows are derived from {@link OptimizationCatalog#placed()} instead of being listed here,
- * so the page order, the row ids, the label and tooltip keys and the persisted preference all come
- * from the one declaration of each optimization. Every row starts from its persisted preference
- * (with each optimization's catalog default when unset), and a running hook keeps its startup
- * configuration so a dependent optimization cannot enter a partially switched state.</p>
+ * <p>Rows derive from {@link OptimizationCatalog#uiRows()} so sections stay concise while every
+ * underlying {@code config.json} key persists independently for launcher and override compatibility.</p>
  */
 final class OptimizationSettingsContribution {
 
@@ -37,18 +34,27 @@ final class OptimizationSettingsContribution {
     private static final String PERFORMANCE_TAB_LABEL_KEY = "settings.tab.performance";
     private static final int PERFORMANCE_TAB_INDEX = 200;
     private static final String REFERENCE_OPEN_FAILED_KEY = "settings.optimization.reference-open-failed";
+    private static final String SECTION_LABEL_PREFIX = "settings.performance.section.";
+    private static final String SECTION_CONTRIBUTION_PREFIX = "performance.section.";
 
     /** Section header rows in render order, each pinned to the index its note renders at. */
     private static final List<Section> SECTIONS = List.of(
-            new Section("hotpath", 50),
-            new Section("heavy-model", 60),
-            new Section("model", 71),
-            new Section("rendering", 80),
-            new Section("upload", 90),
-            new Section("mesh", 100),
-            new Section("jvm", 110));
+            new Section(OptimizationCatalog.SECTION_EDITING, 50),
+            new Section(OptimizationCatalog.SECTION_RENDERING, 70),
+            new Section(OptimizationCatalog.SECTION_ASSETS, 90),
+            new Section(OptimizationCatalog.SECTION_JVM, 110),
+            new Section(OptimizationCatalog.SECTION_LEGACY, 120));
 
     private OptimizationSettingsContribution() {}
+
+    /** Binding exposing individual optimization flags behind a single or bundled checkbox row. */
+    interface OptimizationToggleBinding extends SettingsBinding<Boolean> {
+        List<Optimization> optimizations();
+
+        boolean readOptimization(Optimization optimization);
+
+        void writeOptimization(Optimization optimization, boolean enabled);
+    }
 
     /**
      * Creates the preset selector at the top of the Performance tab from the persisted flags.
@@ -77,8 +83,8 @@ final class OptimizationSettingsContribution {
     }
 
     /**
-     * Every Performance-tab row that renders a native optimization: the seven section notes and the
-     * toggles of {@link OptimizationCatalog#placed()}.
+     * Every Performance-tab row that renders native optimizations: the five section notes and the
+     * consolidated toggle rows of {@link OptimizationCatalog#uiRows()}.
      *
      * @param i18n the shell localization the labels and tooltips resolve through
      * @param settings the service that reads and persists one preference per catalogue key
@@ -90,18 +96,37 @@ final class OptimizationSettingsContribution {
         Objects.requireNonNull(settings, "settings");
         final List<SettingsContribution> contributions = new ArrayList<>();
         for (final Section section : SECTIONS) contributions.add(createSection(i18n, section));
-        for (final Optimization optimization : OptimizationCatalog.placed()) {
-            contributions.add(create(i18n, settings, optimization));
+        for (final OptimizationCatalog.UiRow row : OptimizationCatalog.uiRows()) {
+            contributions.add(create(i18n, settings, row));
         }
         return List.copyOf(contributions);
     }
 
     /**
-     * One preference toggle, placed where its catalogue row declares it.
+     * Creates one consolidated or single toggle contribution from a declared {@link OptimizationCatalog.UiRow}.
      *
-     * <p>The toggle persists through {@link OptimizationSettingsService#setEnabled(String, boolean)}
-     * when the dialog is confirmed, so a storage failure propagates instead of being reported as a
-     * successful change.</p>
+     * @param i18n the shell localization the label resolves through
+     * @param settings the service that owns the persisted preferences for {@code row}
+     * @param row the UI row declaration to render
+     * @return the toggle contribution for that row
+     */
+    static SettingsContribution create(
+            final PluginLocalization i18n,
+            final OptimizationSettingsService settings,
+            final OptimizationCatalog.UiRow row) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(row, "row");
+        final String id = row.contributionId();
+        return new SettingsContribution(
+                id,
+                settingsTab(i18n),
+                OptionalInt.of(row.index()),
+                new SettingsControl.Toggle(id, i18n.text(row.labelKey()), new RowBinding(settings, row.members())));
+    }
+
+    /**
+     * One preference toggle, placed where its catalogue row declares it.
      *
      * @param i18n the shell localization the label resolves through
      * @param settings the service that owns the persisted preference for {@code optimization}
@@ -119,15 +144,12 @@ final class OptimizationSettingsContribution {
                 .orElseThrow(
                         () -> new IllegalArgumentException(optimization.contributionId() + " renders no settings row"));
         final String id = optimization.contributionId();
-        final String key = optimization.key();
         return new SettingsContribution(
                 id,
                 settingsTab(i18n),
                 OptionalInt.of(placement.index()),
                 new SettingsControl.Toggle(
-                        id,
-                        i18n.text(optimization.labelKey()),
-                        SettingsBinding.of(() -> settings.enabled(key), value -> settings.setEnabled(key, value))));
+                        id, i18n.text(optimization.labelKey()), new RowBinding(settings, List.of(optimization))));
     }
 
     /**
@@ -135,15 +157,18 @@ final class OptimizationSettingsContribution {
      *
      * @param i18n the shell localization the link label and failure message resolve through
      * @param contributionId the settings contribution id of the toggle row
-     * @return localized {@link SettingsLink} when the optimization declares a reference link
+     * @return localized {@link SettingsLink} when the row or optimization declares a reference link
      */
     static Optional<SettingsLink> referenceLink(final PluginLocalization i18n, final String contributionId) {
         Objects.requireNonNull(i18n, "i18n");
         Objects.requireNonNull(contributionId, "contributionId");
-        return OptimizationCatalog.byContributionId(contributionId)
-                .flatMap(Optimization::referenceLink)
-                .map(ref -> new SettingsLink(
-                        i18n.text(ref.labelKey()), ref.uri(), i18n.format(REFERENCE_OPEN_FAILED_KEY, ref.uri())));
+        final Optional<Optimization.ReferenceLink> rowLink = OptimizationCatalog.uiRowByContributionId(contributionId)
+                .flatMap(OptimizationCatalog.UiRow::referenceLink);
+        final Optional<Optimization.ReferenceLink> resolved = rowLink.isPresent()
+                ? rowLink
+                : OptimizationCatalog.byContributionId(contributionId).flatMap(Optimization::referenceLink);
+        return resolved.map(ref -> new SettingsLink(
+                i18n.text(ref.labelKey()), ref.uri(), i18n.format(REFERENCE_OPEN_FAILED_KEY, ref.uri())));
     }
 
     /**
@@ -159,12 +184,55 @@ final class OptimizationSettingsContribution {
                 contributionId,
                 settingsTab(i18n),
                 OptionalInt.of(section.index()),
-                new SettingsControl.Note(contributionId, i18n.text("settings.performance.section." + section.id())));
+                new SettingsControl.Note(contributionId, i18n.text(SECTION_LABEL_PREFIX + section.id())));
     }
 
     private static SettingsTab settingsTab(final PluginLocalization i18n) {
         return new SettingsTab(
                 PERFORMANCE_TAB_ID, i18n.text(PERFORMANCE_TAB_LABEL_KEY), OptionalInt.of(PERFORMANCE_TAB_INDEX));
+    }
+
+    private static final class RowBinding implements OptimizationToggleBinding {
+        private final OptimizationSettingsService settings;
+        private final List<Optimization> optimizations;
+
+        private RowBinding(final OptimizationSettingsService settings, final List<Optimization> optimizations) {
+            this.settings = Objects.requireNonNull(settings, "settings");
+            this.optimizations = List.copyOf(Objects.requireNonNull(optimizations, "optimizations"));
+        }
+
+        @Override
+        public Boolean read() {
+            for (final Optimization optimization : optimizations) {
+                if (!settings.enabled(optimization.key())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public void write(final Boolean value) {
+            final boolean target = Boolean.TRUE.equals(value);
+            for (final Optimization optimization : optimizations) {
+                settings.setEnabled(optimization.key(), target);
+            }
+        }
+
+        @Override
+        public List<Optimization> optimizations() {
+            return optimizations;
+        }
+
+        @Override
+        public boolean readOptimization(final Optimization optimization) {
+            return settings.enabled(optimization.key());
+        }
+
+        @Override
+        public void writeOptimization(final Optimization optimization, final boolean enabled) {
+            settings.setEnabled(optimization.key(), enabled);
+        }
     }
 
     /** One section header: the catalogue section it opens and the index its note renders at. */
@@ -178,7 +246,7 @@ final class OptimizationSettingsContribution {
 
         /** Contribution id the renderer keys the collapsible box and its tooltip by. */
         private String contributionId() {
-            return "performance.section." + id;
+            return SECTION_CONTRIBUTION_PREFIX + id;
         }
     }
 }
