@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.geometric-mesh-layout
-version: 0.68.4
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: embedded
 
 | 项目 | 值 |
 |---|---|
-| 版本 | `0.68.4` |
+| 版本 | `0.68.5` |
 | 插件 ID | `dev.turboism.plugin.geometric-mesh-layout` |
 | 分类 | `modeling` |
 | 标签 | mesh, artmesh, editing |

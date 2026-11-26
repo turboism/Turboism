@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.turboism.config.PerformanceSettingsConfig;
 import dev.turboism.core.schema.SchemaValidationError;
 import java.util.List;
 import org.junit.jupiter.api.Test;

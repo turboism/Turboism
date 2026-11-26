@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.geometric-mesh-layout
-version: 0.68.4
+version: 0.68.5
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Contributes the Geometric Mesh Layout tool to the native mesh-editing toolbar. C
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.4` |
+| Version | `0.68.5` |
 | Plugin ID | `dev.turboism.plugin.geometric-mesh-layout` |
 | Category | `modeling` |
 | Tags | mesh, artmesh, editing |
@@ -82,6 +82,10 @@ Operates exclusively within single-ArtMesh manual mesh-editing mode.
 If the tool button is not visible, ensure an ArtMesh is open in manual mesh-editing mode and the plugin is enabled.
 
 ## Changelog
+
+### 0.68.5
+
+- Connect concentric rings independently of center spokes.
 
 ### 0.68.4
 
