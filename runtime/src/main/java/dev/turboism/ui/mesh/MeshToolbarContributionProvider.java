@@ -1,6 +1,5 @@
 package dev.turboism.ui.mesh;
 
-import dev.turboism.adapter.cubism.mesh.MeshToolCoordinator;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
@@ -29,12 +28,12 @@ public final class MeshToolbarContributionProvider implements EditorUiContributi
 
     private final EditorUiProviderAdmission admission;
     private final MeshToolbarHostOperations host;
-    private final MeshToolCoordinator coordinator;
+    private final MeshToolToolbarCoordinator coordinator;
 
     public MeshToolbarContributionProvider(
             final EditorUiProviderAdmission admission,
             final MeshToolbarHostOperations host,
-            final MeshToolCoordinator coordinator) {
+            final MeshToolToolbarCoordinator coordinator) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.MESH_TOOLBAR) {
             throw new IllegalArgumentException("mesh-toolbar provider requires MESH_TOOLBAR admission");
@@ -165,8 +164,8 @@ public final class MeshToolbarContributionProvider implements EditorUiContributi
                                 + " result=committed sessionOpen=" + coordinator.hasActiveSession()
                                 + " activeTool="
                                 + coordinator
-                                        .activeTool()
-                                        .map(active -> active.tool().id())
+                                        .activeToolIdentity()
+                                        .map(MeshToolToolbarCoordinator.ActiveToolIdentity::toolId)
                                         .orElse("none"));
             } catch (Throwable ignored) {
                 dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(ignored);
@@ -193,8 +192,8 @@ public final class MeshToolbarContributionProvider implements EditorUiContributi
                                 + " sessionOpen=" + coordinator.hasActiveSession()
                                 + " activeTool="
                                 + coordinator
-                                        .activeTool()
-                                        .map(active -> active.tool().id())
+                                        .activeToolIdentity()
+                                        .map(MeshToolToolbarCoordinator.ActiveToolIdentity::toolId)
                                         .orElse("none")
                                 + " failure=" + failure.getClass().getSimpleName()
                                 + " detail="
@@ -241,10 +240,10 @@ public final class MeshToolbarContributionProvider implements EditorUiContributi
 
         private boolean isActive(final MeshToolbarContributionDescriptor descriptor) {
             return coordinator
-                    .activeTool()
+                    .activeToolIdentity()
                     .filter(active -> active.pluginId().equals(descriptor.pluginId())
                             && active.generation() == descriptor.pluginGeneration()
-                            && active.tool().id().equals(descriptor.toolId()))
+                            && active.toolId().equals(descriptor.toolId()))
                     .isPresent();
         }
 

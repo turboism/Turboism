@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;

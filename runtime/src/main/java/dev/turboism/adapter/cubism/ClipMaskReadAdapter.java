@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import java.util.List;
 import java.util.Objects;

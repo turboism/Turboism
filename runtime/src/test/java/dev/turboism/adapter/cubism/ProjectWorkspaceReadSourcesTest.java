@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.ui.AdapterHostException;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.hostread.ProjectWorkspaceHostReadResult;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;

@@ -10,7 +10,7 @@ import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.core.schema.dependency.DependencyValidator;
 import dev.turboism.core.schema.diagnostic.DiagnosticReportValidator;
 import dev.turboism.core.schema.permission.PermissionValidator;
-import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
+import dev.turboism.config.RuntimeConfigValidator;
 import dev.turboism.core.schema.version.VersionRangeValidator;
 import dev.turboism.mapping.draft.DraftMappingException;
 import dev.turboism.mapping.draft.MappingReviewValidator;

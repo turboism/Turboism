@@ -17,19 +17,18 @@ Turboism keeps structural dependency inventories strictly separate from function
 
 | Artifact | Question Answered | Granularity | Authority |
 | --- | --- | --- | --- |
-| `docs/architecture/dependency-inventory.json` | Which modules and `:runtime` packages import each other statically? | 50 Gradle nodes (40 plugins), 93 non-test edges, 35 `:runtime` top packages | `checkDependencyInventory`, `checkModuleBoundaries` |
+| `docs/architecture/dependency-inventory.json` | Which modules and `:runtime` packages import each other statically? | 50 Gradle nodes (40 plugins), 93 non-test edges, 36 `:runtime` top packages | `checkDependencyInventory`, `checkModuleBoundaries` |
 | `docs/architecture/design-matrix.json` | How does changing or operating Design Parameter $DP_j$ affect Functional Requirement $FR_i$ at runtime? | 5 constraints (`C1`–`C5`), 15 `FR`/`DP` pairs, 3 peer submatrices | `checkAxiomaticDesignMatrix` + interaction tests |
 
-Reconciled structural figures at baseline `d13148bc107f`:
+Reconciled structural figures:
 
 - **50 Gradle graph nodes** in `settings.gradle.kts` (40 `:plugins:*` modules and 10 framework/test modules; 49 declare outgoing project edges and `:sdk` is the sink).
 - **93 non-test configuration edges** (including `annotationProcessor :event-processor` and `compileOnly :sdk`) and **99 test-only configuration edges**.
 - **0 non-test module cycles** and **0 direct production edges between plugins** (`:plugins:atlas-*` share 3 test-only edges).
 - **0 `:runtime` leaf-package cycles**.
-- **35 `:runtime` top-level packages**, **156 top-level edges**, and **1 nine-package top-level SCC** (`adapter`, `automesh`, `config`, `core`, `home`, `hostread`, `mapping`, `task`, `ui`).
+- **36 `:runtime` top-level packages**, **159 top-level edges**, and **0 top-level package cycles** (the former nine-package top-level SCC was eliminated by enforcing acyclic `core`, `config`, `automesh`, and `ui` layering in `checkModuleBoundaries`).
 
-The nine-package top-level SCC results from aggregating distinct leaf sub-packages under three-segment prefixes (`dev.turboism.<top>`).
-Leaf-package granularity is acyclic (`0` cycles); splitting packages or Gradle modules solely to eliminate top-level prefix aggregation is forbidden.
+Static package acyclicity enforces compilation order only; functional independence remains governed by `design-matrix.json` and behavioral interaction tests.
 
 ## 3. System Constraints (`C1`–`C5`)
 

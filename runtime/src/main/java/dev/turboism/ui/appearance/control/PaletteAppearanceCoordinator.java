@@ -18,7 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Runtime owner of generation-bound, transient model-palette overrides. */
 public final class PaletteAppearanceCoordinator implements AutoCloseable {
 
-    enum Palette {
+    /** Identifies the Cubism palette surface targeted by an appearance override. */
+    public enum Palette {
         PART,
         DEFORMER_PART,
         DEFORMER,
@@ -26,7 +27,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         PARAMETER_GROUP
     }
 
-    enum Property {
+    /** Identifies the visual attribute modified by a palette override entry. */
+    public enum Property {
         FONT_SIZE,
         BOLD,
         ITALIC,
@@ -133,7 +135,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         return nativeIcons.apply(ref, disabled);
     }
 
-    Optional<dev.turboism.sdk.ui.appearance.PaletteRowAction> resolveLeadingAction(
+    /** Returns the active leading row action for the supplied host generation and palette item. */
+    public Optional<dev.turboism.sdk.ui.appearance.PaletteRowAction> resolveLeadingAction(
             final long generation, final Palette palette, final String objectId) {
         synchronized (monitor) {
             if (closed || currentScope == null || currentScope.hostGeneration() != generation) return Optional.empty();
@@ -157,7 +160,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
      * registrations remain owned by their original content until their registration, plugin,
      * or explicit invalidation closes them.
      */
-    void reconcile(final Scope scope) {
+    public void reconcile(final Scope scope) {
         Objects.requireNonNull(scope, "scope");
         boolean changed = false;
         synchronized (monitor) {
@@ -277,7 +280,7 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
     }
 
     /** Hides the current scope without discarding content-owned registrations. */
-    void deactivate() {
+    public void deactivate() {
         boolean changed;
         synchronized (monitor) {
             if (closed) return;
@@ -298,7 +301,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         if (changed) notifyChange();
     }
 
-    Registration register(
+    /** Registers one scoped appearance override and returns its revocation handle. */
+    public Registration register(
             final String pluginId,
             final long pluginGeneration,
             final Scope scope,
@@ -330,7 +334,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         };
     }
 
-    PaletteEntryState resolve(final Scope scope, final Palette palette, final String objectId) {
+    /** Computes the merged appearance state for one object within the current scope. */
+    public PaletteEntryState resolve(final Scope scope, final Palette palette, final String objectId) {
         Objects.requireNonNull(scope, "scope");
         Objects.requireNonNull(palette, "palette");
         final String id = Requirements.text(objectId, "objectId");
@@ -359,7 +364,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
-    void removePlugin(final String pluginId, final long pluginGeneration) {
+    /** Removes all appearance overrides registered by one plugin generation. */
+    public void removePlugin(final String pluginId, final long pluginGeneration) {
         final String owner = Requirements.text(pluginId, "pluginId");
         requireGeneration(pluginGeneration, "pluginGeneration");
         boolean changed;
@@ -378,7 +384,8 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
-    int size() {
+    /** Returns the number of active appearance override entries held by this coordinator. */
+    public int size() {
         synchronized (monitor) {
             return overrides.size();
         }

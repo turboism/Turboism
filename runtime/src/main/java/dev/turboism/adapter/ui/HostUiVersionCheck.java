@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.util.Map;
 import java.util.Objects;

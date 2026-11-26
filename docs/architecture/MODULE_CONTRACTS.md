@@ -150,7 +150,7 @@ hand-edited move. No production logic changed.
   which adapter answers. `dev.turboism.adapter.cubism` implements the port.
 - **Allowed dependencies**: `adapter.cubism` (and every adapter) may depend on
   `hostread`; `hostread` depends only on the SDK, `permissions`, `failure` and
-  `adapter.ui.SafeModeDiagnostic`-free primitives.
+  `diagnostics.SafeModeDiagnostic`-free primitives.
 - **Forbidden**: any `dev.turboism.hostread` import of `dev.turboism.adapter.*`.
 - **Public API**: `ProjectWorkspaceHostReadSource`, `ProjectWorkspaceHostReadResult`,
   `RuntimeAsyncHostReadService`; the adapter-side bridge is
@@ -257,11 +257,11 @@ edge that made the selector package depend on the resolver. Leaf-package cycles:
   the framework contracts those services implement, and it never assembles them.
 - **Allowed dependencies**: `kernel.context` may depend on `adapter`, `ui`,
   `hook`, the feature implementations and `core`. `core` may depend only on the
-  JDK, the SDK, `runtime`, `task`, `config`, `permissions` and its own
-  sub-packages.
+  JDK, the SDK, `runtime`, `internal`, `permissions` and its own sub-packages.
 - **Forbidden**: any import in `dev.turboism.core.*` of `dev.turboism.adapter`,
-  `dev.turboism.hook`, `dev.turboism.ui` or a composition layer (`shell`,
-  `kernel`, `distribution`, `pluginmanagement`, `bootstrap`).
+  `dev.turboism.hook`, `dev.turboism.ui`, a feature package (`config`, `task`,
+  `psd`, etc.) or a composition layer (`shell`, `kernel`, `distribution`,
+  `pluginmanagement`, `bootstrap`).
 - **Public API**: `CorePluginContext`, `PluginContextEnvironment`,
   `PluginCapabilityBundle` and `SdkCarrierTraversal` are the wiring surface the
   kernel and the host adapter use; every other type in the package is
@@ -456,6 +456,18 @@ loaded host classes, verify members or own composition/threading. The selector
 contracts (`MeshToolSessionSelectorContract`, `ModelingSelectionSelectorContract`)
 keep their capability/alias/supported-version data and matrix provenance in
 `:runtime`; only their generic admission decision delegates to the policy module.
+
+## `:runtime` top-level acyclic layering (`core`, `config`, `mapping.profile`, `ui`, `automesh`, `adapter`, `psd`)
+
+- **Owner**: runtime architecture maintainers (see `.github/CODEOWNERS`).
+- **Purpose**: Keeps the `:runtime` top-level package graph strictly acyclic (`0` top-level cycles and `0` leaf-package cycles) so lower layers never depend upward on adapters, UI surfaces, or feature packages.
+- **Allowed dependencies**: `core` → `internal`, `permissions`, `runtime`; `config` → `core`, `home`, `task`, `cleanup`, `failure`, `permissions`, `runtime`, `internal`; `ui` → `core`, `diagnostics`, `i18n`, `internal`, `mapping`, `permissions`, `runtime`; `automesh` → `core`, `internal`, `mapping`, `permissions`, `ui`; `psd` → `core`, `internal`, `permissions`, `runtime`, `task`; `adapter` may depend on `automesh`, `config`, `core`, `diagnostics`, `hostread`, `internal`, `mapping`, `permissions`, `psd`, `runtime`, `task`, and `ui`.
+- **Forbidden**: `core` importing any feature package; `config` importing `adapter`, `ui`, or `automesh`; `automesh` importing `adapter`; `ui` importing `adapter` or composition layers.
+- **Public API**: `SettingsContributionRegistrar` (`config`), `SafeModeDiagnostic` (`diagnostics`), `BoundedKeyedStore` / `StatusToolbarAdapter` / `UiSurfaceAdapter` (`ui.surface`), `MeshToolToolbarCoordinator` (`ui.mesh`), `CubismAutoMeshUiProfile` / `CubismPaletteHostProfile` / `CubismSceneTableProfile` (`mapping.profile`), and `RuntimePsd*` / `Psd*Host` (`psd`).
+- **Threading / IO**: Unchanged; each moved type preserves its existing thread ownership and IO contract.
+- **Tests**: `scripts/test/test_module_boundaries.py`, `runtime/src/test/java/dev/turboism/{config,psd,ui,adapter}/**`, and `checkDependencyInventory`.
+- **Backward compatibility**: Internal to `:runtime`; SDK ABI and plugin binaries stay unchanged.
+- **Enforcement**: `checkModuleBoundaries` (`gradle/module-boundaries.gradle.kts`) and `checkDependencyInventory`.
 
 ## Next boundaries (not yet extracted)
 

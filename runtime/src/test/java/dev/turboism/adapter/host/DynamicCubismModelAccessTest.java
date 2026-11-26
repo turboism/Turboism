@@ -118,9 +118,7 @@ class DynamicCubismModelAccessTest {
         final var recording = new RecordingModel();
         recording.textures = (dev.turboism.sdk.cubism.model.ModelTextures) java.lang.reflect.Proxy.newProxyInstance(
                 getClass().getClassLoader(),
-                new Class<?>[] {
-                    dev.turboism.sdk.cubism.model.ModelTextures.class,
-                    dev.turboism.core.runtime.psd.PsdReplaceHost.class
+                new Class<?>[] {dev.turboism.sdk.cubism.model.ModelTextures.class, dev.turboism.psd.PsdReplaceHost.class
                 },
                 (proxy, method, args) -> {
                     if (!"replaceWithStagedPsd".equals(method.getName())) {
@@ -128,12 +126,11 @@ class DynamicCubismModelAccessTest {
                     }
                     ((Runnable) args[3]).run();
                     calls.add(List.of(args[0], args[1], args[2]));
-                    return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
+                    return dev.turboism.psd.PsdReplaceHost.Replacement.unavailable();
                 });
         final var access = new DynamicCubismModelAccess();
         access.connect(() -> recording);
-        final var host =
-                (dev.turboism.core.runtime.psd.PsdReplaceHost) access.active().textures();
+        final var host = (dev.turboism.psd.PsdReplaceHost) access.active().textures();
         host.replaceWithStagedPsd(target, stage, sourceName, admissions::incrementAndGet);
         assertEquals(List.of(List.of(target, stage, sourceName)), calls);
         assertEquals(1, admissions.get());

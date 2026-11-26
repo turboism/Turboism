@@ -751,7 +751,7 @@ class RuntimeTypedPluginConfigRegistryTest {
                 new dev.turboism.cleanup.CleanupEvidenceCollector(),
                 failures,
                 pluginName,
-                settingsStore);
+                settingsStore == null ? null : settingsStore::register);
     }
 
     private static Set<String> allPermissions() {

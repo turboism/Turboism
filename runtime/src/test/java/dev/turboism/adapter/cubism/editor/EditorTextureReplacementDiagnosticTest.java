@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.core.runtime.psd.PsdExportHost;
-import dev.turboism.core.runtime.psd.PsdReplaceHost;
+import dev.turboism.psd.PsdExportHost;
+import dev.turboism.psd.PsdReplaceHost;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.RawLayerId;

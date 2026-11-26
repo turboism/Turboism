@@ -77,7 +77,7 @@ private val runtimeCompositionLayers = setOf("shell", "kernel", "distribution", 
 private val runtimeFeatureImpls = setOf(
     "recentfile", "recentpreview", "screenshot", "script", "storage", "task", "config",
     "userfile", "hostread", "performance", "exportsettings", "filechooser", "mcp", "update",
-    "worktime", "keybinding", "automesh"
+    "worktime", "keybinding", "automesh", "psd"
 )
 // Bottom-most packages: the JDK, the SDK and their leaf siblings only — every layer above
 // them is forbidden, which is what keeps runtime.log off the framework core.
@@ -89,8 +89,23 @@ private val runtimeInfra = setOf(
 private val runtimePackageRules = listOf(
     RuntimePackageRule(
         setOf("core"),
-        setOf("adapter", "hook", "ui") + runtimeCompositionLayers,
-        "framework core must not reach into adapter/host/composition layers"
+        setOf("adapter", "hook", "ui") + runtimeCompositionLayers + runtimeFeatureImpls,
+        "framework core must not reach into adapter/host/feature/composition layers"
+    ),
+    RuntimePackageRule(
+        setOf("config"),
+        setOf("adapter", "ui", "automesh") + runtimeCompositionLayers,
+        "configuration storage must stay below adapter, automesh, UI, and composition layers"
+    ),
+    RuntimePackageRule(
+        setOf("automesh"),
+        setOf("adapter") + runtimeCompositionLayers,
+        "automesh must stay below adapter and composition layers"
+    ),
+    RuntimePackageRule(
+        setOf("ui"),
+        setOf("adapter") + runtimeCompositionLayers,
+        "UI surfaces must stay below adapter and composition layers"
     ),
     RuntimePackageRule(
         setOf("adapter"),

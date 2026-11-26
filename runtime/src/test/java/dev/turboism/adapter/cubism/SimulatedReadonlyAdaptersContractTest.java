@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.ui.AdapterHostException;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;

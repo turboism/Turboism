@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
-import dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -13,7 +12,7 @@ import java.util.function.IntConsumer;
 /** Canonical global runtime settings backed only by {@code <turboism.home>/config.json}. */
 public final class RuntimeSettingsFileService implements RuntimeSettingsService {
     private final RuntimeConfigRepository config;
-    private final RuntimeDockMaintenanceCoordinator dockMaintenance;
+    private final Runnable emptyDockCleaner;
     private final Consumer<String> logLevelChanged;
     private final IntConsumer logStorageLimitChanged;
     private final Object stateLock = new Object();
@@ -22,58 +21,54 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
     /** Last successful read/save; preserved across rejected/invalid reloads. */
     private RuntimeSettings active;
 
+    public RuntimeSettingsFileService(final Path turboismHome, final Runnable emptyDockCleaner) {
+        this(turboismHome, emptyDockCleaner, ignored -> {}, ignored -> {}, ignored -> {});
+    }
+
     public RuntimeSettingsFileService(
-            final Path turboismHome, final RuntimeDockMaintenanceCoordinator dockMaintenance) {
-        this(turboismHome, dockMaintenance, ignored -> {}, ignored -> {}, ignored -> {});
+            final Path turboismHome, final Runnable emptyDockCleaner, final Consumer<String> logLevelChanged) {
+        this(turboismHome, emptyDockCleaner, logLevelChanged, ignored -> {}, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
             final Path turboismHome,
-            final RuntimeDockMaintenanceCoordinator dockMaintenance,
-            final Consumer<String> logLevelChanged) {
-        this(turboismHome, dockMaintenance, logLevelChanged, ignored -> {}, ignored -> {});
-    }
-
-    public RuntimeSettingsFileService(
-            final Path turboismHome,
-            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Runnable emptyDockCleaner,
             final Consumer<String> logLevelChanged,
             final IntConsumer logStorageLimitChanged) {
-        this(turboismHome, dockMaintenance, logLevelChanged, logStorageLimitChanged, ignored -> {});
+        this(turboismHome, emptyDockCleaner, logLevelChanged, logStorageLimitChanged, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
             final Path turboismHome,
-            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Runnable emptyDockCleaner,
             final Consumer<String> logLevelChanged,
             final IntConsumer logStorageLimitChanged,
             final Consumer<String> configDiagnostic) {
         this(
                 new RuntimeConfigRepository(turboismHome, configDiagnostic),
-                dockMaintenance,
+                emptyDockCleaner,
                 logLevelChanged,
                 logStorageLimitChanged);
     }
 
-    public RuntimeSettingsFileService(
-            final RuntimeConfigRepository config, final RuntimeDockMaintenanceCoordinator dockMaintenance) {
-        this(config, dockMaintenance, ignored -> {}, ignored -> {});
+    public RuntimeSettingsFileService(final RuntimeConfigRepository config, final Runnable emptyDockCleaner) {
+        this(config, emptyDockCleaner, ignored -> {}, ignored -> {});
     }
 
     RuntimeSettingsFileService(
             final RuntimeConfigRepository config,
-            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Runnable emptyDockCleaner,
             final Consumer<String> logLevelChanged) {
-        this(config, dockMaintenance, logLevelChanged, ignored -> {});
+        this(config, emptyDockCleaner, logLevelChanged, ignored -> {});
     }
 
     RuntimeSettingsFileService(
             final RuntimeConfigRepository config,
-            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Runnable emptyDockCleaner,
             final Consumer<String> logLevelChanged,
             final IntConsumer logStorageLimitChanged) {
         this.config = Objects.requireNonNull(config, "config");
-        this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
+        this.emptyDockCleaner = Objects.requireNonNull(emptyDockCleaner, "emptyDockCleaner");
         this.logLevelChanged = Objects.requireNonNull(logLevelChanged, "logLevelChanged");
         this.logStorageLimitChanged = Objects.requireNonNull(logStorageLimitChanged, "logStorageLimitChanged");
     }
@@ -184,7 +179,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
 
     @Override
     public DockCleanupResult cleanEmptyDocks() {
-        dockMaintenance.cleanEmptyDocks();
+        emptyDockCleaner.run();
         return new DockCleanupResult("Empty dock cleanup completed.");
     }
 }

@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import dev.turboism.adapter.cubism.profile.CubismAutoMeshUiProfile;
 import dev.turboism.automesh.AutoMeshAlgorithmCatalog;
 import dev.turboism.automesh.AutoMeshSelectionState;
 import dev.turboism.automesh.AutoMeshSelectorHost;
 import dev.turboism.automesh.AutoMeshSelectorSource;
 import dev.turboism.automesh.AutoMeshText;
+import dev.turboism.mapping.profile.CubismAutoMeshUiProfile;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmPreset;
 import dev.turboism.sdk.cubism.mesh.automesh.AutoMeshAlgorithm;

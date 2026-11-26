@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
 import dev.turboism.adapter.ui.AdapterHostException;
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.internal.Requirements;
 import dev.turboism.mapping.verification.ProjectWorkspaceAliases;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;

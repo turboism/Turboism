@@ -1,8 +1,8 @@
 package dev.turboism.automesh;
 
-import dev.turboism.adapter.cubism.profile.CubismAutoMeshUiProfile;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.mapping.profile.CubismAutoMeshUiProfile;
 import dev.turboism.sdk.cubism.mesh.automesh.AlgorithmParameterDescriptor;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;

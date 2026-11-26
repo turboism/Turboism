@@ -10,9 +10,9 @@
     "testOnlyEdges": 99,
     "nonTestModuleCycles": 0,
     "directProductionPluginEdges": 0,
-    "runtimeTopPackages": 35,
-    "runtimeTopPackageEdges": 156,
-    "runtimeTopPackageCycles": 1,
+    "runtimeTopPackages": 36,
+    "runtimeTopPackageEdges": 159,
+    "runtimeTopPackageCycles": 0,
     "runtimeLeafPackageCycles": 0,
     "note": "Static Gradle and import DAGs enforce build and classloader boundaries; they never prove runtime functional independence across shared host state, events, or storage."
   },
@@ -338,7 +338,7 @@
       "modules": [":runtime", ":plugins:atlas-maxrects-bssf", ":plugins:atlas-bitmask-nesting", ":plugins:atlas-dalsoo-polygon", ":plugins:atlas-folder-layout", ":plugins:external-psd-edit", ":plugins:psd-clip-mask-import", ":plugins:protected-export", ":plugins:webdav-backup"],
       "codePaths": [
         "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/TextureAtlasLayoutCoordinator.java",
-        "runtime/src/main/java/dev/turboism/core/runtime/psd/RuntimePsdReplaceService.java"
+        "runtime/src/main/java/dev/turboism/psd/RuntimePsdReplaceService.java"
       ]
     },
     {
@@ -757,12 +757,12 @@
     {
       "frId": "FR14", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
       "effectSummary": "PSD replacement and clip-mask updates coordinate with EditorAuthoringTransactionCoordinator and model generations.",
-      "evidencePaths": ["runtime/src/main/java/dev/turboism/core/runtime/psd/RuntimePsdReplaceService.java"]
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/psd/RuntimePsdReplaceService.java"]
     },
     {
       "frId": "FR14", "dpId": "DP14", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
       "effectSummary": "Atlas coordinators, PSD services, ExportSettingsContributionService, and resource plugins process textures and exports.",
-      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/TextureAtlasLayoutCoordinator.java", "runtime/src/main/java/dev/turboism/core/runtime/psd/RuntimePsdReplaceService.java"]
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/TextureAtlasLayoutCoordinator.java", "runtime/src/main/java/dev/turboism/psd/RuntimePsdReplaceService.java"]
     },
     {
       "frId": "FR15", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",

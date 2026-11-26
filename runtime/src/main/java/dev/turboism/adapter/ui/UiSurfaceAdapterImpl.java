@@ -1,8 +1,10 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
+import dev.turboism.ui.surface.UiSurfaceAdapter;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;

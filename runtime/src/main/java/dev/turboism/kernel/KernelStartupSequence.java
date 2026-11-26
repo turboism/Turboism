@@ -154,7 +154,7 @@ final class KernelStartupSequence {
             RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
             ingress = new HostRuntimeIngress(
                     effectiveLocale::get,
-                    new dev.turboism.config.ConfigTextureAtlasSelectionStore(
+                    new dev.turboism.adapter.cubism.textureatlas.ConfigTextureAtlasSelectionStore(
                             home, diagnostic -> log.warn("config", diagnostic)));
             startupTimer.completed("appearance-and-services", message -> log.info("startup", message));
 

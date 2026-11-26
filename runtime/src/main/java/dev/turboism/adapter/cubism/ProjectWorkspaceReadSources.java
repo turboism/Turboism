@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism;
 
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.hostread.ProjectWorkspaceHostReadResult;
 import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.sdk.hostread.AsyncHostReadErrorCode;

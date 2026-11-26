@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.UiHostStateSource;
+import dev.turboism.ui.surface.UiSurfaceAdapter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;

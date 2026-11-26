@@ -1,6 +1,5 @@
 package dev.turboism.ui.workspace;
 
-import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
@@ -43,7 +42,7 @@ public final class RuntimeWorkspaceService implements WorkspaceService, AutoClos
     @Override
     public CompletionStage<WorkspaceStatus> current() {
         if (closed) return CompletableFuture.completedFuture(UNAVAILABLE_STATUS);
-        permissionChecker.check(CubismFacadeImpl.PROJECT_READ_PERMISSION, "ui.workspace.current");
+        permissionChecker.check(PermissionIds.TURBOISM_CUBISM_PROJECT_READ, "ui.workspace.current");
         return CompletableFuture.completedFuture(admitOnEdt(() -> {
             if (closed) return UNAVAILABLE_STATUS;
             return coordinator.current();

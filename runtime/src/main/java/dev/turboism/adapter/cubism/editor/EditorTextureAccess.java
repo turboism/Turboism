@@ -2,11 +2,11 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringWriter;
-import dev.turboism.core.runtime.psd.PsdExportHost;
-import dev.turboism.core.runtime.psd.PsdReplaceHost;
-import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
+import dev.turboism.psd.PsdExportHost;
+import dev.turboism.psd.PsdReplaceHost;
+import dev.turboism.psd.PsdSessionBoundHost;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;

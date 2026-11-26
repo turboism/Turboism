@@ -1,0 +1,271 @@
+package dev.turboism.config;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.config.PerformanceSettingsConfig;
+import dev.turboism.core.schema.SchemaValidationError;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+class RuntimeConfigValidatorTest {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String FORMAT = "turboism.runtime.config";
+
+    private final RuntimeConfigValidator validator = new RuntimeConfigValidator();
+
+    private ObjectNode base() {
+        final ObjectNode root = JSON.createObjectNode();
+        root.put("format", FORMAT);
+        root.put("schemaVersion", 1);
+        root.put("worktreeId", "validator-test");
+        root.putArray("pluginDirs").add("plugins");
+        root.put("logLevel", "INFO");
+        root.put("maxLogStorageMiB", 100);
+        root.put("safeMode", false);
+        final ObjectNode hooks = root.putObject("hooks");
+        hooks.putArray("disabledIds");
+        hooks.putArray("denylistedClasses");
+        return root;
+    }
+
+    private List<String> codes(final ObjectNode root) {
+        return validator.validate(root, "test.json").stream()
+                .map(SchemaValidationError::code)
+                .toList();
+    }
+
+    @Test
+    void acceptsSeparateExportSaveDirectoryFlag() {
+        final ObjectNode root = base();
+        root.withObject("hooks").withObject("startup").put("separateExportSaveDirectory", true);
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void acceptsOptionalUseTextIconBoolean() {
+        final ObjectNode root = base();
+        root.put("useTextIcon", true);
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void acceptsOptionalReduceAutoBackupBoolean() {
+        final ObjectNode root = base();
+        root.put("reduceAutoBackup", true);
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void acceptsGuidePreferenceAndRejectsUnknownOrNonBooleanValues() {
+        final ObjectNode accepted = base();
+        accepted.withObject("guide").put("showOnStartup", false);
+        assertTrue(validator.validate(accepted, "test.json").isEmpty());
+
+        final ObjectNode nonBoolean = base();
+        nonBoolean.withObject("guide").put("showOnStartup", "false");
+        assertTrue(codes(nonBoolean).contains("RUNTIME_CONFIG_BAD_TYPE"));
+
+        final ObjectNode unknownChild = base();
+        unknownChild.withObject("guide").put("mystery", true);
+        assertTrue(codes(unknownChild).contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
+    }
+
+    @Test
+    void acceptsEdgeIndexBooleansAndRejectsNonBooleanValues() {
+        for (final boolean value : new boolean[] {false, true}) {
+            final ObjectNode root = base();
+            root.put("meshTriangulationEdgeIndex", value);
+            assertTrue(validator.validate(root, "test.json").isEmpty());
+            assertTrue(validator.validateForRead(root, "test.json").isEmpty());
+        }
+        final ObjectNode invalid = base();
+        invalid.put("meshTriangulationEdgeIndex", "false");
+        assertTrue(codes(invalid).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void acceptsCubismJvmLauncherSelection() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("cubismJvm", "graalvm");
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void acceptsOptionalCustomGraalVmPath() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("graalVmPath", "C:\\Program Files\\GraalVM\\bin\\java.exe");
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void rejectsBlankOrNonTextCustomGraalVmPath() {
+        final ObjectNode blank = base();
+        blank.withObject("launcher").put("graalVmPath", "  ");
+        final ObjectNode nonText = base();
+        nonText.withObject("launcher").put("graalVmPath", 42);
+
+        assertTrue(codes(blank).contains("RUNTIME_CONFIG_BAD_GRAALVM_PATH"));
+        assertTrue(codes(nonText).contains("RUNTIME_CONFIG_BAD_GRAALVM_PATH"));
+    }
+
+    @Test
+    void rejectsUnknownCubismJvmLauncherSelection() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("cubismJvm", "other");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_CUBISM_JVM"));
+    }
+
+    @Test
+    void rejectsNonBooleanZgcLauncherFlag() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("zgc", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_ZGC"));
+
+        final ObjectNode valid = base();
+        valid.withObject("launcher").put("zgc", true);
+        assertTrue(codes(valid).isEmpty());
+    }
+
+    @Test
+    void acceptsEverySupportedMemoryProfile() {
+        for (final String profile : new String[] {"system", "balanced4g", "balanced4gFastSoft"}) {
+            final ObjectNode root = base();
+            root.withObject("launcher").put("memoryProfile", profile);
+            assertTrue(validator.validate(root, "test.json").isEmpty(), profile);
+        }
+    }
+
+    @Test
+    void rejectsUnsupportedOrNonTextualMemoryProfileOnWrite() {
+        final ObjectNode unknown = base();
+        unknown.withObject("launcher").put("memoryProfile", "extreme16g");
+        final ObjectNode nonText = base();
+        nonText.withObject("launcher").put("memoryProfile", 42);
+
+        assertTrue(codes(unknown).contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
+        assertTrue(codes(nonText).contains("RUNTIME_CONFIG_BAD_MEMORY_PROFILE"));
+    }
+
+    @Test
+    void toleratesUnsupportedMemoryProfileOnRead() {
+        final ObjectNode unknown = base();
+        unknown.withObject("launcher").put("memoryProfile", "extreme16g");
+        final ObjectNode nonText = base();
+        nonText.withObject("launcher").put("memoryProfile", 42);
+
+        assertTrue(validator.validateForRead(unknown, "test.json").isEmpty());
+        assertTrue(validator.validateForRead(nonText, "test.json").isEmpty());
+    }
+
+    @Test
+    void rejectsNonBooleanOptimizationLauncherFlags() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("modelUpdateSkip", "no");
+        root.withObject("launcher").put("incrementalUpdate", 1);
+        root.withObject("launcher").put("meshInterpolation", "invalid");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN"));
+
+        final ObjectNode valid = base();
+        valid.withObject("launcher").put("modelUpdateSkip", false);
+        valid.withObject("launcher").put("incrementalUpdate", true);
+        valid.withObject("launcher").put("meshInterpolation", false);
+        assertTrue(codes(valid).isEmpty());
+    }
+
+    @Test
+    void rejectsUnknownStartupField() {
+        final ObjectNode root = base();
+        root.withObject("hooks").withObject("startup").put("unknownStartupFlag", true);
+
+        final List<String> codes = codes(root);
+        assertTrue(codes.contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
+    }
+
+    @Test
+    void rejectsFileChooserHistorySectionAsUnknownField() {
+        final ObjectNode root = base();
+        root.putObject("fileChooserHistory").put("exportRecentDirectory", "C:/exports");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
+    }
+
+    @Test
+    void acceptsAbsentSections() {
+        assertTrue(validator.validate(base(), "test.json").isEmpty());
+    }
+
+    @Test
+    void rejectsUnknownTopLevelField() {
+        final ObjectNode root = base();
+        root.put("mysteryField", 1);
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_UNKNOWN_FIELD"));
+    }
+
+    @Test
+    void rejectsSeparateExportFlagOfWrongType() {
+        final ObjectNode root = base();
+        root.withObject("hooks").withObject("startup").put("separateExportSaveDirectory", "yes");
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void rejectsUseTextIconOfWrongType() {
+        final ObjectNode root = base();
+        root.put("useTextIcon", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void rejectsReduceAutoBackupOfWrongType() {
+        final ObjectNode root = base();
+        root.put("reduceAutoBackup", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void rejectsPluginDirectoriesThatAreNotStringArrays() {
+        final ObjectNode scalar = base();
+        scalar.put("pluginDirs", "plugins");
+        final ObjectNode nonTextEntry = base();
+        nonTextEntry.putArray("pluginDirs").add(42);
+
+        assertTrue(codes(scalar).contains("RUNTIME_CONFIG_BAD_TYPE"));
+        assertTrue(codes(nonTextEntry).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void acceptsPositiveOptimizationDefaultsVersionAndRejectsInvalidValues() {
+        for (final int version : new int[] {1, PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION, 3}) {
+            final ObjectNode accepted = base();
+            accepted.put("optimizationDefaultsVersion", version);
+            assertTrue(validator.validate(accepted, "test.json").isEmpty(), "write version=" + version);
+            assertTrue(validator.validateForRead(accepted, "test.json").isEmpty(), "read version=" + version);
+        }
+
+        for (final Object bad : new Object[] {0, -1, "1", true}) {
+            final ObjectNode invalid = base();
+            if (bad instanceof Integer integer) {
+                invalid.put("optimizationDefaultsVersion", integer);
+            } else if (bad instanceof String text) {
+                invalid.put("optimizationDefaultsVersion", text);
+            } else if (bad instanceof Boolean bool) {
+                invalid.put("optimizationDefaultsVersion", bool);
+            }
+            assertTrue(codes(invalid).contains("RUNTIME_CONFIG_BAD_TYPE"), "bad=" + bad);
+        }
+    }
+}

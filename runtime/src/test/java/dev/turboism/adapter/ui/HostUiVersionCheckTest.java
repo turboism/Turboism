@@ -3,6 +3,7 @@ package dev.turboism.adapter.ui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import org.junit.jupiter.api.Test;
 
 class HostUiVersionCheckTest {

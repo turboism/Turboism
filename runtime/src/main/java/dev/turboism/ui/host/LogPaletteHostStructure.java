@@ -1,6 +1,6 @@
 package dev.turboism.ui.host;
 
-import dev.turboism.adapter.cubism.profile.CubismPaletteHostProfile;
+import dev.turboism.mapping.profile.CubismPaletteHostProfile;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;

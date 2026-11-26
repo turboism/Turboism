@@ -3,7 +3,7 @@ package dev.turboism.adapter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;

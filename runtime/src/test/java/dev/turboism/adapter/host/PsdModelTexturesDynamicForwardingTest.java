@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.psd.PsdExportHost;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.AtlasTexture;

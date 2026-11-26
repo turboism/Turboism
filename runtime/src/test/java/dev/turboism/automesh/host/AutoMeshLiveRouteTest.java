@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import dev.turboism.adapter.cubism.profile.CubismAutoMeshUiProfile;
+import dev.turboism.mapping.profile.CubismAutoMeshUiProfile;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

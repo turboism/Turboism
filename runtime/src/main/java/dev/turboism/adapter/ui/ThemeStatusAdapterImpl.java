@@ -1,5 +1,6 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.diagnostics.SafeModeDiagnostic;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import java.util.Objects;
 import java.util.Optional;
