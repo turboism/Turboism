@@ -1,6 +1,7 @@
 package dev.turboism.ui.mesh;
 
 import dev.turboism.adapter.cubism.mesh.MeshToolCoordinator;
+import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
@@ -59,6 +60,14 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     private static final String ICON_CREATE = "cubism.ui-main-toolbar.icon.create";
     private static final String MESH_BUTTON_PREFIX = "turboism:mesh:";
     private static final String MESH_TOOL_PANEL_PANEL = "cubism.ui-main-toolbar.mesh-tool-panel.panel";
+    private static final String VBOX_CREATE = "cubism.ui-main-toolbar.vbox.create";
+    private static final String LABEL_CREATE = "cubism.ui-status-bar.label.create";
+    private static final String MIRROR_FOLDING_PANE = "mirrorEditFoldingPane";
+    private static final String SLIDER_ROW_SUFFIX = ":row";
+    private static final int TITLE_INDEX = 0;
+    private static final int SLIDER_INDEX = 1;
+    private static final int SLIDER_WIDTH = 140;
+    private static final int SLIDER_HEIGHT = 24;
     private static final String SLIDER_CLASS = "cubism.ui-main-toolbar.slider.class";
     private static final String SLIDER_CREATE = "cubism.ui-main-toolbar.slider.create";
     private static final String SLIDER_VALUE = "cubism.ui-main-toolbar.slider.value";
@@ -158,15 +167,20 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     private SliderHandle installSlider(
             final MeshToolbarSliderContributionDescriptor contribution,
             final java.util.function.IntConsumer onChanged) {
-        final Object panel = resolvePanel();
+        final Object toolPanel = resolveToolPanel();
+        final Object panel = panelContainer(toolPanel);
         final List<?> children = children(panel);
+        final Object mirrorPane = ReflectAccess.readField(toolPanel, MIRROR_FOLDING_PANE);
+        final int mirrorIndex = identityIndexOf(children, mirrorPane);
+        if (mirrorIndex < 0) throw new IllegalStateException("mesh-toolbar mirror section is unavailable");
         final String nativeId = MESH_SLIDER_PREFIX
                 + contribution.pluginId()
                 + ":"
                 + contribution.pluginGeneration()
                 + ":"
                 + contribution.controlId();
-        if (children.stream().anyMatch(widget -> nativeId.equals(resolver.invoke(WIDGET_NAME, widget)))) {
+        final String rowId = nativeId + SLIDER_ROW_SUFFIX;
+        if (children.stream().anyMatch(widget -> rowId.equals(resolver.invoke(WIDGET_NAME, widget)))) {
             throw new IllegalStateException("mesh-toolbar slider contribution is already materialized");
         }
 
@@ -180,20 +194,38 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         resolver.invoke(SLIDER_SET_VALUE, slider, contribution.currentValue());
         resolver.invoke(WIDGET_SET_NAME, slider, nativeId);
         resolver.invoke(WIDGET_SET_TOOLTIP, slider, contribution.label());
-        resolver.invoke(WIDGET_SET_PREF_WIDTH, slider, 140);
-        resolver.invoke(WIDGET_SET_PREF_HEIGHT, slider, 24);
+        resolver.invoke(WIDGET_SET_PREF_WIDTH, slider, SLIDER_WIDTH);
+        resolver.invoke(WIDGET_SET_PREF_HEIGHT, slider, SLIDER_HEIGHT);
         final Object callback = resolver.createFunctionalArgumentProxy(SLIDER_SET_ON_CHANGED, 0, ignored -> {
             onChanged.accept(valueOf(slider));
             return kotlinUnit();
         });
         resolver.invoke(SLIDER_SET_ON_CHANGED, slider, callback);
 
-        resolver.invoke(CONTAINER_ADD, panel, slider, children.size());
+        final Object row = resolver.construct(VBOX_CREATE);
+        final Object title = resolver.construct(LABEL_CREATE, contribution.label());
+        resolver.invoke(WIDGET_SET_NAME, row, rowId);
+        resolver.invoke(CONTAINER_ADD, row, title, TITLE_INDEX);
+        resolver.invoke(CONTAINER_ADD, row, slider, SLIDER_INDEX);
+        final JComponent rowPeer = Objects.requireNonNull(peer(row), "mesh-toolbar slider row peer");
+        rowPeer.setVisible(false);
+        resolver.invoke(CONTAINER_ADD, panel, row, mirrorIndex);
         final JComponent themedRoot = themeControls(panel);
         refresh(panel);
 
         final AtomicBoolean closed = new AtomicBoolean();
         return new SliderHandle() {
+            @Override
+            public void setVisible(final boolean visible) {
+                onEdt(() -> {
+                    if (!closed.get() && rowPeer.isVisible() != visible) {
+                        rowPeer.setVisible(visible);
+                        refresh(panel);
+                    }
+                    return null;
+                });
+            }
+
             @Override
             public int value() {
                 return onEdt(() -> valueOf(slider));
@@ -213,7 +245,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                     return;
                 }
                 onEdtEventually(() -> {
-                    resolver.invoke(CONTAINER_REMOVE, panel, slider);
+                    resolver.invoke(CONTAINER_REMOVE, panel, row);
                     releaseControls(themedRoot);
                     refresh(panel);
                 });
@@ -229,7 +261,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         return number.intValue();
     }
 
-    private Object resolvePanel() {
+    private Object resolveToolPanel() {
         final Object instance = resolver.readStaticField(MESH_TOOL_MODE_INSTANCE);
         if (instance == null) {
             throw new IllegalStateException("mesh-toolbar tool mode is unavailable");
@@ -238,6 +270,10 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         if (panel == null) {
             throw new IllegalStateException("mesh-toolbar tool panel is unavailable");
         }
+        return panel;
+    }
+
+    private Object panelContainer(final Object panel) {
         final Object container = resolver.invoke(MESH_TOOL_PANEL_PANEL, panel);
         if (container == null) {
             throw new IllegalStateException("mesh-toolbar slider anchor container is unavailable");
@@ -660,7 +696,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
      */
     private Object toolPanelOrNull() {
         try {
-            return resolvePanel();
+            return panelContainer(resolveToolPanel());
         } catch (RuntimeException failure) {
             FatalErrors.rethrowIfFatal(failure);
             return null;

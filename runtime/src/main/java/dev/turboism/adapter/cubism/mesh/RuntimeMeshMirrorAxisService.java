@@ -15,6 +15,8 @@ public final class RuntimeMeshMirrorAxisService {
     private MeshMirrorGeometry.Line cachedLine;
     private long cachedGeneration = -1;
     private float handleOffset;
+    private Point selectionCenter;
+    private float nativePosition;
 
     /** Returns the axis angle in degrees, normalized to one half-open turn. */
     public float currentAngleDegrees() {
@@ -43,6 +45,35 @@ public final class RuntimeMeshMirrorAxisService {
     synchronized void observeAxis(
             final float axisValue, final boolean vertical, final float pivotX, final float pivotY) {
         if (!Float.isFinite(axisValue) || !Float.isFinite(pivotX) || !Float.isFinite(pivotY)) return;
+        selectionCenter = null;
+        nativePosition = axisValue;
+        updateAxis(axisValue, vertical, pivotX, pivotY);
+    }
+
+    @SuppressWarnings("ReferenceEquality")
+    synchronized boolean observeSelectionAxis(final float axisValue, final boolean vertical, final Point center) {
+        final boolean recenter = selectionCenter != center || axisState == null || axisState.vertical() != vertical;
+        final float position = recenter
+                ? vertical ? center.x() : center.y()
+                : axisValue == nativePosition ? axisState.axisValue() : axisValue;
+        if (recenter) handleOffset = 0.0f;
+        selectionCenter = center;
+        nativePosition = axisValue;
+        updateAxis(position, vertical, center.x(), center.y());
+        return recenter && position != axisValue;
+    }
+
+    @SuppressWarnings("ReferenceEquality")
+    synchronized boolean needsNativeCenter(final Point center, final float observedPosition, final float position) {
+        return selectionCenter == center && nativePosition == observedPosition && axisState.axisValue() == position;
+    }
+
+    synchronized void acceptNativeCenter(
+            final Point center, final float observedPosition, final float position, final float actual) {
+        if (needsNativeCenter(center, observedPosition, position)) nativePosition = actual;
+    }
+
+    private void updateAxis(final float axisValue, final boolean vertical, final float pivotX, final float pivotY) {
         final AxisState next = new AxisState(axisValue, vertical, pivotX, pivotY);
         if (!next.equals(axisState)) {
             if (axisState != null && axisState.vertical() != vertical) handleOffset = 0.0f;
@@ -65,6 +96,7 @@ public final class RuntimeMeshMirrorAxisService {
 
     synchronized void clearPivot() {
         handleOffset = 0.0f;
+        selectionCenter = null;
         if (axisState != null) {
             axisState = null;
             generation++;
@@ -72,7 +104,9 @@ public final class RuntimeMeshMirrorAxisService {
     }
 
     synchronized MeshMirrorGeometry.Line resolveLine() {
-        return angleDegrees == 0.0f ? null : guideLine();
+        return angleDegrees != 0.0f || (selectionCenter != null && axisState.axisValue() != nativePosition)
+                ? guideLine()
+                : null;
     }
 
     synchronized Line guideLine() {
@@ -106,10 +140,12 @@ public final class RuntimeMeshMirrorAxisService {
         return new Placement(originValue + normalOffset, dx * direction.x() + dy * direction.y());
     }
 
-    synchronized void applyPlacement(final Placement placement, final float actualPosition) {
+    synchronized void applyPlacement(final Placement placement, final float actualPosition, final float angle) {
         if (axisState == null) return;
         handleOffset = placement.handleOffset();
-        observeAxis(actualPosition, axisState.vertical(), axisState.pivotX(), axisState.pivotY());
+        nativePosition = actualPosition;
+        setCurrentAngleDegrees(angle);
+        updateAxis(placement.position(), axisState.vertical(), axisState.pivotX(), axisState.pivotY());
     }
 
     synchronized long generation() {
@@ -126,6 +162,7 @@ public final class RuntimeMeshMirrorAxisService {
     public synchronized void resetSession() {
         angleDegrees = 0.0f;
         axisState = null;
+        selectionCenter = null;
         handleOffset = 0.0f;
         generation++;
     }
