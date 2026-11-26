@@ -281,7 +281,7 @@ function New-ManagedGraalConfig {
         $document = [pscustomobject]@{
             format = "turboism.runtime.config"
             schemaVersion = 1
-            optimizationDefaultsVersion = 1
+            optimizationDefaultsVersion = $script:CurrentOptimizationDefaultsVersion
             worktreeId = "turboism-runtime"
             pluginDirs = @("plugins")
             useTextIcon = $false

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.config.PerformanceSettingsConfig;
 import dev.turboism.core.schema.SchemaValidationError;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -248,9 +249,12 @@ class RuntimeConfigValidatorTest {
 
     @Test
     void acceptsPositiveOptimizationDefaultsVersionAndRejectsInvalidValues() {
-        final ObjectNode accepted = base();
-        accepted.put("optimizationDefaultsVersion", 1);
-        assertTrue(validator.validate(accepted, "test.json").isEmpty());
+        for (final int version : new int[] {1, PerformanceSettingsConfig.CURRENT_OPTIMIZATION_DEFAULTS_VERSION, 3}) {
+            final ObjectNode accepted = base();
+            accepted.put("optimizationDefaultsVersion", version);
+            assertTrue(validator.validate(accepted, "test.json").isEmpty(), "write version=" + version);
+            assertTrue(validator.validateForRead(accepted, "test.json").isEmpty(), "read version=" + version);
+        }
 
         for (final Object bad : new Object[] {0, -1, "1", true}) {
             final ObjectNode invalid = base();

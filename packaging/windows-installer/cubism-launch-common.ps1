@@ -23,6 +23,32 @@ $script:CubismArtifactProbeTimeoutMilliseconds = 20000
 $script:CubismMaxScanResults = 256
 $script:CubismMaxScanEntries = 4096
 $script:CubismMaxScanDrives = 26
+$script:UnversionedOptimizationDefaultsVersion = 0
+$script:V1OptimizationDefaultsVersion = 1
+$script:CurrentOptimizationDefaultsVersion = 2
+$script:MesaGlThreadField = "mesaGlThread"
+$script:CubismRootOptimizationFields = @(
+    "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse", "meshTriangulationEdgeIndex",
+    "atlasLoading", "atlasInteractiveRender", "triangulationSpatialIndex",
+    "modelOpenAcceleration", "runtimeExportAcceleration", "meshEditAcceleration", "memoryLeakMitigation"
+)
+$script:CubismLauncherOptimizationFields = @(
+    "modelUpdateSkip", "incrementalUpdate", "incrementalUpdateAffecters", "uniformLocationCache",
+    "uploadElision", "meshSetupElision", "inputPathElision", "mesaGlThread", "asyncReadback",
+    "meshInterpolation", "shaderUniform", "matrixScratch", "imageArchiveReuse",
+    "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection",
+    "reinitPairElision", "clipMaskDeduplication", "clipMaskScissorClear",
+    "extendedInterpolationIncrementalSetup", "modelInstanceCoalesce", "inspectorPropertyBypass",
+    "extendedInterpolationSiblingElision", "warpGridInterpolation", "warpNormalPointElision",
+    "cameraMatrixCache", "renderPassTraversal", "meshHitTest", "sceneHandlerCache",
+    "cursorValidationElision", "parameterRowRepaint", "warpDeformEditAcceleration"
+)
+$script:CubismLegacyPromotedDefaultOffFields = @(
+    "mesaGlThread", "meshInterpolation", "shaderUniform", "matrixScratch",
+    "modelInstanceCoalesce", "extendedInterpolationSiblingElision", "warpGridInterpolation",
+    "warpNormalPointElision", "cameraMatrixCache", "renderPassTraversal",
+    "meshHitTest", "sceneHandlerCache", "cursorValidationElision", "parameterRowRepaint"
+)
 
 function ConvertTo-CubismCanonicalRoot {
     param([string]$Root)
@@ -2236,6 +2262,67 @@ function Read-CubismMeshTriangulationEdgeIndexPreference {
     return [bool]$setting.Value
 }
 
+function Test-CubismConfigIntegerToken {
+    param([object]$Value)
+
+    return $Value -is [byte] -or $Value -is [sbyte] `
+        -or $Value -is [int16] -or $Value -is [uint16] `
+        -or $Value -is [int32] -or $Value -is [uint32] `
+        -or $Value -is [int64] -or $Value -is [uint64]
+}
+
+function Get-CubismOptimizationDefaultsVersion {
+    param([pscustomobject]$Document)
+
+    $property = $Document.PSObject.Properties["optimizationDefaultsVersion"]
+    if ($null -eq $property) { return $script:UnversionedOptimizationDefaultsVersion }
+    $parsed = 0L
+    if ($null -eq $property.Value `
+        -or -not (Test-CubismConfigIntegerToken $property.Value) `
+        -or -not [long]::TryParse([string]$property.Value, [ref]$parsed) `
+        -or $parsed -lt $script:V1OptimizationDefaultsVersion) {
+        throw "Turboism optimizationDefaultsVersion setting is invalid"
+    }
+    return $parsed
+}
+
+function Test-CubismHasEnabledOptimization {
+    param([pscustomobject]$Document)
+
+    foreach ($field in $script:CubismRootOptimizationFields) {
+        $property = $Document.PSObject.Properties[$field]
+        if ($null -ne $property -and $property.Value -is [bool] -and $property.Value) {
+            return $true
+        }
+    }
+    $launcherProperty = $Document.PSObject.Properties["launcher"]
+    if ($null -ne $launcherProperty -and $launcherProperty.Value -is [System.Management.Automation.PSCustomObject]) {
+        foreach ($field in $script:CubismLauncherOptimizationFields) {
+            $property = $launcherProperty.Value.PSObject.Properties[$field]
+            if ($null -ne $property -and $property.Value -is [bool] -and $property.Value) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+function Test-CubismExplicitOffPreset {
+    param([pscustomobject]$Document)
+
+    if (Test-CubismHasEnabledOptimization -Document $Document) { return $false }
+    $atlasLoading = $Document.PSObject.Properties["atlasLoading"]
+    if ($null -eq $atlasLoading -or $atlasLoading.Value -isnot [bool] -or $atlasLoading.Value) {
+        return $false
+    }
+    $launcherProperty = $Document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $launcherProperty.Value -isnot [System.Management.Automation.PSCustomObject]) {
+        return $false
+    }
+    $modelUpdateSkip = $launcherProperty.Value.PSObject.Properties["modelUpdateSkip"]
+    return ($null -ne $modelUpdateSkip -and $modelUpdateSkip.Value -is [bool] -and -not $modelUpdateSkip.Value)
+}
+
 function Read-CubismOptimizationPreference {
     param([string]$TurboismHome, [string]$Name)
     # Verified optimizations default on; opt-in, conflicting, workload trade-off, and
@@ -2261,12 +2348,38 @@ function Read-CubismOptimizationPreference {
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
+    if ($null -eq $document -or $document -isnot [System.Management.Automation.PSCustomObject]) {
+        throw "Turboism config must be an object"
+    }
+    $defaultsVersion = Get-CubismOptimizationDefaultsVersion -Document $document
     $launcherProperty = $document.PSObject.Properties["launcher"]
-    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return $defaultValue }
-    $setting = $launcherProperty.Value.PSObject.Properties[$Name]
-    if ($null -eq $setting) { return $defaultValue }
-    if ($setting.Value -isnot [bool]) { throw "Turboism launcher.$Name setting is invalid" }
-    return [bool]$setting.Value
+    $setting = $null
+    if ($null -ne $launcherProperty -and $null -ne $launcherProperty.Value) {
+        $setting = $launcherProperty.Value.PSObject.Properties[$Name]
+        if ($null -ne $setting -and $setting.Value -isnot [bool]) {
+            throw "Turboism launcher.$Name setting is invalid"
+        }
+    }
+    $persistedValue = if ($null -eq $setting) { $defaultValue } else { [bool]$setting.Value }
+    if ($defaultsVersion -ge $script:CurrentOptimizationDefaultsVersion) {
+        return $persistedValue
+    }
+    $explicitOff = Test-CubismExplicitOffPreset -Document $document
+    if ($explicitOff) {
+        return $(if ($null -eq $setting) { $false } else { [bool]$setting.Value })
+    }
+    if ($defaultsVersion -eq $script:V1OptimizationDefaultsVersion) {
+        if ($Name -ceq $script:MesaGlThreadField -and $null -ne $setting -and -not [bool]$setting.Value) {
+            return $true
+        }
+        return $persistedValue
+    }
+    if ((Test-CubismHasEnabledOptimization -Document $document) `
+        -and ($script:CubismLegacyPromotedDefaultOffFields -ccontains $Name) `
+        -and $null -ne $setting -and -not [bool]$setting.Value) {
+        return $true
+    }
+    return $persistedValue
 }
 
 function Read-CubismExplicitFalse {

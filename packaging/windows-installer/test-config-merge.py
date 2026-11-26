@@ -86,7 +86,10 @@ REAL_MODULES = load_manifest()
 
 CURRENT_SCHEMA = 1
 OPTIMIZATION_DEFAULTS_VERSION_FIELD = "optimizationDefaultsVersion"
-CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 1
+UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION = 0
+V1_OPTIMIZATION_DEFAULTS_VERSION = 1
+CURRENT_OPTIMIZATION_DEFAULTS_VERSION = 2
+MESA_GL_THREAD_FIELD = "mesaGlThread"
 V1_FIELDS = {
     "format", "schemaVersion", OPTIMIZATION_DEFAULTS_VERSION_FIELD,
     "worktreeId", "pluginDirs", "disabledPlugins",
@@ -353,11 +356,23 @@ def _is_explicit_off_preset(doc):
             and not _has_enabled_optimization(doc))
 
 
+def _optimization_defaults_version(doc):
+    if not isinstance(doc, dict):
+        return UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION
+    raw = doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD)
+    if type(raw) is not int or raw < V1_OPTIMIZATION_DEFAULTS_VERSION:
+        return UNVERSIONED_OPTIMIZATION_DEFAULTS_VERSION
+    return raw
+
+
 def migrate_optimization_defaults(doc):
-    if not isinstance(doc, dict) or OPTIMIZATION_DEFAULTS_VERSION_FIELD in doc:
+    if not isinstance(doc, dict):
+        return False
+    version = _optimization_defaults_version(doc)
+    if version >= CURRENT_OPTIMIZATION_DEFAULTS_VERSION:
         return False
     explicit_off = _is_explicit_off_preset(doc)
-    if not explicit_off and not _has_enabled_optimization(doc):
+    if version < V1_OPTIMIZATION_DEFAULTS_VERSION and not explicit_off and not _has_enabled_optimization(doc):
         return False
     launcher = dict(doc["launcher"]) if isinstance(doc.get("launcher"), dict) else {}
     if explicit_off:
@@ -367,7 +382,13 @@ def migrate_optimization_defaults(doc):
         for field in BOOLEAN_LAUNCHER_FIELDS - {"zgc"}:
             if type(launcher.get(field)) is not bool:
                 launcher[field] = False
-        doc["launcher"] = launcher
+        if launcher:
+            doc["launcher"] = launcher
+    elif version == V1_OPTIMIZATION_DEFAULTS_VERSION:
+        if launcher.get(MESA_GL_THREAD_FIELD) is False:
+            launcher[MESA_GL_THREAD_FIELD] = True
+        if launcher:
+            doc["launcher"] = launcher
     elif launcher:
         for field in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS:
             if launcher.get(field) is False:
@@ -615,9 +636,21 @@ def check_config_migration_contract():
           and "CONFIG_SELECTION_FAILED" in configure
           and "ConfigMigrationError" in section)
     launcher = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
-    check("CM8 v0.70.2 defaults migration and launcher parity hooks exist",
+    template = json.loads((INSTALLER_NSI.parent / "config.template.json").read_text(encoding="utf-8"))
+    graal_installer = (INSTALLER_NSI.parent / "install-managed-graal.ps1").read_text(encoding="utf-8")
+    java_merge = (
+        INSTALLER_NSI.parents[1] / "java-installer" / "listener-src"
+        / "dev" / "turboism" / "installer" / "ConfigMerge.java"
+    ).read_text(encoding="utf-8")
+    check("CM8 v0.70.2/v1 defaults migration and launcher parity hooks exist",
           "function Invoke-OptimizationDefaultsMigration" in configure
           and OPTIMIZATION_DEFAULTS_VERSION_FIELD in configure
+          and "$script:CurrentOptimizationDefaultsVersion = 2" in launcher
+          and "$script:MesaGlThreadField" in configure
+          and "$script:MesaGlThreadField" in launcher
+          and "$script:CurrentOptimizationDefaultsVersion" in graal_installer
+          and template.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION
+          and f"CURRENT_OPTIMIZATION_DEFAULTS_VERSION = {CURRENT_OPTIMIZATION_DEFAULTS_VERSION}L" in java_merge
           and 'Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "uniformLocationCache"' in launcher
           and 'Read-CubismExplicitFalse -TurboismHome $TurboismHome -Name "inspectorPropertyBypass"' in launcher
           and "# optimization-not-emitted:" in launcher
@@ -1715,7 +1748,7 @@ def main():
     doc = json.loads(out)
     check("T1 template fields", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
           and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
-          and doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1
+          and doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION
           and doc["launcher"] == {"cubismJvm": "graalvm"} and doc["useTextIcon"] is False
           and doc["guide"] == {"showOnStartup": True})
     check("T1 no disabledPlugins", "disabledPlugins" not in doc)
@@ -1874,9 +1907,9 @@ def main():
     out, backup = installer_write_config_with_backup("full", [], None)
     check("T9b fresh install creates no backup", backup is None)
 
-    # TM1: Real v0.70.2 Settings-saved config (13 promoted keys persisted false alongside enabled
-    # pre-existing optimizations) promotes the 13 keys, preserves default-off/unrelated opt-outs,
-    # records optimizationDefaultsVersion=1, and creates no corrupt backup.
+    # TM1: Real v0.70.2 Settings-saved config (14 promoted keys persisted false alongside enabled
+    # pre-existing optimizations) promotes the 14 keys, preserves default-off/unrelated opt-outs,
+    # records optimizationDefaultsVersion=2, and creates no corrupt backup.
     v0702_launcher = {
         "cubismJvm": "graalvm",
         "modelUpdateSkip": True,
@@ -1900,8 +1933,8 @@ def main():
     doc = json.loads(out)
     check("TM1 v0.70.2 migration creates no corrupt backup", backup is None)
     check("TM1 v0.70.2 migration records defaults version",
-          doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1)
-    check("TM1 all 13 promoted keys become True",
+          doc.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+    check("TM1 all 14 promoted keys become True",
           all(doc["launcher"].get(key) is True for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS))
     check("TM1 pre-existing opt-out and default-off keys remain False",
           doc["launcher"]["uploadElision"] is False
@@ -1910,7 +1943,7 @@ def main():
           and doc["launcher"]["incrementalUpdate"] is False)
 
     # TM2: Explicit OFF preset (modelUpdateSkip=False, atlasLoading=False, zero True flags)
-    # stays disabled across all switches and still records optimizationDefaultsVersion=1.
+    # stays disabled across all switches and still records optimizationDefaultsVersion=2.
     off_launcher = {"cubismJvm": "graalvm", "modelUpdateSkip": False}
     for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS:
         off_launcher[key] = False
@@ -1926,20 +1959,91 @@ def main():
     doc_off = json.loads(out_off)
     check("TM2 OFF preset migration creates no corrupt backup", backup_off is None)
     check("TM2 OFF preset preserves all false flags and sets defaults version",
-          doc_off.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == 1
+          doc_off.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION
           and all(doc_off["launcher"].get(key) is False for key in LEGACY_PROMOTED_DEFAULT_OFF_FIELDS)
           and doc_off["launcher"].get("warpDeformEditAcceleration") is False
           and doc_off.get("atlasInteractiveRender") is False)
 
     # TM3: Post-migration explicit false opt-out stays false idempotently.
     doc["launcher"]["warpGridInterpolation"] = False
+    doc["launcher"]["mesaGlThread"] = False
     post_migration = json.dumps(doc)
     re_upgraded = installer_write_config("full", [], post_migration)
     re_doc = json.loads(re_upgraded)
     check("TM3 post-migration explicit false opt-out never re-flips to True",
           re_upgraded == post_migration
           and re_doc["launcher"]["warpGridInterpolation"] is False
-          and re_doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD] == 1)
+          and re_doc["launcher"]["mesaGlThread"] is False
+          and re_doc[OPTIMIZATION_DEFAULTS_VERSION_FIELD] == CURRENT_OPTIMIZATION_DEFAULTS_VERSION)
+
+    # TM4: v0.70.3-beta.3 (optimizationDefaultsVersion=1) promotes ONLY mesaGlThread while
+    # keeping all other explicit v1 opt-outs verbatim.
+    v1_saved = json.dumps({
+        "format": "turboism.runtime.config",
+        "schemaVersion": 1,
+        OPTIMIZATION_DEFAULTS_VERSION_FIELD: V1_OPTIMIZATION_DEFAULTS_VERSION,
+        "worktreeId": "turboism-runtime",
+        "pluginDirs": ["plugins"],
+        "atlasLoading": True,
+        "launcher": {
+            "cubismJvm": "graalvm",
+            "modelUpdateSkip": True,
+            "mesaGlThread": False,
+            "shaderUniform": False,
+            "matrixScratch": False,
+            "uploadElision": False,
+            "uniformLocationCache": False,
+        },
+    })
+    out_v1, backup_v1 = installer_write_config_with_backup("full", [], v1_saved)
+    doc_v1 = json.loads(out_v1)
+    check("TM4 v1 migration creates no corrupt backup", backup_v1 is None)
+    check("TM4 v1 migration promotes only mesaGlThread and records defaults version 2",
+          doc_v1.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION
+          and doc_v1["launcher"].get("mesaGlThread") is True
+          and doc_v1["launcher"].get("shaderUniform") is False
+          and doc_v1["launcher"].get("matrixScratch") is False
+          and doc_v1["launcher"].get("uploadElision") is False
+          and doc_v1["launcher"].get("uniformLocationCache") is False)
+
+    # TM5: Minimal v1 config with mesaGlThread=False promotes mesaGlThread and stamps version 2.
+    v1_minimal = json.dumps({
+        "format": "turboism.runtime.config",
+        "schemaVersion": 1,
+        OPTIMIZATION_DEFAULTS_VERSION_FIELD: V1_OPTIMIZATION_DEFAULTS_VERSION,
+        "worktreeId": "turboism-runtime",
+        "pluginDirs": ["plugins"],
+        "launcher": {"cubismJvm": "graalvm", "mesaGlThread": False},
+    })
+    doc_v1_min = json.loads(installer_write_config("full", [], v1_minimal))
+    check("TM5 minimal v1 config promotes mesaGlThread to True",
+          doc_v1_min.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION
+          and doc_v1_min["launcher"].get("mesaGlThread") is True)
+
+    # TM6: v1 explicit OFF preset keeps mesaGlThread=False and stamps version 2.
+    v1_off = json.dumps({
+        "format": "turboism.runtime.config",
+        "schemaVersion": 1,
+        OPTIMIZATION_DEFAULTS_VERSION_FIELD: V1_OPTIMIZATION_DEFAULTS_VERSION,
+        "worktreeId": "turboism-runtime",
+        "pluginDirs": ["plugins"],
+        "atlasLoading": False,
+        "launcher": {
+            "cubismJvm": "graalvm",
+            "modelUpdateSkip": False,
+            "mesaGlThread": False,
+            "shaderUniform": False,
+        },
+    })
+    out_v1_off, backup_v1_off = installer_write_config_with_backup("full", [], v1_off)
+    doc_v1_off = json.loads(out_v1_off)
+    check("TM6 v1 OFF preset migration creates no corrupt backup", backup_v1_off is None)
+    check("TM6 v1 OFF preset keeps mesaGlThread=False and stamps version 2",
+          doc_v1_off.get(OPTIMIZATION_DEFAULTS_VERSION_FIELD) == CURRENT_OPTIMIZATION_DEFAULTS_VERSION
+          and doc_v1_off["launcher"].get("mesaGlThread") is False
+          and doc_v1_off["launcher"].get("shaderUniform") is False
+          and doc_v1_off["launcher"].get("warpDeformEditAcceleration") is False
+          and doc_v1_off.get("atlasInteractiveRender") is False)
 
     # ---- Plugin payload inventory simulation of the hidden payload section and the checkbox semantics ----
     # TI1: a fresh partial Full install with {a, c} unselected installs every JAR and writes disabledPlugins=[a,c]

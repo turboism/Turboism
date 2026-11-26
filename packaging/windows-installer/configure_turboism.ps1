@@ -793,10 +793,29 @@ function Save-RuntimeConfigPreNormalizeBackup {
     }
 }
 
+function Get-OptimizationDefaultsVersion {
+    param([pscustomobject]$Document)
+
+    if ($null -eq $Document) { return $script:UnversionedOptimizationDefaultsVersion }
+    $property = $Document.PSObject.Properties["optimizationDefaultsVersion"]
+    if ($null -eq $property -or $null -eq $property.Value) { return $script:UnversionedOptimizationDefaultsVersion }
+    $parsed = 0L
+    if ((Test-RuntimeConfigIntegerToken $property.Value) `
+        -and [long]::TryParse([string]$property.Value, [ref]$parsed) `
+        -and $parsed -ge $script:V1OptimizationDefaultsVersion) {
+        return $parsed
+    }
+    return $script:UnversionedOptimizationDefaultsVersion
+}
+
 function Invoke-OptimizationDefaultsMigration {
     param([pscustomobject]$Document)
 
-    if ($null -eq $Document -or $null -ne $Document.PSObject.Properties["optimizationDefaultsVersion"]) {
+    if ($null -eq $Document) {
+        return $false
+    }
+    $defaultsVersion = Get-OptimizationDefaultsVersion $Document
+    if ($defaultsVersion -ge $script:CurrentOptimizationDefaultsVersion) {
         return $false
     }
     $rootOptimizationFields = @(
@@ -847,7 +866,7 @@ function Invoke-OptimizationDefaultsMigration {
         -and ($null -ne $atlasLoadingProp -and $atlasLoadingProp.Value -is [bool] -and -not $atlasLoadingProp.Value) `
         -and ($null -ne $modelUpdateSkipProp -and $modelUpdateSkipProp.Value -is [bool] -and -not $modelUpdateSkipProp.Value)
 
-    if (-not $explicitOff -and -not $hasEnabled) {
+    if ($defaultsVersion -lt $script:V1OptimizationDefaultsVersion -and -not $explicitOff -and -not $hasEnabled) {
         return $false
     }
 
@@ -869,6 +888,14 @@ function Invoke-OptimizationDefaultsMigration {
             }
         }
     }
+    elseif ($defaultsVersion -eq $script:V1OptimizationDefaultsVersion) {
+        if ($null -ne $launcherObj) {
+            $p = $launcherObj.PSObject.Properties[$script:MesaGlThreadField]
+            if ($null -ne $p -and $p.Value -is [bool] -and -not $p.Value) {
+                $p.Value = $true
+            }
+        }
+    }
     elseif ($null -ne $launcherObj) {
         foreach ($name in $promotedLauncherFields) {
             $p = $launcherObj.PSObject.Properties[$name]
@@ -878,7 +905,7 @@ function Invoke-OptimizationDefaultsMigration {
         }
     }
 
-    $Document | Add-Member -NotePropertyName "optimizationDefaultsVersion" -NotePropertyValue 1 -Force
+    $Document | Add-Member -NotePropertyName "optimizationDefaultsVersion" -NotePropertyValue $script:CurrentOptimizationDefaultsVersion -Force
     return $true
 }
 
@@ -912,7 +939,7 @@ function Invoke-RuntimeConfigMigration {
     }
     Write-RuntimeConfigAtomic $migrated
     if ($wasValid) {
-        Write-Host "TURBOISM_CONFIG migrated-defaults optimizationDefaultsVersion=1"
+        Write-Host ("TURBOISM_CONFIG migrated-defaults optimizationDefaultsVersion={0}" -f $script:CurrentOptimizationDefaultsVersion)
     }
     else {
         Write-Host ("TURBOISM_CONFIG migrated from={0} to=1" -f $(if ($null -ne $schema) { $schema } else { "unknown" }))
@@ -996,7 +1023,7 @@ function Invoke-InstallerPluginSelection {
             $document = [pscustomobject][ordered]@{
                 format = "turboism.runtime.config"
                 schemaVersion = 1
-                optimizationDefaultsVersion = 1
+                optimizationDefaultsVersion = $script:CurrentOptimizationDefaultsVersion
                 worktreeId = "turboism-runtime"
                 pluginDirs = @("plugins")
                 useTextIcon = $false
@@ -1081,7 +1108,7 @@ function Invoke-InstallerPluginSelection {
         $document = [pscustomobject][ordered]@{
             format = "turboism.runtime.config"
             schemaVersion = 1
-            optimizationDefaultsVersion = 1
+            optimizationDefaultsVersion = $script:CurrentOptimizationDefaultsVersion
             worktreeId = "turboism-runtime"
             pluginDirs = @("plugins")
             useTextIcon = $false
@@ -1888,7 +1915,7 @@ $saveButton.Add_Click({
             Write-InstallerLog "BAT_INTEGRATION_RESTORED"
         }
 
-        $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; optimizationDefaultsVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
+        $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; optimizationDefaultsVersion = $script:CurrentOptimizationDefaultsVersion; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
         if ($null -ne $existingConfig) {
             $config.Remove("optimizationDefaultsVersion")
             foreach ($property in $existingConfig.PSObject.Properties) {

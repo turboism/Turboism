@@ -1,7 +1,7 @@
 {
   "format": "turboism.runtime.config",
   "schemaVersion": 1,
-  "optimizationDefaultsVersion": 1,
+  "optimizationDefaultsVersion": 2,
   "worktreeId": "turboism-runtime",
   "pluginDirs": ["plugins"],
   "useTextIcon": false,

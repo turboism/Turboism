@@ -220,6 +220,26 @@ if ($JdkParserOnly) {
         Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-Dturboism.optimization.mesaGlThread=false') "explicit mesaGlThread false emits =false on Windows"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
         Assert-ManagedLaunch (@((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) | Where-Object { $_ -match 'inputPathElision|mesaGlThread' }).Count -eq 0) "absent inputPathElision and default-on mesaGlThread emit nothing on native Windows"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"optimizationDefaultsVersion":1,"launcher":{"modelUpdateSkip":true,"mesaGlThread":false,"uploadElision":false}}')
+        $v1Tokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch (($v1Tokens -notcontains '-Dturboism.optimization.mesaGlThread=false') -and ($v1Tokens -contains '-Dturboism.optimization.uploadElision=false')) "v1 config promotes mesaGlThread while preserving other explicit opt-outs"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"optimizationDefaultsVersion":1,"launcher":{"mesaGlThread":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -notcontains '-Dturboism.optimization.mesaGlThread=false') "minimal v1 config promotes mesaGlThread to default-on"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"optimizationDefaultsVersion":1,"atlasLoading":false,"launcher":{"modelUpdateSkip":false,"mesaGlThread":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-Dturboism.optimization.mesaGlThread=false') "v1 OFF preset keeps mesaGlThread disabled"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"optimizationDefaultsVersion":2,"launcher":{"mesaGlThread":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-Dturboism.optimization.mesaGlThread=false') "v2 explicit mesaGlThread opt-out stays disabled"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"atlasLoading":true,"launcher":{"modelUpdateSkip":true,"mesaGlThread":false,"uploadElision":false}}')
+        $legacyTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch (($legacyTokens -notcontains '-Dturboism.optimization.mesaGlThread=false') -and ($legacyTokens -contains '-Dturboism.optimization.uploadElision=false')) "unversioned enabled config promotes mesaGlThread while keeping other opt-outs"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"atlasLoading":false,"launcher":{"modelUpdateSkip":false,"mesaGlThread":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-Dturboism.optimization.mesaGlThread=false') "unversioned OFF preset keeps mesaGlThread disabled"
+        foreach ($badDefaultsVer in @('0', '-1', '"1"', 'true', 'null')) {
+            [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), ('{"optimizationDefaultsVersion":' + $badDefaultsVer + '}'))
+            $defaultsVerInvalid = $false
+            try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $defaultsVerInvalid = $true }
+            Assert-ManagedLaunch $defaultsVerInvalid "invalid optimizationDefaultsVersion $badDefaultsVer fails closed"
+        }
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{}')
         Assert-ManagedLaunch ((Read-CubismMemoryProfile -TurboismHome $zgcHome) -eq "system") "absent launcher.memoryProfile defaults to system"
         Assert-ManagedLaunch ((Read-CubismMemoryProfile -TurboismHome "") -eq "system") "missing home resolves the memory profile to system"

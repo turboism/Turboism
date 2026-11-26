@@ -93,7 +93,7 @@ try {
     [void][System.IO.Directory]::CreateDirectory($emptyHome)
     [void](Install-ManagedGraalRuntime $emptyHome $goodManifest)
     $fresh = Get-Content -LiteralPath (Join-Path $emptyHome "config.json") -Raw | ConvertFrom-Json
-    Assert-InstallTest ($fresh.schemaVersion -eq 1 -and $fresh.launcher.graalVmPath -eq (Join-Path $emptyHome "graal/runtime")) "fresh installation creates compatible path configuration"
+    Assert-InstallTest ($fresh.schemaVersion -eq 1 -and $fresh.optimizationDefaultsVersion -eq 2 -and $fresh.launcher.graalVmPath -eq (Join-Path $emptyHome "graal/runtime")) "fresh installation creates compatible path configuration"
     Assert-InstallTest ($fresh.format -ceq "turboism.runtime.config" -and $fresh.worktreeId -ceq "turboism-runtime" -and $fresh.pluginDirs[0] -ceq "plugins") "fresh configuration includes mandatory runtime schema fields"
 
     $badHash = $goodManifest.Clone(); $badHash.Sha256 = "0" * 64
