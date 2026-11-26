@@ -1,0 +1,967 @@
+{
+  "format": "turboism-axiomatic-design-matrix-v1",
+  "baselineSnapshot": "d13148bc107f3046b14ee156844149a8ae687327",
+  "structuralBaseline": {
+    "inventoryPath": "docs/architecture/dependency-inventory.json",
+    "provesFunctionalIndependence": false,
+    "gradleGraphNodes": 50,
+    "pluginModules": 40,
+    "nonTestEdges": 93,
+    "testOnlyEdges": 99,
+    "nonTestModuleCycles": 0,
+    "directProductionPluginEdges": 0,
+    "runtimeTopPackages": 35,
+    "runtimeTopPackageEdges": 156,
+    "runtimeTopPackageCycles": 1,
+    "runtimeLeafPackageCycles": 0,
+    "note": "Static Gradle and import DAGs enforce build and classloader boundaries; they never prove runtime functional independence across shared host state, events, or storage."
+  },
+  "constraints": [
+    {
+      "id": "C1",
+      "title": "Host legal and binary integrity boundary",
+      "statement": "Never redistribute Cubism binaries, bypass license checks, or weave unverified host bytecode.",
+      "enforcementGates": ["checkModuleBoundaries", "checkRepositoryHygiene", ":bootstrap:test"],
+      "codePaths": [
+        "bootstrap/src/main/java/dev/turboism/bootstrap",
+        "docs/architecture/ARCHITECTURE.md"
+      ]
+    },
+    {
+      "id": "C2",
+      "title": "SDK isolation and ABI boundary",
+      "statement": "Restrict plugin dependencies to compileOnly :sdk without exposing com.live2d.*, runtime internals, or unapproved Swing and native handles.",
+      "enforcementGates": ["checkPluginBoundaries", "checkModuleBoundaries", "checkSdkApiCurrent", "checkPluginApiFloors"],
+      "codePaths": [
+        "sdk/api-contracts/current.txt",
+        "gradle/module-boundaries.gradle.kts"
+      ]
+    },
+    {
+      "id": "C3",
+      "title": "Exact-version fail-closed compatibility",
+      "statement": "Withdraw unverified capabilities per Cubism version without blocking official Editor startup or inventing fallback host state.",
+      "enforcementGates": ["checkReviewedReleases", "checkCompatibilityMatrix", ":compatibility-policy:test"],
+      "codePaths": [
+        "core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy",
+        "compatibility/cubism/reviewed-releases.json"
+      ]
+    },
+    {
+      "id": "C4",
+      "title": "Interactive responsiveness and bounded execution",
+      "statement": "Keep plugin callbacks, hooks, and background tasks within bounded queues, timeouts, and EDT dispatch budgets.",
+      "enforcementGates": ["checkCodeQuality", "checkThrowableContainment", ":runtime:admissionUnitTests"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java",
+        "runtime/src/main/java/dev/turboism/core/runtime/work/PluginWorkExecutorRegistry.java",
+        "runtime/src/main/java/dev/turboism/ui/host/EdtDispatch.java"
+      ]
+    },
+    {
+      "id": "C5",
+      "title": "Single Editor write truth and generation safety",
+      "statement": "Route attached-document mutations through host-thread Editor authoring transactions with native Undo parity and generation-bound stale rejection.",
+      "enforcementGates": ["devCheck", "checkIntegration"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/adapter/cubism/editor/transaction/EditorAuthoringTransactionCoordinator.java",
+        "runtime/src/main/java/dev/turboism/kernel/PluginGenerationGuard.java"
+      ]
+    }
+  ],
+  "domains": [
+    { "id": "D1", "name": "Secure host integration", "requirementIds": ["FR1"] },
+    { "id": "D2", "name": "Host version compatibility", "requirementIds": ["FR2"] },
+    { "id": "D3", "name": "Independent plugin lifecycle", "requirementIds": ["FR3"] },
+    { "id": "D4", "name": "Configuration and persistence", "requirementIds": ["FR4"] },
+    { "id": "D5", "name": "Editor responsiveness", "requirementIds": ["FR5"] },
+    { "id": "D6", "name": "UI extension", "requirementIds": ["FR6", "FR7"] },
+    { "id": "D7", "name": "Shared host authoring and state", "requirementIds": ["FR8"] },
+    { "id": "D8", "name": "Model and parameter editing", "requirementIds": ["FR9", "FR10", "FR11"] },
+    { "id": "D9", "name": "Mesh and geometry editing", "requirementIds": ["FR12", "FR13"] },
+    { "id": "D10", "name": "Texture, resource, and automation workflows", "requirementIds": ["FR14", "FR15"] }
+  ],
+  "requirements": [
+    {
+      "id": "FR1",
+      "domainId": "D1",
+      "statement": "Install, verify, and restore runtime bytecode hooks without blocking or corrupting official Cubism startup.",
+      "acceptanceCriterion": "Every hook proves target digests before registration, refuses unverified hosts cleanly, and restores original bytes on close.",
+      "verificationMethod": ":bootstrap:test and VerifiedInstall close-hash assertions"
+    },
+    {
+      "id": "FR2",
+      "domainId": "D2",
+      "statement": "Admit reviewed Cubism Editor versions and gate per-slice capabilities without cross-version selector drift.",
+      "acceptanceCriterion": "All 21 reviewed releases resolve exact capability sets offline, while unknown versions or missing aliases fail closed.",
+      "verificationMethod": ":compatibility-policy:test, checkCompatibilityMatrix, and :testing:integration-tests:admissionUnitTests"
+    },
+    {
+      "id": "FR3",
+      "domainId": "D3",
+      "statement": "Isolate plugin loading, service wiring, generation fencing, and teardown across concurrent plugins.",
+      "acceptanceCriterion": "Failing, disabling, or fencing one plugin generation revokes its handles and hooks while leaving neighbor plugins active.",
+      "verificationMethod": "LocalPluginRuntimeIntegrationTest and SharedEditorStateInteractionTest"
+    },
+    {
+      "id": "FR4",
+      "domainId": "D4",
+      "statement": "Persist, validate, migrate, and recover typed configuration and scoped plugin storage atomically.",
+      "acceptanceCriterion": "Valid schemas round-trip byte-deterministically, migrations capture pre-write recovery points, and failed migrations preserve prior bytes.",
+      "verificationMethod": ":persistence-core:test, :runtime:persistenceGoldenSnapshotsTest, and TypedConfigRecoveryPointTest"
+    },
+    {
+      "id": "FR5",
+      "domainId": "D5",
+      "statement": "Bound callback latency, background execution, and opt-in host render optimizations within interactive budgets.",
+      "acceptanceCriterion": "Scheduler queues enforce work budgets and timeouts, EDT handoffs avoid raw waits, and optimization hooks provide persisted kill switches.",
+      "verificationMethod": "checkCodeQuality, :runtime:admissionUnitTests, and checkPerformanceProbeReports"
+    },
+    {
+      "id": "FR6",
+      "domainId": "D6",
+      "statement": "Apply persisted theme colors before initial GL scene caching and restore native appearance on demand.",
+      "acceptanceCriterion": "Valid persisted selections inject FlatLaf defaults before scene initialization, invalid files emit one bounded diagnostic, and native restore deletes custom defaults.",
+      "verificationMethod": "EarlyThemeAppearanceBootstrapTest, ThemeSelectionConfigTest, and EarlyThemeBootstrapInteractionTest"
+    },
+    {
+      "id": "FR7",
+      "domainId": "D6",
+      "statement": "Contribute, localize, and revoke menus, toolbars, context menus, panels, and shell views per plugin generation.",
+      "acceptanceCriterion": "Each UI contribution requires granular permission, binds plugin localization, and disappears cleanly when its registration or generation closes.",
+      "verificationMethod": "checkPluginPermissionAudit, :runtime:updateUiRegressionTest, and OfficialPluginCatalogCompletenessTest"
+    },
+    {
+      "id": "FR8",
+      "domainId": "D7",
+      "statement": "Execute host-thread model mutations with atomic Undo parity, lifecycle ordering, and coalesced selection observation.",
+      "acceptanceCriterion": "Committed transactions produce one verified history entry, failed callbacks compensate to identical prior history, and concurrent edit scopes reject cleanly.",
+      "verificationMethod": "SelectionQueryIsolationTest, ParameterLifecycleCoordinatorTest, and SharedEditorStateInteractionTest"
+    },
+    {
+      "id": "FR9",
+      "domainId": "D8",
+      "statement": "Retain locked parameter values against interactive, synchronous, and programmatic edits per model GUID.",
+      "acceptanceCriterion": "Locked parameters return their prior value during Before interception on the matching model GUID without leaking locks across models or after disable.",
+      "verificationMethod": ":plugins:parameter-lock:test and ParameterLockSyncInteractionTest"
+    },
+    {
+      "id": "FR10",
+      "domainId": "D8",
+      "statement": "Propagate normalized parameter edits across synchronized parameter sets without oscillation feedback loops.",
+      "acceptanceCriterion": "Edits on an unlocked driver update unlocked synchronized targets proportionally on the UI thread with zero secondary bounce.",
+      "verificationMethod": ":plugins:parameter-sync:test and ParameterLockSyncInteractionTest"
+    },
+    {
+      "id": "FR11",
+      "domainId": "D8",
+      "statement": "Import, export, transfer, and bind parameter values and animation keyforms in grouped authoring transactions.",
+      "acceptanceCriterion": "Batch parameter and keyform operations validate ranges up front and commit or roll back as atomic Undo units.",
+      "verificationMethod": ":plugins:parameter:test, :plugins:parameter-batch-transfer:test, and :plugins:frame-animation-import:test"
+    },
+    {
+      "id": "FR12",
+      "domainId": "D9",
+      "statement": "Register, switch, and clean up custom mesh-editing tools under single-active-tool session mutual exclusion.",
+      "acceptanceCriterion": "Activating one custom mesh tool revokes any prior active lease, and disabling or failing one tool leaves peer mesh tools operable.",
+      "verificationMethod": "SelectionBrushPluginLifecycleIntegrationTest and MeshToolCrossPluginLifecycleTest"
+    },
+    {
+      "id": "FR13",
+      "domainId": "D9",
+      "statement": "Edit ArtMesh and deformer geometry with mirror symmetry, row/column deform, and 3D import transactions.",
+      "acceptanceCriterion": "Symmetric edits and 3D imports preserve vertex/deformer invariants and record reversible native Undo steps.",
+      "verificationMethod": ":plugins:artmesh-mirror:test, :plugins:warp-row-column-deform:test, and :plugins:model-import-3d:test"
+    },
+    {
+      "id": "FR14",
+      "domainId": "D10",
+      "statement": "Pack texture atlases, synchronize external PSD edits, back up projects, and export protected bundles safely.",
+      "acceptanceCriterion": "Atlas, PSD, backup, and protected-export workflows preserve source project integrity and quiesce cleanly on plugin shutdown.",
+      "verificationMethod": "TextureAtlasManifestIntegrationTest, :plugins:external-psd-edit:test, and :plugins:protected-export:test"
+    },
+    {
+      "id": "FR15",
+      "domainId": "D10",
+      "statement": "Execute external MCP, ACP, and out-of-process script commands through permission-gated SDK and transaction boundaries.",
+      "acceptanceCriterion": "External automation runs GraalVM outside the host JVM and enforces identical permission, transaction, and generation guards as in-host plugins.",
+      "verificationMethod": "McpPluginRuntimeIntegrationTest, :graal-host:checkGraalHostTargetSelection, and :plugins:acp:test"
+    }
+  ],
+  "designParameters": [
+    {
+      "id": "DP1",
+      "satisfiesFrId": "FR1",
+      "summary": "VerifiedInstall bootstrap agent, HookManifest/WeavePlan ordering, and byte-restoration proof.",
+      "modules": [":bootstrap", ":runtime"],
+      "codePaths": [
+        "bootstrap/src/main/java/dev/turboism/bootstrap",
+        "runtime/src/main/java/dev/turboism/bootstrap"
+      ]
+    },
+    {
+      "id": "DP2",
+      "satisfiesFrId": "FR2",
+      "summary": "Host-independent compatibility-policy predicates plus runtime VerifiedMemberResolver and API availability interceptor.",
+      "modules": [":compatibility-policy", ":runtime"],
+      "codePaths": [
+        "core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy",
+        "runtime/src/main/java/dev/turboism/mapping"
+      ]
+    },
+    {
+      "id": "DP3",
+      "satisfiesFrId": "FR3",
+      "summary": "LocalPluginRuntime, isolated PluginClassLoader, PluginGenerationGuard, DisposableScope, CorePluginContext composition seam, and RuntimeEventBroker.",
+      "modules": [":runtime", ":core-contract", ":sdk"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/kernel/LocalPluginRuntime.java",
+        "runtime/src/main/java/dev/turboism/kernel/PluginGenerationGuard.java",
+        "runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java",
+        "runtime/src/main/java/dev/turboism/core/event/RuntimeEventBroker.java"
+      ]
+    },
+    {
+      "id": "DP4",
+      "satisfiesFrId": "FR4",
+      "summary": "Pure persistence-core typed-config kernel, atomic TypedConfigDocumentStore with recovery points, and confined RuntimePluginStorage.",
+      "modules": [":persistence-core", ":runtime"],
+      "codePaths": [
+        "core/persistence/src/main/java/dev/turboism/persistence/config",
+        "runtime/src/main/java/dev/turboism/config/TypedConfigDocumentStore.java",
+        "runtime/src/main/java/dev/turboism/storage/RuntimePluginStorage.java"
+      ]
+    },
+    {
+      "id": "DP5",
+      "satisfiesFrId": "FR5",
+      "summary": "RuntimeScheduler, PluginWorkExecutorRegistry, EdtDispatch, RuntimeAsyncHostReadService, and opt-in host performance hooks.",
+      "modules": [":runtime", ":plugins:perf-stats"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java",
+        "runtime/src/main/java/dev/turboism/ui/host/EdtDispatch.java",
+        "runtime/src/main/java/dev/turboism/hostread/RuntimeAsyncHostReadService.java"
+      ]
+    },
+    {
+      "id": "DP6",
+      "satisfiesFrId": "FR6",
+      "summary": "EarlyThemeAppearanceBootstrap pre-scene reader, shared ThemeRuntimeProperties custom defaults, RuntimeAppearanceService, and ui-theme ThemeSelectionConfig.",
+      "modules": [":runtime", ":plugins:ui-theme"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java",
+        "runtime/src/main/java/dev/turboism/ui/appearance/ThemeRuntimeProperties.java",
+        "runtime/src/main/java/dev/turboism/ui/appearance/RuntimeAppearanceService.java",
+        "plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java"
+      ]
+    },
+    {
+      "id": "DP7",
+      "satisfiesFrId": "FR7",
+      "summary": "EditorUiContributionAuthority, UiCapabilityBundle registries, framework shell, and workspace/palette UI plugins.",
+      "modules": [":runtime", ":plugins:cubism-tab-filter", ":plugins:palette-label-style", ":plugins:scene-palette-enhancer", ":plugins:history-panel"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/ui/contribution/EditorUiContributionAuthority.java",
+        "runtime/src/main/java/dev/turboism/kernel/context/UiCapabilityBundle.java",
+        "runtime/src/main/java/dev/turboism/shell"
+      ]
+    },
+    {
+      "id": "DP8",
+      "satisfiesFrId": "FR8",
+      "summary": "EditorAuthoringTransactionCoordinator with shared editScopeGate, EditorBackedCubismModelAccess, ParameterLifecycleCoordinator, and SelectionQueryServiceImpl.",
+      "modules": [":runtime", ":sdk"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/adapter/cubism/editor/transaction/EditorAuthoringTransactionCoordinator.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorBackedCubismModelAccess.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterLifecycleCoordinator.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/service/query/SelectionQueryServiceImpl.java"
+      ]
+    },
+    {
+      "id": "DP9",
+      "satisfiesFrId": "FR9",
+      "summary": "ParameterLockPlugin synchronous beforeSetParameterValue hook adapter and GUID-keyed ParameterLockState.",
+      "modules": [":plugins:parameter-lock", ":runtime"],
+      "codePaths": [
+        "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterHookRegistry.java"
+      ]
+    },
+    {
+      "id": "DP10",
+      "satisfiesFrId": "FR10",
+      "summary": "ParameterSyncPlugin @SubscribeEvent ParameterValueEvent.On subscriber, ParameterSyncEngine, ProgrammaticSuppressionGuard, and conflated UiScheduler flush.",
+      "modules": [":plugins:parameter-sync"],
+      "codePaths": [
+        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java",
+        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/domain/ProgrammaticSuppressionGuard.java"
+      ]
+    },
+    {
+      "id": "DP11",
+      "satisfiesFrId": "FR11",
+      "summary": "Transactional parameter CSV, batch binding transfer, physics editor, and frame-animation keyform authoring plugins.",
+      "modules": [":plugins:parameter", ":plugins:parameter-batch-transfer", ":plugins:frame-animation-import", ":plugins:physics-editor"],
+      "codePaths": [
+        "plugins/parameter/src/main/java/dev/turboism/plugin/parameter/service/ParameterCsvService.java",
+        "plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java"
+      ]
+    },
+    {
+      "id": "DP12",
+      "satisfiesFrId": "FR12",
+      "summary": "MeshToolCoordinator with ActivationLease, generation-scoped RuntimeMeshToolRegistry, and SDK mesh-tool plugins.",
+      "modules": [":runtime", ":plugins:selection-brush", ":plugins:geometric-mesh-layout", ":plugins:turbo-mesh"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolCoordinator.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/RuntimeMeshToolRegistry.java",
+        "plugins/selection-brush/src/main/java/dev/turboism/plugin/selectionbrush/SelectionBrushPlugin.java",
+        "plugins/geometric-mesh-layout/src/main/java/dev/turboism/plugin/geometricmeshlayout/GeometricMeshLayoutPlugin.java"
+      ]
+    },
+    {
+      "id": "DP13",
+      "satisfiesFrId": "FR13",
+      "summary": "Mesh/deformer symmetry bridges, TemporaryDeformToolRegistry, and mirror/warp/3D-import plugins.",
+      "modules": [":runtime", ":plugins:artmesh-mirror", ":plugins:mesh-edit-mirror-axis-enhance", ":plugins:boundingbox-warp-mirror", ":plugins:warp-deformer-alt-symmetry", ":plugins:warp-row-column-deform", ":plugins:deformer-batch-rename", ":plugins:model-import-3d"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/kernel/context/MeshCapabilityBundle.java",
+        "plugins/artmesh-mirror/src/main/java",
+        "plugins/warp-row-column-deform/src/main/java"
+      ]
+    },
+    {
+      "id": "DP14",
+      "satisfiesFrId": "FR14",
+      "summary": "TextureAtlasLayoutCoordinator, RuntimePsdReplaceService, ExportSettingsContributionService, and atlas/PSD/backup/export plugins.",
+      "modules": [":runtime", ":plugins:atlas-maxrects-bssf", ":plugins:atlas-bitmask-nesting", ":plugins:atlas-dalsoo-polygon", ":plugins:atlas-folder-layout", ":plugins:external-psd-edit", ":plugins:psd-clip-mask-import", ":plugins:protected-export", ":plugins:webdav-backup"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/TextureAtlasLayoutCoordinator.java",
+        "runtime/src/main/java/dev/turboism/core/runtime/psd/RuntimePsdReplaceService.java"
+      ]
+    },
+    {
+      "id": "DP15",
+      "satisfiesFrId": "FR15",
+      "summary": "Out-of-process graal-host, permission-scoped McpConnectionService and ScriptService, plus mcp, acp, and command-palette plugins.",
+      "modules": [":graal-host", ":runtime", ":plugins:mcp", ":plugins:acp", ":plugins:command-palette"],
+      "codePaths": [
+        "graal-host/src/main/java/dev/turboism/graalhost",
+        "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java",
+        "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java",
+        "plugins/acp/src/main/java"
+      ]
+    }
+  ],
+  "ordering": [
+    { "index": 1, "frId": "FR1", "dpId": "DP1" },
+    { "index": 2, "frId": "FR2", "dpId": "DP2" },
+    { "index": 3, "frId": "FR3", "dpId": "DP3" },
+    { "index": 4, "frId": "FR4", "dpId": "DP4" },
+    { "index": 5, "frId": "FR5", "dpId": "DP5" },
+    { "index": 6, "frId": "FR6", "dpId": "DP6" },
+    { "index": 7, "frId": "FR7", "dpId": "DP7" },
+    { "index": 8, "frId": "FR8", "dpId": "DP8" },
+    { "index": 9, "frId": "FR9", "dpId": "DP9" },
+    { "index": 10, "frId": "FR10", "dpId": "DP10" },
+    { "index": 11, "frId": "FR11", "dpId": "DP11" },
+    { "index": 12, "frId": "FR12", "dpId": "DP12" },
+    { "index": 13, "frId": "FR13", "dpId": "DP13" },
+    { "index": 14, "frId": "FR14", "dpId": "DP14" },
+    { "index": 15, "frId": "FR15", "dpId": "DP15" }
+  ],
+  "grid": {
+    "FR1":  ["X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR2":  ["x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR3":  ["0", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR4":  ["0", "0", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR5":  ["x", "x", "x", "0", "X", "0", "?", "0", "?", "0", "0", "0", "0", "0", "0"],
+    "FR6":  ["x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR7":  ["0", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR8":  ["x", "x", "x", "0", "x", "0", "0", "X", "0", "0", "0", "0", "0", "0", "0"],
+    "FR9":  ["0", "x", "x", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0"],
+    "FR10": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "?"],
+    "FR11": ["0", "x", "x", "0", "0", "0", "x", "x", "x", "x", "X", "0", "0", "0", "0"],
+    "FR12": ["x", "x", "x", "0", "x", "0", "x", "x", "0", "0", "0", "X", "0", "0", "0"],
+    "FR13": ["x", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "?", "X", "0", "0"],
+    "FR14": ["0", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "0", "0", "X", "0"],
+    "FR15": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "x", "0", "0", "0", "0", "X"]
+  },
+  "entries": [
+    {
+      "frId": "FR1", "dpId": "DP1", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "VerifiedInstall admits, attests, binds, proves, and restores install-time bytecode hooks.",
+      "evidencePaths": ["bootstrap/src/main/java/dev/turboism/bootstrap", "docs/architecture/ARCHITECTURE.md"]
+    },
+    {
+      "frId": "FR2", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Bootstrap target attestation and host classloader discovery supply runtime artifact verification inputs.",
+      "evidencePaths": ["bootstrap/src/main/java/dev/turboism/bootstrap", "runtime/src/main/java/dev/turboism/mapping"]
+    },
+    {
+      "frId": "FR2", "dpId": "DP2", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Compatibility-policy predicates and VerifiedMemberResolver gate exact version and selector admission.",
+      "evidencePaths": ["core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy", "runtime/src/main/java/dev/turboism/mapping"]
+    },
+    {
+      "frId": "FR3", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "CubismEditorAvailabilityPolicy and capability admission determine which plugin entrypoints and SDK calls activate.",
+      "evidencePaths": ["core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy", "runtime/src/main/java/dev/turboism/kernel/context/CorePluginContextComposition.java"]
+    },
+    {
+      "frId": "FR3", "dpId": "DP3", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "LocalPluginRuntime, PluginClassLoader, PluginGenerationGuard, and CorePluginContext isolate plugin generations.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/LocalPluginRuntime.java", "runtime/src/main/java/dev/turboism/kernel/PluginGenerationGuard.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/SharedEditorStateInteractionTest.java"]
+    },
+    {
+      "frId": "FR4", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "CorePluginContext binds per-plugin config and storage namespaces and seals access after generation fencing.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java", "runtime/src/main/java/dev/turboism/storage/RuntimePluginStorage.java"]
+    },
+    {
+      "frId": "FR4", "dpId": "DP4", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Persistence-core codecs, TypedConfigDocumentStore recovery points, and RuntimePluginStorage persist data safely.",
+      "evidencePaths": ["core/persistence/src/main/java/dev/turboism/persistence/config", "runtime/src/main/java/dev/turboism/config/TypedConfigDocumentStore.java"]
+    },
+    {
+      "frId": "FR5", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Opt-in rendering, model-update, and triangulation optimizations install via VerifiedInstall weaves.",
+      "evidencePaths": ["bootstrap/src/main/java/dev/turboism/bootstrap", "docs/architecture/ARCHITECTURE.md"]
+    },
+    {
+      "frId": "FR5", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Per-version verification records gate native performance optimization hooks.",
+      "evidencePaths": ["scripts/verification-sources/families/performance-render-scene.json", "runtime/src/main/java/dev/turboism/mapping"]
+    },
+    {
+      "frId": "FR5", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Generation teardown drains in-flight calls and reclaims per-plugin executor queues.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/PluginGenerationContent.java", "runtime/src/main/java/dev/turboism/kernel/PluginGenerationGuard.java"]
+    },
+    {
+      "frId": "FR5", "dpId": "DP5", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "RuntimeScheduler, PluginWorkExecutorRegistry, EdtDispatch, and async host-read lanes bound runtime latency.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java", "runtime/src/main/java/dev/turboism/ui/host/EdtDispatch.java"]
+    },
+    {
+      "frId": "FR5", "dpId": "DP7", "symbol": "?", "relation": "UNKNOWN", "evidenceStatus": "UNVERIFIED",
+      "effectSummary": "Combined EDT repaint and table-decorator cost when multiple palette/tab UI plugins run concurrently on large models is unmeasured.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/UiCapabilityBundle.java", "scripts/preview/verify-cubism-performance-probe.py"],
+      "verificationTask": "Run JFR frame-time host probe on Cubism 5.2.03 and 5.3.04 with cubism-tab-filter, palette-label-style, and scene-palette-enhancer enabled simultaneously on a >500-drawable fixture."
+    },
+    {
+      "frId": "FR5", "dpId": "DP9", "symbol": "?", "relation": "UNKNOWN", "evidenceStatus": "UNVERIFIED",
+      "effectSummary": "EDT overhead of ParameterLockPlugin 250ms activation polling and initial PaletteEntry row-action decoration on large parameter trees is unmeasured.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"],
+      "verificationTask": "Profile ParameterLockPlugin poll and refreshDecorations latency on Cubism 5.3.04 using a model with >=300 parameters and nested groups."
+    },
+    {
+      "frId": "FR6", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Agent premain launches EarlyThemeAppearanceBootstrap before Cubism caches its GL scene background.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java"]
+    },
+    {
+      "frId": "FR6", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "UiCapabilityBundle registers AppearanceService native restoration on plugin DisposableScope teardown.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/UiCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR6", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Typed-config v1 framing underpins ui-theme/selection.cfg written by ThemeSelectionConfig and parsed at startup.",
+      "evidencePaths": ["plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/EarlyThemeBootstrapInteractionTest.java"]
+    },
+    {
+      "frId": "FR6", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "EarlyThemeAppearanceBootstrap dispatches UIManager polling, native background capture, and FlatLaf updates via EdtDispatch.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java", "runtime/src/test/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrapTest.java"]
+    },
+    {
+      "frId": "FR6", "dpId": "DP6", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "EarlyThemeAppearanceBootstrap, ThemeRuntimeProperties, RuntimeAppearanceService, and ThemeSelectionConfig manage startup and live themes.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/EarlyThemeBootstrapInteractionTest.java"]
+    },
+    {
+      "frId": "FR7", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Host UI slice verification gates top-menu, main-toolbar, embedded-panel, and status-bar surfaces.",
+      "evidencePaths": ["scripts/verification-sources/families/ui-top-menu.json", "scripts/verification-sources/families/ui-main-toolbar.json"]
+    },
+    {
+      "frId": "FR7", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "CorePluginContext binds permission-checked UI registries and revokes contributions on generation close.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/UiCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR7", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "UiScheduler and RuntimeScheduler dispatch UI updates and overlay button callbacks.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/UiCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR7", "dpId": "DP6", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Active FlatLaf defaults from DP6 style Swing panels, dialogs, and shell components contributed through DP7.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/ui/appearance/ThemeRuntimeProperties.java", "runtime/src/test/java/dev/turboism/ui/panel/ThemedHostSurfaceTest.java"]
+    },
+    {
+      "frId": "FR7", "dpId": "DP7", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "EditorUiContributionAuthority, UiCapabilityBundle, and dev.turboism.shell manage host UI extensions.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/ui/contribution/EditorUiContributionAuthority.java", "runtime/src/main/java/dev/turboism/shell"]
+    },
+    {
+      "frId": "FR8", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Bytecode lifecycle hooks feed native parameter, part, and object mutations into runtime coordinators.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterLifecycleCoordinator.java"]
+    },
+    {
+      "frId": "FR8", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Verified editor-model selector contracts gate model reads, authoring writes, history snapshots, and selection reads.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorBackedCubismModelAccess.java"]
+    },
+    {
+      "frId": "FR8", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "PluginGenerationGuard, permission gates, and RuntimeEventBroker isolate per-plugin model access and event subscriptions.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/CubismFacadeImpl.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/SharedEditorStateInteractionTest.java"]
+    },
+    {
+      "frId": "FR8", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "EditorHostThread enforces host-thread mutations while RuntimeScheduler coalesces SelectionChangedEvent delivery.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorBackedCubismModelAccess.java", "testing/integration-tests/src/test/java/dev/turboism/tests/runtime/SelectionQueryIsolationTest.java"]
+    },
+    {
+      "frId": "FR8", "dpId": "DP8", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "EditorAuthoringTransactionCoordinator, EditorBackedCubismModelAccess, ParameterLifecycleCoordinator, and SelectionQueryServiceImpl govern shared model state.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/editor/transaction/EditorAuthoringTransactionCoordinator.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/SharedEditorStateInteractionTest.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Model read, intercept, and appearance capabilities gate parameter locking and native lock-icon availability.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterHookRegistry binds beforeSetParameterValue to the plugin generation and unregisters it on disable or close.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterHookRegistry.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterLockPlugin persists per-GUID lock state through PluginStorage.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "UiScheduler runs ParameterLockPlugin model-activation checks and row-action updates on the UI thread.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "PaletteEntry.overrideLeadingAction and UiResourceService render lock icons on parameter and group rows.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterLifecycleCoordinator invokes synchronous Before transforms ahead of every SDK and native parameter write.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterLifecycleCoordinator.java", "runtime/src/main/java/dev/turboism/adapter/cubism/PermissionCheckedParameter.java"]
+    },
+    {
+      "frId": "FR9", "dpId": "DP9", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterLockPlugin retains locked parameter values in beforeSetParameterValue scoped to the active model GUID.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Parameter read, write, and observe capabilities gate synchronization rule evaluation and target updates.",
+      "evidencePaths": ["plugins/parameter-sync/src/main/resources/META-INF/turboism/plugin.json"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "GeneratedSubscriberCatalogLoader and RuntimeEventBroker deliver ParameterValueEvent.On without duplicate legacy-hook dispatch.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterHookRegistry.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterSyncStorage persists per-GUID SyncRuleSet state across sessions via PluginStorage.",
+      "evidencePaths": ["plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "UiScheduler coalesces pendingTargetValues into a non-recursive host-thread flushPendingSync batch.",
+      "evidencePaths": ["plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ActionRegistry, ContextMenuRegistry, and status notifications expose parameter-sync controls.",
+      "evidencePaths": ["plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterLifecycleCoordinator publishes ParameterValueEvent.On only when post-write readback differs from oldValue.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterLifecycleCoordinator.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP9", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Locking a parameter in DP9 blocks DP10 target writes in Before phase without firing On or causing feedback loops, while leaving a 500ms suppression entry on the locked target.",
+      "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP10", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ParameterSyncPlugin and ParameterSyncEngine propagate normalized progress across synchronized parameters with ProgrammaticSuppressionGuard.",
+      "evidencePaths": ["plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
+    },
+    {
+      "frId": "FR10", "dpId": "DP15", "symbol": "?", "relation": "UNKNOWN", "evidenceStatus": "HYPOTHESIS",
+      "effectSummary": "Synchronous set-and-restore pose sweeps in McpPoseGridDomain may queue asynchronous ParameterValueEvent.On notifications whose conflated flush order relative to baseline restoration is unverified.",
+      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"],
+      "verificationTask": "Add an integration test exercising McpPoseGridDomain pose capture and baseline restore while ParameterSyncPlugin is active on a shared parameter pair."
+    },
+    {
+      "frId": "FR11", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Authoring transaction and parameter-binding selector contracts gate batch parameter and keyform writes.",
+      "evidencePaths": ["plugins/parameter/src/main/java/dev/turboism/plugin/parameter/service/ParameterCsvService.java"]
+    },
+    {
+      "frId": "FR11", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "PluginContext permissions gate model writes and user file access for CSV and animation imports.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java"]
+    },
+    {
+      "frId": "FR11", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Menus, context menus, and dialogs trigger batch parameter and animation import workflows.",
+      "evidencePaths": ["plugins/parameter/README.md"]
+    },
+    {
+      "frId": "FR11", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "AuthoringTransactionService groups CSV imports, binding transfers, and keyform writes into atomic Undo units.",
+      "evidencePaths": ["plugins/parameter/src/main/java/dev/turboism/plugin/parameter/service/ParameterCsvService.java", "plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java"]
+    },
+    {
+      "frId": "FR11", "dpId": "DP9", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Parameter.setValue calls in FrameKeyformBinder and CSV import pass through ParameterLockPlugin Before interception.",
+      "evidencePaths": ["plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java", "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
+    },
+    {
+      "frId": "FR11", "dpId": "DP10", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "HYPOTHESIS",
+      "effectSummary": "Batch CSV or keyform Parameter.setValue mutations emit ParameterValueEvent.On, which will schedule asynchronous DP10 partner writes unless parameter-sync is paused.",
+      "evidencePaths": ["plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"],
+      "verificationTask": "Verify CSV parameter import and frame-animation keyform binding behavior with active ParameterSyncPlugin rules and document whether batch transactions should suppress sync."
+    },
+    {
+      "frId": "FR11", "dpId": "DP11", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Parameter CSV, batch transfer, physics editor, and frame-animation plugins execute grouped parameter authoring.",
+      "evidencePaths": ["plugins/parameter/src/main/java/dev/turboism/plugin/parameter/service/ParameterCsvService.java", "plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Mesh editor lifecycle bytecode hooks bind native mesh-editing session open and close boundaries.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolCoordinator.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "MeshToolSessionSelectorContract gates custom mesh tools and point-and-edge layout capabilities.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/RuntimeMeshToolRegistry.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "CorePluginContext and DisposableScope isolate RuntimeMeshToolRegistry instances per plugin generation.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/MeshToolCrossPluginLifecycleTest.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Host UI thread serializes mesh toolbar actions and canvas overlay rendering.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/RuntimeMeshToolRegistry.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "EditorUiContributionAuthority hosts mesh-toolbar tool buttons and sliders.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/RuntimeMeshToolRegistry.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/MeshToolCrossPluginLifecycleTest.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Mesh canvas sessions revalidate native ArtMesh identity and commit point/edge edits as single Undo units.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolCoordinator.java"]
+    },
+    {
+      "frId": "FR12", "dpId": "DP12", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "MeshToolCoordinator enforces single-active-tool ActivationLease mutual exclusion and clean per-plugin teardown across selection-brush, geometric-mesh-layout, and turbo-mesh.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolCoordinator.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/MeshToolCrossPluginLifecycleTest.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Mesh mirror, ArtMesh symmetry, and warp-alt hooks bridge native drag operations.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/MeshCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Exact-version selector verification gates mirror, temporary-deform, and 3D import adapters.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/MeshCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "MeshCapabilityBundle and CorePluginContext gate symmetry and temporary-deform services per plugin generation.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/MeshCapabilityBundle.java", "runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ArtMesh mirror axis lock/angle/pivot and 3D import presets persist through scoped storage.",
+      "evidencePaths": ["plugins/artmesh-mirror/src/main/java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Background task workers prepare heavy 3D geometry before synchronous host-thread authoring commits.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ViewContextMenuRegistry and MeshEditContributionSurface attach mirror and deformer UI controls.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/MeshCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "AuthoringTransactionService commits ArtMesh, deformer, and 3D import mutations with grouped Undo rollback.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/editor/transaction/EditorAuthoringTransactionCoordinator.java"]
+    },
+    {
+      "frId": "FR13", "dpId": "DP12", "symbol": "?", "relation": "UNKNOWN", "evidenceStatus": "UNVERIFIED",
+      "effectSummary": "Offline coordinator transitions revoke custom MeshTool leases via nativeToolActivated, but live CubismUndo state during direct custom-mesh-tool to mirror-axis drag handoff lacks an exact-host probe.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolCoordinator.java"],
+      "verificationTask": "Add exact-host validation case on Cubism 5.3.04 switching directly from active geometric-mesh-layout or turbo-mesh canvas preview into mesh-edit-mirror-axis-enhance drag and Undo."
+    },
+    {
+      "frId": "FR13", "dpId": "DP13", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "MeshCapabilityBundle bridges, TemporaryDeformToolRegistry, and symmetry/3D plugins perform symmetric geometry authoring.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/MeshCapabilityBundle.java", "plugins/artmesh-mirror/src/main/java", "plugins/warp-row-column-deform/src/main/java"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Version capabilities gate PSD replacement, clip-mask import, texture atlas layout, and 5.1+ protected export.",
+      "evidencePaths": ["scripts/verification-sources/families/protected-export.json", "scripts/verification-sources/families/clipmask.json"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "CorePluginContext scopes UserFileAccessService, export contributions, and backup quiescing on plugin shutdown.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Typed config and scoped storage persist WebDAV backup, PSD association, and export settings.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/config/TypedConfigDocumentStore.java"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Atlas packing, PSD file watching, and backup transfers run on bounded background executors.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "UI dialogs, ExportSettingsContributionService, and status notifications drive resource workflows.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/HostCapabilityBundle.java"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "PSD replacement and clip-mask updates coordinate with EditorAuthoringTransactionCoordinator and model generations.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/core/runtime/psd/RuntimePsdReplaceService.java"]
+    },
+    {
+      "frId": "FR14", "dpId": "DP14", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Atlas coordinators, PSD services, ExportSettingsContributionService, and resource plugins process textures and exports.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/TextureAtlasLayoutCoordinator.java", "runtime/src/main/java/dev/turboism/core/runtime/psd/RuntimePsdReplaceService.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Compatibility admission gates every SDK operation invoked by MCP, ACP, or scripts.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/CorePluginContextComposition.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "CorePluginContext scopes McpConnectionService, ScriptService, and ActionCatalogService to plugin permissions and generation fences.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Typed config and plugin storage persist MCP, ACP, and script settings.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/config/TypedConfigDocumentStore.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Out-of-process graal-host and bounded async host-read lanes isolate external automation from host JVM stalls.",
+      "evidencePaths": ["graal-host/src/main/java/dev/turboism/graalhost", "runtime/src/main/java/dev/turboism/hostread/RuntimeAsyncHostReadService.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "HostViewPanel and ActionCatalogService host the ACP chat surface and command-palette execution.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/kernel/context/UiCapabilityBundle.java", "plugins/acp/src/main/java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "MCP write domains execute through AuthoringTransactionService and contend cleanly on the shared editScopeGate.",
+      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java", "runtime/src/main/java/dev/turboism/adapter/cubism/editor/transaction/EditorAuthoringTransactionCoordinator.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP9", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "McpParameterDomain and McpPoseGridDomain invoke Parameter.setValue, so locked parameters in DP9 retain their locked values against external automation writes.",
+      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java", "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
+    },
+    {
+      "frId": "FR15", "dpId": "DP10", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "HYPOTHESIS",
+      "effectSummary": "External MCP or script Parameter.setValue calls emit ParameterValueEvent.On, causing active DP10 rules to mutate synchronized partner parameters asynchronously on the UI thread.",
+      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"],
+      "verificationTask": "Verify MCP parameter write and pose-grid isolation when ParameterSyncPlugin is active and evaluate an explicit automation sync-pause contract."
+    },
+    {
+      "frId": "FR15", "dpId": "DP15", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Graal-host, MCP server/bridge, ACP window, and command-palette deliver external and keyboard automation.",
+      "evidencePaths": ["graal-host/src/main/java/dev/turboism/graalhost", "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "plugins/acp/src/main/java"]
+    }
+  ],
+  "submatrices": [
+    {
+      "id": "parameter-lock-sync",
+      "title": "Parameter Lock (FR9/DP9) vs Parameter Synchronization (FR10/DP10)",
+      "classification": "DECOUPLED",
+      "axes": ["FR9:DP9 (parameter-lock)", "FR10:DP10 (parameter-sync)"],
+      "grid": [
+        ["X", "0"],
+        ["x", "X"]
+      ],
+      "sequencingRule": "Plugin enable/disable order is invariant because DP9 intercepts ParameterValueEvent.Before while DP10 observes changed-only ParameterValueEvent.On; operators must configure locks (DP9) first and unlock parameters expected to follow DP10 sync.",
+      "evidencePaths": [
+        "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java",
+        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterLifecycleCoordinator.java",
+        "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"
+      ]
+    },
+    {
+      "id": "mesh-tool-peers",
+      "title": "Independent Custom Mesh Tool Lifecycle (selection-brush, geometric-mesh-layout, turbo-mesh)",
+      "classification": "UNCOUPLED",
+      "axes": [
+        "selection-brush",
+        "geometric-mesh-layout",
+        "turbo-mesh"
+      ],
+      "grid": [
+        ["X", "0", "0"],
+        ["0", "X", "0"],
+        ["0", "0", "X"]
+      ],
+      "sequencingRule": "No plugin load or enable order is required: MeshToolCoordinator sorts toolbar contributions deterministically, enforces single-active-tool ActivationLease mutual exclusion, and isolates activation failures and disable teardown per (pluginId, generation).",
+      "evidencePaths": [
+        "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/MeshToolCoordinator.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/RuntimeMeshToolRegistry.java",
+        "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/MeshToolCrossPluginLifecycleTest.java"
+      ]
+    },
+    {
+      "id": "early-theme-bootstrap",
+      "title": "Pre-Scene Startup Theme Injection vs Runtime UI Theme Selection",
+      "classification": "DECOUPLED",
+      "axes": [
+        "ui-theme ThemeSelectionConfig persistence (session N)",
+        "EarlyThemeAppearanceBootstrap pre-scene injection (session N+1)"
+      ],
+      "grid": [
+        ["X", "0"],
+        ["x", "X"]
+      ],
+      "sequencingRule": "ThemeSelectionConfig writes ui-theme/selection.cfg in typed-config v1 format during session N; EarlyThemeAppearanceBootstrap reads it read-only before GL scene initialization in session N+1 and hands off ThemeRuntimeProperties to RuntimeAppearanceService once plugins load.",
+      "evidencePaths": [
+        "runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java",
+        "runtime/src/main/java/dev/turboism/ui/appearance/ThemeRuntimeProperties.java",
+        "plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java",
+        "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/EarlyThemeBootstrapInteractionTest.java"
+      ]
+    }
+  ],
+  "analysis": {
+    "observedClassification": "DECOUPLED",
+    "overallClassification": "UNVERIFIED",
+    "diagonalCount": 15,
+    "lowerTriangularObservedCount": 62,
+    "lowerTriangularHypothesisCount": 2,
+    "upperTriangularObservedCount": 0,
+    "upperTriangularHypothesisCount": 0,
+    "lowerTriangularUnknownCount": 1,
+    "upperTriangularUnknownCount": 3,
+    "observedFunctionalSccs": [],
+    "potentialFunctionalSccsWithUnknowns": [
+      ["FR5/DP5", "FR6/DP6", "FR7/DP7", "FR8/DP8", "FR9/DP9"],
+      ["FR10/DP10", "FR15/DP15"]
+    ],
+    "triangularSequencing": [
+      {
+        "step": 1,
+        "scope": "DP1 -> DP2 -> DP3 -> DP4 -> DP5 (Platform bootstrap and kernel)",
+        "rule": "Verify host artifacts and weave bridges (DP1), resolve exact Cubism capabilities (DP2), initialize runtime schedulers and typed persistence (DP4, DP5), and only then admit plugin generations (DP3)."
+      },
+      {
+        "step": 2,
+        "scope": "DP6 -> DP7 (Appearance before UI surfaces)",
+        "rule": "Inject persisted theme defaults into FlatLaf before Cubism initializes the GL scene (DP6), then attach plugin and shell UI contributions (DP7)."
+      },
+      {
+        "step": 3,
+        "scope": "DP8 -> DP9 -> DP10 -> DP11/DP15 (Parameter authoring and automation)",
+        "rule": "Establish host-thread transaction and lifecycle coordinators (DP8), configure parameter locks (DP9) ahead of synchronization rules (DP10), and pause parameter-sync before running batch CSV, keyform, or MCP pose-grid sweeps (DP11, DP15)."
+      },
+      {
+        "step": 4,
+        "scope": "DP8 -> DP12 / DP13 / DP14 (Geometry and resource workflows)",
+        "rule": "Open one mutually exclusive edit or mesh-tool lease at a time (DP8 editScopeGate, DP12 ActivationLease) and complete or exit custom mesh-tool sessions before invoking competing host-wide authoring transactions."
+      }
+    ]
+  },
+  "exceptions": [
+    {
+      "id": "EXC-AD-001",
+      "title": "Pre-startup theme selection reach-through in EarlyThemeAppearanceBootstrap",
+      "owner": "sole-maintainer (.github/CODEOWNERS)",
+      "status": "ACCEPTED_CLOSED_EXCEPTION",
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java",
+        "plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java"
+      ],
+      "summary": "EarlyThemeAppearanceBootstrap reads config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg and data/dev.turboism.plugin.uitheme/themes/<id>.zip before plugins load because Cubism caches its off-canvas GL background color on first scene access.",
+      "evaluatedAlternative": "Evaluated promoting startup theme selection to a runtime-owned AppearanceService document under config/turboism.core/appearance/ decoded via :persistence-core without altering pre-GL host timing; deferred because migrating existing user homes safely requires dual-read fallback and release-derived golden snapshots (#69).",
+      "followUp": "Keep the exception closed to ui-theme v1 selection.cfg pinned by EarlyThemeBootstrapInteractionTest; revisit runtime-owned storage only alongside #69 persistence migration fixtures."
+    },
+    {
+      "id": "EXC-AD-002",
+      "title": "ParameterLockPlugin preload fail-closed window and ParameterSyncPlugin 500ms unconsumed suppression window",
+      "owner": "sole-maintainer (.github/CODEOWNERS)",
+      "status": "TRACKED_INTERACTION_QUIRK",
+      "codePaths": [
+        "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java",
+        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java",
+        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/domain/ProgrammaticSuppressionGuard.java"
+      ],
+      "summary": "ParameterLockPlugin retains current values for all parameters of an active model until async lock preload completes; when a locked target rejects a ParameterSyncPlugin write, no On event fires and ProgrammaticSuppressionGuard retains a 500ms suppression entry on that target (plus an unread lastAppliedValues entry).",
+      "evaluatedAlternative": "Clearing suppressionGuard when post-setValue readback equals the pre-write value eliminates the 500ms post-unlock suppression window without adding cross-plugin coupling.",
+      "followUp": "Track post-write readback cleanup of ProgrammaticSuppressionGuard and removal of unread lastAppliedValues in a focused parameter-sync maintenance issue."
+    },
+    {
+      "id": "EXC-AD-003",
+      "title": "Asynchronous ParameterSyncPlugin UI flush vs synchronous batch and MCP parameter sweeps",
+      "owner": "sole-maintainer (.github/CODEOWNERS)",
+      "status": "TRACKED_INTERACTION_QUIRK",
+      "codePaths": [
+        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java",
+        "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java"
+      ],
+      "summary": "ParameterSyncPlugin receives ParameterValueEvent.On asynchronously and flushes partner updates via UiScheduler after synchronous host-thread transactions such as McpPoseGridDomain finish.",
+      "evaluatedAlternative": "Suppressing or deferring user-interactive parameter-sync during explicit batch AuthoringTransaction scopes or MCP pose-grid capture avoids unintended partner drift without coupling plugin modules.",
+      "followUp": "Execute verification tasks on (FR10, DP15), (FR11, DP10), and (FR15, DP10) before introducing transaction-origin metadata on ParameterValueEvent."
+    },
+    {
+      "id": "EXC-AD-004",
+      "title": "CorePluginContext service-wiring fan-out vs feature-policy ownership",
+      "owner": "sole-maintainer (.github/CODEOWNERS)",
+      "status": "ARCHITECTURAL_BOUNDARY_VERIFIED",
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/kernel/context/CorePluginContext.java",
+        "runtime/src/main/java/dev/turboism/kernel/context/CorePluginContextComposition.java"
+      ],
+      "summary": "CorePluginContext wires four capability bundles and 31+ PluginService slots with 19 convenience/test constructors, creating high static import fan-out in :runtime.",
+      "evaluatedAlternative": "Splitting :runtime or CorePluginContext into per-feature Gradle modules was evaluated and rejected: CorePluginContext owns only service assembly, permission wrapping, and DisposableScope registration, not domain policy.",
+      "followUp": "Retain single :runtime module boundary enforced by checkModuleBoundaries and checkDependencyInventory; trim test-only CorePluginContext constructor overloads opportunistically."
+    }
+  ]
+}

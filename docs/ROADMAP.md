@@ -26,7 +26,7 @@ Semantic event lifecycle
 
 ### Track A — Unified Cubism object API
 
-**Current state:** Implemented for the core model object graph (Canvas, Parameters, Parts, Drawables, Deformers, Glues, and offscreen/render surfaces) across reviewed **5.0.00 – 5.3.04** adapters (20 exact versions), with `@CubismEditor` version gating, immutable snapshots, generation-bound stale rejection, and `CoreEvaluatedJoin` for Core evaluated reads.
+**Current state:** Implemented for the core model object graph (Canvas, Parameters, Parts, Drawables, Deformers, Glues, and offscreen/render surfaces) across reviewed **5.0.00 – 5.3.05** adapters (21 exact versions), with `@CubismEditor` version gating, immutable snapshots, generation-bound stale rejection, and `CoreEvaluatedJoin` for Core evaluated reads.
 
 **Remaining focus:** Expand Core/Editor object coverage only where driven by real plugin consumers, and keep version-coverage parity across Tier-1 targets (`5.2.03` and `5.3.02+`).
 
@@ -50,7 +50,7 @@ Semantic event lifecycle
 
 ### Track E — Official workflow restoration
 
-**Current state:** 35 first-party plugins ship in standard release packages (plus `parameter-lock` on the Ed25519-signed Plugin Marketplace), and all legacy `b1/` migration packages have graduated into stable plugin-owned packages.
+**Current state:** 36 first-party plugins ship in standard release packages (plus `parameter-lock` on the Ed25519-signed Plugin Marketplace), and all legacy `b1/` migration packages have graduated into stable plugin-owned packages.
 
 **Active workflow focus:**
 

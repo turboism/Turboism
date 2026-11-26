@@ -25,3 +25,19 @@ tasks.register<Exec>("checkArchitectureRules") {
     VerificationStamps.apply(this)
     commandLine("python3", "scripts/check_ast_grep.py")
 }
+
+tasks.register<Exec>("checkAxiomaticDesignMatrix") {
+    group = "verification"
+    description = "Verifies Axiomatic Design FR/DP matrix schema, evidence paths, inventory alignment, and SCC classification."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/dev/axiomatic_design_matrix.py",
+        "docs/architecture/design-matrix.schema.json",
+        "docs/architecture/design-matrix.json",
+        "docs/architecture/AXIOMATIC_DESIGN.md",
+        "docs/architecture/dependency-inventory.json",
+        "settings.gradle.kts"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/dev/axiomatic_design_matrix.py", "--check")
+}

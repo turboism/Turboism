@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://turboism.dev/schemas/axiomatic-design-matrix-v1.schema.json",
+  "title": "Turboism Axiomatic Design Matrix v1",
+  "description": "Machine-readable functional requirement (FR) to design parameter (DP) matrix, evidence ledger, and decoupling classification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "baselineSnapshot",
+    "structuralBaseline",
+    "constraints",
+    "domains",
+    "requirements",
+    "designParameters",
+    "ordering",
+    "grid",
+    "entries",
+    "submatrices",
+    "analysis",
+    "exceptions"
+  ],
+  "properties": {
+    "format": {
+      "const": "turboism-axiomatic-design-matrix-v1"
+    },
+    "baselineSnapshot": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{12,40}$"
+    },
+    "structuralBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inventoryPath",
+        "provesFunctionalIndependence",
+        "gradleGraphNodes",
+        "pluginModules",
+        "nonTestEdges",
+        "testOnlyEdges",
+        "nonTestModuleCycles",
+        "directProductionPluginEdges",
+        "runtimeTopPackages",
+        "runtimeTopPackageEdges",
+        "runtimeTopPackageCycles",
+        "runtimeLeafPackageCycles",
+        "note"
+      ],
+      "properties": {
+        "inventoryPath": { "type": "string", "minLength": 1 },
+        "provesFunctionalIndependence": { "const": false },
+        "gradleGraphNodes": { "type": "integer", "minimum": 1 },
+        "pluginModules": { "type": "integer", "minimum": 1 },
+        "nonTestEdges": { "type": "integer", "minimum": 0 },
+        "testOnlyEdges": { "type": "integer", "minimum": 0 },
+        "nonTestModuleCycles": { "type": "integer", "minimum": 0 },
+        "directProductionPluginEdges": { "type": "integer", "minimum": 0 },
+        "runtimeTopPackages": { "type": "integer", "minimum": 1 },
+        "runtimeTopPackageEdges": { "type": "integer", "minimum": 0 },
+        "runtimeTopPackageCycles": { "type": "integer", "minimum": 0 },
+        "runtimeLeafPackageCycles": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string", "minLength": 10 }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "statement", "enforcementGates", "codePaths"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[1-9][0-9]*$" },
+          "title": { "type": "string", "minLength": 3 },
+          "statement": { "type": "string", "minLength": 10 },
+          "enforcementGates": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "codePaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "domains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "requirementIds"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^D[1-9][0-9]*$" },
+          "name": { "type": "string", "minLength": 3 },
+          "requirementIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^FR[1-9][0-9]*$" }
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "domainId", "statement", "acceptanceCriterion", "verificationMethod"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^FR[1-9][0-9]*$" },
+          "domainId": { "type": "string", "pattern": "^D[1-9][0-9]*$" },
+          "statement": { "type": "string", "minLength": 10 },
+          "acceptanceCriterion": { "type": "string", "minLength": 10 },
+          "verificationMethod": { "type": "string", "minLength": 5 }
+        }
+      }
+    },
+    "designParameters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "satisfiesFrId", "summary", "modules", "codePaths"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^DP[1-9][0-9]*$" },
+          "satisfiesFrId": { "type": "string", "pattern": "^FR[1-9][0-9]*$" },
+          "summary": { "type": "string", "minLength": 10 },
+          "modules": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^:[a-z0-9:-]+$" }
+          },
+          "codePaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "ordering": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "frId", "dpId"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 1 },
+          "frId": { "type": "string", "pattern": "^FR[1-9][0-9]*$" },
+          "dpId": { "type": "string", "pattern": "^DP[1-9][0-9]*$" }
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "enum": ["X", "x", "0", "?"] }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["frId", "dpId", "symbol", "relation", "evidenceStatus", "effectSummary", "evidencePaths"],
+        "properties": {
+          "frId": { "type": "string", "pattern": "^FR[1-9][0-9]*$" },
+          "dpId": { "type": "string", "pattern": "^DP[1-9][0-9]*$" },
+          "symbol": { "enum": ["X", "x", "?"] },
+          "relation": { "enum": ["PRIMARY", "AFFECTS", "UNKNOWN"] },
+          "evidenceStatus": { "enum": ["OBSERVED", "HYPOTHESIS", "UNVERIFIED"] },
+          "effectSummary": { "type": "string", "minLength": 10 },
+          "evidencePaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "verificationTask": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+    "submatrices": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "classification", "axes", "grid", "sequencingRule", "evidencePaths"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "title": { "type": "string", "minLength": 5 },
+          "classification": { "enum": ["UNCOUPLED", "DECOUPLED", "COUPLED", "UNVERIFIED"] },
+          "axes": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string", "minLength": 2 }
+          },
+          "grid": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "enum": ["X", "x", "0", "?"] }
+            }
+          },
+          "sequencingRule": { "type": "string", "minLength": 10 },
+          "evidencePaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observedClassification",
+        "overallClassification",
+        "diagonalCount",
+        "lowerTriangularObservedCount",
+        "lowerTriangularHypothesisCount",
+        "upperTriangularObservedCount",
+        "upperTriangularHypothesisCount",
+        "lowerTriangularUnknownCount",
+        "upperTriangularUnknownCount",
+        "observedFunctionalSccs",
+        "potentialFunctionalSccsWithUnknowns",
+        "triangularSequencing"
+      ],
+      "properties": {
+        "observedClassification": { "enum": ["UNCOUPLED", "DECOUPLED", "COUPLED"] },
+        "overallClassification": { "enum": ["UNCOUPLED", "DECOUPLED", "COUPLED", "UNVERIFIED"] },
+        "diagonalCount": { "type": "integer", "minimum": 1 },
+        "lowerTriangularObservedCount": { "type": "integer", "minimum": 0 },
+        "lowerTriangularHypothesisCount": { "type": "integer", "minimum": 0 },
+        "upperTriangularObservedCount": { "type": "integer", "minimum": 0 },
+        "upperTriangularHypothesisCount": { "type": "integer", "minimum": 0 },
+        "lowerTriangularUnknownCount": { "type": "integer", "minimum": 0 },
+        "upperTriangularUnknownCount": { "type": "integer", "minimum": 0 },
+        "observedFunctionalSccs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string" }
+          }
+        },
+        "potentialFunctionalSccsWithUnknowns": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string" }
+          }
+        },
+        "triangularSequencing": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step", "scope", "rule"],
+            "properties": {
+              "step": { "type": "integer", "minimum": 1 },
+              "scope": { "type": "string", "minLength": 3 },
+              "rule": { "type": "string", "minLength": 10 }
+            }
+          }
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "owner", "status", "codePaths", "summary", "evaluatedAlternative", "followUp"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^EXC-AD-[0-9]{3}$" },
+          "title": { "type": "string", "minLength": 5 },
+          "owner": { "type": "string", "minLength": 3 },
+          "status": { "enum": ["ACCEPTED_CLOSED_EXCEPTION", "TRACKED_INTERACTION_QUIRK", "ARCHITECTURAL_BOUNDARY_VERIFIED"] },
+          "codePaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "summary": { "type": "string", "minLength": 10 },
+          "evaluatedAlternative": { "type": "string", "minLength": 10 },
+          "followUp": { "type": "string", "minLength": 10 }
+        }
+      }
+    }
+  }
+}

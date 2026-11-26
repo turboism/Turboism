@@ -46,10 +46,18 @@ tasks.named<ProcessResources>("processTestResources") {
 tasks.test {
     dependsOn(":plugins:project-inspector:jar")
     dependsOn(":plugins:mcp:jar")
+    dependsOn(":plugins:parameter-lock:jar")
+    dependsOn(":plugins:parameter-sync:jar")
+    dependsOn(":plugins:selection-brush:jar")
+    dependsOn(":plugins:geometric-mesh-layout:jar")
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
     systemProperty("mcpBuildDir", project(":plugins:mcp").buildDir.absolutePath)
+    systemProperty("parameterLockBuildDir", project(":plugins:parameter-lock").buildDir.absolutePath)
+    systemProperty("parameterSyncBuildDir", project(":plugins:parameter-sync").buildDir.absolutePath)
+    systemProperty("selectionBrushBuildDir", project(":plugins:selection-brush").buildDir.absolutePath)
+    systemProperty("geometricMeshLayoutBuildDir", project(":plugins:geometric-mesh-layout").buildDir.absolutePath)
 }
 
 /*

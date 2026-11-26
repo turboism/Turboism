@@ -24,9 +24,9 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 ### First-Party Plugins
 
-Standard release packages bundle 35 first-party plugins (`parameter-lock` is distributed via the Plugin Marketplace). See the [plugin compatibility matrix](../../compatibility/cubism/plugins.md) for per-version support:
+Standard release packages bundle 36 first-party plugins (`parameter-lock` is distributed via the Plugin Marketplace). See the [plugin compatibility matrix](../../compatibility/cubism/plugins.md) for per-version support:
 
-- **Modeling, Mesh & Deformers**: `turbo-mesh` (custom curvature-aware point placement & triangulation), `geometric-mesh-layout` (circular/polygon mesh tools), `selection-brush`, `artmesh-mirror`, `mesh-edit-mirror-axis-enhance`, `boundingbox-warp-mirror`, `warp-deformer-alt-symmetry`, `deformer-batch-rename`.
+- **Modeling, Mesh & Deformers**: `turbo-mesh` (custom curvature-aware point placement & triangulation), `geometric-mesh-layout` (circular/polygon mesh tools), `selection-brush`, `artmesh-mirror`, `mesh-edit-mirror-axis-enhance`, `boundingbox-warp-mirror`, `warp-deformer-alt-symmetry`, `warp-row-column-deform`, `deformer-batch-rename`.
 - **Parameters, Physics & Animation**: `parameter` (CSV import/export, binding inversion & transfer), `parameter-batch-transfer`, `parameter-sync`, `parameter-lock` *(Marketplace)*, `physics-editor` (select-all & state retention), `frame-animation-import` (sprite-sheet/image-sequence import).
 - **PSD, 3D & Texture Atlas**: `external-psd-edit` (live raw PSD editing), `psd-clip-mask-import`, `model-import-3d` (GLB/glTF/OBJ import), `atlas-maxrects-bssf`, `atlas-dalsoo-polygon`, `atlas-bitmask-nesting`, `atlas-folder-layout`, `texture-atlas-stats`.
 - **Workspace, UI & Inspection**: `ui-theme`, `command-palette` (`Ctrl+K`), `cubism-tab-filter`, `palette-label-style`, `scene-palette-enhancer`, `recent-project-board`, `recent-preview`, `history-panel` (semantic Undo timeline), `clipmask-viewer`, `perf-stats`, `project-work-time`.

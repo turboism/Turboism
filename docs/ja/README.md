@@ -24,9 +24,9 @@ Turboism は **Live2D Cubism Editor** 向けのランタイム拡張ツール兼
 
 ### ファーストパーティプラグイン
 
-標準リリースには 35 個のファーストパーティプラグインを同梱しています（`parameter-lock` はプラグインマーケットから導入可能）。各プラグインの対応バージョンは[プラグイン互換性マトリクス](../../compatibility/cubism/plugins_ja.md)を参照してください：
+標準リリースには 36 個のファーストパーティプラグインを同梱しています（`parameter-lock` はプラグインマーケットから導入可能）。各プラグインの対応バージョンは[プラグイン互換性マトリクス](../../compatibility/cubism/plugins_ja.md)を参照してください：
 
-- **モデリング・メッシュ・デフォーマ**：`turbo-mesh`（曲率対応の自由打点・三角形分割）、`geometric-mesh-layout`（円形・多角形メッシュ生成）、`selection-brush`、`artmesh-mirror`、`mesh-edit-mirror-axis-enhance`、`boundingbox-warp-mirror`、`warp-deformer-alt-symmetry`、`deformer-batch-rename`。
+- **モデリング・メッシュ・デフォーマ**：`turbo-mesh`（曲率対応の自由打点・三角形分割）、`geometric-mesh-layout`（円形・多角形メッシュ生成）、`selection-brush`、`artmesh-mirror`、`mesh-edit-mirror-axis-enhance`、`boundingbox-warp-mirror`、`warp-deformer-alt-symmetry`、`warp-row-column-deform`、`deformer-batch-rename`。
 - **パラメータ・物理演算・アニメーション**：`parameter`（CSV 入出力・バインド反転/移行）、`parameter-batch-transfer`、`parameter-sync`、`parameter-lock` *（マーケット）*、`physics-editor`（物理リスト一括選択・状態保持）、`frame-animation-import`（連番・スプライトシート取込）。
 - **PSD・3D・テクスチャアトラス**：`external-psd-edit`（外部アプリでの元 PSD リアルタイム編集）、`psd-clip-mask-import`、`model-import-3d`（GLB/glTF/OBJ 取込）、`atlas-maxrects-bssf`、`atlas-dalsoo-polygon`、`atlas-bitmask-nesting`、`atlas-folder-layout`、`texture-atlas-stats`。
 - **ワークスペース・UI・検査**：`ui-theme`、`command-palette`（`Ctrl+K`）、`cubism-tab-filter`、`palette-label-style`、`scene-palette-enhancer`、`recent-project-board`、`recent-preview`、`history-panel`（履歴タイムライン）、`clipmask-viewer`、`perf-stats`、`project-work-time`。

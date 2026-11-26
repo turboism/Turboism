@@ -39,7 +39,7 @@ surface contracts stay in `sdk/api-contracts/` and the SDK ABI gates.
   only through `KernelReportWriter` and never schedules work.
 - **Tests**: `runtime/src/test/java/dev/turboism/kernel/report/*` for the
   document contract; `KernelCapabilityCatalogRegistryTest` pins the canonical
-  capability closure (69 entries) next to the factory it validates.
+  capability closure (65 entries) next to the factory it validates.
 - **Backward compatibility**: report documents are a closed set consumed by the
   runtime agent; adding a document type is a reviewed change.
 - **Enforcement**: `checkDependencyInventory` (no cycle) plus the runtime package

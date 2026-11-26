@@ -3,9 +3,14 @@
 ## Scope and dependency direction
 
 Existing `checkModuleBoundaries`, `checkPluginBoundaries`,
-`checkPluginPermissionAudit`, `checkDependencyInventory`, and SDK ABI gates
-remain authoritative. Do not replace type-aware or compiled-class checks with
-AST search.
+`checkPluginPermissionAudit`, `checkDependencyInventory`,
+`checkAxiomaticDesignMatrix`, and SDK ABI gates remain authoritative. Do not
+replace type-aware or compiled-class checks with AST search, and never claim
+runtime functional independence from static dependency acyclicity alone; cross-plugin
+and shared-host functional effects are governed separately in
+`docs/architecture/AXIOMATIC_DESIGN.md` and `docs/architecture/design-matrix.json`
+(harm mode if absent: unreviewed shared-state coupling, parameter lock bypass, or
+feedback loops ship while static module graphs remain acyclic).
 
 Pure kernel extraction (`:persistence-core` and `:compatibility-policy`) is
 already complete; any further runtime split requires a prior import and
