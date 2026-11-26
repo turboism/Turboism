@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.warpalt;
 
 import dev.turboism.core.io.DurableFile;
 import dev.turboism.core.io.PathLocks;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.runtime.json.RuntimeJson;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.io.IOException;
@@ -19,7 +20,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -31,7 +31,7 @@ final class ArtMeshMirrorAxisStore implements AutoCloseable {
     private static final String FILE_EXTENSION = ".json";
     private static final String HASH_ALGORITHM = "SHA-256";
     private static final String LOG_CATEGORY = "artmesh-mirror";
-    private static final String WRITER_THREAD_NAME = "artmesh-mirror-axis-store";
+    private static final String WRITER_THREAD_NAME = RuntimeThreads.THREAD_NAME_PREFIX + "-artmesh-mirror-axis-store";
     private static final int SCHEMA_VERSION = 1;
     private static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
     private static final long FLUSH_TIMEOUT_MILLIS = 3_000L;
@@ -161,11 +161,7 @@ final class ArtMeshMirrorAxisStore implements AutoCloseable {
 
     private ExecutorService writerExecutorLocked() {
         if (writerExecutor == null) {
-            writerExecutor = Executors.newSingleThreadExecutor(runnable -> {
-                final Thread thread = new Thread(runnable, WRITER_THREAD_NAME);
-                thread.setDaemon(true);
-                return thread;
-            });
+            writerExecutor = RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName(WRITER_THREAD_NAME));
         }
         return writerExecutor;
     }
