@@ -300,6 +300,7 @@ Selector contracts and target-class tables that narrow verified capabilities to 
 
 | Source | Symbol | Versions |
 |---|---|---|
+| target-classes/`animation-acceleration.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`edit-drag-responsiveness.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
@@ -310,6 +311,7 @@ Selector contracts and target-class tables that narrow verified capabilities to 
 | target-classes/`mesh-mirror.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`mesh-triangulation-hash.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`model-update-skip.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`physics-acceleration.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`reinit-pair-elision.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`shader-uniform.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`startup-suppression.json` | `TargetClassTable` | 5.0.00–5.3.05 |

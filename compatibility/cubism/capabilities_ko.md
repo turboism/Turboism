@@ -300,6 +300,7 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 
 | 소스 | 심볼 | 버전 |
 |---|---|---|
+| target-classes/`animation-acceleration.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`edit-drag-responsiveness.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`float-array-parse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`image-archive-reuse.json` | `TargetClassTable` | 5.0.00–5.3.05 |
@@ -310,6 +311,7 @@ Cubism Editor 자체에 기능이 없는 확인된 호스트 경계. 공식 업�
 | target-classes/`mesh-mirror.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`mesh-triangulation-hash.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`model-update-skip.json` | `TargetClassTable` | 5.0.00–5.3.05 |
+| target-classes/`physics-acceleration.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`reinit-pair-elision.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`shader-uniform.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`startup-suppression.json` | `TargetClassTable` | 5.0.00–5.3.05 |

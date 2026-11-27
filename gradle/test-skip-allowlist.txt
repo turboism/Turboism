@@ -32,6 +32,8 @@ dev.turboism.bootstrap.VerifiedTextureUploadPreparationInstallerTest.* # exact r
 dev.turboism.bootstrap.VerifiedUniformLocationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpDeformEditAccelerationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedEditDragResponsivenessInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedPhysicsAccelerationInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedAnimationAccelerationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpPositionProjectionInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedMemoryLeakMitigationInstallerTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design
 dev.turboism.bootstrap.VerifiedCondyRollbackTest.deferredCameraAndMeshSetupInstallersPublishBeforeRetransformAndRestoreAcrossCycles() # requires local Cubism 5.3.05 reference JAR or -Dturboism.test.cubism5305Jar; offline CI runs skip by design
@@ -49,6 +51,8 @@ dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheArtifactTest.* 
 dev.turboism.adapter.cubism.optimization.scenehandler.InputAndRenderWeavesArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
+dev.turboism.adapter.cubism.optimization.physics.PhysicsAccelerationArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
+dev.turboism.adapter.cubism.optimization.animation.AnimationAccelerationArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
 dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.hittest.MeshHitTestArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.

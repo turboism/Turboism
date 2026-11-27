@@ -108,6 +108,8 @@ class WeaveSpecTest {
                 7,
                 VerifiedEditDragResponsivenessInstaller.EXPECTED_MATCHES,
                 VerifiedEditDragResponsivenessInstaller.HOOK_ID);
+        assertEquals(
+                1, VerifiedPhysicsAccelerationInstaller.EXPECTED_MATCHES, VerifiedPhysicsAccelerationInstaller.HOOK_ID);
     }
 
     @Test
@@ -196,6 +198,8 @@ class WeaveSpecTest {
                 7,
                 VerifiedEditDragResponsivenessInstaller.EXPECTED_OWNERS,
                 VerifiedEditDragResponsivenessInstaller.HOOK_ID);
+        assertEquals(
+                1, VerifiedPhysicsAccelerationInstaller.EXPECTED_OWNERS, VerifiedPhysicsAccelerationInstaller.HOOK_ID);
     }
 
     @Test
@@ -235,6 +239,8 @@ class WeaveSpecTest {
         assertRow(VerifiedRedundantStateElisionInstaller.ADMISSION, PolicyCheck.SKIP, JvmCheck.ANY);
         assertRow(VerifiedAtlasInteractiveRenderInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
         assertRow(VerifiedEditDragResponsivenessInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedAnimationAccelerationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
+        assertRow(VerifiedPhysicsAccelerationInstaller.ADMISSION, PolicyCheck.REQUIRED, JvmCheck.AT_LEAST_17);
     }
 
     private static void assertRow(final Admission admission, final PolicyCheck policyCheck, final JvmCheck jvmCheck) {

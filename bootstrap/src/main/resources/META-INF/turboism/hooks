@@ -146,6 +146,10 @@ dev.turboism.bootstrap.SortingInfoCacheHookContributor
 @verified-warp-deform-edit-acceleration
 # Canvas drag coalescing, drag-scoped inspector/deformer-tree deferral, and same-cursor elision.
 dev.turboism.bootstrap.EditDragResponsivenessHookContributor
+# Animation evaluation context pooling, indexed child traversal, formatting caches, and Graph Editor viewport culling.
+dev.turboism.bootstrap.AnimationAccelerationHookContributor
+# Zero-allocation physics pendulum evaluation preserving exact IEEE-754 float order.
+dev.turboism.bootstrap.PhysicsAccelerationHookContributor
 # Cached atlas overlay sprites, viewport clipping, drag UI coalescing, and wheel/tab elisions.
 @verified-atlas-interactive-render
 # Memory, OpenGL buffer/texture, undo, image cache, and UI lifecycle leak mitigations.
