@@ -285,6 +285,80 @@ class AtlasInteractiveRenderArtifactTest {
     }
 
     @Test
+    void translucentStrokeDoesNotAccumulateIntoOpaqueRedAtThumbnailScale() {
+        final int thumbnailSize = 48;
+        final int denseGridCells = 24;
+        final float cellSize = 40.0f;
+        final double thumbnailScale = 0.02d;
+        final int maxChannelDelta = 2;
+
+        final Path2D.Float denseMesh = new Path2D.Float();
+        for (int row = 0; row < denseGridCells; row++) {
+            for (int col = 0; col < denseGridCells; col++) {
+                final float x0 = col * cellSize;
+                final float y0 = row * cellSize;
+                final float x1 = x0 + cellSize;
+                final float y1 = y0 + cellSize;
+                denseMesh.moveTo(x0, y0);
+                denseMesh.lineTo(x1, y0);
+                denseMesh.lineTo(x1, y1);
+                denseMesh.closePath();
+                denseMesh.moveTo(x0, y0);
+                denseMesh.lineTo(x1, y1);
+                denseMesh.lineTo(x0, y1);
+                denseMesh.closePath();
+            }
+        }
+        final ArrayList<Path2D> shapes = new ArrayList<>(List.of(denseMesh));
+        final AffineTransform thumbTx = AffineTransform.getScaleInstance(thumbnailScale, thumbnailScale);
+        thumbTx.preConcatenate(AffineTransform.getTranslateInstance(4.0d, 4.0d));
+
+        final Color fill = new Color(FILL_ARGB, true);
+        final Color stroke = new Color(STROKE_ARGB, true);
+
+        final BufferedImage expected = new BufferedImage(thumbnailSize, thumbnailSize, BufferedImage.TYPE_INT_ARGB);
+        final Graphics2D gExp = expected.createGraphics();
+        gExp.setColor(Color.WHITE);
+        gExp.fillRect(0, 0, thumbnailSize, thumbnailSize);
+        gExp.setStroke(new BasicStroke(1.0f));
+        gExp.setColor(fill);
+        gExp.fill(thumbTx.createTransformedShape(denseMesh));
+        gExp.setColor(stroke);
+        gExp.draw(thumbTx.createTransformedShape(denseMesh));
+        gExp.dispose();
+
+        final AtlasInteractiveRenderSpriteCache cache = new AtlasInteractiveRenderSpriteCache();
+        for (final boolean isIconPass : new boolean[] {true, false}) {
+            final BufferedImage actual = new BufferedImage(thumbnailSize, thumbnailSize, BufferedImage.TYPE_INT_ARGB);
+            final Graphics2D gAct = actual.createGraphics();
+            gAct.setColor(Color.WHITE);
+            gAct.fillRect(0, 0, thumbnailSize, thumbnailSize);
+            gAct.setClip(0, 0, thumbnailSize, thumbnailSize);
+            gAct.setStroke(new BasicStroke(1.0f));
+            gAct.setTransform(thumbTx);
+            assertTrue(cache.renderOverlay(
+                    gAct, shapes, new AffineTransform(thumbTx), fill, stroke, isIconPass, false, null));
+            gAct.dispose();
+
+            int maxDiff = 0;
+            for (int y = 0; y < thumbnailSize; y++) {
+                for (int x = 0; x < thumbnailSize; x++) {
+                    final int expRgb = expected.getRGB(x, y);
+                    final int actRgb = actual.getRGB(x, y);
+                    for (int shift = 0; shift <= 24; shift += 8) {
+                        final int diff = Math.abs(((expRgb >>> shift) & 0xFF) - ((actRgb >>> shift) & 0xFF));
+                        maxDiff = Math.max(maxDiff, diff);
+                    }
+                }
+            }
+            assertTrue(
+                    maxDiff <= maxChannelDelta,
+                    "translucent stroke diverged from single-pass reference: maxChannelDiff=" + maxDiff
+                            + " (isIconPass=" + isIconPass + ")");
+        }
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void trailingRepaintClipAndDragCoalescingBehaveCorrectly() throws Exception {
         final InMemoryDefiningLoader syntheticLoader =

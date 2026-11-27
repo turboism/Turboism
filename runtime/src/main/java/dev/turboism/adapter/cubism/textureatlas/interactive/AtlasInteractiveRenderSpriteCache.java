@@ -46,6 +46,8 @@ final class AtlasInteractiveRenderSpriteCache {
     private static final double MIN_ZOOM_REUSE_RATIO = 0.40d;
     private static final double MAX_ZOOM_REUSE_RATIO = 2.50d;
     private static final float STROKE_DIRECT_LINE_MAX_WIDTH = 1.25f;
+    private static final int OPAQUE_ALPHA = 255;
+    private static final int INITIAL_SLICE_PATH_CAPACITY = 16;
     private static final int COORDS_BUFFER_SIZE = 6;
     private static final int DEFAULT_STROKE_WIDTH_BITS = Float.floatToRawIntBits(1.0f);
     private static final double MIN_VISIBLE_SPAN_PX = 2.0d;
@@ -535,7 +537,15 @@ final class AtlasInteractiveRenderSpriteCache {
         }
         if (strokeColor != null) {
             g2d.setColor(strokeColor);
-            drawEdgesRange(g2d, compiled, tx, null, strokeWidth, 0, compiled.edgeCoords.length / COORDS_PER_EDGE);
+            if (strokeColor.getAlpha() < OPAQUE_ALPHA) {
+                // Single-pass Path2D stroke prevents translucent SrcOver alpha accumulation on overlapping edges.
+                if (compiled.edgeCoords.length > 0) {
+                    g2d.setTransform(IDENTITY);
+                    g2d.draw(tx.createTransformedShape(compiled.edgePath));
+                }
+            } else {
+                drawEdgesRange(g2d, compiled, tx, null, strokeWidth, 0, compiled.edgeCoords.length / COORDS_PER_EDGE);
+            }
             if (!compiled.nonSegmentShapes.isEmpty()) {
                 g2d.setTransform(IDENTITY);
                 for (int i = 0, n = compiled.nonSegmentShapes.size(); i < n; i++) {
@@ -571,22 +581,26 @@ final class AtlasInteractiveRenderSpriteCache {
         }
         if (strokeColor != null) {
             g2d.setColor(strokeColor);
-            final float[] chunks = compiled.chunkBounds;
-            final int totalEdges = compiled.edgeCoords.length / COORDS_PER_EDGE;
-            final int chunkCount = chunks.length / COORDS_PER_EDGE;
-            for (int c = 0; c < chunkCount; c++) {
-                final int bBase = c * COORDS_PER_EDGE;
-                if (localClip != null
-                        && !localClip.intersects(
-                                chunks[bBase],
-                                chunks[bBase + 1],
-                                Math.max(SUBPIXEL_EPSILON, chunks[bBase + 2] - chunks[bBase]),
-                                Math.max(SUBPIXEL_EPSILON, chunks[bBase + 3] - chunks[bBase + 1]))) {
-                    continue;
+            if (strokeColor.getAlpha() < OPAQUE_ALPHA) {
+                drawTranslucentCulledEdges(g2d, compiled, tx, localClip);
+            } else {
+                final float[] chunks = compiled.chunkBounds;
+                final int totalEdges = compiled.edgeCoords.length / COORDS_PER_EDGE;
+                final int chunkCount = chunks.length / COORDS_PER_EDGE;
+                for (int c = 0; c < chunkCount; c++) {
+                    final int bBase = c * COORDS_PER_EDGE;
+                    if (localClip != null
+                            && !localClip.intersects(
+                                    chunks[bBase],
+                                    chunks[bBase + 1],
+                                    Math.max(SUBPIXEL_EPSILON, chunks[bBase + 2] - chunks[bBase]),
+                                    Math.max(SUBPIXEL_EPSILON, chunks[bBase + 3] - chunks[bBase + 1]))) {
+                        continue;
+                    }
+                    final int start = c * EDGE_CHUNK_SEGMENTS;
+                    final int end = Math.min(totalEdges, start + EDGE_CHUNK_SEGMENTS);
+                    drawEdgesRange(g2d, compiled, tx, localClip, strokeWidth, start, end);
                 }
-                final int start = c * EDGE_CHUNK_SEGMENTS;
-                final int end = Math.min(totalEdges, start + EDGE_CHUNK_SEGMENTS);
-                drawEdgesRange(g2d, compiled, tx, localClip, strokeWidth, start, end);
             }
             if (!compiled.nonSegmentShapes.isEmpty()) {
                 g2d.setTransform(IDENTITY);
@@ -594,6 +608,71 @@ final class AtlasInteractiveRenderSpriteCache {
                     g2d.draw(tx.createTransformedShape(compiled.nonSegmentShapes.get(i)));
                 }
             }
+        }
+    }
+
+    /** Strokes all visible edges in one pass so translucent strokes never self-composite across segments or chunks. */
+    private static void drawTranslucentCulledEdges(
+            final Graphics2D g2d,
+            final CompiledOverlay compiled,
+            final AffineTransform tx,
+            final Rectangle2D localClip) {
+        final float[] edges = compiled.edgeCoords;
+        if (edges.length == 0) {
+            return;
+        }
+        if (localClip == null
+                || (compiled.bounds.getMinX() >= localClip.getMinX()
+                        && compiled.bounds.getMaxX() <= localClip.getMaxX()
+                        && compiled.bounds.getMinY() >= localClip.getMinY()
+                        && compiled.bounds.getMaxY() <= localClip.getMaxY())) {
+            g2d.setTransform(IDENTITY);
+            g2d.draw(tx.createTransformedShape(compiled.edgePath));
+            return;
+        }
+
+        final float[] chunks = compiled.chunkBounds;
+        final int totalEdges = edges.length / COORDS_PER_EDGE;
+        final int chunkCount = chunks.length / COORDS_PER_EDGE;
+        final double minX = localClip.getMinX();
+        final double minY = localClip.getMinY();
+        final double maxX = localClip.getMaxX();
+        final double maxY = localClip.getMaxY();
+
+        Path2D.Float visible = null;
+        for (int c = 0; c < chunkCount; c++) {
+            final int bBase = c * COORDS_PER_EDGE;
+            if (!localClip.intersects(
+                    chunks[bBase],
+                    chunks[bBase + 1],
+                    Math.max(SUBPIXEL_EPSILON, chunks[bBase + 2] - chunks[bBase]),
+                    Math.max(SUBPIXEL_EPSILON, chunks[bBase + 3] - chunks[bBase + 1]))) {
+                continue;
+            }
+            final int start = c * EDGE_CHUNK_SEGMENTS;
+            final int end = Math.min(totalEdges, start + EDGE_CHUNK_SEGMENTS);
+            for (int e = start; e < end; e++) {
+                final int base = e * COORDS_PER_EDGE;
+                final float x0 = edges[base];
+                final float y0 = edges[base + 1];
+                final float x1 = edges[base + 2];
+                final float y1 = edges[base + 3];
+                if ((x0 < minX && x1 < minX)
+                        || (x0 > maxX && x1 > maxX)
+                        || (y0 < minY && y1 < minY)
+                        || (y0 > maxY && y1 > maxY)) {
+                    continue;
+                }
+                if (visible == null) {
+                    visible = new Path2D.Float(Path2D.WIND_NON_ZERO, INITIAL_SLICE_PATH_CAPACITY);
+                }
+                visible.moveTo(x0, y0);
+                visible.lineTo(x1, y1);
+            }
+        }
+        if (visible != null) {
+            g2d.setTransform(IDENTITY);
+            g2d.draw(tx.createTransformedShape(visible));
         }
     }
 
