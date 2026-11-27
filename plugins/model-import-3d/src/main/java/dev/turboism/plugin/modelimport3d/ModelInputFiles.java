@@ -19,6 +19,7 @@ final class ModelInputFiles {
     private final String requestId;
     private final BooleanSupplier active;
     private final PluginLocalization i18n;
+    private final Executor executor;
     private final Map<String, byte[]> resources = new LinkedHashMap<>();
     private long total;
 
@@ -27,12 +28,14 @@ final class ModelInputFiles {
             UserFileAccessService files,
             String requestId,
             BooleanSupplier active,
-            PluginLocalization i18n) {
+            PluginLocalization i18n,
+            Executor executor) {
         this.input = input;
         this.files = files;
         this.requestId = requestId;
         this.active = active;
         this.i18n = i18n;
+        this.executor = Objects.requireNonNull(executor, "executor");
         total = input.length;
     }
 
@@ -58,8 +61,8 @@ final class ModelInputFiles {
     }
 
     static CompletionStage<Optional<byte[]>> normalize(
-            byte[] input, UserFileAccessService files, String requestId, BooleanSupplier active) {
-        return normalize(input, files, requestId, active, null);
+            byte[] input, UserFileAccessService files, String requestId, BooleanSupplier active, Executor executor) {
+        return normalize(input, files, requestId, active, null, executor);
     }
 
     static CompletionStage<Optional<byte[]>> normalize(
@@ -67,19 +70,22 @@ final class ModelInputFiles {
             UserFileAccessService files,
             String requestId,
             BooleanSupplier active,
-            PluginLocalization i18n) {
-        return new ModelInputFiles(input, files, requestId, active, i18n).resolve();
+            PluginLocalization i18n,
+            Executor executor) {
+        return new ModelInputFiles(input, files, requestId, active, i18n, executor).resolve();
     }
 
     private CompletionStage<Optional<byte[]>> resolve() {
-        return CompletableFuture.supplyAsync(() -> {
-                    if (!active.getAsBoolean()) return Optional.<byte[]>empty();
-                    try {
-                        return Optional.of(ModelInputNormalizer.normalizeSelected(input, resources));
-                    } catch (IOException failure) {
-                        throw new CompletionException(failure);
-                    }
-                })
+        return CompletableFuture.supplyAsync(
+                        () -> {
+                            if (!active.getAsBoolean()) return Optional.<byte[]>empty();
+                            try {
+                                return Optional.of(ModelInputNormalizer.normalizeSelected(input, resources));
+                            } catch (IOException failure) {
+                                throw new CompletionException(failure);
+                            }
+                        },
+                        executor)
                 .handle((normalized, failure) -> {
                     if (failure == null) return CompletableFuture.completedFuture(normalized);
                     while (failure instanceof CompletionException && failure.getCause() != null)

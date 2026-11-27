@@ -430,6 +430,9 @@ private fun checkSourceFile(root: Project, project: Project, file: java.io.File,
     JavaSourceScan.forbiddenPackageDeclarations(source).forEach(state::reject)
     JavaSourceScan.hostPackageLiterals(source).forEach(state::reject)
     JavaSourceScan.directRuntimeConstructions(source).forEach(state::reject)
+    if (project.path == ":runtime" || project.path.startsWith(":plugins:")) {
+        JavaSourceScan.commonPoolAsyncCalls(source).forEach(state::reject)
+    }
     val restricted = project.path == ":sdk" || project.path.startsWith(":plugins:")
     if (restricted) {
         JavaSourceScan.restrictedImports(source).forEach(state::reject)

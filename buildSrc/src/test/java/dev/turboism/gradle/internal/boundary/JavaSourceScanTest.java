@@ -341,6 +341,45 @@ class JavaSourceScanTest {
                 .isEmpty());
     }
 
+    @Test
+    void rejectsSingleArgumentCommonPoolAsyncCallsWithNestedDelimiters() {
+        String note = "pass an explicit bounded executor instead of relying on ForkJoinPool.commonPool()";
+        List<String> violations = JavaSourceScan.commonPoolAsyncCalls(source(
+                "import java.util.concurrent.CompletableFuture;",
+                "class Fixture {",
+                "    Object a() { return CompletableFuture.supplyAsync(() -> foo(a, b)); }",
+                "    Object b() { return java.util.concurrent.CompletableFuture.runAsync(() -> { int x = 1, y = 2; }); }",
+                "    Object c(java.util.concurrent.Executor ex) {",
+                "        return CompletableFuture.supplyAsync(() -> CompletableFuture.runAsync(this::work), ex);",
+                "    }",
+                "}"));
+        assertEquals(
+                List.of(
+                        "Forbidden commonPool call 'CompletableFuture.supplyAsync(...)' in " + FIXTURE + ":3: " + note,
+                        "Forbidden commonPool call 'CompletableFuture.runAsync(...)' in " + FIXTURE + ":4: " + note,
+                        "Forbidden commonPool call 'CompletableFuture.runAsync(...)' in " + FIXTURE + ":6: " + note),
+                violations);
+    }
+
+    @Test
+    void allowsTwoArgumentAsyncCallsAndIgnoresCommentsAndStrings() {
+        assertEquals(
+                List.of(),
+                JavaSourceScan.commonPoolAsyncCalls(source(
+                        "import java.util.concurrent.CompletableFuture;",
+                        "class Fixture {",
+                        "    Object a(java.util.concurrent.Executor ex) {",
+                        "        return CompletableFuture.supplyAsync(() -> foo(a, b), ex);",
+                        "    }",
+                        "    Object b(java.util.concurrent.Executor ex) {",
+                        "        return CompletableFuture.runAsync(() -> { int x = 1, y = 2; }, ex);",
+                        "    }",
+                        "    // CompletableFuture.supplyAsync(() -> 1)",
+                        "    /* CompletableFuture.runAsync(this::work) */",
+                        "    String note = \"CompletableFuture.supplyAsync(() -> 1)\";",
+                        "}")));
+    }
+
     private static JavaSourceScan.SourceFile source(String... lines) {
         return new JavaSourceScan.SourceFile(FIXTURE, List.of(lines));
     }
