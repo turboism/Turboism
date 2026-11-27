@@ -298,7 +298,8 @@ class EarlyThemeAppearanceBootstrapTest {
                 externalSelection,
                 document("1", 1, SELECTED_THEME_KEY, "[\"" + SYMLINK_THEME_ID + "\"]"),
                 StandardCharsets.UTF_8);
-        final Path selectionLink = home.resolve("config").resolve(THEME_PLUGIN_ID).resolve(SELECTION_PATH);
+        final Path selectionLink =
+                home.resolve("config").resolve(THEME_PLUGIN_ID).resolve(SELECTION_PATH);
         Files.createDirectories(selectionLink.getParent());
         Files.createSymbolicLink(selectionLink, externalSelection);
 
@@ -314,10 +315,8 @@ class EarlyThemeAppearanceBootstrapTest {
         writeSelectionThroughTypedConfigRegistry(home, List.of(SYMLINK_THEME_ID));
         final Path externalArchive = external.resolve(SYMLINK_THEME_ID + ".zip");
         writeThemeArchive(externalArchive, "Panel.background=#112233\n");
-        final Path archiveLink = home.resolve("data")
-                .resolve(THEME_PLUGIN_ID)
-                .resolve("themes")
-                .resolve(SYMLINK_THEME_ID + ".zip");
+        final Path archiveLink =
+                home.resolve("data").resolve(THEME_PLUGIN_ID).resolve("themes").resolve(SYMLINK_THEME_ID + ".zip");
         Files.createDirectories(archiveLink.getParent());
         Files.createSymbolicLink(archiveLink, externalArchive);
 
@@ -327,10 +326,8 @@ class EarlyThemeAppearanceBootstrapTest {
     @Test
     void rejectsOversizedColorsPropertiesEntryInThemeArchive(@TempDir Path home) throws Exception {
         writeSelectionThroughTypedConfigRegistry(home, List.of(OVERSIZED_THEME_ID));
-        final Path archive = home.resolve("data")
-                .resolve(THEME_PLUGIN_ID)
-                .resolve("themes")
-                .resolve(OVERSIZED_THEME_ID + ".zip");
+        final Path archive =
+                home.resolve("data").resolve(THEME_PLUGIN_ID).resolve("themes").resolve(OVERSIZED_THEME_ID + ".zip");
         writeThemeArchive(archive, "Panel.background=#" + "a".repeat(OVERSIZED_COLORS_BYTES) + "\n");
 
         final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
@@ -443,9 +440,7 @@ class EarlyThemeAppearanceBootstrapTest {
     private static String document(
             final String schemaVersion, final long revision, final String key, final String value) {
         return TypedConfigDocumentCodec.encode(new StoredDocument(
-                Integer.parseInt(schemaVersion),
-                revision,
-                Map.of("unrelated-setting", "\"kept\"", key, value)));
+                Integer.parseInt(schemaVersion), revision, Map.of("unrelated-setting", "\"kept\"", key, value)));
     }
 
     private static String entry(final String key, final String value) {

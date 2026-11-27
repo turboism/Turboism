@@ -74,9 +74,10 @@ Code inspection and cross-plugin integration testing (`ParameterLockSyncInteract
 2. **SDK write path and readback suppression**: When an unlocked synchronized driver `A` changes, `ParameterLifecycleCoordinator` publishes `ParameterValueEvent.On(A)`. `ParameterSyncPlugin` computes normalized target values and schedules `flushPendingSync()` on `UiScheduler` (outside `A`'s synchronous `parameterWriteActive` guard). `flushPendingSync()` calls `targetParam.setValue(targetVal)` through `PermissionCheckedParameter`, which re-enters `ParameterLifecycleCoordinator.setValue`.
 3. **Feedback-loop prevention**: When target `B` is locked, `ParameterLockPlugin.beforeSetParameterValue` returns `B.getValue()` (`oldValue`). In `EditorBackedCubismModelAccess.setParameterValue`, `Float.compare(oldValue, expectedValue) == 0` exits before mutating the model or creating Undo entries. Post-write readback observes `oldValue == finalValue`, so `ParameterLifecycleCoordinator.publishCompletion` suppresses `ParameterValueEvent.On(B)`. `B` never bounces a reverse sync back onto `A`, while unlocked partner `C` still updates.
 4. **Verified matrix shape**: `DP9` affects `FR10` (locking a parameter blocks incoming sync writes and prevents edits on a locked driver from propagating), while `DP10` never violates `FR9`. The `(FR9, FR10) × (DP9, DP10)` submatrix is **DECOUPLED (Lower-Triangular)**: $\begin{bmatrix} X & 0 \\ x & X \end{bmatrix}$. Runtime enable/disable order (`lock -> sync` vs `sync -> lock`) is invariant because phase ordering (`Before -> invoke -> changed-only On`) is owned by `ParameterLifecycleCoordinator`.
-5. **Observed edge quirks (`EXC-AD-002`)**:
-   - Before `lockState.hasLoaded(modelGuid)` finishes async storage load, `ParameterLockPlugin.beforeSetParameterValue` fails closed by returning `parameter.getValue()` for *all* parameters on that model.
-   - `ParameterSyncPlugin.flushPendingSync()` calls `suppressionGuard().markProgrammaticWrite(targetId, targetVal)` *before* `targetParam.setValue(targetVal)`. When `DP9` rejects that write, no `On` event consumes the guard entry, leaving a 500 ms suppression window on `targetId` (and an unread `lastAppliedValues` map entry).
+5. **Preload and suppression boundaries (`EXC-AD-002`, `EXC-AD-003`)**:
+   - Before `lockState.hasLoaded(modelGuid)` finishes async storage load, `ParameterLockPlugin.beforeSetParameterValue` fails closed by returning `parameter.getValue()` (and falls back to an empty lock set if storage read fails, preventing permanent model freeze).
+   - `ParameterSyncPlugin.flushPendingSync()` clears `ProgrammaticSuppressionGuard` immediately when post-write readback equals `oldValue` (rejected write), and `ProgrammaticSuppressionGuard` passes mismatched values through without swallowing subsequent user edits.
+   - `EditorBackedCubismModelAccess` wraps grouped `AuthoringTransactionService.execute` callbacks in `ParameterLifecycleCoordinator.runWithSuppressedCompletionObservers`, keeping `Before` lock interception active while preventing asynchronous post-transaction `ParameterSyncPlugin` partner drift during batch CSV, keyform, and `McpPoseGridDomain` sweeps.
 
 ### 5.2 Early Theme Bootstrap (`DP6`)
 
@@ -111,14 +112,12 @@ Under the documented ordering `(FR1..FR17) × (DP1..DP17)` in `docs/architecture
 | Metric | Count | Classification Impact |
 | --- | --- | --- |
 | Primary diagonal entries (`X`, $i = j$) | 17 | Every `FR` has one primary traceable `DP` |
-| Lower-triangular observed effects (`x`, $i > j$, `OBSERVED`) | 73 | Platform layers (`DP1`–`DP8`) and `DP9` (`parameter-lock`) feed downstream workflows one-way |
-| Lower-triangular hypothesized effects (`x`, $i > j$, `HYPOTHESIS`) | 2 | `(FR11, DP10)` and `(FR15, DP10)` async sync propagation after batch/MCP `setValue` |
+| Lower-triangular observed effects (`x`, $i > j$, `OBSERVED`) | 74 | Platform layers (`DP1`–`DP8`) and `DP9`/`DP10` feed downstream workflows one-way |
+| Lower-triangular hypothesized effects (`x`, $i > j$, `HYPOTHESIS`) | 0 | Grouped authoring transactions suppress async `DP10` drift by contract |
 | Upper-triangular observed or hypothesized effects (`x`, $i < j$) | 0 | Zero confirmed reverse functional coupling |
-| Unknown entries (`?`, `UNVERIFIED` / `HYPOTHESIS`) | 4 | `1` lower-triangular `(FR13, DP12)` + `3` upper-triangular `(FR5, DP7)`, `(FR5, DP9)`, `(FR10, DP15)` |
+| Unknown entries (`?`, `UNVERIFIED`) | 3 | `1` lower-triangular `(FR13, DP12)` + `2` upper-triangular `(FR5, DP7)`, `(FR5, DP9)` |
 | Observed functional-effect SCCs | 0 | Acyclic lower-triangular functional graph over all confirmed effects |
-| Potential functional SCCs if `?` entries prove nonzero | 2 | `["FR5/DP5", "FR6/DP6", "FR7/DP7", "FR8/DP8", "FR9/DP9"]` and `["FR10/DP10", "FR15/DP15"]` |
-
-Sibling remediation branches (`theme-sec`, `param-lock`, `sync-decouple`, `exec-hygiene`) target `EXC-AD-001`, `EXC-AD-002`, `EXC-AD-003`, `(FR5, DP9)`, and `(FR10, DP15)`. After those branches merge, `@coordinator` can transition verified cells to `OBSERVED` or `0` in `design-matrix.json`.
+| Potential functional SCCs if `?` entries prove nonzero | 1 | `["FR5/DP5", "FR6/DP6", "FR7/DP7", "FR8/DP8", "FR9/DP9"]` |
 
 Design classifications:
 
@@ -165,9 +164,9 @@ Three operational hotspots dominate implementation entropy (Axiom 2 Information 
 
 | ID | Status | Owner | Summary and Follow-Up |
 | --- | --- | --- | --- |
-| `EXC-AD-001` | Accepted closed exception | `sole-maintainer` | `EarlyThemeAppearanceBootstrap` reads `ui-theme/selection.cfg` (schema v1) before plugin load; revisit runtime-owned storage alongside `#69` migration snapshots. |
-| `EXC-AD-002` | Tracked interaction quirk | `sole-maintainer` | `ParameterLockPlugin` holds values fail-closed until async preload finishes, and rejected `ParameterSyncPlugin` writes leave a 500 ms `ProgrammaticSuppressionGuard` entry; track readback cleanup in `parameter-sync`. |
-| `EXC-AD-003` | Tracked interaction quirk | `sole-maintainer` | `ParameterSyncPlugin` flushes partner writes asynchronously via `UiScheduler` after synchronous `McpPoseGridDomain` or batch `AuthoringTransaction` sweeps; execute verification tasks on `(FR10, DP15)`, `(FR11, DP10)`, and `(FR15, DP10)`. |
+| `EXC-AD-001` | Accepted closed exception | `sole-maintainer` | `EarlyThemeAppearanceBootstrap` decodes `ui-theme/selection.cfg` (schema v1) via `:persistence-core` with symlink, confinement, and ZIP byte caps; revisit runtime-owned storage alongside `#69`. |
+| `EXC-AD-002` | Boundary verified | `sole-maintainer` | `ParameterLockPlugin` holds values fail-closed during async preload (with empty fallback on read error), and `ParameterSyncPlugin` clears `ProgrammaticSuppressionGuard` immediately on rejected writes. |
+| `EXC-AD-003` | Boundary verified | `sole-maintainer` | Grouped `AuthoringTransaction` callbacks suppress asynchronous parameter completion observers while keeping `Before` lock interception active, preventing post-transaction `parameter-sync` drift. |
 | `EXC-AD-004` | Boundary verified | `sole-maintainer` | `CorePluginContext` exhibits high static import fan-out as the service-wiring seam while owning zero domain policy; no `:runtime` module split is warranted. |
 
 ## 9. Governance and Maintenance

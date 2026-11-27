@@ -336,7 +336,8 @@ public final class EarlyThemeAppearanceBootstrap {
                 .resolve(THEMES_DIR)
                 .toAbsolutePath()
                 .normalize();
-        final Path archive = themesRoot.resolve(themeId + ARCHIVE_EXTENSION).toAbsolutePath().normalize();
+        final Path archive =
+                themesRoot.resolve(themeId + ARCHIVE_EXTENSION).toAbsolutePath().normalize();
         if (!archive.startsWith(themesRoot) || !themesRoot.equals(archive.getParent())) {
             return Optional.empty();
         }

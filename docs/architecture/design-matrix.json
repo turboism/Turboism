@@ -422,8 +422,8 @@
     "FR7":  ["0", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
     "FR8":  ["x", "x", "x", "0", "x", "0", "0", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
     "FR9":  ["0", "x", "x", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR10": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "?", "0", "0"],
-    "FR11": ["0", "x", "x", "0", "0", "0", "x", "x", "x", "x", "X", "0", "0", "0", "0", "0", "0"],
+    "FR10": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0"],
+    "FR11": ["0", "x", "x", "0", "0", "0", "x", "x", "x", "0", "X", "0", "0", "0", "0", "0", "0"],
     "FR12": ["x", "x", "x", "0", "x", "0", "x", "x", "0", "0", "0", "X", "0", "0", "0", "0", "0"],
     "FR13": ["x", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "?", "X", "0", "0", "0", "0"],
     "FR14": ["0", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "0", "0", "X", "0", "0", "0"],
@@ -641,19 +641,13 @@
     },
     {
       "frId": "FR10", "dpId": "DP9", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
-      "effectSummary": "Locking a parameter in DP9 blocks DP10 target writes in Before phase without firing On or causing feedback loops, while leaving a 500ms suppression entry on the locked target.",
+      "effectSummary": "Locking a parameter in DP9 blocks DP10 target writes in Before phase without firing On or causing feedback loops, and post-write readback clears ProgrammaticSuppressionGuard immediately.",
       "evidencePaths": ["plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
     },
     {
       "frId": "FR10", "dpId": "DP10", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
       "effectSummary": "ParameterSyncPlugin and ParameterSyncEngine propagate normalized progress across synchronized parameters with ProgrammaticSuppressionGuard.",
       "evidencePaths": ["plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
-    },
-    {
-      "frId": "FR10", "dpId": "DP15", "symbol": "?", "relation": "UNKNOWN", "evidenceStatus": "HYPOTHESIS",
-      "effectSummary": "Synchronous set-and-restore pose sweeps in McpPoseGridDomain may queue asynchronous ParameterValueEvent.On notifications whose conflated flush order relative to baseline restoration is unverified.",
-      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"],
-      "verificationTask": "Add an integration test exercising McpPoseGridDomain pose capture and baseline restore while ParameterSyncPlugin is active on a shared parameter pair."
     },
     {
       "frId": "FR11", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
@@ -679,12 +673,6 @@
       "frId": "FR11", "dpId": "DP9", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
       "effectSummary": "Parameter.setValue calls in FrameKeyformBinder and CSV import pass through ParameterLockPlugin Before interception.",
       "evidencePaths": ["plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java", "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
-    },
-    {
-      "frId": "FR11", "dpId": "DP10", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "HYPOTHESIS",
-      "effectSummary": "Batch CSV or keyform Parameter.setValue mutations emit ParameterValueEvent.On, which will schedule asynchronous DP10 partner writes unless parameter-sync is paused.",
-      "evidencePaths": ["plugins/frame-animation-import/src/main/java/dev/turboism/plugin/frameanimation/service/FrameKeyformBinder.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"],
-      "verificationTask": "Verify CSV parameter import and frame-animation keyform binding behavior with active ParameterSyncPlugin rules and document whether batch transactions should suppress sync."
     },
     {
       "frId": "FR11", "dpId": "DP11", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
@@ -843,10 +831,9 @@
       "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java", "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java"]
     },
     {
-      "frId": "FR15", "dpId": "DP10", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "HYPOTHESIS",
-      "effectSummary": "External MCP or script Parameter.setValue calls emit ParameterValueEvent.On, causing active DP10 rules to mutate synchronized partner parameters asynchronously on the UI thread.",
-      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java"],
-      "verificationTask": "Verify MCP parameter write and pose-grid isolation when ParameterSyncPlugin is active and evaluate an explicit automation sync-pause contract."
+      "frId": "FR15", "dpId": "DP10", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Standalone external MCP or script Parameter.setValue calls emit ParameterValueEvent.On and propagate to synchronized DP10 partners, whereas grouped AuthoringTransaction sweeps suppress completion observers.",
+      "evidencePaths": ["plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorBackedCubismModelAccess.java", "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"]
     },
     {
       "frId": "FR15", "dpId": "DP15", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
@@ -1059,16 +1046,15 @@
     "observedClassification": "DECOUPLED",
     "overallClassification": "UNVERIFIED",
     "diagonalCount": 17,
-    "lowerTriangularObservedCount": 73,
-    "lowerTriangularHypothesisCount": 2,
+    "lowerTriangularObservedCount": 74,
+    "lowerTriangularHypothesisCount": 0,
     "upperTriangularObservedCount": 0,
     "upperTriangularHypothesisCount": 0,
     "lowerTriangularUnknownCount": 1,
-    "upperTriangularUnknownCount": 3,
+    "upperTriangularUnknownCount": 2,
     "observedFunctionalSccs": [],
     "potentialFunctionalSccsWithUnknowns": [
-      ["FR5/DP5", "FR6/DP6", "FR7/DP7", "FR8/DP8", "FR9/DP9"],
-      ["FR10/DP10", "FR15/DP15"]
+      ["FR5/DP5", "FR6/DP6", "FR7/DP7", "FR8/DP8", "FR9/DP9"]
     ],
     "triangularSequencing": [
       {
@@ -1083,8 +1069,8 @@
       },
       {
         "step": 3,
-        "scope": "DP8 -> DP9 -> DP10 -> DP11/DP15 (Parameter authoring and automation)",
-        "rule": "Establish host-thread transaction and lifecycle coordinators (DP8), configure parameter locks (DP9) ahead of synchronization rules (DP10), and pause parameter-sync before running batch CSV, keyform, or MCP pose-grid sweeps (DP11, DP15)."
+        "scope": "DP8 -> DP9 -> DP10 -> DP15 (Parameter authoring and standalone automation)",
+        "rule": "Establish host-thread transaction and lifecycle coordinators (DP8), configure parameter locks (DP9) ahead of synchronization rules (DP10), and pause parameter-sync only when standalone external parameter writes (DP15) must avoid partner propagation."
       },
       {
         "step": 4,
@@ -1108,36 +1094,37 @@
         "runtime/src/main/java/dev/turboism/ui/appearance/EarlyThemeAppearanceBootstrap.java",
         "plugins/ui-theme/src/main/java/dev/turboism/plugin/uitheme/service/ThemeSelectionConfig.java"
       ],
-      "summary": "EarlyThemeAppearanceBootstrap reads config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg and data/dev.turboism.plugin.uitheme/themes/<id>.zip before plugins load because Cubism caches its off-canvas GL background color on first scene access.",
-      "evaluatedAlternative": "Evaluated promoting startup theme selection to a runtime-owned AppearanceService document under config/turboism.core/appearance/ decoded via :persistence-core without altering pre-GL host timing; deferred because migrating existing user homes safely requires dual-read fallback and release-derived golden snapshots (#69).",
-      "followUp": "Keep the exception closed to ui-theme v1 selection.cfg pinned by EarlyThemeBootstrapInteractionTest; revisit runtime-owned storage only alongside #69 persistence migration fixtures."
+      "summary": "EarlyThemeAppearanceBootstrap decodes config/dev.turboism.plugin.uitheme/ui-theme/selection.cfg via :persistence-core TypedConfigDocumentCodec and reads confined data/dev.turboism.plugin.uitheme/themes/<id>.zip before plugins load.",
+      "evaluatedAlternative": "Evaluated promoting startup theme selection to a runtime-owned AppearanceService document under config/turboism.core/appearance/; deferred because migrating existing user homes safely requires dual-read fallback and release-derived golden snapshots (#69).",
+      "followUp": "Keep the exception closed to ui-theme v1 selection.cfg with symlink, path-confinement, and ZIP size bounds pinned by EarlyThemeAppearanceBootstrapTest."
     },
     {
       "id": "EXC-AD-002",
-      "title": "ParameterLockPlugin preload fail-closed window and ParameterSyncPlugin 500ms unconsumed suppression window",
+      "title": "ParameterLockPlugin preload fail-closed window and ParameterSyncPlugin readback guard cleanup",
       "owner": "sole-maintainer (.github/CODEOWNERS)",
-      "status": "TRACKED_INTERACTION_QUIRK",
+      "status": "ARCHITECTURAL_BOUNDARY_VERIFIED",
       "codePaths": [
         "plugins/parameter-lock/src/main/java/dev/turboism/plugin/parameterlock/ParameterLockPlugin.java",
         "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java",
         "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/domain/ProgrammaticSuppressionGuard.java"
       ],
-      "summary": "ParameterLockPlugin retains current values for all parameters of an active model until async lock preload completes; when a locked target rejects a ParameterSyncPlugin write, no On event fires and ProgrammaticSuppressionGuard retains a 500ms suppression entry on that target (plus an unread lastAppliedValues entry).",
-      "evaluatedAlternative": "Clearing suppressionGuard when post-setValue readback equals the pre-write value eliminates the 500ms post-unlock suppression window without adding cross-plugin coupling.",
-      "followUp": "Track post-write readback cleanup of ProgrammaticSuppressionGuard and removal of unread lastAppliedValues in a focused parameter-sync maintenance issue."
+      "summary": "ParameterLockPlugin retains current values fail-closed while async lock preload runs (recovering to empty defaults on storage failure), and ParameterSyncPlugin clears ProgrammaticSuppressionGuard immediately when post-write readback is unchanged or mismatched.",
+      "evaluatedAlternative": "Evaluating synchronous preload on the host thread was rejected to keep beforeSetParameterValue free of disk I/O stalls.",
+      "followUp": "Retain post-write readback cleanup and mismatch pass-through pinned by ParameterSyncPluginTest and ParameterLockPluginTest."
     },
     {
       "id": "EXC-AD-003",
-      "title": "Asynchronous ParameterSyncPlugin UI flush vs synchronous batch and MCP parameter sweeps",
+      "title": "Grouped AuthoringTransaction completion-observer suppression vs standalone parameter sync",
       "owner": "sole-maintainer (.github/CODEOWNERS)",
-      "status": "TRACKED_INTERACTION_QUIRK",
+      "status": "ARCHITECTURAL_BOUNDARY_VERIFIED",
       "codePaths": [
-        "plugins/parameter-sync/src/main/java/dev/turboism/plugin/parametersync/ParameterSyncPlugin.java",
-        "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java"
+        "runtime/src/main/java/dev/turboism/adapter/cubism/editor/EditorBackedCubismModelAccess.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/lifecycle/ParameterLifecycleCoordinator.java",
+        "testing/integration-tests/src/test/java/dev/turboism/tests/architecture/ParameterLockSyncInteractionTest.java"
       ],
-      "summary": "ParameterSyncPlugin receives ParameterValueEvent.On asynchronously and flushes partner updates via UiScheduler after synchronous host-thread transactions such as McpPoseGridDomain finish.",
-      "evaluatedAlternative": "Suppressing or deferring user-interactive parameter-sync during explicit batch AuthoringTransaction scopes or MCP pose-grid capture avoids unintended partner drift without coupling plugin modules.",
-      "followUp": "Execute verification tasks on (FR10, DP15), (FR11, DP10), and (FR15, DP10) before introducing transaction-origin metadata on ParameterValueEvent."
+      "summary": "EditorBackedCubismModelAccess wraps grouped AuthoringTransactionService.execute callbacks in ParameterLifecycleCoordinator.runWithSuppressedCompletionObservers, keeping Before lock interception active while preventing post-transaction ParameterSyncPlugin partner drift.",
+      "evaluatedAlternative": "Adding transaction-origin components to public SDK ParameterValueEvent records was rejected to preserve SDK ABI stability.",
+      "followUp": "Retain grouped-transaction completion suppression pinned by ParameterLifecycleCoordinatorTest and ParameterLockSyncInteractionTest."
     },
     {
       "id": "EXC-AD-004",
