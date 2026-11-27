@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.exportperf;
 
+import dev.turboism.adapter.cubism.optimization.save.BufferedRandomAccessPatcher;
+import dev.turboism.adapter.cubism.optimization.save.PrimitiveArraySerializerPatcher;
+import dev.turboism.adapter.cubism.optimization.save.StreamingXmlArchivePatcher;
+import dev.turboism.adapter.cubism.optimization.save.UtImagePngPatcher;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 
@@ -37,7 +41,13 @@ public final class RuntimeExportAccelerationTransformer implements ClassFileTran
             return null;
         }
         if (ArchiveWriterPatcher.TARGET.equals(className)) {
-            return ArchiveWriterPatcher.patch(classfileBuffer);
+            return ArchiveWriterPatcher.patch(loader, classfileBuffer);
+        }
+        if (BufferedRandomAccessPatcher.TARGET.equals(className)) {
+            return BufferedRandomAccessPatcher.tryPatch(className, loader, classfileBuffer);
+        }
+        if (UtImagePngPatcher.TARGET.equals(className)) {
+            return UtImagePngPatcher.tryPatch(className, loader, classfileBuffer);
         }
         if (AtlasParallelPatcher.isSupportedTarget(className)) {
             return AtlasParallelPatcher.patch(className, classfileBuffer);
@@ -51,6 +61,20 @@ public final class RuntimeExportAccelerationTransformer implements ClassFileTran
 
         if (ExportCloneBypassPatcher.isSupportedTarget(className)) {
             final byte[] next = ExportCloneBypassPatcher.patch(className, current);
+            if (next != null) {
+                current = next;
+                modified = true;
+            }
+        }
+        if (PrimitiveArraySerializerPatcher.isSupportedTarget(className)) {
+            final byte[] next = PrimitiveArraySerializerPatcher.tryPatch(className, loader, current);
+            if (next != null) {
+                current = next;
+                modified = true;
+            }
+        }
+        if (StreamingXmlArchivePatcher.TARGET.equals(className)) {
+            final byte[] next = StreamingXmlArchivePatcher.tryPatch(className, loader, current);
             if (next != null) {
                 current = next;
                 modified = true;
