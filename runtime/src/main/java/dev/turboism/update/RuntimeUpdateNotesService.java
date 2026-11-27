@@ -91,7 +91,7 @@ public final class RuntimeUpdateNotesService implements UpdateNotesService {
                 previous = Optional.of(lastSeen);
             }
         }
-        final Map<String, String> localized = notesLoader.load(home, current);
+        final Map<String, String> localized = notesLoader.load(home, current, previous);
         return Optional.of(new ReleaseNotes(currentVersion, previous, localized));
     }
 

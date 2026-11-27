@@ -67,6 +67,7 @@ member devCheck checkToolbarIconScaleVariants
 member devCheck checkPluginApiRanges
 member devCheck checkPluginApiFloors
 member devCheck checkLocalizedChangelogs
+member devCheck checkStructuredChangelog
 member devCheck :runtime:checkHeadlessRuntimeClasspath
 member devCheck :runtime:admissionPreflightTest
 member devCheck :runtime:admissionUnitTests
@@ -120,6 +121,8 @@ member checkCompletedCommit checkPerformanceProbeReports
 member checkCompletedCommit checkHostToolingSelfTest
 member checkCompletedCommit checkLocalizedChangelogs
 member checkCompletedCommit checkLocalizedChangelogsSelfTest
+member checkCompletedCommit checkStructuredChangelog
+member checkCompletedCommit checkStructuredChangelogSelfTest
 member checkCompletedCommit @all-module-spotless
 member checkCompletedCommit checkSdkApiCurrent
 # Registered later in verification.gradle.kts (forward references stay lazy by name).

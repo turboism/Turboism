@@ -69,6 +69,37 @@ tasks.register<Exec>("checkLocalizedChangelogsSelfTest") {
     commandLine("python3", "scripts/test/test_render_localized_changelogs.py")
 }
 
+tasks.register<Exec>("checkStructuredChangelog") {
+    group = "verification"
+    description = "Verifies distribution/changelog.json matches docs/<locale>/CHANGELOG.md without drift."
+    workingDir(rootDir)
+    inputs.files(
+        "docs/en/CHANGELOG.md",
+        "docs/zh/CHANGELOG.md",
+        "docs/ja/CHANGELOG.md",
+        "docs/ko/CHANGELOG.md",
+        "distribution/changelog.json",
+        "scripts/release/changelog.py",
+        "scripts/release/turboism_release/changelog.py"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "scripts/release/changelog.py", "check")
+}
+
+tasks.register<Exec>("checkStructuredChangelogSelfTest") {
+    group = "verification"
+    description = "Self-test for structured changelog validation, range queries, and CLI."
+    workingDir(rootDir)
+    inputs.files(
+        "distribution/changelog.json",
+        "scripts/release/changelog.py",
+        "scripts/release/turboism_release/changelog.py",
+        "scripts/test/test_structured_changelog.py"
+    )
+    VerificationStamps.apply(this)
+    commandLine("python3", "-m", "unittest", "-v", "scripts/test/test_structured_changelog.py")
+}
+
 val checkPerformanceProbeReports by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks legacy and image-pipeline diagnostic evidence without launching Cubism."
