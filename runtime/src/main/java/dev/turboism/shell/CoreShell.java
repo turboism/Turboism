@@ -91,7 +91,8 @@ public final class CoreShell implements ShellHandle {
                 services.settingsContributions(),
                 plugins,
                 services.logs(),
-                services.keybindings());
+                services.keybindings(),
+                this::openGuide);
         logger.info("Turboism core initialized");
         registerAction(
                 MainToolbarHomeEntryService.ACTION_ID,
@@ -132,9 +133,9 @@ public final class CoreShell implements ShellHandle {
                 ignored -> windows.showAbout());
         registerAction(
                 MainToolbarHomeEntryService.GUIDE_ACTION_ID,
-                localization(context).text(MainToolbarHomeEntryService.GUIDE_MENU_LABEL_KEY),
+                localization(context).text(CoreWindows.NEW_USER_GUIDE_LABEL_KEY),
                 "Ctrl+Alt+G",
-                ignored -> windows.showGuide(this::markGuideSeen));
+                ignored -> openGuide());
         registerSettingsActions();
         context.disposableScope()
                 .register(context.services()
@@ -192,7 +193,6 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope().register(windows);
         refreshPanel();
         context.disposableScope().register(homeEntryService.registerPluginMarketMenu());
-        context.disposableScope().register(homeEntryService.registerGuideMenu());
         context.disposableScope().register(homeEntryService.registerPluginManagementMenu());
         context.disposableScope().register(homeEntryService.registerPluginSettingsMenu());
         context.disposableScope().register(homeEntryService.registerSettingsMenu());
@@ -244,6 +244,10 @@ public final class CoreShell implements ShellHandle {
         if (notes != null) {
             windows.showUpdateNotes(notes, () -> markReleaseNotesSeen(notes.version()));
         }
+    }
+
+    private void openGuide() {
+        windows.showGuide(this::markGuideSeen);
     }
 
     private boolean guideShouldShow() {
@@ -958,7 +962,7 @@ public final class CoreShell implements ShellHandle {
                     case "main-toolbar.logs-menu.label" -> "Logs";
                     case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                     case "main-toolbar.about-menu.label" -> "About";
-                    case "main-toolbar.guide-menu.label" -> "Guide";
+                    case CoreWindows.NEW_USER_GUIDE_LABEL_KEY -> "New User Guide";
                     case "settings.save" -> "Save";
                     case "settings.use-text-icon" -> "Use text icon";
                     case "plugins.operation-failed" -> "Plugin operation failed safely.";

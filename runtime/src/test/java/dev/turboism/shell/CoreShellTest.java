@@ -179,7 +179,6 @@ class CoreShellTest {
         assertEquals(
                 List.of(
                         "Turboism/Plugin Market…:turboism.core.market.open:10",
-                        "Turboism/Guide:turboism.core.guide.open:9",
                         "Turboism/Manage Plugins…:turboism.core.plugins.open:11",
                         "Turboism/Plugin Settings…:turboism.core.plugin-settings.open:12",
                         "Turboism/Turboism Settings…:turboism.core.settings.open:21",
@@ -1387,7 +1386,7 @@ class CoreShellTest {
                         case "main-toolbar.logs-menu.label" -> "Logs";
                         case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                         case "main-toolbar.about-menu.label" -> "About";
-                        case "main-toolbar.guide-menu.label" -> "Guide";
+                        case CoreWindows.NEW_USER_GUIDE_LABEL_KEY -> "New User Guide";
                         default -> key;
                     };
                 }
@@ -1408,7 +1407,7 @@ class CoreShellTest {
                             || key.equals("main-toolbar.logs-menu.label")
                             || key.equals("main-toolbar.keybindings-menu.label")
                             || key.equals("main-toolbar.about-menu.label")
-                            || key.equals("main-toolbar.guide-menu.label");
+                            || key.equals(CoreWindows.NEW_USER_GUIDE_LABEL_KEY);
                 }
             };
         }
