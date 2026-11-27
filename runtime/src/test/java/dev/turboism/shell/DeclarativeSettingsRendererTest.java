@@ -3,6 +3,7 @@ package dev.turboism.shell;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -1040,13 +1042,15 @@ class DeclarativeSettingsRendererTest {
                                                 "settings.plugins.automatic-updates",
                                                 SettingsBinding.of(() -> true, ignored -> {}))))));
         SwingUtilities.invokeAndWait(() -> {
+            final AtomicInteger guideOpens = new AtomicInteger();
             try (CoreWindows windows = new CoreWindows(
                     localization(),
                     runtimeSettings,
                     () -> List.of(contributedStartup),
                     plugins(),
                     RuntimeLogReader.unavailable(),
-                    dev.turboism.internal.core.KeybindingService.unavailable())) {
+                    dev.turboism.internal.core.KeybindingService.unavailable(),
+                    guideOpens::incrementAndGet)) {
                 final CoreWindows.RenderedSettings rendered = windows.createSettingsContent(null);
                 final JTabbedPane tabs = rendered.tabs();
                 tabs.setSize(780, 560);
@@ -1054,8 +1058,16 @@ class DeclarativeSettingsRendererTest {
 
                 final int runtimeIndex = tabs.indexOfTab("settings.tab.runtime");
                 final int startupIndex = tabs.indexOfTab("settings.tab.startup");
+                final int maintenanceIndex = tabs.indexOfTab("settings.tab.maintenance");
                 assertTrue(runtimeIndex >= 0);
                 assertTrue(startupIndex >= 0);
+                assertTrue(maintenanceIndex >= 0);
+
+                final JButton guideButton =
+                        findButtonByText(tabs.getComponentAt(maintenanceIndex), CoreWindows.NEW_USER_GUIDE_LABEL_KEY);
+                assertNotNull(guideButton);
+                guideButton.doClick();
+                assertEquals(1, guideOpens.get());
 
                 final JPanel runtimeForm = formInTab(tabs, runtimeIndex);
                 final JPanel startupForm = formInTab(tabs, startupIndex);
