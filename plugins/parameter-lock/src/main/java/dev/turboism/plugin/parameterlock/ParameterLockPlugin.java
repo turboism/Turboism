@@ -99,7 +99,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
     private Registration pollRegistration;
     private volatile ActivationKey currentActivationKey;
-    private volatile String cachedActiveModelGuid;
     private volatile boolean fullyDecorated = false;
 
     /** Tracks applied row state so poll ticks skip redundant UI override rebuilds. */
@@ -156,7 +155,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
         lockState = new ParameterLockState();
         activeLoads = new ConcurrentHashMap<>();
         currentActivationKey = null;
-        cachedActiveModelGuid = null;
         fullyDecorated = false;
 
         // Dispatch initial activation and poll chain on UI thread to match host thread affinity.
@@ -181,7 +179,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
         clearRowDecorations();
         currentActivationKey = null;
-        cachedActiveModelGuid = null;
         fullyDecorated = false;
 
         synchronized (registrations) {
@@ -221,10 +218,8 @@ public final class ParameterLockPlugin implements CubismPlugin {
         if (!enabled.get() || parameter == null) {
             return value;
         }
-        final String cachedGuid = cachedActiveModelGuid;
-        final String currentModelGuid =
-                (cachedGuid != null && !cachedGuid.isBlank()) ? cachedGuid : resolveCurrentActiveModelGuid();
-        if (currentModelGuid == null || currentModelGuid.isBlank()) {
+        final String currentModelGuid = resolveCurrentActiveModelGuid();
+        if (currentModelGuid == null) {
             return value;
         }
         if (!lockState.hasLoaded(currentModelGuid)) {
@@ -242,23 +237,16 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
     @Override
     public void onModelOpened(final ProjectContentSnapshot model) {
-        if (enabled.get()) {
-            resolveCurrentActiveModelGuid();
-        }
         handleModelEvent();
     }
 
     @Override
     public void onModelCreated(final ProjectContentSnapshot model) {
-        if (enabled.get()) {
-            resolveCurrentActiveModelGuid();
-        }
         handleModelEvent();
     }
 
     @Override
     public void onModelClosed(final ProjectContentSnapshot model) {
-        cachedActiveModelGuid = null;
         handleModelEvent();
     }
 
@@ -332,7 +320,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
         }
         final Optional<CubismModel> modelOpt = activeModelOrNull();
         if (modelOpt.isEmpty()) {
-            cachedActiveModelGuid = null;
             if (currentActivationKey != null) {
                 clearRowDecorations();
                 currentActivationKey = null;
@@ -342,8 +329,6 @@ public final class ParameterLockPlugin implements CubismPlugin {
         }
 
         final CubismModel model = modelOpt.get();
-        final String modelGuid = model.id().value();
-        cachedActiveModelGuid = (modelGuid == null || modelGuid.isBlank()) ? null : modelGuid;
         final ActivationKey key = captureActivationKey(model);
         if (key == null) {
             // Defer decoration until document identity resolves to avoid stale-scope registrations.
@@ -520,8 +505,8 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
                     try {
                         final Registration newReg = entry.overrideLeadingAction(action);
-                        final AppliedRowDecoration oldDecoration = activeRowDecorations.put(
-                                key, new AppliedRowDecoration(newReg, state, tooltip, locked));
+                        final AppliedRowDecoration oldDecoration =
+                                activeRowDecorations.put(key, new AppliedRowDecoration(newReg, state, tooltip, locked));
                         if (oldDecoration != null) {
                             try {
                                 oldDecoration.registration().close();
@@ -603,8 +588,8 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
                     try {
                         final Registration newReg = entry.overrideLeadingAction(action);
-                        final AppliedRowDecoration oldDecoration = activeRowDecorations.put(
-                                key, new AppliedRowDecoration(newReg, state, tooltip, false));
+                        final AppliedRowDecoration oldDecoration =
+                                activeRowDecorations.put(key, new AppliedRowDecoration(newReg, state, tooltip, false));
                         if (oldDecoration != null) {
                             try {
                                 oldDecoration.registration().close();
@@ -842,8 +827,8 @@ public final class ParameterLockPlugin implements CubismPlugin {
         try {
             final CompletableFuture<Boolean> save = ensureLoaded(modelGuid, state, loads)
                     .thenComposeAsync(
-                            loaded -> storage.save(
-                                    ParameterLockData.of(modelGuid, state.getLockedParameters(modelGuid))),
+                            loaded ->
+                                    storage.save(ParameterLockData.of(modelGuid, state.getLockedParameters(modelGuid))),
                             asyncExecutor)
                     .toCompletableFuture();
             trackSave(save, modelGuid);
@@ -867,12 +852,12 @@ public final class ParameterLockPlugin implements CubismPlugin {
         if (model.isPresent()) {
             final String guid = model.get().id().value();
             if (guid != null && !guid.isBlank()) {
-                cachedActiveModelGuid = guid;
-                lockState.setActiveModel(guid);
+                if (!guid.equals(lockState.activeModel())) {
+                    lockState.setActiveModel(guid);
+                }
                 return guid;
             }
         }
-        cachedActiveModelGuid = null;
         return null;
     }
 

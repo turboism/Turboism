@@ -278,16 +278,10 @@ class ParameterLockPluginTest {
         final FakeParameter paramC = modelC.findParam("PARAM_C");
         paramC.setValue(3.14f);
 
-        final CompletableFuture<Void> gate = new CompletableFuture<>();
-        context.storage.setReadGate(gate);
         context.activeModel = modelC;
-        plugin.onModelOpened(null);
-        try {
-            // While load is not completed, beforeSetParameterValue must temporarily return getValue() (3.14f)
-            assertEquals(3.14f, plugin.beforeSetParameterValue(paramC, 9.99f));
-        } finally {
-            gate.complete(null);
-        }
+        // Notice: we do NOT sleep or wait for load here!
+        // While load is not completed, beforeSetParameterValue must temporarily return getValue() (3.14f)
+        assertEquals(3.14f, plugin.beforeSetParameterValue(paramC, 9.99f));
     }
 
     @Test
@@ -870,6 +864,30 @@ class ParameterLockPluginTest {
         } finally {
             failingPlugin.shutdown();
         }
+    }
+
+    @Test
+    void tabSwitchWithoutPollDoesNotLeakLocksAcrossModels() {
+        final FakeParameter paramA = modelA.findParam("PARAM_ANGLE_X");
+        paramA.setValue(5.0f);
+        final FakeParameter paramB = modelB.findParam("PARAM_ANGLE_X");
+        paramB.setValue(50.0f);
+
+        plugin.lockState().mergeLoadedLocks(modelB.id().value(), Set.of());
+        plugin.lockState().setLocked(modelA.id().value(), "PARAM_ANGLE_X", true);
+
+        context.activeModel = modelA;
+        assertEquals(5.0f, plugin.beforeSetParameterValue(paramA, 15.0f));
+
+        // Switch active tab to modelB without firing onModelOpened or checkActivationOnce.
+        context.activeModel = modelB;
+        assertEquals(75.0f, plugin.beforeSetParameterValue(paramB, 75.0f));
+        assertEquals(modelB.id().value(), plugin.lockState().activeModel());
+
+        // Switch back to modelA without polling: modelA lock remains enforced immediately.
+        context.activeModel = modelA;
+        assertEquals(5.0f, plugin.beforeSetParameterValue(paramA, 25.0f));
+        assertEquals(modelA.id().value(), plugin.lockState().activeModel());
     }
 
     private static void awaitCondition(final java.util.function.BooleanSupplier condition) {
