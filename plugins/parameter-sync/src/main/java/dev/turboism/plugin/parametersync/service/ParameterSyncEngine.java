@@ -18,6 +18,10 @@ import java.util.function.Function;
  */
 public final class ParameterSyncEngine {
 
+    private static final float ZERO_RANGE_EPSILON = 1e-6f;
+    private static final float MIDPOINT_PROGRESS = 0.5f;
+    private static final float VALUE_CHANGE_TOLERANCE = 1e-4f;
+
     private final ProgrammaticSuppressionGuard suppressionGuard;
 
     public ParameterSyncEngine() {
@@ -63,13 +67,12 @@ public final class ParameterSyncEngine {
         }
         final Parameter changedParam = changedParamOpt.get();
 
-        // Calculate normalized progress t in [0.0, 1.0] from the active driver
         final float min = changedParam.getMinimumValue();
         final float max = changedParam.getMaximumValue();
         final float range = max - min;
         final float t;
-        if (Math.abs(range) < 1e-6f) {
-            t = 0.5f;
+        if (Math.abs(range) < ZERO_RANGE_EPSILON) {
+            t = MIDPOINT_PROGRESS;
         } else {
             final float clamped = Math.max(min, Math.min(max, newValue));
             t = (clamped - min) / range;
@@ -115,14 +118,18 @@ public final class ParameterSyncEngine {
             final Optional<Parameter> targetOpt = parameterLookup.apply(targetId);
             if (targetOpt.isPresent()) {
                 final Parameter targetParam = targetOpt.get();
-                if (Math.abs(targetParam.getValue() - targetVal) < 1e-4f) {
+                final float beforeVal = targetParam.getValue();
+                if (Math.abs(beforeVal - targetVal) < VALUE_CHANGE_TOLERANCE) {
                     continue;
                 }
                 suppressionGuard.markProgrammaticWrite(targetId, targetVal);
                 try {
                     targetParam.setValue(targetVal);
+                    if (Float.compare(beforeVal, targetParam.getValue()) == 0) {
+                        suppressionGuard.clearParameter(targetId);
+                    }
                 } catch (RuntimeException failure) {
-                    // Suppress write failure gracefully
+                    suppressionGuard.clearParameter(targetId);
                 }
             }
         }
