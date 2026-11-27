@@ -44,6 +44,7 @@ class StaticVerificationRecordRepositoryTest {
     private static final Path PROJECT_ROOT =
             Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")));
     private static final Path RECORDS = PROJECT_ROOT.resolve("build/generated/verification");
+    private static final int MAIN_TOOLBAR_SELECTOR_COUNT = 50;
 
     private static final Map<String, SliceExpectation> EXPECTATIONS = withVersionedRecords(withProtectedExports(
             with5303(withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(
@@ -129,7 +130,7 @@ class StaticVerificationRecordRepositoryTest {
                                     "Live2D_Cubism.jar",
                                     ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                                     ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                                    49,
+                                    MAIN_TOOLBAR_SELECTOR_COUNT,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     mainToolbarMethodAliases(),
@@ -155,7 +156,7 @@ class StaticVerificationRecordRepositoryTest {
                                     MainToolbarVerificationManifest.RECORD_5_3_02
                                             .artifact()
                                             .sha256(),
-                                    49,
+                                    MAIN_TOOLBAR_SELECTOR_COUNT,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     MainToolbarVerificationManifest.REQUIRED_ALIASES,
                                     mainToolbarMethodAliases(),
@@ -1165,6 +1166,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism.ui-main-toolbar.icon.create",
                 "cubism.ui-main-toolbar.main-frame-view.main-container",
                 "cubism.ui-main-toolbar.vbox.create",
+                "cubism.ui-main-toolbar.label.create",
                 "cubism.ui-main-toolbar.widget.jcomponent",
                 "cubism.ui-main-toolbar.mesh-tool-mode.instance",
                 "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
