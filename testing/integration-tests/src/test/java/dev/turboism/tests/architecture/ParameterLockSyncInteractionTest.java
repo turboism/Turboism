@@ -160,6 +160,31 @@ class ParameterLockSyncInteractionTest {
         }
     }
 
+    @Test
+    void groupedAuthoringTransactionSweepDoesNotTriggerPostTransactionSyncDrift() throws Exception {
+        try (InteractionHarness harness = new InteractionHarness(tempDir.resolve("grouped-tx-sweep"))) {
+            harness.enableSyncPlugin();
+            harness.configureSyncSet(List.of(PARAM_DRIVER, PARAM_UNLOCKED));
+
+            final float independentPartnerBaseline = 2.5f;
+            harness.setRawValue(PARAM_UNLOCKED, independentPartnerBaseline);
+            final List<String> changedParameterIds = harness.recordObservedChanges();
+
+            ParameterLifecycleCoordinator.runWithSuppressedCompletionObservers(() -> {
+                final Parameter driver = harness.callerParameter(PARAM_DRIVER);
+                final float driverBaseline = driver.getValue();
+                driver.setValue(DRIVER_TARGET);
+                driver.setValue(driverBaseline);
+                return null;
+            });
+            harness.awaitBrokerSettled();
+
+            assertEquals(INITIAL_VALUE, harness.rawValue(PARAM_DRIVER), FLOAT_TOLERANCE);
+            assertEquals(independentPartnerBaseline, harness.rawValue(PARAM_UNLOCKED), FLOAT_TOLERANCE);
+            assertEquals(List.of(), changedParameterIds);
+        }
+    }
+
     private void verifyLockFirstPrecedence(final boolean enableLockFirst) throws Exception {
         final String dirName = enableLockFirst ? "order-lock-then-sync" : "order-sync-then-lock";
         try (InteractionHarness harness = new InteractionHarness(tempDir.resolve(dirName))) {
@@ -339,6 +364,10 @@ class ParameterLockSyncInteractionTest {
 
         float rawValue(final String parameterId) {
             return sharedModel.get(parameterId).value;
+        }
+
+        void setRawValue(final String parameterId, final float value) {
+            sharedModel.get(parameterId).value = value;
         }
 
         void awaitBrokerSettled() throws InterruptedException {

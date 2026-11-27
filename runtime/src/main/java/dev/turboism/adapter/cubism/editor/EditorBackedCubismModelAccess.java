@@ -15,6 +15,7 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionService;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
+import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.warp.RuntimeWarpMirrorProvider;
 import dev.turboism.adapter.cubism.warp.WarpMirrorRuntimeService;
@@ -57,7 +58,10 @@ import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import java.lang.ref.WeakReference;
@@ -198,7 +202,24 @@ public final class EditorBackedCubismModelAccess
 
     @Override
     public AuthoringTransactionService authoringTransactions(final String pluginId) {
-        return new RuntimeAuthoringTransactionService(authoringCoordinator, () -> authoringHost.binding(pluginId));
+        final AuthoringTransactionService delegate =
+                new RuntimeAuthoringTransactionService(authoringCoordinator, () -> authoringHost.binding(pluginId));
+        return new AuthoringTransactionService() {
+            @Override
+            public void batchStoredSourceWrites(final Runnable work) {
+                delegate.batchStoredSourceWrites(work);
+            }
+
+            @Override
+            public <T> AuthoringTransactionResult<T> execute(
+                    final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
+                Objects.requireNonNull(work, "work");
+                // Suppress asynchronous parameter completion observers during grouped transactions
+                // so batch sweeps do not trigger post-transaction partner drift or extra Undo entries.
+                return delegate.execute(
+                        options, () -> ParameterLifecycleCoordinator.runWithSuppressedCompletionObservers(work::run));
+            }
+        };
     }
 
     /**

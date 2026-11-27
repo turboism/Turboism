@@ -16,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Service that persists parameter lock snapshots under {@link StorageRoot#STATE}.
@@ -43,41 +44,48 @@ final class ParameterLockStorage {
         }
         final String guid = modelGuid.strip();
         final StoragePath path = storagePathFor(guid);
-        return storage.readUtf8(path, MAX_LOCK_FILE_BYTES)
-                .thenApplyAsync(
-                        result -> {
-                            if (result.value().isEmpty()) {
-                                return ParameterLockData.empty(guid);
-                            }
-                            try {
-                                final var map = Json.parseObject(result.value().orElseThrow());
-                                final ParameterLockData data = ParameterLockData.fromMap(map);
-                                if (data == null) {
-                                    logger.warn("Null parameter lock data loaded for model: " + guid);
+        try {
+            return storage.readUtf8(path, MAX_LOCK_FILE_BYTES)
+                    .thenApplyAsync(
+                            result -> {
+                                if (result.value().isEmpty()) {
                                     return ParameterLockData.empty(guid);
                                 }
-                                if (data.version() != ParameterLockData.CURRENT_VERSION) {
-                                    logger.warn("Unsupported parameter lock schema version " + data.version()
-                                            + " for model: " + guid);
+                                try {
+                                    final var map =
+                                            Json.parseObject(result.value().orElseThrow());
+                                    final ParameterLockData data = ParameterLockData.fromMap(map);
+                                    if (data == null) {
+                                        logger.warn("Null parameter lock data loaded for model: " + guid);
+                                        return ParameterLockData.empty(guid);
+                                    }
+                                    if (data.version() != ParameterLockData.CURRENT_VERSION) {
+                                        logger.warn("Unsupported parameter lock schema version " + data.version()
+                                                + " for model: " + guid);
+                                        return ParameterLockData.empty(guid);
+                                    }
+                                    if (!guid.equals(data.modelGuid())) {
+                                        logger.warn("Model GUID mismatch in lock file: expected " + guid + ", found "
+                                                + data.modelGuid());
+                                        return ParameterLockData.empty(guid);
+                                    }
+                                    return data;
+                                } catch (RuntimeException parseError) {
+                                    logger.warn("Malformed parameter lock file for model " + guid + ": "
+                                            + parseError.getMessage());
                                     return ParameterLockData.empty(guid);
                                 }
-                                if (!guid.equals(data.modelGuid())) {
-                                    logger.warn("Model GUID mismatch in lock file: expected " + guid + ", found "
-                                            + data.modelGuid());
-                                    return ParameterLockData.empty(guid);
-                                }
-                                return data;
-                            } catch (RuntimeException parseError) {
-                                logger.warn("Malformed parameter lock file for model " + guid + ": "
-                                        + parseError.getMessage());
-                                return ParameterLockData.empty(guid);
-                            }
-                        },
-                        executor)
-                .exceptionally(failure -> {
-                    logger.warn("Failed reading parameter lock file for model " + guid + ": " + failure.getMessage());
-                    return ParameterLockData.empty(guid);
-                });
+                            },
+                            executor)
+                    .exceptionally(failure -> {
+                        logger.warn(
+                                "Failed reading parameter lock file for model " + guid + ": " + failure.getMessage());
+                        return ParameterLockData.empty(guid);
+                    });
+        } catch (RejectedExecutionException rejected) {
+            logger.warn("Failed scheduling parameter lock read for model " + guid + ": " + rejected.getMessage());
+            return CompletableFuture.completedFuture(ParameterLockData.empty(guid));
+        }
     }
 
     /**
@@ -91,22 +99,27 @@ final class ParameterLockStorage {
         final String guid = data.modelGuid();
         final CompletableFuture<Boolean> writeOutcome = new CompletableFuture<>();
 
-        saveChains.compute(guid, (k, previousChain) -> {
-            final CompletableFuture<?> prerequisite =
-                    previousChain != null ? previousChain : CompletableFuture.completedFuture(null);
-            final CompletableFuture<Void> nextChain = prerequisite
-                    .handle((ignored, error) -> null)
-                    .thenComposeAsync(ignored -> doSave(data), executor)
-                    .whenComplete((written, error) -> {
-                        if (error != null) {
-                            writeOutcome.complete(false);
-                        } else {
-                            writeOutcome.complete(written);
-                        }
-                    })
-                    .thenApply(written -> null);
-            return nextChain;
-        });
+        try {
+            saveChains.compute(guid, (k, previousChain) -> {
+                final CompletableFuture<?> prerequisite =
+                        previousChain != null ? previousChain : CompletableFuture.completedFuture(null);
+                final CompletableFuture<Void> nextChain = prerequisite
+                        .handle((ignored, error) -> null)
+                        .thenComposeAsync(ignored -> doSave(data), executor)
+                        .whenComplete((written, error) -> {
+                            if (error != null) {
+                                writeOutcome.complete(false);
+                            } else {
+                                writeOutcome.complete(written);
+                            }
+                        })
+                        .thenApply(written -> null);
+                return nextChain;
+            });
+        } catch (RejectedExecutionException rejected) {
+            logger.warn("Failed scheduling parameter lock save for model " + guid + ": " + rejected.getMessage());
+            writeOutcome.complete(false);
+        }
 
         return writeOutcome;
     }
@@ -121,13 +134,19 @@ final class ParameterLockStorage {
                     + stringifyError.getMessage());
             return CompletableFuture.completedFuture(false);
         }
-        return storage.writeUtf8Atomic(path, json)
-                .thenApplyAsync(StorageWriteResult::written, executor)
-                .exceptionally(failure -> {
-                    logger.warn("Failed writing parameter lock file for model " + data.modelGuid() + ": "
-                            + failure.getMessage());
-                    return false;
-                });
+        try {
+            return storage.writeUtf8Atomic(path, json)
+                    .thenApplyAsync(StorageWriteResult::written, executor)
+                    .exceptionally(failure -> {
+                        logger.warn("Failed writing parameter lock file for model " + data.modelGuid() + ": "
+                                + failure.getMessage());
+                        return false;
+                    });
+        } catch (RejectedExecutionException rejected) {
+            logger.warn("Failed scheduling parameter lock write for model " + data.modelGuid() + ": "
+                    + rejected.getMessage());
+            return CompletableFuture.completedFuture(false);
+        }
     }
 
     static StoragePath storagePathFor(final String modelGuid) {

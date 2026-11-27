@@ -38,6 +38,11 @@ public final class ModelImportPlugin implements TurboismPlugin {
     private static final int APPEARANCE_CHOICE_CANCEL = 2;
     private static final int DEFORMER_COUNT_XYZ = 3;
     private static final int DEFORMER_COUNT_XY = 2;
+    private static final int IMPORT_CORE_WORKERS = 1;
+    private static final int IMPORT_MAX_WORKERS = 2;
+    private static final long IMPORT_KEEP_ALIVE_SECONDS = 30L;
+    private static final int IMPORT_QUEUE_CAPACITY = 8;
+    private static final String IMPORT_THREAD_PREFIX = "turboism-model-import-3d-";
 
     /**
      * Summary of planned texture atlas pages and dimensions for user confirmation.
@@ -413,9 +418,45 @@ public final class ModelImportPlugin implements TurboismPlugin {
     private PluginContext context;
     private volatile long epoch;
     private volatile boolean enabled;
+    private final Object importExecutorLock = new Object();
+    private ExecutorService importExecutor;
     private long busyEpoch; // EDT only; an old enable cycle cannot unlock a new request.
     private static final String ACTION = "model-import-3d.import";
     private static final String PRESET_ACTION = "model-import-3d.import-preset";
+
+    /** Isolates background model import work from the host ForkJoinPool.commonPool(). */
+    private ExecutorService importExecutor() {
+        synchronized (importExecutorLock) {
+            if (importExecutor == null || importExecutor.isShutdown()) {
+                final var threadNumber = new java.util.concurrent.atomic.AtomicInteger(1);
+                final var pool = new ThreadPoolExecutor(
+                        IMPORT_CORE_WORKERS,
+                        IMPORT_MAX_WORKERS,
+                        IMPORT_KEEP_ALIVE_SECONDS,
+                        TimeUnit.SECONDS,
+                        new ArrayBlockingQueue<>(IMPORT_QUEUE_CAPACITY),
+                        runnable -> {
+                            final Thread thread =
+                                    new Thread(runnable, IMPORT_THREAD_PREFIX + threadNumber.getAndIncrement());
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+                pool.allowCoreThreadTimeOut(true);
+                importExecutor = pool;
+            }
+            return importExecutor;
+        }
+    }
+
+    /** Terminates plugin worker threads so disabling releases classloader references cleanly. */
+    private void shutdownImportExecutor() {
+        final ExecutorService pool;
+        synchronized (importExecutorLock) {
+            pool = importExecutor;
+            importExecutor = null;
+        }
+        if (pool != null) pool.shutdownNow();
+    }
 
     @Override
     public void init(PluginContext value) {
@@ -530,6 +571,7 @@ public final class ModelImportPlugin implements TurboismPlugin {
     public void disable() {
         enabled = false;
         ++epoch;
+        shutdownImportExecutor();
     }
 
     @Override
@@ -587,25 +629,29 @@ public final class ModelImportPlugin implements TurboismPlugin {
                     : SurfaceBaseColorPlan.Appearance.SOURCE_MATERIAL;
             String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, REQUEST_SUFFIX_HEX_LENGTH);
             var request = importRequest(suffix);
+            final ExecutorService workerPool = importExecutor();
             CompletionStage<Optional<PreparedImport>> pendingImport;
             if (fromPreset) {
                 var selectedPreset = preset.orElseThrow();
                 String presetName = text(selectedPreset.labelKey(), selectedPreset.fallbackLabel());
                 var presetRequest = requestForFile(request, presetName + ".glb", suffix);
-                pendingImport = CompletableFuture.supplyAsync(() -> {
-                    if (!active(token)) return Optional.empty();
-                    try {
-                        // Preserve the shared source image and UVs so it can be replaced after import.
-                        return Optional.of(new PreparedImport(
-                                null,
-                                null,
-                                null,
-                                null,
-                                NativeModelImport.preparePreset(selectedPreset, presetRequest, () -> !active(token))));
-                    } catch (Exception failure) {
-                        throw new CompletionException(failure);
-                    }
-                });
+                pendingImport = CompletableFuture.supplyAsync(
+                        () -> {
+                            if (!active(token)) return Optional.empty();
+                            try {
+                                // Preserve the shared source image and UVs so it can be replaced after import.
+                                return Optional.of(new PreparedImport(
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        NativeModelImport.preparePreset(
+                                                selectedPreset, presetRequest, () -> !active(token))));
+                            } catch (Exception failure) {
+                                throw new CompletionException(failure);
+                            }
+                        },
+                        workerPool);
             } else {
                 var files = context.userFiles();
                 pendingImport = files.request(new UserFileRequest(
@@ -645,52 +691,58 @@ public final class ModelImportPlugin implements TurboismPlugin {
                                                 .orElseThrow(() -> new LocalizedIllegalStateException(
                                                         "error.file-read", "Could not read the selected model."));
                                         if (needsNativeSourceImport(bytes)) {
-                                            return CompletableFuture.supplyAsync(() -> {
-                                                if (!active(token)) return Optional.<PreparedImport>empty();
-                                                try {
-                                                    return Optional.of(new PreparedImport(
-                                                            null,
-                                                            null,
-                                                            null,
-                                                            null,
-                                                            NativeModelImport.prepare(
-                                                                    bytes,
-                                                                    fileRequest,
-                                                                    appearance,
-                                                                    () -> !active(token))));
-                                                } catch (Exception error) {
-                                                    throw new CompletionException(error);
-                                                }
-                                            });
+                                            return CompletableFuture.supplyAsync(
+                                                    () -> {
+                                                        if (!active(token)) return Optional.<PreparedImport>empty();
+                                                        try {
+                                                            return Optional.of(new PreparedImport(
+                                                                    null,
+                                                                    null,
+                                                                    null,
+                                                                    null,
+                                                                    NativeModelImport.prepare(
+                                                                            bytes,
+                                                                            fileRequest,
+                                                                            appearance,
+                                                                            () -> !active(token))));
+                                                        } catch (Exception error) {
+                                                            throw new CompletionException(error);
+                                                        }
+                                                    },
+                                                    workerPool);
                                         }
                                         return ModelInputFiles.normalize(
                                                         bytes,
                                                         files,
                                                         "import-model-" + suffix,
                                                         () -> active(token),
-                                                        context.localization())
-                                                .thenApplyAsync(normalized -> {
-                                                    if (normalized.isEmpty() || !active(token))
-                                                        return Optional.<PreparedImport>empty();
-                                                    try {
-                                                        byte[] source = normalized.orElseThrow();
-                                                        var plan = prepare(source, fileRequest, appearance);
-                                                        var scene = plan.character() != null
-                                                                ? plan.character()
-                                                                        .materials()
-                                                                        .scene()
-                                                                : GlbViewerLoader.load(source, () -> !active(token));
-                                                        return Optional.of(new PreparedImport(
-                                                                plan.simple(),
-                                                                plan.layered(),
-                                                                plan.vertices(),
-                                                                plan.optimization(),
-                                                                plan.character(),
-                                                                scene));
-                                                    } catch (Exception failure) {
-                                                        throw new CompletionException(failure);
-                                                    }
-                                                });
+                                                        context.localization(),
+                                                        workerPool)
+                                                .thenApplyAsync(
+                                                        normalized -> {
+                                                            if (normalized.isEmpty() || !active(token))
+                                                                return Optional.<PreparedImport>empty();
+                                                            try {
+                                                                byte[] source = normalized.orElseThrow();
+                                                                var plan = prepare(source, fileRequest, appearance);
+                                                                var scene = plan.character() != null
+                                                                        ? plan.character()
+                                                                                .materials()
+                                                                                .scene()
+                                                                        : GlbViewerLoader.load(
+                                                                                source, () -> !active(token));
+                                                                return Optional.of(new PreparedImport(
+                                                                        plan.simple(),
+                                                                        plan.layered(),
+                                                                        plan.vertices(),
+                                                                        plan.optimization(),
+                                                                        plan.character(),
+                                                                        scene));
+                                                            } catch (Exception failure) {
+                                                                throw new CompletionException(failure);
+                                                            }
+                                                        },
+                                                        workerPool);
                                     });
                         });
             }

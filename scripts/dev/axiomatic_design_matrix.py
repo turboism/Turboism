@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import math
 import re
 import sys
 from pathlib import Path, PurePosixPath
@@ -38,6 +39,13 @@ SYMBOL_DIAGONAL = "X"
 SYMBOL_EFFECT = "x"
 SYMBOL_ZERO = "0"
 SYMBOL_UNKNOWN = "?"
+CLASSIFICATION_UNCOUPLED = "UNCOUPLED"
+CLASSIFICATION_DECOUPLED = "DECOUPLED"
+CLASSIFICATION_COUPLED = "COUPLED"
+CLASSIFICATION_UNVERIFIED = "UNVERIFIED"
+SUH_REFERENCE_ALPHA = 0.25
+SUH_DIAGONAL_WEIGHT = 1.0
+SUH_ZERO_WEIGHT = 0.0
 PRODUCTION_CONFIGURATIONS = frozenset(
     {
         "api",
@@ -222,21 +230,75 @@ def classify_square_grid(grid: list[list[str]], labels: list[str]) -> tuple[str,
     observed_sccs = tarjan_sccs(labels, observed_adj)
     potential_sccs = tarjan_sccs(labels, unknown_adj)
     if observed_sccs or counts["upper_effect"] > 0:
-        observed_class = "COUPLED"
+        observed_class = CLASSIFICATION_COUPLED
     elif counts["lower_effect"] == 0:
-        observed_class = "UNCOUPLED"
+        observed_class = CLASSIFICATION_UNCOUPLED
     else:
-        observed_class = "DECOUPLED"
+        observed_class = CLASSIFICATION_DECOUPLED
 
     total_unknowns = counts["lower_unknown"] + counts["upper_unknown"]
-    if observed_class == "COUPLED":
-        overall_class = "COUPLED"
+    if observed_class == CLASSIFICATION_COUPLED:
+        overall_class = CLASSIFICATION_COUPLED
     elif total_unknowns > 0:
-        overall_class = "UNVERIFIED"
+        overall_class = CLASSIFICATION_UNVERIFIED
     else:
         overall_class = observed_class
 
     return observed_class, overall_class, observed_sccs, potential_sccs, counts
+
+
+def compute_suh_metrics(
+    square_grid: list[list[str]],
+    alpha: float = SUH_REFERENCE_ALPHA,
+    include_unknowns: bool = False,
+) -> dict[str, float]:
+    """Compute off-diagonal density, Reangularity (R), and Semangularity (S) at reference sensitivity alpha."""
+    size = len(square_grid)
+    if size < 2:
+        return {"density": 0.0, "reangularity": 1.0, "semangularity": 1.0}
+
+    numeric: list[list[float]] = []
+    off_diagonal_nonzero = 0
+    for row_idx in range(size):
+        row_values: list[float] = []
+        for col_idx in range(size):
+            cell = square_grid[row_idx][col_idx]
+            if row_idx == col_idx:
+                row_values.append(SUH_DIAGONAL_WEIGHT if cell == SYMBOL_DIAGONAL else SUH_ZERO_WEIGHT)
+            elif cell == SYMBOL_EFFECT or (include_unknowns and cell == SYMBOL_UNKNOWN):
+                row_values.append(alpha)
+                off_diagonal_nonzero += 1
+            else:
+                row_values.append(SUH_ZERO_WEIGHT)
+        numeric.append(row_values)
+
+    density = off_diagonal_nonzero / (size * (size - 1))
+    col_norms_sq = [
+        sum(numeric[row_idx][col_idx] ** 2 for row_idx in range(size))
+        for col_idx in range(size)
+    ]
+
+    semangularity = 1.0
+    for col_idx in range(size):
+        norm = math.sqrt(col_norms_sq[col_idx])
+        semangularity *= abs(numeric[col_idx][col_idx]) / norm if norm > 0.0 else 0.0
+
+    reangularity = 1.0
+    for col_a in range(size - 1):
+        for col_b in range(col_a + 1, size):
+            denom = col_norms_sq[col_a] * col_norms_sq[col_b]
+            if denom <= 0.0:
+                reangularity = 0.0
+                continue
+            dot = sum(numeric[row_idx][col_a] * numeric[row_idx][col_b] for row_idx in range(size))
+            cos_sq = min(1.0, (dot * dot) / denom)
+            reangularity *= math.sqrt(max(0.0, 1.0 - cos_sq))
+
+    return {
+        "density": density,
+        "reangularity": reangularity,
+        "semangularity": semangularity,
+    }
 
 
 def check_structural_baseline(
@@ -531,6 +593,49 @@ def validate_repository_matrix(
         for path in sub["evidencePaths"]:
             errors.extend(verify_repo_path(root, path, f"submatrix {sid}"))
 
+    pvs: dict[str, dict[str, Any]] = {}
+    pv_pos: dict[str, int] = {}
+    for idx, pv in enumerate(matrix["processVariables"]):
+        pvid = pv["id"]
+        if pvid in pvs:
+            errors.append(f"duplicate processVariable id: {pvid}")
+        pvs[pvid] = pv
+        pv_pos[pvid] = idx
+        for path in pv["codePaths"]:
+            errors.extend(verify_repo_path(root, path, f"processVariable {pvid}"))
+
+    seen_process_pairs: set[tuple[str, str]] = set()
+    covered_dps: set[str] = set()
+    covered_pvs: set[str] = set()
+    previous_process_key = (-1, -1)
+    for relation in matrix["processMatrix"]:
+        dp_id = relation["dpId"]
+        pv_id = relation["pvId"]
+        if dp_id not in dp_pos:
+            errors.append(f"processMatrix references unknown DP {dp_id}")
+            continue
+        if pv_id not in pv_pos:
+            errors.append(f"processMatrix references unknown PV {pv_id}")
+            continue
+        pair = (dp_id, pv_id)
+        if pair in seen_process_pairs:
+            errors.append(f"duplicate processMatrix entry for {pair}")
+            continue
+        seen_process_pairs.add(pair)
+        sort_key = (dp_pos[dp_id], pv_pos[pv_id])
+        if sort_key <= previous_process_key:
+            errors.append(f"processMatrix must be strictly sorted by (DP, PV) order; out-of-order at {pair}")
+        previous_process_key = sort_key
+        covered_dps.add(dp_id)
+        covered_pvs.add(pv_id)
+
+    missing_dps = [dp_id for dp_id in ordered_dps if dp_id not in covered_dps]
+    if missing_dps:
+        errors.append(f"processMatrix omits declared DPs: {', '.join(missing_dps)}")
+    missing_pvs = [pv_id for pv_id in pvs if pv_id not in covered_pvs]
+    if missing_pvs:
+        errors.append(f"processMatrix omits declared PVs: {', '.join(missing_pvs)}")
+
     exc_ids: set[str] = set()
     for exc in matrix["exceptions"]:
         eid = exc["id"]
@@ -546,6 +651,7 @@ def validate_repository_matrix(
         *constraint_ids,
         *ordered_frs,
         *ordered_dps,
+        *pvs.keys(),
         *exc_ids,
     ]
     for token in sorted(required_doc_tokens):
@@ -556,8 +662,13 @@ def validate_repository_matrix(
 
 
 def print_report(matrix: dict[str, Any]) -> None:
-    """Print human-readable functional independence analysis."""
+    """Print human-readable functional independence, Suh metrics, and Process Domain analysis."""
     analysis = matrix["analysis"]
+    ordered_frs = [item["frId"] for item in matrix["ordering"]]
+    square_grid = [matrix["grid"][fr_id] for fr_id in ordered_frs]
+    observed_metrics = compute_suh_metrics(square_grid, alpha=SUH_REFERENCE_ALPHA, include_unknowns=False)
+    inclusive_metrics = compute_suh_metrics(square_grid, alpha=SUH_REFERENCE_ALPHA, include_unknowns=True)
+
     print(f"== Axiomatic Design Matrix ({matrix['format']}) ==")
     print(f"Baseline snapshot:        {matrix['baselineSnapshot']}")
     print(f"Observed classification:  {analysis['observedClassification']}")
@@ -573,6 +684,18 @@ def print_report(matrix: dict[str, Any]) -> None:
         f"{analysis['upperTriangularHypothesisCount']}/"
         f"{analysis['upperTriangularUnknownCount']}"
     )
+    print(
+        f"Suh metrics (alpha={SUH_REFERENCE_ALPHA:.2f}, observed): "
+        f"density={observed_metrics['density']:.4f} | "
+        f"R={observed_metrics['reangularity']:.4f} | "
+        f"S={observed_metrics['semangularity']:.4f}"
+    )
+    print(
+        f"Suh metrics (alpha={SUH_REFERENCE_ALPHA:.2f}, with '?'): "
+        f"density={inclusive_metrics['density']:.4f} | "
+        f"R={inclusive_metrics['reangularity']:.4f} | "
+        f"S={inclusive_metrics['semangularity']:.4f}"
+    )
     print(f"Observed functional SCCs: {len(analysis['observedFunctionalSccs'])}")
     print(f"Potential SCCs with '?':  {len(analysis['potentialFunctionalSccsWithUnknowns'])}")
     for scc in analysis["potentialFunctionalSccsWithUnknowns"]:
@@ -580,6 +703,13 @@ def print_report(matrix: dict[str, Any]) -> None:
     print("\n== Submatrices ==")
     for sub in matrix["submatrices"]:
         print(f"  {sub['id']}: {sub['classification']} ({', '.join(sub['axes'])})")
+    print("\n== Process Domain ==")
+    pv_relations: dict[str, list[str]] = collections.defaultdict(list)
+    for rel in matrix["processMatrix"]:
+        pv_relations[rel["pvId"]].append(f"{rel['dpId']}[{rel['symbol']}]")
+    for pv in matrix["processVariables"]:
+        mapped = pv_relations.get(pv["id"], [])
+        print(f"  {pv['id']} ({pv['title']}): {len(mapped)} DPs -> {', '.join(mapped)}")
     print("\n== Unknown / Hypothesis Verification Tasks ==")
     for entry in matrix["entries"]:
         if "verificationTask" in entry:

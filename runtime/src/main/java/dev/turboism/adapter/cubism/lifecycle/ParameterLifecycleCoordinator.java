@@ -19,6 +19,7 @@ import java.util.function.Consumer;
 public final class ParameterLifecycleCoordinator implements AutoCloseable {
 
     public static final String OPERATION_ID = "cubism.model.parameter.set-value";
+    private static final ThreadLocal<Integer> AMBIENT_TRANSACTION_DEPTH = ThreadLocal.withInitial(() -> 0);
 
     private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
     private final LifecycleCallbackExecutor callbacks;
@@ -243,7 +244,43 @@ public final class ParameterLifecycleCoordinator implements AutoCloseable {
                 event -> ((ParameterValueEvent.Before) event).value());
     }
 
+    /**
+     * Runs grouped authoring work while suppressing asynchronous completion observers on this thread.
+     *
+     * <p>Interceptors still run so parameter locks remain enforced, while intermediate batch writes
+     * do not trigger post-transaction partner drift or extra Undo entries.</p>
+     */
+    public static <T> T runWithSuppressedCompletionObservers(final ScopedWork<T> work) throws Exception {
+        Objects.requireNonNull(work, "work");
+        final int previousDepth = AMBIENT_TRANSACTION_DEPTH.get();
+        AMBIENT_TRANSACTION_DEPTH.set(previousDepth + 1);
+        try {
+            return work.run();
+        } finally {
+            if (previousDepth == 0) {
+                AMBIENT_TRANSACTION_DEPTH.remove();
+            } else {
+                AMBIENT_TRANSACTION_DEPTH.set(previousDepth);
+            }
+        }
+    }
+
+    /** Returns whether grouped authoring completion suppression is active on the calling thread. */
+    public static boolean completionObserversSuppressed() {
+        return AMBIENT_TRANSACTION_DEPTH.get() > 0;
+    }
+
+    /** Callback executed within a completion-observer suppression scope. */
+    @FunctionalInterface
+    public interface ScopedWork<T> {
+        /** Runs the scoped authoring callback and returns its result. */
+        T run() throws Exception;
+    }
+
     private void publishCompletion(final Parameter parameter, final float oldValue, final float finalValue) {
+        if (completionObserversSuppressed()) {
+            return;
+        }
         final boolean changed = Float.compare(oldValue, finalValue) != 0;
         publishLegacyCompletion(parameter, oldValue, finalValue, changed);
         final RuntimeEventBroker broker = eventBroker;

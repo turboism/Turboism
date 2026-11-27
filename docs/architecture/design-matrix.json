@@ -74,12 +74,13 @@
     { "id": "D2", "name": "Host version compatibility", "requirementIds": ["FR2"] },
     { "id": "D3", "name": "Independent plugin lifecycle", "requirementIds": ["FR3"] },
     { "id": "D4", "name": "Configuration and persistence", "requirementIds": ["FR4"] },
-    { "id": "D5", "name": "Editor responsiveness", "requirementIds": ["FR5"] },
+    { "id": "D5", "name": "Editor responsiveness", "requirementIds": ["FR5", "FR17"] },
     { "id": "D6", "name": "UI extension", "requirementIds": ["FR6", "FR7"] },
     { "id": "D7", "name": "Shared host authoring and state", "requirementIds": ["FR8"] },
     { "id": "D8", "name": "Model and parameter editing", "requirementIds": ["FR9", "FR10", "FR11"] },
     { "id": "D9", "name": "Mesh and geometry editing", "requirementIds": ["FR12", "FR13"] },
-    { "id": "D10", "name": "Texture, resource, and automation workflows", "requirementIds": ["FR14", "FR15"] }
+    { "id": "D10", "name": "Texture, resource, and automation workflows", "requirementIds": ["FR14", "FR15"] },
+    { "id": "D11", "name": "Self-update and signed marketplace", "requirementIds": ["FR16"] }
   ],
   "requirements": [
     {
@@ -186,6 +187,20 @@
       "statement": "Execute external MCP, ACP, and out-of-process script commands through permission-gated SDK and transaction boundaries.",
       "acceptanceCriterion": "External automation runs GraalVM outside the host JVM and enforces identical permission, transaction, and generation guards as in-host plugins.",
       "verificationMethod": "McpPluginRuntimeIntegrationTest, :graal-host:checkGraalHostTargetSelection, and :plugins:acp:test"
+    },
+    {
+      "id": "FR16",
+      "domainId": "D11",
+      "statement": "Stage, verify, and apply transactional framework self-updates and signed marketplace plugin changes across launch leases.",
+      "acceptanceCriterion": "Manifest and catalog signatures verify before staging, launch leases serialize apply-on-restart without corrupting active installs, and failed updates roll back cleanly.",
+      "verificationMethod": ":runtime:test (dev.turboism.update and dev.turboism.pluginmanagement suites) and :bootstrap:test"
+    },
+    {
+      "id": "FR17",
+      "domainId": "D5",
+      "statement": "Accelerate native GL render, matrix scratch, and warp-deform host paths with stateful generation-fenced bridges and kill switches.",
+      "acceptanceCriterion": "Each optimization bridge passes exact-version host contract verification, drains GL resources across model or scene generations, and disables cleanly via persisted kill switches.",
+      "verificationMethod": ":runtime:test (dev.turboism.adapter.cubism.optimization suites) and checkPerformanceProbeReports"
     }
   ],
   "designParameters": [
@@ -352,6 +367,30 @@
         "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpPoseGridDomain.java",
         "plugins/acp/src/main/java"
       ]
+    },
+    {
+      "id": "DP16",
+      "satisfiesFrId": "FR16",
+      "summary": "FrameworkUpdateCoordinator, FrameworkUpdateLaunchLease, UpdateManifestVerifier, PluginCatalogVerifier, PendingPluginOperations, and TurboismAgent.handshakeBeforeStart launch leases.",
+      "modules": [":bootstrap", ":runtime"],
+      "codePaths": [
+        "bootstrap/src/main/java/dev/turboism/bootstrap/TurboismAgent.java",
+        "runtime/src/main/java/dev/turboism/update",
+        "runtime/src/main/java/dev/turboism/pluginmanagement",
+        "runtime/src/main/java/dev/turboism/pluginmanagement/PendingPluginOperations.java"
+      ]
+    },
+    {
+      "id": "DP17",
+      "satisfiesFrId": "FR17",
+      "summary": "Stateful native optimization bridges under dev.turboism.adapter.cubism.optimization including GlDeleteQueue, WarpDeformEditBridge, and MatrixScratchBridge.",
+      "modules": [":runtime"],
+      "codePaths": [
+        "runtime/src/main/java/dev/turboism/adapter/cubism/optimization",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/memory/GlDeleteQueue.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdeform/WarpDeformEditBridge.java",
+        "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/geometry/MatrixScratchBridge.java"
+      ]
     }
   ],
   "ordering": [
@@ -369,24 +408,28 @@
     { "index": 12, "frId": "FR12", "dpId": "DP12" },
     { "index": 13, "frId": "FR13", "dpId": "DP13" },
     { "index": 14, "frId": "FR14", "dpId": "DP14" },
-    { "index": 15, "frId": "FR15", "dpId": "DP15" }
+    { "index": 15, "frId": "FR15", "dpId": "DP15" },
+    { "index": 16, "frId": "FR16", "dpId": "DP16" },
+    { "index": 17, "frId": "FR17", "dpId": "DP17" }
   ],
   "grid": {
-    "FR1":  ["X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR2":  ["x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR3":  ["0", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR4":  ["0", "0", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR5":  ["x", "x", "x", "0", "X", "0", "?", "0", "?", "0", "0", "0", "0", "0", "0"],
-    "FR6":  ["x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR7":  ["0", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0"],
-    "FR8":  ["x", "x", "x", "0", "x", "0", "0", "X", "0", "0", "0", "0", "0", "0", "0"],
-    "FR9":  ["0", "x", "x", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0"],
-    "FR10": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "?"],
-    "FR11": ["0", "x", "x", "0", "0", "0", "x", "x", "x", "x", "X", "0", "0", "0", "0"],
-    "FR12": ["x", "x", "x", "0", "x", "0", "x", "x", "0", "0", "0", "X", "0", "0", "0"],
-    "FR13": ["x", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "?", "X", "0", "0"],
-    "FR14": ["0", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "0", "0", "X", "0"],
-    "FR15": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "x", "0", "0", "0", "0", "X"]
+    "FR1":  ["X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR2":  ["x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR3":  ["0", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR4":  ["0", "0", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR5":  ["x", "x", "x", "0", "X", "0", "?", "0", "?", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR6":  ["x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR7":  ["0", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR8":  ["x", "x", "x", "0", "x", "0", "0", "X", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR9":  ["0", "x", "x", "x", "x", "0", "x", "x", "X", "0", "0", "0", "0", "0", "0", "0", "0"],
+    "FR10": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "X", "0", "0", "0", "0", "?", "0", "0"],
+    "FR11": ["0", "x", "x", "0", "0", "0", "x", "x", "x", "x", "X", "0", "0", "0", "0", "0", "0"],
+    "FR12": ["x", "x", "x", "0", "x", "0", "x", "x", "0", "0", "0", "X", "0", "0", "0", "0", "0"],
+    "FR13": ["x", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "?", "X", "0", "0", "0", "0"],
+    "FR14": ["0", "x", "x", "x", "x", "0", "x", "x", "0", "0", "0", "0", "0", "X", "0", "0", "0"],
+    "FR15": ["0", "x", "x", "x", "x", "0", "x", "x", "x", "x", "0", "0", "0", "0", "X", "0", "0"],
+    "FR16": ["x", "x", "x", "x", "x", "0", "x", "0", "0", "0", "0", "0", "0", "0", "0", "X", "0"],
+    "FR17": ["x", "x", "0", "x", "x", "0", "0", "x", "0", "0", "0", "0", "0", "0", "0", "0", "X"]
   },
   "entries": [
     {
@@ -809,6 +852,71 @@
       "frId": "FR15", "dpId": "DP15", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
       "effectSummary": "Graal-host, MCP server/bridge, ACP window, and command-palette deliver external and keyboard automation.",
       "evidencePaths": ["graal-host/src/main/java/dev/turboism/graalhost", "plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpParameterDomain.java", "plugins/acp/src/main/java"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "TurboismAgent.handshakeBeforeStart enforces launch leases and coordinates restart-time update application before host weaving.",
+      "evidencePaths": ["bootstrap/src/main/java/dev/turboism/bootstrap/TurboismAgent.java", "runtime/src/main/java/dev/turboism/update/FrameworkUpdateLaunchLease.java"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "PluginReleaseCompatibility filters marketplace releases against reviewed Cubism host compatibility and SDK API floors.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/pluginmanagement/PluginReleaseCompatibility.java", "core/compatibility-policy/src/main/java/dev/turboism/compatibility/policy"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP3", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "LocalPluginRuntime and PendingPluginOperations coordinate plugin installation, enablement, and staged replacement across generations.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/pluginmanagement/PendingPluginOperations.java", "runtime/src/main/java/dev/turboism/pluginmanagement/RuntimePluginManagementService.java"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "UpdateStateStore, UpdatePreferencesStore, and PluginCatalogStateStore persist update journals and marketplace caches atomically.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/update/UpdateStateStore.java", "runtime/src/main/java/dev/turboism/pluginmanagement/PluginCatalogStateStore.java"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "RuntimeScheduler isolates update manifest fetches, delta downloads, and signature checks from host EDT responsiveness.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/update/RuntimeUpdateService.java", "runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP7", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Framework shell dialogs and notifications surface update prompts, release notes, and signed marketplace controls.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/shell", "runtime/src/main/java/dev/turboism/update/RuntimeUpdateNotesService.java"]
+    },
+    {
+      "frId": "FR16", "dpId": "DP16", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "FrameworkUpdateCoordinator, UpdateManifestVerifier, PluginCatalogVerifier, and PendingPluginOperations deliver transactional self-update and signed marketplace workflows.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/update/FrameworkUpdateCoordinator.java", "runtime/src/main/java/dev/turboism/update/UpdateManifestVerifier.java", "runtime/src/main/java/dev/turboism/pluginmanagement/PluginCatalogVerifier.java"]
+    },
+    {
+      "frId": "FR17", "dpId": "DP1", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "VerifiedInstall bytecode weaves inject slot bridges and class transformations for native render and warp optimization hooks.",
+      "evidencePaths": ["bootstrap/src/main/java/dev/turboism/bootstrap", "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/SlotBridgeEmitter.java"]
+    },
+    {
+      "frId": "FR17", "dpId": "DP2", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "ReviewedHostContract and HostMemberVerifier gate every optimization bridge against exact-version verified host slices.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/optimization/ReviewedHostContract.java", "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/HostMemberVerifier.java"]
+    },
+    {
+      "frId": "FR17", "dpId": "DP4", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Persisted configuration kill switches gate opt-in render, matrix scratch, and warp optimization activation at startup.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/config/TypedConfigDocumentStore.java", "runtime/src/main/java/dev/turboism/adapter/cubism/optimization"]
+    },
+    {
+      "frId": "FR17", "dpId": "DP5", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Interactive responsiveness budgets and performance probes govern bounded GL deletion queues and scratch-buffer reuse.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/optimization/memory/GlDeleteQueue.java", "runtime/src/main/java/dev/turboism/core/runtime/RuntimeScheduler.java"]
+    },
+    {
+      "frId": "FR17", "dpId": "DP8", "symbol": "x", "relation": "AFFECTS", "evidenceStatus": "OBSERVED",
+      "effectSummary": "Model and scene generation transitions invalidate cached warp-deform edit state and drain pending GL deletions safely.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdeform/WarpDeformEditBridge.java", "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/memory/GlDeleteQueue.java"]
+    },
+    {
+      "frId": "FR17", "dpId": "DP17", "symbol": "X", "relation": "PRIMARY", "evidenceStatus": "OBSERVED",
+      "effectSummary": "GlDeleteQueue, WarpDeformEditBridge, and MatrixScratchBridge execute stateful native render and warp optimizations.",
+      "evidencePaths": ["runtime/src/main/java/dev/turboism/adapter/cubism/optimization/memory/GlDeleteQueue.java", "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdeform/WarpDeformEditBridge.java", "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/geometry/MatrixScratchBridge.java"]
     }
   ],
   "submatrices": [
@@ -871,11 +979,87 @@
       ]
     }
   ],
+  "processVariables": [
+    {
+      "id": "PV1",
+      "title": "Gradle module and gate evaluation",
+      "summary": "Compiles all modules, enforces static module/SDK boundaries, and executes deterministic devCheck and integration verification gates.",
+      "codePaths": [
+        "build.gradle.kts",
+        "gradle/gates.txt"
+      ]
+    },
+    {
+      "id": "PV2",
+      "title": "Contract and slice materialization",
+      "summary": "Materializes reviewed Cubism host verification records and draft contract metadata into machine-checked runtime admission artifacts.",
+      "codePaths": [
+        "scripts/materialize_verification_records.py",
+        "scripts/materialize_draft_contracts.py"
+      ]
+    },
+    {
+      "id": "PV3",
+      "title": "Multi-channel installer and config packaging",
+      "summary": "Merges launcher configuration and installs agent, runtime, and update channel artifacts across Java and Windows installers.",
+      "codePaths": [
+        "packaging/java-installer/listener-src/dev/turboism/installer/ConfigMerge.java",
+        "packaging/windows-installer/configure_turboism.ps1"
+      ]
+    },
+    {
+      "id": "PV4",
+      "title": "Version-isolated host validation queue",
+      "summary": "Schedules isolated live Cubism Editor validation runs across reviewed host versions with captured logs and exit diagnostics.",
+      "codePaths": [
+        "scripts/preview/host_validation.py"
+      ]
+    }
+  ],
+  "processMatrix": [
+    { "dpId": "DP1", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds and tests :bootstrap and :runtime weave verification gates." },
+    { "dpId": "DP1", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized verification records supply attested bytecode hook targets." },
+    { "dpId": "DP1", "pvId": "PV3", "symbol": "x", "effectSummary": "Installers wire -javaagent launch flags into Cubism Editor startup configuration." },
+    { "dpId": "DP2", "pvId": "PV1", "symbol": "x", "effectSummary": "Gradle executes checkCompatibilityMatrix and :compatibility-policy:test." },
+    { "dpId": "DP2", "pvId": "PV2", "symbol": "X", "effectSummary": "Contract and slice materialization generates exact-version compatibility admission records." },
+    { "dpId": "DP2", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation queue proves selector contracts against live Cubism releases." },
+    { "dpId": "DP3", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle enforces SDK isolation, ABI contracts, and plugin runtime integration tests." },
+    { "dpId": "DP4", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle validates :persistence-core codecs and golden recovery-point snapshots." },
+    { "dpId": "DP4", "pvId": "PV3", "symbol": "x", "effectSummary": "Installers merge shared config.json state concurrently with runtime config writers." },
+    { "dpId": "DP5", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle runs checkCodeQuality, checkThrowableContainment, and scheduler admission tests." },
+    { "dpId": "DP5", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized performance slice records gate opt-in host performance hooks." },
+    { "dpId": "DP5", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation runs JFR frame-time and responsiveness probes on real Cubism builds." },
+    { "dpId": "DP6", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle runs EarlyThemeAppearanceBootstrap and cross-module theme bootstrap tests." },
+    { "dpId": "DP6", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation verifies pre-GL FlatLaf defaults on live Cubism startup." },
+    { "dpId": "DP7", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle audits UI permissions, localization, and shell regression tests." },
+    { "dpId": "DP7", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized UI slice contracts gate menu, toolbar, and panel attachment points." },
+    { "dpId": "DP8", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle executes authoring transaction, lifecycle, and selection isolation suites." },
+    { "dpId": "DP8", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized editor-model slices back verified transaction and Undo bindings." },
+    { "dpId": "DP8", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation confirms native Undo parity on live Cubism models." },
+    { "dpId": "DP9", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds :plugins:parameter-lock and executes lock-sync interaction tests." },
+    { "dpId": "DP10", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds :plugins:parameter-sync and executes lock-sync interaction tests." },
+    { "dpId": "DP11", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds and tests batch parameter, physics, and frame-animation plugins." },
+    { "dpId": "DP12", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds mesh-tool plugins and executes MeshToolCrossPluginLifecycleTest." },
+    { "dpId": "DP12", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized mesh-session slices gate custom mesh tool registration." },
+    { "dpId": "DP12", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation exercises custom mesh tools on live Cubism canvas sessions." },
+    { "dpId": "DP13", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds and tests mirror, warp-deform, and 3D-import plugins." },
+    { "dpId": "DP13", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized geometry slices gate mirror and temporary deformer bridges." },
+    { "dpId": "DP14", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds and tests atlas, PSD, backup, and protected-export plugins." },
+    { "dpId": "DP14", "pvId": "PV2", "symbol": "x", "effectSummary": "Materialized PSD, clip-mask, and protected-export slices gate resource adapters." },
+    { "dpId": "DP14", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation verifies atlas packing and shadow host image outputs." },
+    { "dpId": "DP15", "pvId": "PV1", "symbol": "X", "effectSummary": "Gradle builds :graal-host and external automation plugins with target-selection gates." },
+    { "dpId": "DP15", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation exercises live MCP and automation sessions against Cubism." },
+    { "dpId": "DP16", "pvId": "PV1", "symbol": "x", "effectSummary": "Gradle runs update manifest, catalog verification, and pending-operation suites." },
+    { "dpId": "DP16", "pvId": "PV3", "symbol": "X", "effectSummary": "Installer and channel packaging define update layout, config merge, and restart-lease contracts." },
+    { "dpId": "DP17", "pvId": "PV1", "symbol": "x", "effectSummary": "Gradle compiles and tests optimization bridge units and bytecode emitters." },
+    { "dpId": "DP17", "pvId": "PV2", "symbol": "X", "effectSummary": "Materialized host contracts bind ReviewedHostContract targets for render and warp bridges." },
+    { "dpId": "DP17", "pvId": "PV4", "symbol": "x", "effectSummary": "Host validation proves GL delete queues and warp bridges under live Cubism rendering." }
+  ],
   "analysis": {
     "observedClassification": "DECOUPLED",
     "overallClassification": "UNVERIFIED",
-    "diagonalCount": 15,
-    "lowerTriangularObservedCount": 62,
+    "diagonalCount": 17,
+    "lowerTriangularObservedCount": 73,
     "lowerTriangularHypothesisCount": 2,
     "upperTriangularObservedCount": 0,
     "upperTriangularHypothesisCount": 0,
@@ -906,6 +1090,11 @@
         "step": 4,
         "scope": "DP8 -> DP12 / DP13 / DP14 (Geometry and resource workflows)",
         "rule": "Open one mutually exclusive edit or mesh-tool lease at a time (DP8 editScopeGate, DP12 ActivationLease) and complete or exit custom mesh-tool sessions before invoking competing host-wide authoring transactions."
+      },
+      {
+        "step": 5,
+        "scope": "DP1/DP2/DP3/DP4/DP5/DP7/DP8 -> DP16 / DP17 (Self-update staging and native optimization bridges)",
+        "rule": "Stage signed updates and marketplace operations behind launch leases for next-session application (DP16), and gate stateful render or warp optimization bridges behind verified contracts, kill switches, and model/scene generation boundaries (DP17)."
       }
     ]
   },

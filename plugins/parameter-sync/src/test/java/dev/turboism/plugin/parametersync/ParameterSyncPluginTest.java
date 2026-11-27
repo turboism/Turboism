@@ -278,6 +278,84 @@ class ParameterSyncPluginTest {
         }
     }
 
+    @Test
+    void distinctUserEditIsNotSwallowedByPendingProgrammaticSuppression() {
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setSynchronized("ParamB", true);
+
+        paramA.setValue(0.75f);
+        plugin.onParameterValueChanged(paramA, 0.0f, 0.75f);
+        assertEquals(0.75f, paramB.getValue(), 1e-4f);
+
+        // User immediately edits ParamB to a distinct value before the programmatic echo arrives.
+        paramB.setValue(0.20f);
+        plugin.onParameterValueChanged(paramB, 0.75f, 0.20f);
+
+        assertEquals(0.20f, paramA.getValue(), 1e-4f);
+        assertFalse(plugin.engine().suppressionGuard().shouldSuppress("ParamB", 0.75f));
+    }
+
+    @Test
+    void rejectedSyncWriteClearsSuppressionStateImmediately() {
+        final TestParameter lockedParamB = new TestParameter("ParamB", 0.0f, 1.0f, 0.0f) {
+            @Override
+            public void setValue(final float value) {
+                // Simulate ParameterLockPlugin rejecting the write by keeping the current value.
+            }
+        };
+        model.addParameter(lockedParamB);
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setSynchronized("ParamB", true);
+
+        paramA.setValue(0.60f);
+        plugin.onParameterValueChanged(paramA, 0.0f, 0.60f);
+
+        assertEquals(0.0f, lockedParamB.getValue(), 1e-4f);
+        assertFalse(plugin.engine().suppressionGuard().shouldSuppress("ParamB", 0.60f));
+    }
+
+    @Test
+    void sameGuidModelReloadEvictsStaleCachedParameterHandles() {
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setSynchronized("ParamB", true);
+
+        paramA.setValue(0.50f);
+        plugin.onParameterValueChanged(paramA, 0.0f, 0.50f);
+        assertEquals(0.50f, paramB.getValue(), 1e-4f);
+
+        // Invalidate old handles while reloading a model with the exact same GUID.
+        paramA.markStale();
+        paramB.markStale();
+        final TestModel reloaded = new TestModel("model-guid-1");
+        final TestParameter freshA = new TestParameter("ParamA", 0.0f, 1.0f, 0.0f);
+        final TestParameter freshB = new TestParameter("ParamB", 0.0f, 1.0f, 0.0f);
+        reloaded.addParameter(freshA);
+        reloaded.addParameter(freshB);
+        context.setActiveModel(reloaded);
+
+        freshA.setValue(0.80f);
+        plugin.onParameterValueChanged(freshA, 0.0f, 0.80f);
+
+        assertEquals(0.80f, freshB.getValue(), 1e-4f);
+    }
+
+    @Test
+    void shutdownAwaitsInFlightRuleSavesBeforeStoppingWorker() throws Exception {
+        final SyncRuleSet ruleSet = plugin.getRuleSet("model-guid-1");
+        ruleSet.setSynchronized("ParamA", true);
+        ruleSet.setSynchronized("ParamB", true);
+
+        final var pendingSave = plugin.saveRules("model-guid-1");
+        plugin.shutdown();
+
+        assertTrue(pendingSave.isDone());
+        assertTrue(pendingSave.get(1, TimeUnit.SECONDS));
+        assertTrue(storedIds().containsAll(Set.of("ParamA", "ParamB")));
+    }
+
     private Set<String> storedIds() throws Exception {
         final ParameterSyncData data = readStored();
         return data == null ? Set.of() : data.synchronizedParameterIds();
@@ -577,17 +655,22 @@ class ParameterSyncPluginTest {
         public void update() {}
     }
 
-    private static final class TestParameter implements Parameter {
+    private static class TestParameter implements Parameter {
         private final String id;
         private final float min;
         private final float max;
         private float value;
+        private boolean stale;
 
         TestParameter(final String id, final float min, final float max, final float initial) {
             this.id = id;
             this.min = min;
             this.max = max;
             this.value = initial;
+        }
+
+        void markStale() {
+            this.stale = true;
         }
 
         @Override
@@ -597,11 +680,17 @@ class ParameterSyncPluginTest {
 
         @Override
         public float getValue() {
+            if (stale) {
+                throw new IllegalStateException("Stale parameter handle: " + id);
+            }
             return value;
         }
 
         @Override
         public void setValue(final float value) {
+            if (stale) {
+                throw new IllegalStateException("Stale parameter handle: " + id);
+            }
             this.value = value;
         }
 

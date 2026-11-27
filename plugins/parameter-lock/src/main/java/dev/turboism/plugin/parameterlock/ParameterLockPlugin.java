@@ -27,16 +27,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -65,16 +68,29 @@ public final class ParameterLockPlugin implements CubismPlugin {
     @Deprecated(forRemoval = true)
     public static final String TOOLBAR_TOGGLE_ID = "parameter-lock.toolbar.toggle";
 
-    private static final long POLL_INTERVAL_MS = 250;
+    private static final long POLL_INTERVAL_MS = 250L;
+    private static final int WORKER_CORE_POOL_SIZE = 1;
+    private static final int WORKER_MAX_POOL_SIZE = 1;
+    private static final long WORKER_KEEP_ALIVE_SECONDS = 0L;
+    private static final int MAX_STORAGE_QUEUE_CAPACITY = 256;
+    private static final long SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 2L;
+    private static final String WORKER_THREAD_NAME = "parameter-lock-worker";
+    private static final String PARAM_ROW_KEY_PREFIX = "param:";
+    private static final String GROUP_ROW_KEY_PREFIX = "group:";
+    private static final String I18N_UNLOCK_PARAMETER = "row.action.unlock_parameter";
+    private static final String I18N_LOCK_PARAMETER = "row.action.lock_parameter";
+    private static final String I18N_EMPTY_GROUP = "row.action.empty_group";
+    private static final String I18N_LOCK_ALL = "row.action.lock_all";
+    private static final String I18N_UNLOCK_ALL = "row.action.unlock_all";
 
     private PluginContext context;
     private PluginLogger logger;
     private PluginLocalization i18n;
     private volatile ParameterLockState lockState;
     private ParameterLockStorage storage;
-    private ScheduledExecutorService asyncExecutor;
+    private ExecutorService asyncExecutor;
     private final List<Registration> registrations = new ArrayList<>();
-    private final Map<String, Registration> activeRowRegistrations = new ConcurrentHashMap<>();
+    private final Map<String, AppliedRowDecoration> activeRowDecorations = new ConcurrentHashMap<>();
     private final AtomicBoolean enabled = new AtomicBoolean(false);
     private final AtomicLong epoch = new AtomicLong(0);
     private volatile Map<String, CompletableFuture<ParameterLockData>> activeLoads = new ConcurrentHashMap<>();
@@ -84,6 +100,14 @@ public final class ParameterLockPlugin implements CubismPlugin {
     private Registration pollRegistration;
     private volatile ActivationKey currentActivationKey;
     private volatile boolean fullyDecorated = false;
+
+    /** Tracks applied row state so poll ticks skip redundant UI override rebuilds. */
+    private record AppliedRowDecoration(
+            Registration registration, PaletteRowAction.State state, String tooltip, boolean editingDisabled) {
+        boolean matches(final PaletteRowAction.State targetState, final String targetTooltip, final boolean disabled) {
+            return state == targetState && editingDisabled == disabled && Objects.equals(tooltip, targetTooltip);
+        }
+    }
 
     /**
      * Stable activation identity based on document and model IDs rather than host wrappers.
@@ -103,11 +127,17 @@ public final class ParameterLockPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.logger = context.logger();
         this.i18n = context.localization();
-        this.asyncExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, "parameter-lock-worker");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.asyncExecutor = new ThreadPoolExecutor(
+                WORKER_CORE_POOL_SIZE,
+                WORKER_MAX_POOL_SIZE,
+                WORKER_KEEP_ALIVE_SECONDS,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(MAX_STORAGE_QUEUE_CAPACITY),
+                runnable -> {
+                    final Thread thread = new Thread(runnable, WORKER_THREAD_NAME);
+                    thread.setDaemon(true);
+                    return thread;
+                });
         this.lockState = new ParameterLockState();
         this.storage = new ParameterLockStorage(context.storage(), logger, asyncExecutor);
         context.disposableScope().register(this::clearRowDecorations);
@@ -127,7 +157,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
         currentActivationKey = null;
         fullyDecorated = false;
 
-        // Schedule single initial activation check and poll chain on UI thread
+        // Dispatch initial activation and poll chain on UI thread to match host thread affinity.
         dispatchToUi(() -> {
             if (!enabled.get() || epoch.get() != currentEpoch) {
                 return;
@@ -169,7 +199,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
         if (asyncExecutor != null) {
             try {
                 CompletableFuture.allOf(pendingSaves.toArray(CompletableFuture[]::new))
-                        .get(2, TimeUnit.SECONDS);
+                        .get(SHUTDOWN_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException failure) {
@@ -249,7 +279,9 @@ public final class ParameterLockPlugin implements CubismPlugin {
     }
 
     Map<String, Registration> activeRowRegistrations() {
-        return Collections.unmodifiableMap(activeRowRegistrations);
+        final Map<String, Registration> result = new LinkedHashMap<>();
+        activeRowDecorations.forEach((key, decoration) -> result.put(key, decoration.registration()));
+        return Collections.unmodifiableMap(result);
     }
 
     boolean isFullyDecorated() {
@@ -299,7 +331,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
         final CubismModel model = modelOpt.get();
         final ActivationKey key = captureActivationKey(model);
         if (key == null) {
-            // Document identity not ready yet; defer decoration to avoid registering against stale scope
+            // Defer decoration until document identity resolves to avoid stale-scope registrations.
             if (currentActivationKey != null) {
                 clearRowDecorations();
                 currentActivationKey = null;
@@ -361,23 +393,31 @@ public final class ParameterLockPlugin implements CubismPlugin {
         if (lockState.hasLoaded(modelGuid)) {
             refreshDecorations(model);
         } else {
-            ensureLoaded(modelGuid)
-                    .thenAcceptAsync(
-                            data -> {
-                                dispatchToUi(() -> {
-                                    if (!enabled.get() || epoch.get() != currentEpoch) {
-                                        return;
-                                    }
-                                    final Optional<CubismModel> active = activeModelOrNull();
-                                    if (active.isPresent()) {
-                                        final ActivationKey currentKey = captureActivationKey(active.get());
-                                        if (Objects.equals(currentKey, key)) {
-                                            refreshDecorations(active.get());
+            try {
+                ensureLoaded(modelGuid)
+                        .thenAcceptAsync(
+                                data -> {
+                                    dispatchToUi(() -> {
+                                        if (!enabled.get() || epoch.get() != currentEpoch) {
+                                            return;
                                         }
-                                    }
-                                });
-                            },
-                            asyncExecutor);
+                                        final Optional<CubismModel> active = activeModelOrNull();
+                                        if (active.isPresent()) {
+                                            final ActivationKey currentKey = captureActivationKey(active.get());
+                                            if (Objects.equals(currentKey, key)) {
+                                                refreshDecorations(active.get());
+                                            }
+                                        }
+                                    });
+                                },
+                                asyncExecutor)
+                        .exceptionally(failure -> {
+                            logger.warn("Could not decorate model after lock load: " + failure.getMessage());
+                            return null;
+                        });
+            } catch (RejectedExecutionException rejected) {
+                logger.warn("Could not schedule post-load decoration: " + rejected.getMessage());
+            }
         }
     }
 
@@ -431,7 +471,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
                 for (final Parameter parameter : parameters.all()) {
                     rowsAttempted++;
                     final String paramId = parameter.id().value();
-                    final String key = "param:" + paramId;
+                    final String key = PARAM_ROW_KEY_PREFIX + paramId;
                     activeKeys.add(key);
 
                     final Optional<PaletteEntry> entryOpt;
@@ -451,8 +491,11 @@ public final class ParameterLockPlugin implements CubismPlugin {
                     final boolean locked = lockState.isLocked(modelGuid, paramId);
                     final PaletteRowAction.State state =
                             locked ? PaletteRowAction.State.LOCKED : PaletteRowAction.State.UNLOCKED;
-                    final String tooltip =
-                            locked ? i18n.text("row.action.unlock_parameter") : i18n.text("row.action.lock_parameter");
+                    final String tooltip = locked ? i18n.text(I18N_UNLOCK_PARAMETER) : i18n.text(I18N_LOCK_PARAMETER);
+                    final AppliedRowDecoration existing = activeRowDecorations.get(key);
+                    if (existing != null && existing.matches(state, tooltip, locked)) {
+                        continue;
+                    }
                     final PaletteRowAction action = new PaletteRowAction(
                             new UiIconRef(CubismIcon.LOCK),
                             state,
@@ -462,10 +505,11 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
                     try {
                         final Registration newReg = entry.overrideLeadingAction(action);
-                        final Registration oldReg = activeRowRegistrations.put(key, newReg);
-                        if (oldReg != null) {
+                        final AppliedRowDecoration oldDecoration =
+                                activeRowDecorations.put(key, new AppliedRowDecoration(newReg, state, tooltip, locked));
+                        if (oldDecoration != null) {
                             try {
-                                oldReg.close();
+                                oldDecoration.registration().close();
                             } catch (RuntimeException ignored) {
                             }
                         }
@@ -488,7 +532,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
                 for (final ParameterGroup group : groups.all()) {
                     rowsAttempted++;
                     final String groupId = group.id().value();
-                    final String key = "group:" + groupId;
+                    final String key = GROUP_ROW_KEY_PREFIX + groupId;
                     activeKeys.add(key);
 
                     final Optional<PaletteEntry> entryOpt;
@@ -511,7 +555,7 @@ public final class ParameterLockPlugin implements CubismPlugin {
 
                     if (descendantIds.isEmpty()) {
                         state = PaletteRowAction.State.UNLOCKED;
-                        tooltip = i18n.text("row.action.empty_group");
+                        tooltip = i18n.text(I18N_EMPTY_GROUP);
                         onClick = () -> {};
                     } else {
                         long lockedCount = 0;
@@ -522,28 +566,33 @@ public final class ParameterLockPlugin implements CubismPlugin {
                         }
                         if (lockedCount == 0) {
                             state = PaletteRowAction.State.UNLOCKED;
-                            tooltip = i18n.text("row.action.lock_all");
+                            tooltip = i18n.text(I18N_LOCK_ALL);
                             onClick = () -> handleGroupClick(model, group.id(), true);
                         } else if (lockedCount == descendantIds.size()) {
                             state = PaletteRowAction.State.LOCKED;
-                            tooltip = i18n.text("row.action.unlock_all");
+                            tooltip = i18n.text(I18N_UNLOCK_ALL);
                             onClick = () -> handleGroupClick(model, group.id(), false);
                         } else {
                             state = PaletteRowAction.State.MIXED;
-                            tooltip = i18n.text("row.action.lock_all");
+                            tooltip = i18n.text(I18N_LOCK_ALL);
                             onClick = () -> handleGroupClick(model, group.id(), true);
                         }
                     }
 
+                    final AppliedRowDecoration existing = activeRowDecorations.get(key);
+                    if (existing != null && existing.matches(state, tooltip, false)) {
+                        continue;
+                    }
                     final PaletteRowAction action =
                             new PaletteRowAction(new UiIconRef(CubismIcon.LOCK), state, tooltip, onClick);
 
                     try {
                         final Registration newReg = entry.overrideLeadingAction(action);
-                        final Registration oldReg = activeRowRegistrations.put(key, newReg);
-                        if (oldReg != null) {
+                        final AppliedRowDecoration oldDecoration =
+                                activeRowDecorations.put(key, new AppliedRowDecoration(newReg, state, tooltip, false));
+                        if (oldDecoration != null) {
                             try {
-                                oldReg.close();
+                                oldDecoration.registration().close();
                             } catch (RuntimeException ignored) {
                             }
                         }
@@ -560,32 +609,32 @@ public final class ParameterLockPlugin implements CubismPlugin {
         }
 
         // 3. Remove stale registrations
-        final Iterator<Map.Entry<String, Registration>> it =
-                activeRowRegistrations.entrySet().iterator();
+        final Iterator<Map.Entry<String, AppliedRowDecoration>> it =
+                activeRowDecorations.entrySet().iterator();
         while (it.hasNext()) {
-            final Map.Entry<String, Registration> entry = it.next();
+            final Map.Entry<String, AppliedRowDecoration> entry = it.next();
             if (!activeKeys.contains(entry.getKey())) {
                 try {
-                    entry.getValue().close();
+                    entry.getValue().registration().close();
                 } catch (RuntimeException ignored) {
                 }
                 it.remove();
             }
         }
 
-        this.fullyDecorated = allSucceeded && (rowsAttempted == 0 || !activeRowRegistrations.isEmpty());
+        this.fullyDecorated = allSucceeded && (rowsAttempted == 0 || !activeRowDecorations.isEmpty());
     }
 
     private void clearRowDecorations() {
-        for (final Registration reg : activeRowRegistrations.values()) {
-            if (reg != null) {
+        for (final AppliedRowDecoration decoration : activeRowDecorations.values()) {
+            if (decoration != null && decoration.registration() != null) {
                 try {
-                    reg.close();
+                    decoration.registration().close();
                 } catch (RuntimeException ignored) {
                 }
             }
         }
-        activeRowRegistrations.clear();
+        activeRowDecorations.clear();
     }
 
     void handleParameterClick(final CubismModel model, final String paramId) {
@@ -708,25 +757,35 @@ public final class ParameterLockPlugin implements CubismPlugin {
         return loads.computeIfAbsent(modelGuid, guid -> {
             final CompletableFuture<ParameterLockData> outcome = new CompletableFuture<>();
             final CompletableFuture<Void> ready = activationReady;
-            // Pure disk IO runs on asyncExecutor; outcome completes without depending on EDT
-            ready.thenComposeAsync(ignored -> storage.load(guid), asyncExecutor)
-                    .thenAcceptAsync(
-                            data -> {
-                                final Set<String> candidateIds = data != null ? data.lockedParameterIds() : Set.of();
-                                final Set<String> validIds = !knownParamIds.isEmpty()
-                                        ? filterCandidateIds(knownParamIds, candidateIds)
-                                        : candidateIds;
-                                state.mergeLoadedLocks(guid, validIds);
-                                outcome.complete(data);
-                                loads.remove(guid, outcome);
-                            },
-                            asyncExecutor)
-                    .exceptionally(failure -> {
-                        logger.warn("Could not load parameter lock state: " + failure.getMessage());
-                        outcome.completeExceptionally(failure);
-                        loads.remove(guid, outcome);
-                        return null;
-                    });
+            // Execute disk IO off the EDT so parameter writes never block UI threads.
+            try {
+                ready.thenComposeAsync(ignored -> storage.load(guid), asyncExecutor)
+                        .thenAcceptAsync(
+                                data -> {
+                                    final Set<String> candidateIds =
+                                            data != null ? data.lockedParameterIds() : Set.of();
+                                    final Set<String> validIds = !knownParamIds.isEmpty()
+                                            ? filterCandidateIds(knownParamIds, candidateIds)
+                                            : candidateIds;
+                                    state.mergeLoadedLocks(guid, validIds);
+                                    outcome.complete(data);
+                                    loads.remove(guid, outcome);
+                                },
+                                asyncExecutor)
+                        .exceptionally(failure -> {
+                            logger.warn("Could not load parameter lock state: " + failure.getMessage());
+                            // Mark model loaded with empty defaults so unexpected read errors do not freeze edits.
+                            state.mergeLoadedLocks(guid, Set.of());
+                            outcome.completeExceptionally(failure);
+                            loads.remove(guid, outcome);
+                            return null;
+                        });
+            } catch (RejectedExecutionException rejected) {
+                logger.warn("Could not schedule parameter lock load: " + rejected.getMessage());
+                state.mergeLoadedLocks(guid, Set.of());
+                outcome.completeExceptionally(rejected);
+                loads.remove(guid, outcome);
+            }
             return outcome;
         });
     }
@@ -765,12 +824,17 @@ public final class ParameterLockPlugin implements CubismPlugin {
     private void saveLocksAsync(final String modelGuid) {
         final ParameterLockState state = lockState;
         final Map<String, CompletableFuture<ParameterLockData>> loads = activeLoads;
-        final CompletableFuture<Boolean> save = ensureLoaded(modelGuid, state, loads)
-                .thenComposeAsync(
-                        loaded -> storage.save(ParameterLockData.of(modelGuid, state.getLockedParameters(modelGuid))),
-                        asyncExecutor)
-                .toCompletableFuture();
-        trackSave(save, modelGuid);
+        try {
+            final CompletableFuture<Boolean> save = ensureLoaded(modelGuid, state, loads)
+                    .thenComposeAsync(
+                            loaded ->
+                                    storage.save(ParameterLockData.of(modelGuid, state.getLockedParameters(modelGuid))),
+                            asyncExecutor)
+                    .toCompletableFuture();
+            trackSave(save, modelGuid);
+        } catch (RejectedExecutionException rejected) {
+            logger.warn("Could not schedule parameter lock save for model " + modelGuid + ": " + rejected.getMessage());
+        }
     }
 
     private void trackSave(final CompletableFuture<Boolean> save, final String modelGuid) {
@@ -787,8 +851,12 @@ public final class ParameterLockPlugin implements CubismPlugin {
         final Optional<CubismModel> model = activeModelOrNull();
         if (model.isPresent()) {
             final String guid = model.get().id().value();
-            lockState.setActiveModel(guid);
-            return guid;
+            if (guid != null && !guid.isBlank()) {
+                if (!guid.equals(lockState.activeModel())) {
+                    lockState.setActiveModel(guid);
+                }
+                return guid;
+            }
         }
         return null;
     }

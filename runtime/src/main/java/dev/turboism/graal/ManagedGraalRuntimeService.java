@@ -78,6 +78,9 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration REQUEST_TIMEOUT = Duration.ofHours(4);
     private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(30);
+    private static final int PROBE_STREAM_WORKERS = 2;
+    private static final int PROBE_STREAM_QUEUE_CAPACITY = 2;
+    private static final String PROBE_STREAM_THREAD_PREFIX = RuntimeThreads.THREAD_NAME_PREFIX + "-graal-probe-stream";
     private static final String ACTIVATION_MARKER_NAME = ".runtime-activation";
     private static final String PREVIOUS_RUNTIME_NAME = ".runtime-previous";
     private static final ObjectMapper PROTOCOL_JSON = RuntimeJson.standard();
@@ -751,22 +754,30 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         } catch (IOException failure) {
             throw failure("GRAAL_RUNTIME_HOST_PROBE_FAILED", "Could not start the isolated Graal host probe.", failure);
         }
+        final ExecutorService probeStreams = RuntimeThreads.fixedLane(
+                PROBE_STREAM_WORKERS,
+                PROBE_STREAM_QUEUE_CAPACITY,
+                RuntimeThreads.daemonThreads(PROBE_STREAM_THREAD_PREFIX));
         try {
-            final CompletableFuture<String> stdout = CompletableFuture.supplyAsync(() -> {
-                try (InputStream input = process.getInputStream()) {
-                    return readBoundedLine(input, 64 * 1024);
-                } catch (IOException failure) {
-                    return "";
-                }
-            });
-            final CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> {
-                try (InputStream input = process.getErrorStream()) {
-                    return drainBounded(input, 64 * 1024);
-                } catch (IOException ignored) {
-                    // Process stdout/protocol state remains the authoritative result.
-                    return "";
-                }
-            });
+            final CompletableFuture<String> stdout = CompletableFuture.supplyAsync(
+                    () -> {
+                        try (InputStream input = process.getInputStream()) {
+                            return readBoundedLine(input, BUFFER_SIZE);
+                        } catch (IOException failure) {
+                            return "";
+                        }
+                    },
+                    probeStreams);
+            final CompletableFuture<String> stderr = CompletableFuture.supplyAsync(
+                    () -> {
+                        try (InputStream input = process.getErrorStream()) {
+                            return drainBounded(input, BUFFER_SIZE);
+                        } catch (IOException ignored) {
+                            // Process stdout/protocol state remains the authoritative result.
+                            return "";
+                        }
+                    },
+                    probeStreams);
             final String line = stdout.get(PROBE_TIMEOUT.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
             if (!isCompatibleReadyMessage(line)) {
                 stderr.getNow("");
@@ -780,6 +791,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                     "GRAAL_RUNTIME_HOST_PROBE_FAILED", "The isolated Graal host probe timed out or failed.", failure);
         } finally {
             destroyTree(process);
+            probeStreams.shutdownNow();
         }
     }
 
