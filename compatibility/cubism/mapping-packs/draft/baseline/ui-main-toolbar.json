@@ -695,6 +695,22 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.constructor.label",
+      "name": "cubism.ui-main-toolbar.label.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(Ljava/lang/String;)V",
+      "profile": "cubism-${version}",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CLabel"
+      },
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high"
     }
   ]
 }
