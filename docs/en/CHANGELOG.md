@@ -14,6 +14,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Added
 
+- The About window links to the Turboism sponsor page.
 - The SDK lets plugins register custom temporary deformation tools.
 - Turboism bundles Warp Row/Column Deform to move entire rows or columns of Warp Deformer control points. Install it from the Plugin Market if your compatible installation lacks it.
 - The canvas shows handles for moving mirror axes. ArtMesh Mirror adds axis lock and reset controls and uses a hollow circle for the pivot.
@@ -44,6 +45,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Fixed
 
+- Settings saves the custom GraalVM path before it validates the Cubism JVM selection.
 - Mesh toolbar restores registered mesh tools and the radius slider by resolving the radius label during toolbar host verification.
 - Cubism OpenGL cleanup drains pending VBOs across shared contexts on canvas reinitialization and panel disposal without GL errors, ArtMesh Mirror persists per-mesh axis lock, angle, and pivot with centered handles, 3D model preset imports ask for confirmation before replacing a scene, and Geometric Mesh Layout connects concentric rings independently of center spokes.
 - Mesh layout preserves geometry and toolbar selection. AutoMesh keeps the selected preset, and Turbo Mesh improves transparent bleed, region separation, and adaptive vertex placement.
