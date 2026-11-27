@@ -216,6 +216,9 @@ tasks.named<ProcessResources>("processResources") {
         include("*.json")
         into("META-INF/turboism/release-notes")
     }
+    from(rootProject.file("distribution/changelog.json")) {
+        into("META-INF/turboism/release-notes")
+    }
     from(rootProject.file("docs/en/CHANGELOG.md")) {
         into("META-INF/turboism/release-notes")
     }

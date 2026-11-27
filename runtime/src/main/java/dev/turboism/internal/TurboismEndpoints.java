@@ -25,6 +25,7 @@ public final class TurboismEndpoints {
             "https://api.github.com/repos/" + GITHUB_REPOSITORY + "/contents/";
 
     public static final String RELEASES_PREFIX = API_ORIGIN + "/v1/releases/";
+    public static final String CHANGELOG_URL = API_ORIGIN + "/v1/changelog";
     public static final String PLUGIN_CATALOG_URL = PLUGIN_ORIGIN + "/api/v2/catalog.json";
     public static final String PLUGIN_CATALOG_SIGNATURE_URL = PLUGIN_ORIGIN + "/api/v2/catalog.json.sig";
     public static final String PLUGIN_ARTIFACTS_API_PREFIX = API_ORIGIN + "/v1/plugins/artifacts/";

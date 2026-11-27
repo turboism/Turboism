@@ -140,7 +140,17 @@ def render_nightly(receipt, context):
 
 
 def reviewed_locales(root, version, english):
-    """Returns the reviewed release notes for one version and its translated locales."""
+    """Returns the reviewed release notes for one version from structured changelog or legacy JSON."""
+    structured_path = Path(root)/'distribution'/'changelog.json'
+    if structured_path.is_file() and not structured_path.is_symlink():
+        from . import changelog as structured_changelog
+        document = structured_changelog.load_changelog(structured_path)
+        if any(release['version'] == version for release in document['releases']):
+            rendered = structured_changelog.render_release_notes_json(document, version)['locales']
+            result = {lang: text.strip() for lang, text in rendered.items() if text and text.strip()}
+            if english and english.strip():
+                result['en'] = english.strip()
+            return result
     result = {'en': english.strip()}
     path = Path(root)/'distribution'/'release-notes'/f'{version}.json'
     if not path.is_file():
