@@ -60,7 +60,6 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     private static final String MESH_BUTTON_PREFIX = "turboism:mesh:";
     private static final String MESH_TOOL_PANEL_PANEL = "cubism.ui-main-toolbar.mesh-tool-panel.panel";
     private static final String VBOX_CREATE = "cubism.ui-main-toolbar.vbox.create";
-    private static final String LABEL_CREATE = "cubism.ui-status-bar.label.create";
     private static final String MIRROR_FOLDING_PANE = "mirrorEditFoldingPane";
     private static final String SLIDER_ROW_SUFFIX = ":row";
     private static final int TITLE_INDEX = 0;
@@ -202,7 +201,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
         resolver.invoke(SLIDER_SET_ON_CHANGED, slider, callback);
 
         final Object row = resolver.construct(VBOX_CREATE);
-        final Object title = resolver.construct(LABEL_CREATE, contribution.label());
+        final Object title = resolver.construct(MeshToolbarSelectorContract.LABEL_CREATE, contribution.label());
         resolver.invoke(WIDGET_SET_NAME, row, rowId);
         resolver.invoke(CONTAINER_ADD, row, title, TITLE_INDEX);
         resolver.invoke(CONTAINER_ADD, row, slider, SLIDER_INDEX);

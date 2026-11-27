@@ -7,6 +7,7 @@ import java.util.Set;
 public final class MeshToolbarSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.main-toolbar";
     public static final String CAPABILITY_ID = "ui.mesh-toolbar.contribute";
+    static final String LABEL_CREATE = "cubism.ui-main-toolbar.label.create";
     /** Reviewed generations carrying the complete mesh-toolbar contract. */
     public static final Set<String> SUPPORTED_VERSIONS = ReviewedVersions.since("5.0.00");
 
@@ -16,6 +17,7 @@ public final class MeshToolbarSelectorContract {
             "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
             "cubism.ui-main-toolbar.mesh-tool-panel.panel",
             "cubism.ui-main-toolbar.vbox.create",
+            LABEL_CREATE,
             "cubism.ui-main-toolbar.abstract-button.class",
             "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
             "cubism.ui-main-toolbar.abstract-button.set-selected",

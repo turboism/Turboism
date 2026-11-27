@@ -19,6 +19,7 @@ class MeshToolbarSelectorContractTest {
             "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
             "cubism.ui-main-toolbar.mesh-tool-panel.panel",
             "cubism.ui-main-toolbar.vbox.create",
+            "cubism.ui-main-toolbar.label.create",
             "cubism.ui-main-toolbar.abstract-button.class",
             "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
             "cubism.ui-main-toolbar.abstract-button.set-selected",

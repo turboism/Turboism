@@ -1927,6 +1927,40 @@
           "id": "cubism.mapping.v5_2_03.ui_main_toolbar.method.home_button"
         }
       ]
+    },
+    {
+      "base": {
+        "alias": "cubism.ui-main-toolbar.label.create",
+        "kind": "constructor",
+        "ownerInternalName": "com/live2d/ui/control/CLabel",
+        "memberName": "<init>",
+        "descriptor": "(Ljava/lang/String;)V",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8,
+        "status": "VERIFIED_STATIC"
+      },
+      "keyOrder": [
+        "mappingId",
+        "alias",
+        "kind",
+        "ownerInternalName",
+        "memberName",
+        "descriptor",
+        "requiredAccessFlags",
+        "forbiddenAccessFlags",
+        "status"
+      ],
+      "versions": "5.0.00-",
+      "mappingId": [
+        {
+          "versions": "5.0.00-5.2.02,5.3.00-",
+          "id": "cubism.mapping.v5_3_02.ui_main_toolbar.constructor.label"
+        },
+        {
+          "versions": "5.2.03",
+          "id": "cubism.mapping.v5_2_03.ui_main_toolbar.constructor.label"
+        }
+      ]
     }
   ],
   "selectorOrder": [
@@ -1981,7 +2015,8 @@
         45,
         46,
         47,
-        48
+        48,
+        51
       ]
     },
     {
@@ -2035,7 +2070,8 @@
         45,
         46,
         47,
-        48
+        48,
+        51
       ]
     },
     {
@@ -2089,7 +2125,8 @@
         45,
         46,
         47,
-        48
+        48,
+        51
       ]
     }
   ],
