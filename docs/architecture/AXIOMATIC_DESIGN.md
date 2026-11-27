@@ -18,7 +18,7 @@ Turboism keeps structural dependency inventories strictly separate from function
 | Artifact | Question Answered | Granularity | Authority |
 | --- | --- | --- | --- |
 | `docs/architecture/dependency-inventory.json` | Which modules and `:runtime` packages import each other statically? | 50 Gradle nodes (40 plugins), 93 non-test edges, 36 `:runtime` top packages | `checkDependencyInventory`, `checkModuleBoundaries` |
-| `docs/architecture/design-matrix.json` | How does changing or operating Design Parameter $DP_j$ affect Functional Requirement $FR_i$ at runtime? | 5 constraints (`C1`–`C5`), 15 `FR`/`DP` pairs, 3 peer submatrices | `checkAxiomaticDesignMatrix` + interaction tests |
+| `docs/architecture/design-matrix.json` | How does changing or operating Design Parameter $DP_j$ affect Functional Requirement $FR_i$ at runtime? | 5 constraints (`C1`–`C5`), 17 `FR`/`DP` pairs, 4 `PV`s, 3 peer submatrices | `checkAxiomaticDesignMatrix` + interaction tests |
 
 Reconciled structural figures:
 
@@ -40,9 +40,9 @@ Security, legal boundaries, host-version admission, resource budgets, and single
 - **`C4` — Interactive responsiveness and bounded execution**: Plugin tasks, callbacks, and EDT handoffs obey bounded queues, timeouts, and `EdtDispatch` rules (`checkCodeQuality`, `RuntimeScheduler`).
 - **`C5` — Single Editor write truth and generation safety**: Attached-document writes execute on the host thread through Editor authoring transactions with native Undo parity and fail closed across document, model, and plugin generations (`EditorAuthoringTransactionCoordinator`, `PluginGenerationGuard`).
 
-## 4. Functional Requirements and Design Parameters (`FR1`–`FR15`)
+## 4. Functional Requirements and Design Parameters (`FR1`–`FR17`)
 
-The 10 initial product domains refine into 15 measurable, solution-independent `FR`s paired 1-to-1 with traceable `DP`s in topological order:
+The 11 product domains refine into 17 measurable, solution-independent `FR`s paired 1-to-1 with traceable `DP`s in topological order:
 
 | Order | Domain | Functional Requirement (`FR`) | Acceptance Criterion | Design Parameter (`DP`) |
 | --- | --- | --- | --- | --- |
@@ -61,6 +61,8 @@ The 10 initial product domains refine into 15 measurable, solution-independent `
 | 13 | `D9` Mesh editing | **`FR13`**: Edit ArtMesh and deformer geometry with mirror symmetry, row/column deform, and 3D import transactions. | Symmetric edits and 3D imports preserve geometry invariants and record reversible native Undo steps. | **`DP13`**: `MeshCapabilityBundle` bridges, `TemporaryDeformToolRegistry`, and mirror/warp/3D-import plugins. |
 | 14 | `D10` Resources | **`FR14`**: Pack texture atlases, synchronize external PSD edits, back up projects, and export protected bundles safely. | Resource workflows preserve source integrity and quiesce background work on shutdown. | **`DP14`**: `TextureAtlasLayoutCoordinator`, `RuntimePsdReplaceService`, `ExportSettingsContributionService`, and atlas/PSD/backup/export plugins. |
 | 15 | `D10` Automation | **`FR15`**: Execute external MCP, ACP, and out-of-process script commands through permission-gated SDK and transaction boundaries. | GraalVM runs outside the host JVM and external writes obey identical permission, transaction, and generation fences. | **`DP15`**: `:graal-host`, `McpConnectionService`, `ScriptService`, and `:plugins:{mcp,acp,command-palette}`. |
+| 16 | `D11` Self-update | **`FR16`**: Stage, verify, and apply transactional framework self-updates and signed marketplace plugin changes across launch leases. | Manifest and catalog signatures verify before staging, launch leases serialize apply-on-restart, and failures roll back cleanly. | **`DP16`**: `FrameworkUpdateCoordinator`, `FrameworkUpdateLaunchLease`, `UpdateManifestVerifier`, `PluginCatalogVerifier`, `PendingPluginOperations`, and `TurboismAgent.handshakeBeforeStart`. |
+| 17 | `D5` Responsiveness | **`FR17`**: Accelerate native GL render, matrix scratch, and warp-deform host paths with stateful generation-fenced bridges and kill switches. | Each bridge verifies exact host contracts, drains GL resources across generations, and disables cleanly via persisted kill switches. | **`DP17`**: `dev.turboism.adapter.cubism.optimization`, `GlDeleteQueue`, `WarpDeformEditBridge`, and `MatrixScratchBridge`. |
 
 ## 5. Investigated Interaction Surfaces
 
@@ -104,17 +106,19 @@ Shared host-state coordination relies on four explicit runtime mechanisms verifi
 
 ## 6. Matrix Evaluation, Unresolved Entries, and Required Sequencing
 
-Under the documented ordering `(FR1..FR15) × (DP1..DP15)` in `docs/architecture/design-matrix.json`:
+Under the documented ordering `(FR1..FR17) × (DP1..DP17)` in `docs/architecture/design-matrix.json`:
 
 | Metric | Count | Classification Impact |
 | --- | --- | --- |
-| Primary diagonal entries (`X`, $i = j$) | 15 | Every `FR` has one primary traceable `DP` |
-| Lower-triangular observed effects (`x`, $i > j$, `OBSERVED`) | 62 | Platform layers (`DP1`–`DP8`) and `DP9` (`parameter-lock`) feed downstream workflows one-way |
+| Primary diagonal entries (`X`, $i = j$) | 17 | Every `FR` has one primary traceable `DP` |
+| Lower-triangular observed effects (`x`, $i > j$, `OBSERVED`) | 73 | Platform layers (`DP1`–`DP8`) and `DP9` (`parameter-lock`) feed downstream workflows one-way |
 | Lower-triangular hypothesized effects (`x`, $i > j$, `HYPOTHESIS`) | 2 | `(FR11, DP10)` and `(FR15, DP10)` async sync propagation after batch/MCP `setValue` |
 | Upper-triangular observed or hypothesized effects (`x`, $i < j$) | 0 | Zero confirmed reverse functional coupling |
 | Unknown entries (`?`, `UNVERIFIED` / `HYPOTHESIS`) | 4 | `1` lower-triangular `(FR13, DP12)` + `3` upper-triangular `(FR5, DP7)`, `(FR5, DP9)`, `(FR10, DP15)` |
 | Observed functional-effect SCCs | 0 | Acyclic lower-triangular functional graph over all confirmed effects |
 | Potential functional SCCs if `?` entries prove nonzero | 2 | `["FR5/DP5", "FR6/DP6", "FR7/DP7", "FR8/DP8", "FR9/DP9"]` and `["FR10/DP10", "FR15/DP15"]` |
+
+Sibling remediation branches (`theme-sec`, `param-lock`, `sync-decouple`, `exec-hygiene`) target `EXC-AD-001`, `EXC-AD-002`, `EXC-AD-003`, `(FR5, DP9)`, and `(FR10, DP15)`. After those branches merge, `@coordinator` can transition verified cells to `OBSERVED` or `0` in `design-matrix.json`.
 
 Design classifications:
 
@@ -131,8 +135,33 @@ Because a lower-triangular (`DECOUPLED`) system satisfies independence only when
 2. **Early theme before UI surfaces (`DP6 -> DP7`)**: Run `EarlyThemeAppearanceBootstrap` before GL scene initialization and before plugin/shell UI surfaces render.
 3. **Locks before sync, and sync-pause before batch sweeps (`DP8 -> DP9 -> DP10 -> DP11/DP15`)**: Configure parameter locks (`DP9`) before relying on `parameter-sync` (`DP10`), and pause `parameter-sync` (`parameter-sync.toggle-global`) before executing batch CSV imports, animation keyform binds, or MCP pose-grid sweeps.
 4. **Serialized edit and tool leases (`DP8 -> DP12 / DP13 / DP14`)**: Acquire at most one `editScopeGate` transaction/session or `MeshToolCoordinator` `ActivationLease` at a time, and exit active custom mesh-tool sessions before launching competing host-wide edits.
+5. **Self-update staging and optimization bridges (`DP1..DP8 -> DP16 / DP17`)**: Stage signed updates behind launch leases for next-session application (`DP16`), and gate stateful render or warp bridges behind verified contracts and kill switches (`DP17`).
 
-## 7. Recorded Exceptions and Follow-Up Items
+## 7. Process Domain (`DP × PV`) and Axiom 2 Information Content Hotspots
+
+Turboism models Suh's Process Domain `[B]` (`DP × PV`) in `docs/architecture/design-matrix.json` using four Process Variables (`PV1`–`PV4`):
+
+| PV | Process Variable | Primary Artifacts | Governed `DP`s |
+| --- | --- | --- | --- |
+| **`PV1`** | Gradle module and gate evaluation | `build.gradle.kts`, `gradle/gates.txt` | All `DP1`–`DP17` (`X` for compiled/gated modules) |
+| **`PV2`** | Contract and slice materialization | `scripts/materialize_verification_records.py`, `scripts/materialize_draft_contracts.py` | `DP1`, `DP2` (`X`), `DP5`, `DP7`, `DP8`, `DP12`, `DP13`, `DP14`, `DP17` (`X`) |
+| **`PV3`** | Multi-channel installer and config packaging | `packaging/java-installer/.../ConfigMerge.java`, `packaging/windows-installer/configure_turboism.ps1` | `DP1`, `DP4`, `DP16` (`X`) |
+| **`PV4`** | Version-isolated host validation queue | `scripts/preview/host_validation.py` | `DP2`, `DP5`, `DP6`, `DP8`, `DP12`, `DP14`, `DP15`, `DP17` |
+
+### Quantitative Suh Independence Metrics (`--report`)
+
+`scripts/dev/axiomatic_design_matrix.py --report` computes off-diagonal density, Reangularity ($R$), and Semangularity ($S$) at reference sensitivity $\alpha = 0.25$.
+Use these metrics to track coupling drift as new `FR`/`DP` pairs enter the matrix without altering `--check` exit semantics.
+
+### Axiom 2 Information Content Hotspots
+
+Three operational hotspots dominate implementation entropy (Axiom 2 Information Content) across `[A]` and `[B]`:
+
+1. **Multi-writer `config.json` entropy (`PV3` × `DP4`/`DP16`)**: Java installers, Windows scripts, and runtime services all mutate launcher and install metadata. Consolidate schema ownership and atomic merge rules to prevent drift across upgrade channels.
+2. **Constructor and adapter concentration (`DP3`/`DP17`)**: `CorePluginContext` aggregates 31+ service slots and 19 constructors, while `dev.turboism.adapter.cubism.optimization` concentrates stateful host bridges. Keep policy out of wiring constructors and isolate each bridge behind `ReviewedHostContract` kill switches.
+3. **Configuration Cache coupling on `PV1`**: `build.gradle.kts` and `gradle/gates.txt` evaluate process-wide gates across all 50 Gradle nodes. Isolate task inputs and avoid configuration-time I/O so `PV1` remains cacheable and deterministic.
+
+## 8. Recorded Exceptions and Follow-Up Items
 
 | ID | Status | Owner | Summary and Follow-Up |
 | --- | --- | --- | --- |
@@ -141,7 +170,7 @@ Because a lower-triangular (`DECOUPLED`) system satisfies independence only when
 | `EXC-AD-003` | Tracked interaction quirk | `sole-maintainer` | `ParameterSyncPlugin` flushes partner writes asynchronously via `UiScheduler` after synchronous `McpPoseGridDomain` or batch `AuthoringTransaction` sweeps; execute verification tasks on `(FR10, DP15)`, `(FR11, DP10)`, and `(FR15, DP10)`. |
 | `EXC-AD-004` | Boundary verified | `sole-maintainer` | `CorePluginContext` exhibits high static import fan-out as the service-wiring seam while owning zero domain policy; no `:runtime` module split is warranted. |
 
-## 8. Governance and Maintenance
+## 9. Governance and Maintenance
 
 `checkAxiomaticDesignMatrix` runs in `devCheck` via `scripts/dev/axiomatic_design_matrix.py --check`:
 
@@ -150,4 +179,4 @@ python3 scripts/dev/axiomatic_design_matrix.py --report
 python3 scripts/dev/axiomatic_design_matrix.py --check
 ```
 
-The gate validates `docs/architecture/design-matrix.json` against `docs/architecture/design-matrix.schema.json`, verifies that every referenced repository path exists, requires evidence or a concrete `verificationTask` on every nonzero (`x`) and unknown (`?`) entry, cross-checks `structuralBaseline` against `docs/architecture/dependency-inventory.json`, and recomputes diagonal/triangular counts and Tarjan functional SCCs so classification claims cannot drift silently.
+The gate validates `docs/architecture/design-matrix.json` against `docs/architecture/design-matrix.schema.json`, verifies every referenced `FR`, `DP`, `PV`, and evidence path exists, enforces `verificationTask` rules on nonzero and unknown cells, cross-checks `structuralBaseline` against `docs/architecture/dependency-inventory.json`, validates `processMatrix` referential integrity, and recomputes triangular counts and Tarjan functional SCCs.

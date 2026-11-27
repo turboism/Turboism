@@ -17,6 +17,8 @@
     "grid",
     "entries",
     "submatrices",
+    "processVariables",
+    "processMatrix",
     "analysis",
     "exceptions"
   ],
@@ -221,6 +223,40 @@
             "minItems": 1,
             "items": { "type": "string", "minLength": 1 }
           }
+        }
+      }
+    },
+    "processVariables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "summary", "codePaths"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^PV[1-9][0-9]*$" },
+          "title": { "type": "string", "minLength": 3 },
+          "summary": { "type": "string", "minLength": 10 },
+          "codePaths": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "processMatrix": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dpId", "pvId", "symbol", "effectSummary"],
+        "properties": {
+          "dpId": { "type": "string", "pattern": "^DP[1-9][0-9]*$" },
+          "pvId": { "type": "string", "pattern": "^PV[1-9][0-9]*$" },
+          "symbol": { "enum": ["X", "x", "?"] },
+          "effectSummary": { "type": "string", "minLength": 10 }
         }
       }
     },

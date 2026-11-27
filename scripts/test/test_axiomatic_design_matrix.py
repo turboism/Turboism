@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
+import io
 import json
 import shutil
 import tempfile
@@ -45,7 +47,7 @@ def build_minimal_fixture(root: Path) -> dict:
         json.dumps(inventory, indent=2) + "\n", encoding="utf-8"
     )
     (root / "docs/architecture/AXIOMATIC_DESIGN.md").write_text(
-        "# Baseline\ndesign-matrix.json C1 FR1 FR2 DP1 DP2 EXC-AD-001\n",
+        "# Baseline\ndesign-matrix.json C1 FR1 FR2 DP1 DP2 PV1 EXC-AD-001\n",
         encoding="utf-8",
     )
     matrix = {
@@ -155,6 +157,28 @@ def build_minimal_fixture(root: Path) -> dict:
                 "sequencingRule": "Configure locks before sync rules.",
                 "evidencePaths": ["src/a/Lock.java", "src/b/Sync.java"],
             }
+        ],
+        "processVariables": [
+            {
+                "id": "PV1",
+                "title": "Gradle gate evaluation",
+                "summary": "Compiles and verifies fixture modules deterministically.",
+                "codePaths": ["settings.gradle.kts"],
+            }
+        ],
+        "processMatrix": [
+            {
+                "dpId": "DP1",
+                "pvId": "PV1",
+                "symbol": "X",
+                "effectSummary": "Gradle compiles and verifies Lock module.",
+            },
+            {
+                "dpId": "DP2",
+                "pvId": "PV1",
+                "symbol": "X",
+                "effectSummary": "Gradle compiles and verifies Sync module.",
+            },
         ],
         "analysis": {
             "observedClassification": "DECOUPLED",
@@ -276,6 +300,42 @@ class AxiomaticDesignMatrixTest(unittest.TestCase):
         write_matrix(self.temp_dir, updated)
         _, errors = adm.validate_repository_matrix(self.temp_dir)
         self.assertTrue(any("does not exist" in err for err in errors), errors)
+
+    def test_process_domain_rejects_unknown_dp_and_missing_pv_path(self) -> None:
+        updated = copy.deepcopy(self.matrix)
+        updated["processVariables"][0]["codePaths"] = ["src/missing.kts"]
+        updated["processMatrix"].append(
+            {
+                "dpId": "DP99",
+                "pvId": "PV1",
+                "symbol": "x",
+                "effectSummary": "Invalid DP reference for validation test.",
+            }
+        )
+        write_matrix(self.temp_dir, updated)
+        _, errors = adm.validate_repository_matrix(self.temp_dir)
+        self.assertTrue(any("processVariable PV1" in err and "does not exist" in err for err in errors), errors)
+        self.assertTrue(any("unknown DP DP99" in err for err in errors), errors)
+
+    def test_suh_metrics_and_report_output(self) -> None:
+        uncoupled = adm.compute_suh_metrics([["X", "0"], ["0", "X"]])
+        self.assertEqual(uncoupled["density"], 0.0)
+        self.assertAlmostEqual(uncoupled["reangularity"], 1.0)
+        self.assertAlmostEqual(uncoupled["semangularity"], 1.0)
+
+        decoupled = adm.compute_suh_metrics([["X", "0"], ["x", "X"]], alpha=0.25)
+        self.assertAlmostEqual(decoupled["density"], 0.5)
+        self.assertLess(decoupled["reangularity"], 1.0)
+        self.assertLess(decoupled["semangularity"], 1.0)
+        self.assertAlmostEqual(decoupled["reangularity"], decoupled["semangularity"])
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(adm.main(["--root", str(self.temp_dir), "--report"]), 0)
+        report = buf.getvalue()
+        self.assertIn("Suh metrics (alpha=0.25, observed):", report)
+        self.assertIn("== Process Domain ==", report)
+        self.assertIn("PV1 (Gradle gate evaluation): 2 DPs", report)
 
 
 if __name__ == "__main__":
