@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.modelopen;
 
+import dev.turboism.adapter.cubism.optimization.psd.PsdOptimizationTransformer;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -42,6 +43,9 @@ public final class ModelOpenAccelerationTransformer implements ClassFileTransfor
             if (FloatArrayDeserializerPatcher.TARGET_INTERNAL_NAME.equals(className)) {
                 return FloatArrayDeserializerPatcher.tryPatch(className, loader, classfileBuffer);
             }
+            if (IntArrayDeserializerPatcher.TARGET_INTERNAL_NAME.equals(className)) {
+                return IntArrayDeserializerPatcher.tryPatch(className, loader, classfileBuffer);
+            }
             if (ArchiveReadPatcher.ARCHIVE_READER.equals(className)
                     || ArchiveReadPatcher.GRAPHICS_READ_LAMBDA.equals(className)
                     || ArchiveReadPatcher.SERIALIZE_READ_LAMBDA.equals(className)) {
@@ -54,8 +58,19 @@ public final class ModelOpenAccelerationTransformer implements ClassFileTransfor
                     return extPatched;
                 }
             }
+            if (ParameterPaletteCoalescePatcher.isSupportedTarget(className)) {
+                final byte[] palettePatched =
+                        ParameterPaletteCoalescePatcher.tryPatch(className, loader, classfileBuffer);
+                if (palettePatched != null) {
+                    return palettePatched;
+                }
+            }
             if (SaxBuilderFastPatcher.isCandidateTarget(className)) {
                 return SaxBuilderFastPatcher.tryPatch(className, loader, classfileBuffer);
+            }
+            final byte[] psdPatched = PsdOptimizationTransformer.tryTransform(loader, className, classfileBuffer);
+            if (psdPatched != null) {
+                return psdPatched;
             }
             return null;
         } catch (final Throwable failure) {

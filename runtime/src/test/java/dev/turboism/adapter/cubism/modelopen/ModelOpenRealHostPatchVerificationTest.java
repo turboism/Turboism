@@ -7,11 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
+import dev.turboism.adapter.cubism.optimization.psd.PsdOptimizationTransformer;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -19,6 +22,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -32,7 +36,9 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
@@ -52,7 +58,7 @@ final class ModelOpenRealHostPatchVerificationTest {
     private static final String SHADER_PKG = "com/live2d/graphics3d/shader/";
     private static final String UTIL_PKG = "com/live2d/util/";
     private static final String STUB_PACKAGE_PREFIX = "org.jdom.";
-    private static final int DYNAMIC_TARGETS_PER_JAR = 3;
+    private static final int MIN_DYNAMIC_TARGETS_PER_JAR = 5;
     private static final int EXPECTED_TOTAL_JARS = 21;
     private static final long VERIFY_TIMEOUT_SECONDS = 60L;
 
@@ -62,11 +68,21 @@ final class ModelOpenRealHostPatchVerificationTest {
             ModelOpenFlowPatcher.MODEL_SOURCE_COMPANION,
             ModelOpenFlowPatcher.DOCUMENT_LOADER,
             FloatArrayDeserializerPatcher.TARGET_INTERNAL_NAME,
+            IntArrayDeserializerPatcher.TARGET_INTERNAL_NAME,
             ArchiveReadPatcher.ARCHIVE_READER,
             ArchiveReadPatcher.GRAPHICS_READ_LAMBDA,
             ArchiveReadPatcher.SERIALIZE_READ_LAMBDA,
             ExtendedInterpolationParallelPatcher.GAME_MOTION_SET,
-            ExtendedInterpolationParallelPatcher.EXT_INTERP_EXTENSION);
+            ExtendedInterpolationParallelPatcher.EXT_INTERP_EXTENSION,
+            ParameterPaletteCoalescePatcher.UPDATE_MANAGER,
+            ParameterPaletteCoalescePatcher.DOC_LOAD_CONTROLLER,
+            PsdOptimizationTransformer.RLE_DECODER,
+            PsdOptimizationTransformer.LAYER_INFO_READER,
+            PsdOptimizationTransformer.LAYERED_IMAGE,
+            PsdOptimizationTransformer.LAYER_ENTRY,
+            PsdOptimizationTransformer.STEP001_PREANALYZE,
+            PsdOptimizationTransformer.EDGE_FILTER,
+            PsdOptimizationTransformer.STEP003_BLUR);
 
     @Test
     void patchesVerifyAllTargetsAndIsIdempotentAcrossAllTwentyOneCubismJars(@TempDir final Path tempDir)
@@ -98,6 +114,12 @@ final class ModelOpenRealHostPatchVerificationTest {
                 final String stopwatchUtil = findStopwatchUtil(jar, hostLoader);
                 assertNotNull(stopwatchUtil, "Stopwatch util not found in " + version);
                 targets.add(stopwatchUtil);
+                final String psdLayerTarget = findPsdLayerTarget(jar, hostLoader, transformer);
+                assertNotNull(psdLayerTarget, "PSD layer class not found in " + version);
+                targets.add(psdLayerTarget);
+                final List<String> paletteTargets = findParameterPaletteTargets(jar, hostLoader, transformer);
+                assertTrue(!paletteTargets.isEmpty(), "Parameter palette targets absent in " + version);
+                targets.addAll(paletteTargets);
 
                 for (final String internalName : targets) {
                     final JarEntry entry = jar.getJarEntry(internalName + CLASS_SUFFIX);
@@ -119,6 +141,20 @@ final class ModelOpenRealHostPatchVerificationTest {
                                         new ClassReader(patched), "turboism$addLoadedBytes", "(I)V"),
                                 "Atomic stats helper missing in " + version);
                     }
+                    if (IntArrayDeserializerPatcher.TARGET_INTERNAL_NAME.equals(internalName)) {
+                        verifyImplHCoexistenceBothOrders(hostLoader, transformer, original);
+                    }
+                    if (internalName.equals("com/live2d/cubism/view/palette/parameter/k")
+                            || internalName.equals("com/live2d/cubism/view/palette/parameter/m")
+                            || internalName.equals("com/live2d/cubism/view/palette/parameter/s")) {
+                        assertEquals(
+                                ReviewedMethodShape.read(original, internalName, "a", "(Z)V"),
+                                ReviewedMethodShape.read(patched, internalName, "a", "(Z)V"),
+                                "ParameterPaletteCoalescePatcher must leave controller.a(Z)V untouched for "
+                                        + internalName
+                                        + " in "
+                                        + version);
+                    }
 
                     final Path outFile = versionOutDir.resolve(internalName + CLASS_SUFFIX);
                     Files.createDirectories(outFile.getParent());
@@ -128,8 +164,11 @@ final class ModelOpenRealHostPatchVerificationTest {
             }
         }
 
+        assertTrue(
+                manifestLines.size() >= EXPECTED_TOTAL_JARS * (FIXED_TARGETS.size() + MIN_DYNAMIC_TARGETS_PER_JAR),
+                "Unexpected target count: " + manifestLines.size());
         Files.write(manifestList, manifestLines);
-        runStrictBytecodeVerifierSubprocess(manifestList);
+        runStrictBytecodeVerifierSubprocess(manifestList, manifestLines.size());
     }
 
     @Test
@@ -144,7 +183,12 @@ final class ModelOpenRealHostPatchVerificationTest {
                     ImageDecodePatcher.IMAGE_RESOURCE,
                     ImageDecodePatcher.UT_IMAGE,
                     FloatArrayDeserializerPatcher.TARGET_INTERNAL_NAME,
-                    ArchiveReadPatcher.SERIALIZE_READ_LAMBDA)) {
+                    IntArrayDeserializerPatcher.TARGET_INTERNAL_NAME,
+                    ArchiveReadPatcher.SERIALIZE_READ_LAMBDA,
+                    "com/live2d/graphics/psd/d/c",
+                    PsdOptimizationTransformer.STEP001_PREANALYZE,
+                    PsdOptimizationTransformer.EDGE_FILTER,
+                    PsdOptimizationTransformer.STEP003_BLUR)) {
                 final byte[] original = jar.getInputStream(jar.getJarEntry(internalName + CLASS_SUFFIX))
                         .readAllBytes();
                 final byte[] patched = transformer.transform(null, internalName, null, null, original);
@@ -251,6 +295,73 @@ final class ModelOpenRealHostPatchVerificationTest {
             assertEquals(Float.floatToRawIntBits(1.25f), Float.floatToRawIntBits(parsed[0]));
             assertEquals(Float.floatToRawIntBits(-0.0f), Float.floatToRawIntBits(parsed[1]));
             assertEquals(Float.floatToRawIntBits(Float.MIN_VALUE), Float.floatToRawIntBits(parsed[2]));
+
+            // 5. Patched com.live2d.serialize.impl.H in-place int array deserializer with real jdom Element.
+            final Object intElem = elemClass.getConstructor(String.class).newInstance("int_array");
+            elemClass.getMethod("setAttribute", String.class, String.class).invoke(intElem, "count", "5");
+            elemClass.getMethod("setText", String.class).invoke(intElem, "-7 0 42 2147483647 -2147483648");
+            final Class<?> hClass = loader.loadClass("com.live2d.serialize.impl.H");
+            final Constructor<?> hCtor = hClass.getDeclaredConstructor(String.class);
+            hCtor.setAccessible(true);
+            final Object hInstance = hCtor.newInstance("int[]");
+            final Method hCreate = hClass.getMethod("createInstance", elemClass, xmlReaderClass);
+            final int[] parsedInts = (int[]) hCreate.invoke(hInstance, intElem, xmlReader);
+            assertArrayEquals(new int[] {-7, 0, 42, Integer.MAX_VALUE, Integer.MIN_VALUE}, parsedInts);
+
+            // 6. Patched PSD RLE decoder (psd.d.c) + Step001/Step002/Step003 real host classes.
+            final byte[] psdStream = new byte[] {0, 5, 0, 2, 1, 10, 20, (byte) -2, 30, (byte) -4, 40};
+            final Class<?> psdDocClass = loader.loadClass("com.live2d.graphics.psd.CPsdDocument");
+            final Object psdDoc = psdDocClass.getConstructor().newInstance();
+            final Class<?> psdReaderClass = loader.loadClass("com.live2d.graphics.psd.b");
+            final Object psdReader =
+                    psdReaderClass.getConstructor(byte[].class, psdDocClass).newInstance(psdStream, psdDoc);
+            final Class<?> rleClass = loader.loadClass("com.live2d.graphics.psd.d.c");
+            final Object rleSingleton = rleClass.getField("a").get(null);
+            final byte[] decodedChannel = new byte[10];
+            final Method rleDecode = rleClass.getMethod("a", psdReaderClass, int.class, int.class, byte[].class);
+            final Object rleMeta = rleDecode.invoke(rleSingleton, psdReader, 5, 2, decodedChannel);
+            assertArrayEquals(new byte[] {10, 20, 30, 30, 30, 40, 40, 40, 40, 40}, decodedChannel);
+            assertArrayEquals(
+                    new int[] {5, 2}, (int[]) rleMeta.getClass().getMethod("b").invoke(rleMeta));
+            assertArrayEquals(new int[] {1, -2, -4}, (int[])
+                    rleMeta.getClass().getMethod("a").invoke(rleMeta));
+            assertEquals(psdStream.length, (int) psdReaderClass.getMethod("h").invoke(psdReader));
+
+            final Class<?> writableClass = loader.loadClass("com.live2d.graphics.CWritableImage");
+            final Class<?> colorEnum = loader.loadClass("com.live2d.graphics.n");
+            final Object argbEnum = colorEnum.getField("c").get(null);
+            final Object srcWritable = writableClass
+                    .getConstructor(int.class, int.class, colorEnum)
+                    .newInstance(8, 8, argbEnum);
+            final int[] srcBuf = (int[]) writableClass.getMethod("getIntBuffer").invoke(srcWritable);
+            Arrays.fill(srcBuf, 0xFF204060);
+            srcBuf[3 * 8 + 3] = 0xFF80C0E0;
+
+            final Class<?> step1InClass =
+                    loader.loadClass("com.live2d.cubism.process.psd.algorithm.Step001_PreAnalyze$a");
+            final Class<?> stepDataClass = loader.loadClass("com.live2d.cubism.process.psd.algorithm.d");
+            final Object step1In = step1InClass
+                    .getConstructor(writableClass, int.class, int.class, int.class)
+                    .newInstance(srcWritable, 2, 4, 1);
+            final Object stepData = stepDataClass.getConstructor().newInstance();
+            final Class<?> step1Class = loader.loadClass("com.live2d.cubism.process.psd.algorithm.Step001_PreAnalyze");
+            final Object step1Res = step1Class
+                    .getMethod("a", step1InClass, stepDataClass)
+                    .invoke(step1Class.getField("a").get(null), step1In, stepData);
+            final Object reducedWritable =
+                    step1Res.getClass().getMethod("getAnaylyzeImage").invoke(step1Res);
+            assertEquals(6, (int) writableClass.getMethod("getWidth").invoke(reducedWritable));
+
+            final Class<?> filterClass = loader.loadClass("com.live2d.graphics.image.a.a");
+            final Object filter = filterClass.getConstructor().newInstance();
+            final Object edgeWritable =
+                    filterClass.getMethod("a", writableClass, writableClass).invoke(filter, srcWritable, null);
+            final Class<?> step3Class = loader.loadClass("com.live2d.cubism.process.psd.algorithm.Step003_EdgeBlur_A");
+            final Object blurWritable = step3Class
+                    .getMethod("a", writableClass, writableClass)
+                    .invoke(step3Class.getField("a").get(null), edgeWritable, null);
+            assertNotNull(blurWritable);
+            assertEquals(8, (int) writableClass.getMethod("getWidth").invoke(blurWritable));
         }
     }
 
@@ -321,6 +432,95 @@ final class ModelOpenRealHostPatchVerificationTest {
         return null;
     }
 
+    private static String findPsdLayerTarget(
+            final JarFile jar, final ClassLoader loader, final ModelOpenAccelerationTransformer transformer)
+            throws IOException {
+        for (final String candidate :
+                List.of(PsdOptimizationTransformer.LAYER_MODERN, PsdOptimizationTransformer.LAYER_LEGACY)) {
+            final JarEntry entry = jar.getJarEntry(candidate + CLASS_SUFFIX);
+            if (entry == null) {
+                continue;
+            }
+            try (InputStream in = jar.getInputStream(entry)) {
+                if (transformer.transform(loader, candidate, null, null, in.readAllBytes()) != null) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static List<String> findParameterPaletteTargets(
+            final JarFile jar, final ClassLoader loader, final ModelOpenAccelerationTransformer transformer)
+            throws IOException {
+        final List<String> found = new ArrayList<>();
+        final var entries = jar.entries();
+        while (entries.hasMoreElements()) {
+            final JarEntry entry = entries.nextElement();
+            final String name = entry.getName();
+            if (!name.startsWith(ParameterPaletteCoalescePatcher.PARAM_PALETTE_PREFIX)
+                    || !name.endsWith(CLASS_SUFFIX)) {
+                continue;
+            }
+            final String internalName = name.substring(0, name.length() - CLASS_SUFFIX.length());
+            try (InputStream in = jar.getInputStream(entry)) {
+                if (transformer.transform(loader, internalName, null, null, in.readAllBytes()) != null) {
+                    found.add(internalName);
+                }
+            }
+        }
+        return found;
+    }
+
+    private static void verifyImplHCoexistenceBothOrders(
+            final ClassLoader loader, final ModelOpenAccelerationTransformer transformer, final byte[] originalH) {
+        final byte[] withSaveFirst = addSyntheticCreateElementHook(originalH);
+        final byte[] bothOrderA = transformer.transform(
+                loader, IntArrayDeserializerPatcher.TARGET_INTERNAL_NAME, null, null, withSaveFirst);
+        assertNotNull(bothOrderA, "IntArrayDeserializerPatcher must compose after synthetic createElement patch");
+        assertTrue(ModelOpenClassWriters.callsOwner(new ClassReader(bothOrderA), "test/SyntheticSavePerfBridge"));
+        assertTrue(ModelOpenClassWriters.callsOwner(
+                new ClassReader(bothOrderA), "dev/turboism/adapter/cubism/modelopen/IntArrayDeserializerBridge"));
+
+        final byte[] withOpenFirst =
+                transformer.transform(loader, IntArrayDeserializerPatcher.TARGET_INTERNAL_NAME, null, null, originalH);
+        assertNotNull(withOpenFirst);
+        final byte[] bothOrderB = addSyntheticCreateElementHook(withOpenFirst);
+        assertTrue(ModelOpenClassWriters.callsOwner(new ClassReader(bothOrderB), "test/SyntheticSavePerfBridge"));
+        assertTrue(ModelOpenClassWriters.callsOwner(
+                new ClassReader(bothOrderB), "dev/turboism/adapter/cubism/modelopen/IntArrayDeserializerBridge"));
+    }
+
+    private static byte[] addSyntheticCreateElementHook(final byte[] classBytes) {
+        final ClassReader reader = new ClassReader(classBytes);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String desc,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+                        if (!"createElement".equals(name)) {
+                            return mv;
+                        }
+                        return new MethodVisitor(Opcodes.ASM9, mv) {
+                            @Override
+                            public void visitCode() {
+                                super.visitCode();
+                                super.visitMethodInsn(
+                                        Opcodes.INVOKESTATIC, "test/SyntheticSavePerfBridge", "noop", "()V", false);
+                            }
+                        };
+                    }
+                },
+                0);
+        return writer.toByteArray();
+    }
+
     private static List<Path> discoverAllTwentyOneJars() throws IOException {
         final List<Path> jars = new ArrayList<>();
         final Path home = Path.of(System.getProperty("user.home"));
@@ -350,7 +550,8 @@ final class ModelOpenRealHostPatchVerificationTest {
         return jarPath.getParent().getFileName().toString();
     }
 
-    private static void runStrictBytecodeVerifierSubprocess(final Path manifestList) throws Exception {
+    private static void runStrictBytecodeVerifierSubprocess(final Path manifestList, final int expectedTargetCount)
+            throws Exception {
         final String javaExe =
                 Path.of(System.getProperty("java.home"), "bin", "java").toString();
         final String classpath = System.getProperty("java.class.path");
@@ -369,10 +570,7 @@ final class ModelOpenRealHostPatchVerificationTest {
         }
         assertTrue(process.waitFor(VERIFY_TIMEOUT_SECONDS, TimeUnit.SECONDS), "Verifier subprocess timed out");
         assertEquals(0, process.exitValue(), "Strict -Xverify:all failed:\n" + output);
-        assertTrue(
-                output.contains(
-                        "VERIFIED_TARGETS=" + (EXPECTED_TOTAL_JARS * (FIXED_TARGETS.size() + DYNAMIC_TARGETS_PER_JAR))),
-                output);
+        assertTrue(output.contains("VERIFIED_TARGETS=" + expectedTargetCount), output);
     }
 
     /** Child entrypoint launched under {@code -Xverify:all} to link all patched host classes. */

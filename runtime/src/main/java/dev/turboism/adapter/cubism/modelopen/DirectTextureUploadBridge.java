@@ -14,6 +14,7 @@ import java.awt.image.WritableRaster;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.ref.SoftReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.Buffer;
@@ -21,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Packs sRGB Cubism images directly into bounded pooled direct buffers for JOGL texture upload.
@@ -34,6 +36,18 @@ public final class DirectTextureUploadBridge {
     static final int GL_RGBA = 0x1908;
     static final int GL_RGBA8 = 0x8058;
     static final int GL_UNSIGNED_BYTE = 0x1401;
+    static final int GL_TEXTURE_MAG_FILTER = 0x2800;
+    static final int GL_TEXTURE_MIN_FILTER = 0x2801;
+    static final int GL_TEXTURE_WRAP_S = 0x2802;
+    static final int GL_TEXTURE_WRAP_T = 0x2803;
+    static final int GL_LINEAR = 0x2601;
+    static final int GL_LINEAR_MIPMAP_LINEAR = 0x2703;
+    static final int GL_CLAMP = 0x2900;
+    static final int GL_CLAMP_TO_EDGE = 0x812F;
+    static final int GL_UNPACK_ROW_LENGTH = 0x0CF2;
+    static final int GL_UNPACK_SKIP_ROWS = 0x0CF3;
+    static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
+    static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
 
     private static final int BYTES_PER_PIXEL = 4;
     private static final int CHANNEL_COUNT = 4;
@@ -45,10 +59,15 @@ public final class DirectTextureUploadBridge {
     private static final int[] RGBA_BITS = {8, 8, 8, 8};
     private static final int[] EXPECTED_ABGR_BAND_OFFSETS = {3, 2, 1, 0};
     private static final int BORDER_ZERO = 0;
+    private static final int UNPACK_ALIGNMENT_ONE = 1;
+    private static final int UNPACK_ZERO = 0;
+    private static final int TEX_COUNT_ONE = 1;
+    private static final int MIP_LEVEL_BASE = 0;
+    private static final int ZERO_OFFSET = 0;
 
     private static final int MAX_DIMENSION = 16_384;
     private static final long MAX_TOTAL_PIXELS = (long) MAX_DIMENSION * MAX_DIMENSION;
-    private static final int MAX_POOLED_BUFFER_BYTES = 67_108_864;
+    static final int MAX_POOLED_BUFFER_BYTES = 67_108_864;
     private static final int MAX_POOLED_BUFFERS = 2;
     private static final int RESULT_ARRAY_LENGTH = 3;
     private static final long HANDLED_FLAG = 1L;
@@ -57,6 +76,7 @@ public final class DirectTextureUploadBridge {
 
     private static final String MSG_CREATE_TEXTURE = "create texture";
     private static final String MSG_GENERATE_MIPMAP_GL3 = "generate mipmap (GL3)";
+    private static final String EXT_GL_VERSION_1_2 = "GL_VERSION_1_2";
     private static final String GL_PROFILE_CLASS = "com.jogamp.opengl.GLProfile";
     private static final String GL_CLASS = "com.jogamp.opengl.GL";
     private static final String GL3_CLASS = "com.jogamp.opengl.GL3";
@@ -68,16 +88,33 @@ public final class DirectTextureUploadBridge {
     private static final String METHOD_NEW_TEXTURE = "newTexture";
     private static final String METHOD_IS_AUTO_MIPMAP = "isUsingAutoMipmapGeneration";
     private static final String METHOD_IS_GL3 = "isGL3";
+    private static final String METHOD_IS_GL2GL3 = "isGL2GL3";
+    private static final String METHOD_IS_GL_CORE = "isGLcore";
+    private static final String METHOD_IS_GL2 = "isGL2";
+    private static final String METHOD_IS_EXTENSION_AVAILABLE = "isExtensionAvailable";
     private static final String METHOD_GET_TEXTURE_OBJECT = "getTextureObject";
+    private static final String METHOD_GL_GEN_TEXTURES = "glGenTextures";
+    private static final String METHOD_GL_DELETE_TEXTURES = "glDeleteTextures";
     private static final String METHOD_GL_BIND_TEXTURE = "glBindTexture";
+    private static final String METHOD_GL_ENABLE = "glEnable";
     private static final String METHOD_GL_GENERATE_MIPMAP = "glGenerateMipmap";
+    private static final String METHOD_GL_GET_INTEGERV = "glGetIntegerv";
+    private static final String METHOD_GL_PIXEL_STOREI = "glPixelStorei";
+    private static final String METHOD_GL_TEX_PARAMETERI = "glTexParameteri";
+    private static final String METHOD_GL_TEX_IMAGE_2D = "glTexImage2D";
+    private static final String METHOD_GL_TEX_SUB_IMAGE_2D = "glTexSubImage2D";
     private static final String METHOD_ENABLE = "enable";
     private static final String METHOD_BIND = "bind";
 
     private static final byte[][] PREMUL_LUT = buildPremulLut();
     private static final Object POOL_LOCK = new Object();
     private static final ArrayDeque<ByteBuffer> DIRECT_BUFFER_POOL = new ArrayDeque<>(MAX_POOLED_BUFFERS);
+    private static final Object FALLBACK_LOCK = new Object();
+    private static SoftReference<ByteBuffer> transientFallbackBuffer;
     private static final ThreadLocal<byte[]> ROW_SCRATCH = new ThreadLocal<>();
+    private static final AtomicLong STRIPED_GL3_UPLOADS = new AtomicLong();
+    private static final AtomicLong OVERSIZED_DIRECT_ALLOCATIONS = new AtomicLong();
+    private static final AtomicLong FALLBACK_BUFFER_REUSES = new AtomicLong();
 
     private static volatile JoglHandles cachedHandles;
 
@@ -218,7 +255,31 @@ public final class DirectTextureUploadBridge {
             final int dstHeight,
             final boolean flipY,
             final ByteBuffer outBuffer) {
-        if (src == null || outBuffer == null) {
+        return packRgbaPremultipliedBand(src, dstWidth, dstHeight, ZERO_OFFSET, dstHeight, flipY, outBuffer);
+    }
+
+    /**
+     * Packs rows {@code [yStart, yStart + bandRows)} of an sRGB image into premultiplied RGBA bytes
+     * inside {@code outBuffer}, matching full-frame padding and vertical flip coordinates.
+     *
+     * @param src source {@code BufferedImage}
+     * @param dstWidth padded target texture width
+     * @param dstHeight padded target texture height
+     * @param yStart inclusive first destination row to pack
+     * @param bandRows number of destination rows to pack in this strip
+     * @param flipY whether source rows are inverted vertically
+     * @param outBuffer target RGBA byte buffer sized for at least {@code dstWidth * bandRows * 4} bytes
+     * @return {@code true} if the source image matches a supported fast packing layout
+     */
+    static boolean packRgbaPremultipliedBand(
+            final BufferedImage src,
+            final int dstWidth,
+            final int dstHeight,
+            final int yStart,
+            final int bandRows,
+            final boolean flipY,
+            final ByteBuffer outBuffer) {
+        if (src == null || outBuffer == null || yStart < 0 || bandRows <= 0 || yStart + bandRows > dstHeight) {
             return false;
         }
         final int srcW = src.getWidth();
@@ -226,7 +287,7 @@ public final class DirectTextureUploadBridge {
         if (!isPackableLayout(src, srcW, srcH, dstWidth, dstHeight)) {
             return false;
         }
-        final long requiredLong = (long) dstWidth * dstHeight * BYTES_PER_PIXEL;
+        final long requiredLong = (long) dstWidth * bandRows * BYTES_PER_PIXEL;
         if (requiredLong > Integer.MAX_VALUE || outBuffer.capacity() < (int) requiredLong) {
             return false;
         }
@@ -245,14 +306,15 @@ public final class DirectTextureUploadBridge {
             }
             final int stride = sppsm.getScanlineStride();
             final int baseOffset = dbInt.getOffset() - transY * stride - transX;
-            packIntArgb(
+            packIntArgbBand(
                     dbInt.getData(),
                     baseOffset,
                     stride,
                     srcW,
                     srcH,
                     dstWidth,
-                    dstHeight,
+                    yStart,
+                    bandRows,
                     flipY,
                     imageType == BufferedImage.TYPE_INT_ARGB_PRE,
                     outBuffer);
@@ -266,7 +328,8 @@ public final class DirectTextureUploadBridge {
             }
             final int stride = csm.getScanlineStride();
             final int baseOffset = dbByte.getOffset() - transY * stride - transX * BYTES_PER_PIXEL;
-            packByteAbgr(dbByte.getData(), baseOffset, stride, srcW, srcH, dstWidth, dstHeight, flipY, outBuffer);
+            packByteAbgrBand(
+                    dbByte.getData(), baseOffset, stride, srcW, srcH, dstWidth, yStart, bandRows, flipY, outBuffer);
         } else {
             return false;
         }
@@ -311,21 +374,23 @@ public final class DirectTextureUploadBridge {
                 && db.getNumBanks() == 1;
     }
 
-    private static void packIntArgb(
+    private static void packIntArgbBand(
             final int[] pixels,
             final int baseOffset,
             final int stride,
             final int srcW,
             final int srcH,
             final int dstW,
-            final int dstH,
+            final int yStart,
+            final int bandRows,
             final boolean flipY,
             final boolean alreadyPremultiplied,
             final ByteBuffer outBuffer) {
         final int dstRowBytes = dstW * BYTES_PER_PIXEL;
         final byte[] row = borrowRowScratch(dstRowBytes);
-        for (int y = 0; y < srcH; y++) {
-            final int srcY = flipY ? (srcH - 1 - y) : y;
+        final int imageEnd = Math.min(yStart + bandRows, srcH);
+        for (int dstY = yStart; dstY < imageEnd; dstY++) {
+            final int srcY = flipY ? (srcH - 1 - dstY) : dstY;
             final int rowStart = baseOffset + srcY * stride;
             int outIdx = 0;
             for (int x = 0; x < srcW; x++) {
@@ -351,25 +416,29 @@ public final class DirectTextureUploadBridge {
             }
             outBuffer.put(row, 0, dstRowBytes);
         }
-        if (dstH > srcH) {
-            writeZeroRows(outBuffer, row, dstRowBytes, dstH - srcH);
+        final int imageRowsWritten = Math.max(0, imageEnd - yStart);
+        final int zeroRowCount = bandRows - imageRowsWritten;
+        if (zeroRowCount > 0) {
+            writeZeroRows(outBuffer, row, dstRowBytes, zeroRowCount);
         }
     }
 
-    private static void packByteAbgr(
+    private static void packByteAbgrBand(
             final byte[] pixels,
             final int baseOffset,
             final int stride,
             final int srcW,
             final int srcH,
             final int dstW,
-            final int dstH,
+            final int yStart,
+            final int bandRows,
             final boolean flipY,
             final ByteBuffer outBuffer) {
         final int dstRowBytes = dstW * BYTES_PER_PIXEL;
         final byte[] row = borrowRowScratch(dstRowBytes);
-        for (int y = 0; y < srcH; y++) {
-            final int srcY = flipY ? (srcH - 1 - y) : y;
+        final int imageEnd = Math.min(yStart + bandRows, srcH);
+        for (int dstY = yStart; dstY < imageEnd; dstY++) {
+            final int srcY = flipY ? (srcH - 1 - dstY) : dstY;
             int srcIdx = baseOffset + srcY * stride;
             int outIdx = 0;
             for (int x = 0; x < srcW; x++) {
@@ -388,8 +457,10 @@ public final class DirectTextureUploadBridge {
             }
             outBuffer.put(row, 0, dstRowBytes);
         }
-        if (dstH > srcH) {
-            writeZeroRows(outBuffer, row, dstRowBytes, dstH - srcH);
+        final int imageRowsWritten = Math.max(0, imageEnd - yStart);
+        final int zeroRowCount = bandRows - imageRowsWritten;
+        if (zeroRowCount > 0) {
+            writeZeroRows(outBuffer, row, dstRowBytes, zeroRowCount);
         }
     }
 
@@ -421,6 +492,9 @@ public final class DirectTextureUploadBridge {
             final boolean flipY)
             throws Throwable {
         final int requiredBytes = dstW * dstH * BYTES_PER_PIXEL;
+        if (requiredBytes > MAX_POOLED_BUFFER_BYTES && canUseStripedGl3(handles, gl3)) {
+            return uploadStripedGl3(handles, shader, gl3, image, dstW, dstH, mipmap, flipY);
+        }
         final ByteBuffer pooled = borrowDirectBuffer(requiredBytes);
         try {
             if (!packRgbaPremultiplied(image, dstW, dstH, flipY, pooled)) {
@@ -464,6 +538,205 @@ public final class DirectTextureUploadBridge {
         }
     }
 
+    private static boolean canUseStripedGl3(final JoglHandles handles, final Object gl3) throws Throwable {
+        if (!handles.supportsStripedGl3()) {
+            return false;
+        }
+        return (boolean) handles.isGl3.invoke(gl3);
+    }
+
+    private static int uploadStripedGl3(
+            final JoglHandles handles,
+            final Object shader,
+            final Object gl3,
+            final BufferedImage image,
+            final int dstW,
+            final int dstH,
+            final boolean mipmap,
+            final boolean flipY)
+            throws Throwable {
+        final int rowBytes = dstW * BYTES_PER_PIXEL;
+        final int stripRows = Math.max(1, MAX_POOLED_BUFFER_BYTES / rowBytes);
+        final int maxBandRows = Math.min(dstH, stripRows);
+        final int stripBufferBytes = maxBandRows * rowBytes;
+        final int[] texIds = new int[TEX_COUNT_ONE];
+        handles.glGenTextures.invoke(gl3, TEX_COUNT_ONE, texIds, ZERO_OFFSET);
+        final int texId = texIds[ZERO_OFFSET];
+        if (texId <= 0) {
+            throw new IllegalStateException("glGenTextures returned invalid texture id: " + texId);
+        }
+        try {
+            handles.glBindTexture.invoke(gl3, GL_TEXTURE_2D, texId);
+            handles.glTexImage2D.invoke(
+                    gl3,
+                    GL_TEXTURE_2D,
+                    MIP_LEVEL_BASE,
+                    GL_RGBA8,
+                    dstW,
+                    dstH,
+                    BORDER_ZERO,
+                    GL_RGBA,
+                    GL_UNSIGNED_BYTE,
+                    (Buffer) null);
+            uploadStripedBandsWithSavedUnpackState(handles, gl3, image, dstW, dstH, stripRows, stripBufferBytes, flipY);
+            final int minFilter = mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
+            handles.glTexParameteri.invoke(gl3, GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+            handles.glTexParameteri.invoke(gl3, GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            final boolean clampToEdge = (boolean) handles.isExtensionAvailable.invoke(gl3, EXT_GL_VERSION_1_2)
+                    || !(boolean) handles.isGl2.invoke(gl3);
+            final int wrapMode = clampToEdge ? GL_CLAMP_TO_EDGE : GL_CLAMP;
+            handles.glTexParameteri.invoke(gl3, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapMode);
+            handles.glTexParameteri.invoke(gl3, GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapMode);
+            if (handles.checkGlError != null) {
+                handles.checkGlError.invoke(shader, gl3, MSG_CREATE_TEXTURE, false);
+            }
+            if (mipmap) {
+                handles.glGenerateMipmap.invoke(gl3, GL_TEXTURE_2D);
+                if (handles.checkGlError != null) {
+                    handles.checkGlError.invoke(shader, gl3, MSG_GENERATE_MIPMAP_GL3, false);
+                }
+            }
+            // Match JOGL Texture.enable(gl) / bind(gl): enable only outside core profile, leave texture bound.
+            final boolean isGlCore = handles.isGlCore != null && (boolean) handles.isGlCore.invoke(gl3);
+            if (!isGlCore && handles.glEnable != null) {
+                handles.glEnable.invoke(gl3, GL_TEXTURE_2D);
+            }
+            handles.glBindTexture.invoke(gl3, GL_TEXTURE_2D, texId);
+            STRIPED_GL3_UPLOADS.incrementAndGet();
+            return texId;
+        } catch (final Throwable failure) {
+            cleanupFailedTexture(handles, gl3, texIds, failure);
+            throw failure;
+        }
+    }
+
+    private static void uploadStripedBandsWithSavedUnpackState(
+            final JoglHandles handles,
+            final Object gl3,
+            final BufferedImage image,
+            final int dstW,
+            final int dstH,
+            final int stripRows,
+            final int stripBufferBytes,
+            final boolean flipY)
+            throws Throwable {
+        final int[] prevAlignment = new int[TEX_COUNT_ONE];
+        handles.glGetIntegerv.invoke(gl3, GL_UNPACK_ALIGNMENT, prevAlignment, ZERO_OFFSET);
+        final boolean isGl2Gl3 = handles.isGl2Gl3 != null && (boolean) handles.isGl2Gl3.invoke(gl3);
+        int[] prevRowLength = null;
+        int[] prevSkipRows = null;
+        int[] prevSkipPixels = null;
+        if (isGl2Gl3) {
+            prevRowLength = new int[TEX_COUNT_ONE];
+            prevSkipRows = new int[TEX_COUNT_ONE];
+            prevSkipPixels = new int[TEX_COUNT_ONE];
+            handles.glGetIntegerv.invoke(gl3, GL_UNPACK_ROW_LENGTH, prevRowLength, ZERO_OFFSET);
+            handles.glGetIntegerv.invoke(gl3, GL_UNPACK_SKIP_ROWS, prevSkipRows, ZERO_OFFSET);
+            handles.glGetIntegerv.invoke(gl3, GL_UNPACK_SKIP_PIXELS, prevSkipPixels, ZERO_OFFSET);
+        }
+        final ByteBuffer stripBuffer = borrowDirectBuffer(stripBufferBytes);
+        try {
+            handles.glPixelStorei.invoke(gl3, GL_UNPACK_ALIGNMENT, UNPACK_ALIGNMENT_ONE);
+            if (isGl2Gl3) {
+                handles.glPixelStorei.invoke(gl3, GL_UNPACK_ROW_LENGTH, UNPACK_ZERO);
+                handles.glPixelStorei.invoke(gl3, GL_UNPACK_SKIP_ROWS, UNPACK_ZERO);
+                handles.glPixelStorei.invoke(gl3, GL_UNPACK_SKIP_PIXELS, UNPACK_ZERO);
+            }
+            for (int y = 0; y < dstH; y += stripRows) {
+                final int bandRows = Math.min(stripRows, dstH - y);
+                if (!packRgbaPremultipliedBand(image, dstW, dstH, y, bandRows, flipY, stripBuffer)) {
+                    throw new IllegalStateException("Unexpected image layout during striped RGBA packing");
+                }
+                final ByteBuffer view = stripBuffer.limit() == stripBuffer.capacity()
+                        ? stripBuffer
+                        : stripBuffer.slice().order(ByteOrder.nativeOrder());
+                handles.glTexSubImage2D.invoke(
+                        gl3,
+                        GL_TEXTURE_2D,
+                        MIP_LEVEL_BASE,
+                        ZERO_OFFSET,
+                        y,
+                        dstW,
+                        bandRows,
+                        GL_RGBA,
+                        GL_UNSIGNED_BYTE,
+                        (Buffer) view);
+            }
+        } finally {
+            returnDirectBuffer(stripBuffer);
+            restoreUnpackState(handles, gl3, prevAlignment[0], isGl2Gl3, prevRowLength, prevSkipRows, prevSkipPixels);
+        }
+    }
+
+    private static void restoreUnpackState(
+            final JoglHandles handles,
+            final Object gl3,
+            final int prevAlignment,
+            final boolean isGl2Gl3,
+            final int[] prevRowLength,
+            final int[] prevSkipRows,
+            final int[] prevSkipPixels) {
+        try {
+            handles.glPixelStorei.invoke(gl3, GL_UNPACK_ALIGNMENT, prevAlignment);
+            if (isGl2Gl3) {
+                handles.glPixelStorei.invoke(gl3, GL_UNPACK_ROW_LENGTH, prevRowLength[ZERO_OFFSET]);
+                handles.glPixelStorei.invoke(gl3, GL_UNPACK_SKIP_ROWS, prevSkipRows[ZERO_OFFSET]);
+                handles.glPixelStorei.invoke(gl3, GL_UNPACK_SKIP_PIXELS, prevSkipPixels[ZERO_OFFSET]);
+            }
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    private static void cleanupFailedTexture(
+            final JoglHandles handles, final Object gl3, final int[] texIds, final Throwable rootCause) {
+        try {
+            handles.glBindTexture.invoke(gl3, GL_TEXTURE_2D, UNPACK_ZERO);
+        } catch (final Throwable suppressed) {
+            FatalErrors.rethrowIfFatal(suppressed);
+            rootCause.addSuppressed(suppressed);
+        }
+        try {
+            handles.glDeleteTextures.invoke(gl3, TEX_COUNT_ONE, texIds, ZERO_OFFSET);
+        } catch (final Throwable suppressed) {
+            FatalErrors.rethrowIfFatal(suppressed);
+            rootCause.addSuppressed(suppressed);
+        }
+    }
+
+    /**
+     * Releases any transient oversized fallback buffer held outside the 64 MiB buffer pool.
+     */
+    public static void clearTransientFallbackBuffer() {
+        synchronized (FALLBACK_LOCK) {
+            transientFallbackBuffer = null;
+        }
+    }
+
+    static long stripedGl3UploadCount() {
+        return STRIPED_GL3_UPLOADS.get();
+    }
+
+    static long oversizedDirectAllocationCount() {
+        return OVERSIZED_DIRECT_ALLOCATIONS.get();
+    }
+
+    static long fallbackBufferReuseCount() {
+        return FALLBACK_BUFFER_REUSES.get();
+    }
+
+    static int pooledBufferCount() {
+        synchronized (POOL_LOCK) {
+            return DIRECT_BUFFER_POOL.size();
+        }
+    }
+
+    static boolean hasTransientFallbackBuffer() {
+        synchronized (FALLBACK_LOCK) {
+            return transientFallbackBuffer != null && transientFallbackBuffer.get() != null;
+        }
+    }
+
     private static ByteBuffer borrowDirectBuffer(final int requiredBytes) {
         if (requiredBytes <= MAX_POOLED_BUFFER_BYTES) {
             synchronized (POOL_LOCK) {
@@ -482,15 +755,42 @@ public final class DirectTextureUploadBridge {
                     DIRECT_BUFFER_POOL.pollFirst();
                 }
             }
+            return ByteBuffer.allocateDirect(requiredBytes).order(ByteOrder.nativeOrder());
         }
+        return borrowOversizedFallbackBuffer(requiredBytes);
+    }
+
+    private static ByteBuffer borrowOversizedFallbackBuffer(final int requiredBytes) {
+        synchronized (FALLBACK_LOCK) {
+            final SoftReference<ByteBuffer> ref = transientFallbackBuffer;
+            if (ref != null) {
+                transientFallbackBuffer = null;
+                final ByteBuffer existing = ref.get();
+                if (existing != null && existing.capacity() >= requiredBytes) {
+                    existing.clear();
+                    FALLBACK_BUFFER_REUSES.incrementAndGet();
+                    return existing;
+                }
+            }
+        }
+        OVERSIZED_DIRECT_ALLOCATIONS.incrementAndGet();
         return ByteBuffer.allocateDirect(requiredBytes).order(ByteOrder.nativeOrder());
     }
 
     private static void returnDirectBuffer(final ByteBuffer buffer) {
-        if (buffer == null || buffer.capacity() > MAX_POOLED_BUFFER_BYTES) {
+        if (buffer == null) {
             return;
         }
         buffer.clear();
+        if (buffer.capacity() > MAX_POOLED_BUFFER_BYTES) {
+            synchronized (FALLBACK_LOCK) {
+                final ByteBuffer current = transientFallbackBuffer == null ? null : transientFallbackBuffer.get();
+                if (current == null || current.capacity() < buffer.capacity()) {
+                    transientFallbackBuffer = new SoftReference<>(buffer);
+                }
+            }
+            return;
+        }
         synchronized (POOL_LOCK) {
             if (DIRECT_BUFFER_POOL.size() < MAX_POOLED_BUFFERS) {
                 DIRECT_BUFFER_POOL.offerLast(buffer);
@@ -586,6 +886,71 @@ public final class DirectTextureUploadBridge {
                     textureClass, METHOD_GET_TEXTURE_OBJECT, MethodType.methodType(int.class, glClass));
             final MethodHandle checkGlError = findShaderGlErrorMethod(lookup, shader.getClass(), glClass);
 
+            final MethodHandle isGl2Gl3 =
+                    findOptionalVirtual(lookup, glClass, METHOD_IS_GL2GL3, MethodType.methodType(boolean.class));
+            final MethodHandle isGlCore =
+                    findOptionalVirtual(lookup, glClass, METHOD_IS_GL_CORE, MethodType.methodType(boolean.class));
+            final MethodHandle isGl2 =
+                    findOptionalVirtual(lookup, glClass, METHOD_IS_GL2, MethodType.methodType(boolean.class));
+            final MethodHandle isExtensionAvailable = findOptionalVirtual(
+                    lookup, glClass, METHOD_IS_EXTENSION_AVAILABLE, MethodType.methodType(boolean.class, String.class));
+            final MethodHandle glGenTextures = findOptionalVirtual(
+                    lookup,
+                    glClass,
+                    METHOD_GL_GEN_TEXTURES,
+                    MethodType.methodType(void.class, int.class, int[].class, int.class));
+            final MethodHandle glDeleteTextures = findOptionalVirtual(
+                    lookup,
+                    glClass,
+                    METHOD_GL_DELETE_TEXTURES,
+                    MethodType.methodType(void.class, int.class, int[].class, int.class));
+            final MethodHandle glEnable = findOptionalVirtual(
+                    lookup, glClass, METHOD_GL_ENABLE, MethodType.methodType(void.class, int.class));
+            final MethodHandle glGetIntegerv = findOptionalVirtual(
+                    lookup,
+                    glClass,
+                    METHOD_GL_GET_INTEGERV,
+                    MethodType.methodType(void.class, int.class, int[].class, int.class));
+            final MethodHandle glPixelStorei = findOptionalVirtual(
+                    lookup, glClass, METHOD_GL_PIXEL_STOREI, MethodType.methodType(void.class, int.class, int.class));
+            final MethodHandle glTexParameteri = findOptionalVirtual(
+                    lookup,
+                    glClass,
+                    METHOD_GL_TEX_PARAMETERI,
+                    MethodType.methodType(void.class, int.class, int.class, int.class));
+            final MethodHandle glTexImage2D = findOptionalVirtualAny(
+                    lookup,
+                    METHOD_GL_TEX_IMAGE_2D,
+                    MethodType.methodType(
+                            void.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            Buffer.class),
+                    gl3Class,
+                    glClass);
+            final MethodHandle glTexSubImage2D = findOptionalVirtualAny(
+                    lookup,
+                    METHOD_GL_TEX_SUB_IMAGE_2D,
+                    MethodType.methodType(
+                            void.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            int.class,
+                            Buffer.class),
+                    gl3Class,
+                    glClass);
+
             final JoglHandles resolved = new JoglHandles(
                     loader,
                     getGlProfile,
@@ -593,9 +958,21 @@ public final class DirectTextureUploadBridge {
                     newTexture,
                     isAutoMipmap,
                     isGl3,
+                    isGl2Gl3,
+                    isGlCore,
+                    isGl2,
+                    isExtensionAvailable,
                     getTextureObjectNoArg,
+                    glGenTextures,
+                    glDeleteTextures,
                     glBindTexture,
+                    glEnable,
                     glGenerateMipmap,
+                    glGetIntegerv,
+                    glPixelStorei,
+                    glTexParameteri,
+                    glTexImage2D,
+                    glTexSubImage2D,
                     enableTexture,
                     bindTexture,
                     getTextureObject,
@@ -606,6 +983,35 @@ public final class DirectTextureUploadBridge {
             FatalErrors.rethrowIfFatal(failure);
             return null;
         }
+    }
+
+    private static MethodHandle findOptionalVirtual(
+            final MethodHandles.Lookup lookup,
+            final Class<?> targetClass,
+            final String name,
+            final MethodType methodType) {
+        try {
+            return lookup.findVirtual(targetClass, name, methodType);
+        } catch (final NoSuchMethodException | IllegalAccessException ignored) {
+            return null;
+        }
+    }
+
+    private static MethodHandle findOptionalVirtualAny(
+            final MethodHandles.Lookup lookup,
+            final String name,
+            final MethodType methodType,
+            final Class<?>... candidates) {
+        for (final Class<?> candidate : candidates) {
+            if (candidate == null) {
+                continue;
+            }
+            final MethodHandle handle = findOptionalVirtual(lookup, candidate, name, methodType);
+            if (handle != null) {
+                return handle;
+            }
+        }
+        return null;
     }
 
     private static MethodHandle findShaderGlErrorMethod(
@@ -628,11 +1034,39 @@ public final class DirectTextureUploadBridge {
             MethodHandle newTexture,
             MethodHandle isUsingAutoMipmapGeneration,
             MethodHandle isGl3,
+            MethodHandle isGl2Gl3,
+            MethodHandle isGlCore,
+            MethodHandle isGl2,
+            MethodHandle isExtensionAvailable,
             MethodHandle getTextureObjectNoArg,
+            MethodHandle glGenTextures,
+            MethodHandle glDeleteTextures,
             MethodHandle glBindTexture,
+            MethodHandle glEnable,
             MethodHandle glGenerateMipmap,
+            MethodHandle glGetIntegerv,
+            MethodHandle glPixelStorei,
+            MethodHandle glTexParameteri,
+            MethodHandle glTexImage2D,
+            MethodHandle glTexSubImage2D,
             MethodHandle enableTexture,
             MethodHandle bindTexture,
             MethodHandle getTextureObject,
-            MethodHandle checkGlError) {}
+            MethodHandle checkGlError) {
+
+        boolean supportsStripedGl3() {
+            return isGl3 != null
+                    && isGl2 != null
+                    && isExtensionAvailable != null
+                    && glGenTextures != null
+                    && glDeleteTextures != null
+                    && glBindTexture != null
+                    && glGenerateMipmap != null
+                    && glGetIntegerv != null
+                    && glPixelStorei != null
+                    && glTexParameteri != null
+                    && glTexImage2D != null
+                    && glTexSubImage2D != null;
+        }
+    }
 }

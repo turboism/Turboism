@@ -36,6 +36,7 @@ final class ModelOpenFlowPatcher {
 
     private static final String FLOW_BRIDGE = "dev/turboism/adapter/cubism/modelopen/ModelOpenFlowBridge";
     private static final String BEGIN_FACTORY_OPEN = "beginFactoryOpen";
+    private static final String END_DOCUMENT_LOAD = "endDocumentLoad";
     private static final String MARK_FACTORY_COMPLETED = "markFactorySetupCompleted";
     private static final String CONSUME_FACTORY_COMPLETED = "consumeFactorySetupCompleted";
     private static final String OBJECT_BOOL_DESC = "(Ljava/lang/Object;)Z";
@@ -125,6 +126,14 @@ final class ModelOpenFlowPatcher {
                     public void visitCode() {
                         super.visitCode();
                         super.visitMethodInsn(INVOKESTATIC, FLOW_BRIDGE, BEGIN_FACTORY_OPEN, "()V", false);
+                    }
+
+                    @Override
+                    public void visitInsn(final int opcode) {
+                        if (opcode == org.objectweb.asm.Opcodes.RETURN) {
+                            super.visitMethodInsn(INVOKESTATIC, FLOW_BRIDGE, END_DOCUMENT_LOAD, "()V", false);
+                        }
+                        super.visitInsn(opcode);
                     }
 
                     @Override

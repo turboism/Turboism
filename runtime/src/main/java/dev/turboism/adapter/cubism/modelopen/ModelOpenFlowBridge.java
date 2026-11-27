@@ -20,10 +20,19 @@ public final class ModelOpenFlowBridge {
     private ModelOpenFlowBridge() {}
 
     /**
-     * Clears any prior setup token on the current thread before opening a model document.
+     * Clears any prior setup token and transient >64 MiB fallback buffer before opening a model.
      */
     public static void beginFactoryOpen() {
         COMPLETED_FACTORY_SETUP.remove();
+        DirectTextureUploadBridge.clearTransientFallbackBuffer();
+    }
+
+    /**
+     * Clears the transient >64 MiB texture fallback buffer after model open finishes.
+     */
+    public static void endDocumentLoad() {
+        COMPLETED_FACTORY_SETUP.remove();
+        DirectTextureUploadBridge.clearTransientFallbackBuffer();
     }
 
     /**
