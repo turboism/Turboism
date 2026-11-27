@@ -429,6 +429,52 @@ class ParameterLifecycleCoordinatorTest {
         assertEquals(List.of("observe:4.0"), events);
     }
 
+    @Test
+    void suppressedCompletionScopeKeepsInterceptorsActiveAndResumesObserversAfterExit() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        try {
+            final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+            final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+            coordinator.attachEventBroker(broker);
+            final List<String> legacyEvents = new ArrayList<>();
+            coordinator.register(plugin(
+                    "plugin-a",
+                    List.of(
+                            new TransformingHook("clamp", new ArrayList<>(), value -> Math.min(value, 10.0F)),
+                            new RecordingHook("a", legacyEvents))));
+            final RuntimeEventBroker.Owner observer = broker.admit("grouped-observer");
+            final List<String> brokerEvents = new java.util.concurrent.CopyOnWriteArrayList<>();
+            final CountDownLatch standaloneDeliveries = new CountDownLatch(2);
+            observer.registerAnnotated(new EntrypointSubscriberCatalog()
+                    .inspect(List.of(new AnnotatedCompletionSubscriber(
+                            brokerEvents, new AtomicReference<>(), standaloneDeliveries))));
+            observer.activate();
+
+            final MutableParameter parameter = new MutableParameter(0.0F);
+            ParameterLifecycleCoordinator.runWithSuppressedCompletionObservers(() -> {
+                assertTrue(ParameterLifecycleCoordinator.completionObserversSuppressed());
+                coordinator.setValue(parameter, 25.0F, parameter::write);
+                coordinator.setValue(parameter, 0.0F, parameter::write);
+                return null;
+            });
+            coordinator.awaitIdle();
+            assertEquals(0.0F, parameter.getValue());
+            assertEquals(List.of(), legacyEvents);
+            assertEquals(List.of(), brokerEvents);
+
+            // Standalone writes after the grouped scope exits must publish completion observers normally.
+            coordinator.setValue(parameter, 12.0F, parameter::write);
+            coordinator.awaitIdle();
+            assertTrue(standaloneDeliveries.await(1, TimeUnit.SECONDS));
+            assertEquals(10.0F, parameter.getValue());
+            assertEquals(List.of("a:on:0.0->10.0", "a:after:10.0"), legacyEvents);
+            assertEquals(List.of("on:0.0->10.0", "after:10.0"), brokerEvents);
+            coordinator.close();
+        } finally {
+            scheduler.shutdown();
+        }
+    }
+
     private static ParameterLifecycleCoordinator.PluginHooks plugin(
             final String id, final List<? extends ParameterHooks> entrypoints) {
         return new ParameterLifecycleCoordinator.PluginHooks(descriptor(id), List.copyOf(entrypoints), logger());

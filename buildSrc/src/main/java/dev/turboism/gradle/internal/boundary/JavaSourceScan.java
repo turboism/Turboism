@@ -238,6 +238,11 @@ public final class JavaSourceScan {
     /** A construction form only one canonical factory may use. */
     private record OwnedConstruction(Pattern pattern, String token, Set<String> owners, String message) {}
 
+    private static final Pattern COMPLETABLE_FUTURE_ASYNC_CALL = Pattern.compile(
+            "\\bCompletableFuture\\s*\\.\\s*(?:<[^>]*>\\s*)?(supplyAsync|runAsync)\\s*\\(");
+    private static final String COMMON_POOL_NOTE =
+            "pass an explicit bounded executor instead of relying on ForkJoinPool.commonPool()";
+
     private static final List<TokenRule> HOST_UI_TRAVERSAL = List.of(
             new TokenRule(
                     "SwingUtilities.getWindowAncestor(",
@@ -356,6 +361,84 @@ public final class JavaSourceScan {
                     + file.relativePath() + ": " + INTERNAL_CONTRACT_NOTE);
         }
         return violations;
+    }
+
+    /**
+     * Rejects single-argument {@code CompletableFuture.supplyAsync} and {@code runAsync} calls.
+     *
+     * <p>Strips comments and string literals before balancing call delimiters so nested commas
+     * inside lambdas, method calls, or array initializers do not mask missing executor arguments.
+     *
+     * @param file a source file already read from disk
+     * @return one message per single-argument call, in source order
+     */
+    public static List<String> commonPoolAsyncCalls(SourceFile file) {
+        String path = file.relativePath().replace('\\', '/');
+        String source = stripCommentsAndStrings(String.join("\n", file.lines()));
+        List<String> violations = new ArrayList<>();
+        Matcher match = COMPLETABLE_FUTURE_ASYNC_CALL.matcher(source);
+        while (match.find()) {
+            if (isSingleArgumentCall(source, match.end())) {
+                long line = source.substring(0, match.start()).chars().filter(c -> c == '\n').count() + 1;
+                violations.add("Forbidden commonPool call 'CompletableFuture." + match.group(1) + "(...)' in "
+                        + path + ":" + line + ": " + COMMON_POOL_NOTE);
+            }
+        }
+        return violations;
+    }
+
+    private static boolean isSingleArgumentCall(String source, int argumentsStart) {
+        int parenDepth = 1;
+        int braceDepth = 0;
+        int bracketDepth = 0;
+        boolean hasContent = false;
+        for (int index = argumentsStart; index < source.length(); index++) {
+            char character = source.charAt(index);
+            switch (character) {
+                case '(' -> {
+                    parenDepth++;
+                    hasContent = true;
+                }
+                case ')' -> {
+                    parenDepth--;
+                    if (parenDepth == 0) {
+                        return hasContent;
+                    }
+                }
+                case '{' -> {
+                    braceDepth++;
+                    hasContent = true;
+                }
+                case '}' -> {
+                    if (braceDepth > 0) {
+                        braceDepth--;
+                    }
+                    hasContent = true;
+                }
+                case '[' -> {
+                    bracketDepth++;
+                    hasContent = true;
+                }
+                case ']' -> {
+                    if (bracketDepth > 0) {
+                        bracketDepth--;
+                    }
+                    hasContent = true;
+                }
+                case ',' -> {
+                    if (parenDepth == 1 && braceDepth == 0 && bracketDepth == 0) {
+                        return false;
+                    }
+                    hasContent = true;
+                }
+                default -> {
+                    if (!Character.isWhitespace(character)) {
+                        hasContent = true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
