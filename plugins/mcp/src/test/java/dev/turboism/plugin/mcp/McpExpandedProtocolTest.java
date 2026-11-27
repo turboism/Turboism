@@ -66,6 +66,25 @@ final class McpExpandedProtocolTest {
     }
 
     @Test
+    void toolListDeclaresObjectRootsAndPreservesUnionBranches() {
+        final Map<String, Object> branch = McpSchemas.object(Map.of("ok", Map.of("const", true)));
+        final Map<String, Object> alternative = McpSchemas.object(Map.of("ok", Map.of("const", false)));
+        final Map<String, Object> union = McpSchemas.oneOf(branch, alternative);
+        final McpToolCatalog tools = new McpToolCatalog(
+                java.util.List.of(Map.of("name", "union", "inputSchema", union, "outputSchema", union)),
+                (name, arguments) -> toolEnvelope(arguments));
+        final McpProtocol protocol =
+                McpProtocol.forCatalogs(tools, McpResourceCatalog.empty(), McpPromptCatalog.defaults());
+
+        final Map<String, Object> listed = result(protocol.handle(request(1, "tools/list", Map.of())));
+        final Map<String, Object> tool = object(list(listed.get("tools")).get(0));
+        final Map<String, Object> expected = Map.of("type", "object", "oneOf", union.get("oneOf"));
+        assertEquals(expected, tool.get("inputSchema"));
+        assertEquals(expected, tool.get("outputSchema"));
+        assertFalse(union.containsKey("type"));
+    }
+
+    @Test
     void toolCatalogValidatesAdvertisedOutputAndTextEquivalence() {
         final Map<String, Object> outputSchema = Map.of(
                 "type",

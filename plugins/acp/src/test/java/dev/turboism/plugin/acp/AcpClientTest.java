@@ -233,6 +233,49 @@ final class AcpClientTest {
     }
 
     @Test
+    void deepSeekRetriesRejectedMcpAttachmentWithoutBlockingTheSession() throws Exception {
+        final var attachments = new java.util.concurrent.CopyOnWriteArrayList<Integer>();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+                    final long id = (Long) request.get("id");
+                    if ("initialize".equals(request.get("method"))) {
+                        output.response(
+                                id, Map.of("protocolVersion", 1L, "agentInfo", Map.of("name", "deepseek-harness-acp")));
+                    } else if ("session/new".equals(request.get("method"))) {
+                        final int count = list(object(request.get("params")).get("mcpServers"))
+                                .size();
+                        attachments.add(count);
+                        if (count == 0) {
+                            output.response(id, Map.of("sessionId", "deepseek-session"));
+                        } else {
+                            output.line(
+                                    Map.of(
+                                            "jsonrpc",
+                                            "2.0",
+                                            "id",
+                                            id,
+                                            "error",
+                                            Map.of(
+                                                    "code",
+                                                    -32603L,
+                                                    "message",
+                                                    "Internal error",
+                                                    "data",
+                                                    Map.of(
+                                                            "details",
+                                                            "mcp-client(turboism): initial connection or tool synchronization failed"))));
+                        }
+                    }
+                });
+                AcpClient client = new AcpClient(transport, new AcpListener() {})) {
+            client.initialize(Duration.ofSeconds(2));
+            final AcpSession session = client.newSession(Path.of("."), stdioConnection(), Duration.ofSeconds(2));
+            assertEquals("deepseek-session", session.sessionId());
+            assertEquals(AcpClient.McpAttachment.NONE, session.mcpAttachment());
+            assertEquals(List.of(1, 0), attachments);
+        }
+    }
+
+    @Test
     void stdioServerPayloadCarriesNoTokenMaterial() throws Exception {
         final String token = "ab12cd34".repeat(8);
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {

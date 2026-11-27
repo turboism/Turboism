@@ -40,11 +40,24 @@ final class AcpClient implements AutoCloseable {
 
     static final int MAX_ACP_LINE_CHARS = 8 * 1024 * 1024;
     static final long AUTH_REQUIRED_CODE = -32000L;
+    private static final long RPC_INTERNAL_ERROR = -32603L;
+    private static final String DEEPSEEK_AGENT_NAME = "deepseek-harness-acp";
+    private static final String MCP_STARTUP_FAILURE =
+            "mcp-client(turboism): initial connection or tool synchronization failed";
+    private static final String SESSION_NEW = "session/new";
+    private static final String SESSION_LOAD = "session/load";
+    private static final String SESSION_RESUME = "session/resume";
+    private static final String SESSION_ID_KEY = "sessionId";
+    private static final String CWD_KEY = "cwd";
+    private static final String MCP_SERVERS_KEY = "mcpServers";
+    private static final String ERROR_DATA_KEY = "data";
+    private static final String ERROR_DETAILS_KEY = "details";
     private static final int MAX_STDERR_LINE_CHARS = 16 * 1024;
     private static final int MAX_PERMISSION_DETAILS_CHARS = 32 * 1024;
     private static final int MAX_UI_METADATA_CHARS = 8 * 1024;
     private static final int MAX_UI_CONTENT_CHARS = 256 * 1024;
     private static final int MAX_PENDING_REQUESTS = 64;
+    private static final int MAX_SESSION_ID_CHARS = 512;
     private static final String CONFIG_CHOICES_KEY = "options";
     private static final String CONFIG_CHOICE_GROUP_KEY = "group";
     private static final java.util.regex.Pattern GRAPHEME = java.util.regex.Pattern.compile("\\X");
@@ -177,47 +190,52 @@ final class AcpClient implements AutoCloseable {
         return authMethods;
     }
 
-    /**
-     * Creates a new session, passing the Turboism MCP endpoint only when the agent advertised HTTP
-     * MCP support.
-     */
+    /** Creates a new session with the available Turboism MCP transport. */
     AcpSession newSession(final Path cwd, final McpHttpConnection connection, final Duration timeout)
             throws AcpException {
-        final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
-        params.put("cwd", absolute(cwd));
-        params.put("mcpServers", mcpServers(connection));
-        cancelAllPermissions();
-        return newSessionResponse(await(request("session/new", params), timeout), capabilities);
+        return openSession(SESSION_NEW, null, cwd, connection, timeout);
     }
 
     /** Loads a durable session and rebinds its MCP runtime to the current Turboism endpoint. */
     AcpSession loadSession(
             final String sessionId, final Path cwd, final McpHttpConnection connection, final Duration timeout)
             throws AcpException {
-        final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
-        params.put("sessionId", requireText(sessionId, "sessionId", 512));
-        params.put("cwd", absolute(cwd));
-        params.put("mcpServers", mcpServers(connection));
-        cancelAllPermissions();
-        return loadSessionResponse(
-                requireText(sessionId, "sessionId", 512),
-                await(request("session/load", params), timeout),
-                capabilities);
+        return openSession(
+                SESSION_LOAD, requireText(sessionId, SESSION_ID_KEY, MAX_SESSION_ID_CHARS), cwd, connection, timeout);
     }
 
     /** Resumes a durable session without replaying its conversation history. */
     AcpSession resumeSession(
             final String sessionId, final Path cwd, final McpHttpConnection connection, final Duration timeout)
             throws AcpException {
+        return openSession(
+                SESSION_RESUME, requireText(sessionId, SESSION_ID_KEY, MAX_SESSION_ID_CHARS), cwd, connection, timeout);
+    }
+
+    private AcpSession openSession(
+            final String method,
+            final String sessionId,
+            final Path cwd,
+            final McpHttpConnection connection,
+            final Duration timeout)
+            throws AcpException {
         final LinkedHashMap<String, Object> params = new LinkedHashMap<>();
-        params.put("sessionId", requireText(sessionId, "sessionId", 512));
-        params.put("cwd", absolute(cwd));
-        params.put("mcpServers", mcpServers(connection));
+        if (sessionId != null) params.put(SESSION_ID_KEY, sessionId);
+        params.put(CWD_KEY, absolute(cwd));
+        final McpAttachment attachment = mcpAttachment(connection, capabilities);
+        params.put(MCP_SERVERS_KEY, mcpServers(connection, attachment));
         cancelAllPermissions();
-        return loadSessionResponse(
-                requireText(sessionId, "sessionId", 512),
-                await(request("session/resume", params), timeout),
-                capabilities);
+        try {
+            return sessionResponse(sessionId, await(request(method, params), timeout), attachment);
+        } catch (AcpException failure) {
+            if (attachment == McpAttachment.NONE
+                    || !MCP_STARTUP_FAILURE.equals(failure.getMessage())
+                    || !Long.valueOf(RPC_INTERNAL_ERROR).equals(failure.code())
+                    || !DEEPSEEK_AGENT_NAME.equals(agentInfo.name())) throw failure;
+        }
+        // DeepSeek rejects the MCP mount before it activates the session, so one retry can restore access.
+        params.put(MCP_SERVERS_KEY, List.of());
+        return sessionResponse(sessionId, await(request(method, params), timeout), McpAttachment.NONE);
     }
 
     /** Lists agent-owned durable sessions in the workspace established during ACP initialization. */
@@ -871,19 +889,13 @@ final class AcpClient implements AutoCloseable {
         }
     }
 
-    private AcpSession newSessionResponse(final Object result, final AcpCapabilities sessionCapabilities) {
-        final Map<String, Object> response = object(result);
-        final String sessionId = safeSessionId(response.get("sessionId"));
-        if (sessionId == null) {
+    private AcpSession sessionResponse(final String sessionId, final Object result, final McpAttachment attachment) {
+        final Map<String, Object> response = sessionId == null ? object(result) : objectOrEmpty(result);
+        final String resolvedId = sessionId == null ? safeSessionId(response.get(SESSION_ID_KEY)) : sessionId;
+        if (resolvedId == null) {
             throw new IllegalArgumentException("ACP new-session response has an invalid sessionId");
         }
-        return loadSessionResponse(sessionId, response, sessionCapabilities);
-    }
-
-    private AcpSession loadSessionResponse(
-            final String sessionId, final Object result, final AcpCapabilities sessionCapabilities) {
-        final Map<String, Object> response = objectOrEmpty(result);
-        return new AcpSession(sessionId, configOptions(response.get("configOptions")), sessionCapabilities);
+        return new AcpSession(resolvedId, configOptions(response.get("configOptions")), capabilities, attachment);
     }
 
     private List<AcpConfigOption> configOptions(final Object value) {
@@ -997,8 +1009,8 @@ final class AcpClient implements AutoCloseable {
         }
     }
 
-    private List<Object> mcpServers(final McpHttpConnection connection) {
-        return switch (mcpAttachment(connection, capabilities)) {
+    private static List<Object> mcpServers(final McpHttpConnection connection, final McpAttachment attachment) {
+        return switch (attachment) {
             case STDIO -> List.of(stdioMcpServer(connection.stdioLaunch().orElseThrow()));
             case HTTP_READ_ONLY -> List.of(httpMcpServer(connection));
             case NONE -> List.of();
@@ -1240,6 +1252,12 @@ final class AcpClient implements AutoCloseable {
         final Map<String, Object> error = object(value);
         final String message = string(error.get("message"));
         final Long code = errorCode(error.get("code"));
+        if (DEEPSEEK_AGENT_NAME.equals(agentInfo.name())
+                && Long.valueOf(RPC_INTERNAL_ERROR).equals(code)
+                && MCP_STARTUP_FAILURE.equals(
+                        objectOrEmpty(error.get(ERROR_DATA_KEY)).get(ERROR_DETAILS_KEY))) {
+            return new AcpException(MCP_STARTUP_FAILURE, code);
+        }
         final String text = message == null ? "ACP request returned an error" : redact(message);
         return new AcpException(text, code);
     }

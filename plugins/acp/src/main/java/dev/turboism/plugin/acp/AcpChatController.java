@@ -482,7 +482,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                     connected.agentInfo(),
                     created.configOptions(),
                     created.durableSessionsAvailable(),
-                    AcpClient.mcpAttachment(connection, capabilities)));
+                    created.mcpAttachment()));
             refreshSessionsNow();
             return;
         }
@@ -499,7 +499,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                                 connected.agentInfo(),
                                 restored.configOptions(),
                                 restored.durableSessionsAvailable(),
-                                AcpClient.mcpAttachment(connection, capabilities)))) {
+                                restored.mcpAttachment()))) {
                     return;
                 }
                 context.logger().info("ACP connection: session ready");
@@ -525,7 +525,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                             connected.agentInfo(),
                             restored.configOptions(),
                             restored.durableSessionsAvailable(),
-                            AcpClient.mcpAttachment(connection, capabilities));
+                            restored.mcpAttachment());
                 })) {
                     return;
                 }
@@ -550,7 +550,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 connected.agentInfo(),
                 created.configOptions(),
                 created.durableSessionsAvailable(),
-                AcpClient.mcpAttachment(connection, capabilities)));
+                created.mcpAttachment()));
         refreshSessionsNow();
     }
 
@@ -1009,7 +1009,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             final List<AcpConfigOption> options =
                     update.result().get(REQUEST_TIMEOUT.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
             if (client.get() != active || session != current) return;
-            session = new AcpSession(current.sessionId(), options, current.capabilities());
+            session = current.withConfigOptions(options);
             ui(() -> view.showConfigOptions(options));
         } catch (InterruptedException interrupted) {
             active.abandon(update.request());
@@ -1086,7 +1086,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                     || loadTransaction != null) {
                 return;
             }
-            session = new AcpSession(sessionId, options, current.capabilities());
+            session = current.withConfigOptions(options);
         }
         ui(() -> view.showConfigOptions(options));
     }
@@ -1681,8 +1681,8 @@ final class AcpChatController implements AutoCloseable, AcpListener {
      * Whether the live session carries any MCP attachment — stdio or HTTP — so an endpoint
      * change must rebuild it. Sessions without an attachment are untouched by drift.
      */
-    private boolean mcpAttached(final AcpSession current) {
-        return AcpClient.mcpAttachment(mcpConnection, current.capabilities()) != AcpClient.McpAttachment.NONE;
+    private static boolean mcpAttached(final AcpSession current) {
+        return current.mcpAttachment() != AcpClient.McpAttachment.NONE;
     }
 
     private void reconnectForMcpDrift() {

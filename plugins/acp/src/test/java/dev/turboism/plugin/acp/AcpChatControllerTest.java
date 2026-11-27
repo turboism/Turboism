@@ -1386,7 +1386,8 @@ final class AcpChatControllerTest {
                     new AcpSession(
                             "sess-1",
                             List.of(),
-                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false),
+                            AcpClient.McpAttachment.HTTP_READ_ONLY));
             set(controller, "mcpConnection", testMcpConnection());
 
             // A same-endpoint republish must not reconnect.
@@ -1426,7 +1427,8 @@ final class AcpChatControllerTest {
                     new AcpSession(
                             "sess-1",
                             List.of(),
-                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, true, false),
+                            AcpClient.McpAttachment.HTTP_READ_ONLY));
             set(controller, "mcpConnection", testMcpConnection());
 
             fixture.pushMcpConnection(Optional.empty());
@@ -1463,7 +1465,8 @@ final class AcpChatControllerTest {
                     new AcpSession(
                             "sess-1",
                             List.of(),
-                            new AcpClient.AcpCapabilities(true, false, false, false, false, false, false)));
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, false, false),
+                            stdioAttached ? AcpClient.McpAttachment.STDIO : AcpClient.McpAttachment.NONE));
             set(controller, "mcpConnection", stdioAttached ? stdioMcpConnection() : testMcpConnection());
 
             fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
