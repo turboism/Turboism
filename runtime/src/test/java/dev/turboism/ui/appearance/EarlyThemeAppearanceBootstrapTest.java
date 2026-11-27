@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.persistence.config.TypedConfigDocumentCodec;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.config.ConfigCodecs;
 import dev.turboism.sdk.config.ConfigKey;
@@ -26,6 +28,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -35,6 +38,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.swing.SwingUtilities;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
@@ -59,6 +64,10 @@ class EarlyThemeAppearanceBootstrapTest {
     private static final String THEME_PLUGIN_ID = "dev.turboism.plugin.uitheme";
     private static final String SELECTION_PATH = "ui-theme/selection.cfg";
     private static final String SELECTED_THEME_KEY = "selected-theme";
+    private static final String TRAVERSAL_THEME_ID = "../../outside";
+    private static final String SYMLINK_THEME_ID = "user.symlinked";
+    private static final String OVERSIZED_THEME_ID = "user.oversized";
+    private static final int OVERSIZED_COLORS_BYTES = (64 * 1024) + 128;
 
     private final ExecutorService workers = Executors.newCachedThreadPool(r -> {
         final Thread thread = new Thread(r, "early-theme-test-worker");
@@ -268,6 +277,68 @@ class EarlyThemeAppearanceBootstrapTest {
         assertTrue(diagnostics.get(0).contains("EARLY_THEME_SELECTION_DOCUMENT_INVALID"), diagnostics.get(0));
     }
 
+    @Test
+    void rejectsThemeIdPathTraversalWithOneBoundedDiagnostic(@TempDir Path home) throws Exception {
+        writeRawSelectionDocument(home, document("1", 1, SELECTED_THEME_KEY, "[\"" + TRAVERSAL_THEME_ID + "\"]"));
+
+        final List<String> diagnostics = captureDiagnostics();
+        final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
+
+        assertEquals(Optional.empty(), readSelectionThemeId(bootstrap));
+        assertEquals(1, diagnostics.size(), diagnostics.toString());
+        assertTrue(diagnostics.get(0).contains("EARLY_THEME_SELECTION_VALUE_INVALID"), diagnostics.get(0));
+    }
+
+    @Test
+    void rejectsSymlinkedSelectionDocumentAndSymlinkedThemeArchive(@TempDir Path home, @TempDir Path external)
+            throws Exception {
+        final Path externalSelection = external.resolve("selection.cfg");
+        Files.writeString(
+                externalSelection,
+                document("1", 1, SELECTED_THEME_KEY, "[\"" + SYMLINK_THEME_ID + "\"]"),
+                StandardCharsets.UTF_8);
+        final Path selectionLink = home.resolve("config").resolve(THEME_PLUGIN_ID).resolve(SELECTION_PATH);
+        Files.createDirectories(selectionLink.getParent());
+        Files.createSymbolicLink(selectionLink, externalSelection);
+
+        final List<String> diagnostics = captureDiagnostics();
+        final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
+
+        assertEquals(Optional.empty(), readSelectionThemeId(bootstrap));
+        assertEquals(1, diagnostics.size(), diagnostics.toString());
+        assertTrue(diagnostics.get(0).contains("EARLY_THEME_SELECTION_DOCUMENT_UNREADABLE"), diagnostics.get(0));
+
+        Files.delete(selectionLink);
+        writeSelectionThroughTypedConfigRegistry(home, List.of(SYMLINK_THEME_ID));
+        final Path externalArchive = external.resolve(SYMLINK_THEME_ID + ".zip");
+        writeThemeArchive(externalArchive, "Panel.background=#112233\n");
+        final Path archiveLink = home.resolve("data")
+                .resolve(THEME_PLUGIN_ID)
+                .resolve("themes")
+                .resolve(SYMLINK_THEME_ID + ".zip");
+        Files.createDirectories(archiveLink.getParent());
+        Files.createSymbolicLink(archiveLink, externalArchive);
+
+        assertEquals(Optional.empty(), loadPersistedThemeColors(bootstrap));
+    }
+
+    @Test
+    void rejectsOversizedColorsPropertiesEntryInThemeArchive(@TempDir Path home) throws Exception {
+        writeSelectionThroughTypedConfigRegistry(home, List.of(OVERSIZED_THEME_ID));
+        final Path archive = home.resolve("data")
+                .resolve(THEME_PLUGIN_ID)
+                .resolve("themes")
+                .resolve(OVERSIZED_THEME_ID + ".zip");
+        writeThemeArchive(archive, "Panel.background=#" + "a".repeat(OVERSIZED_COLORS_BYTES) + "\n");
+
+        final EarlyThemeAppearanceBootstrap bootstrap = new EarlyThemeAppearanceBootstrap(
+                home, EarlyThemeAppearanceBootstrapTest.class.getClassLoader(), () -> {});
+
+        assertEquals(Optional.empty(), loadPersistedThemeColors(bootstrap));
+    }
+
     /**
      * Pins the contract values the startup reader hard-codes (ARCHITECTURE.md section 5). The
      * plugin side pins the same literals in {@code ThemeSelectionConfigTest}; each module checks
@@ -289,6 +360,25 @@ class EarlyThemeAppearanceBootstrapTest {
         @SuppressWarnings("unchecked")
         final Optional<String> value = (Optional<String>) read.invoke(bootstrap);
         return value;
+    }
+
+    private static Optional<Map<String, String>> loadPersistedThemeColors(final EarlyThemeAppearanceBootstrap bootstrap)
+            throws Exception {
+        final java.lang.reflect.Method load =
+                EarlyThemeAppearanceBootstrap.class.getDeclaredMethod("loadPersistedThemeColors");
+        load.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        final Optional<Map<String, String>> value = (Optional<Map<String, String>>) load.invoke(bootstrap);
+        return value;
+    }
+
+    private static void writeThemeArchive(final Path archive, final String colorsContent) throws Exception {
+        Files.createDirectories(archive.getParent());
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            zip.putNextEntry(new ZipEntry("colors.properties"));
+            zip.write(colorsContent.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
     }
 
     /**
@@ -352,8 +442,10 @@ class EarlyThemeAppearanceBootstrapTest {
 
     private static String document(
             final String schemaVersion, final long revision, final String key, final String value) {
-        return "turboism-typed-config-v1\nschemaVersion=" + schemaVersion + "\nrevision=" + revision + "\ncount=2\n"
-                + entry("unrelated-setting", "\"kept\"") + entry(key, value);
+        return TypedConfigDocumentCodec.encode(new StoredDocument(
+                Integer.parseInt(schemaVersion),
+                revision,
+                Map.of("unrelated-setting", "\"kept\"", key, value)));
     }
 
     private static String entry(final String key, final String value) {
