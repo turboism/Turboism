@@ -1,13 +1,19 @@
 package dev.turboism.ui.appearance;
 
+import dev.turboism.persistence.config.StoredDocument;
+import dev.turboism.persistence.config.TypedConfigDocumentCodec;
 import java.awt.Color;
 import java.beans.PropertyChangeListener;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -15,6 +21,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.swing.UIManager;
@@ -46,17 +53,30 @@ public final class EarlyThemeAppearanceBootstrap {
     /** The plugin's sentinel for "no theme selected". */
     static final String NATIVE_THEME_ID = "__native__";
 
-    private static final String DOCUMENT_HEADER = "turboism-typed-config-v1";
-    private static final String SCHEMA_VERSION_PREFIX = "schemaVersion=";
-    private static final String REVISION_PREFIX = "revision=";
-    private static final String COUNT_PREFIX = "count=";
+    private static final String CONFIG_DIR = "config";
+    private static final String DATA_DIR = "data";
+    private static final String THEMES_DIR = "themes";
+    private static final String ARCHIVE_EXTENSION = ".zip";
+    private static final String COLORS_PROPERTIES_FILE = "colors.properties";
+    private static final String THEME_PROPERTIES_FILE = "theme.properties";
+    private static final String BUILTIN_PREFIX = "turboism.";
+    private static final String THEME_ID_PROPERTY = "id";
+    private static final String EMPTY_LIST_JSON = "[]";
+    private static final String LIST_PREFIX = "[\"";
+    private static final String LIST_SUFFIX = "\"]";
+    private static final String PARENT_SEGMENT = "..";
+    private static final String TRAILING_DOT = ".";
+    private static final String APPEARANCE_COMPONENT = "appearance";
     private static final int MAX_DOCUMENT_BYTES = 1024 * 1024;
+    private static final long MAX_ARCHIVE_BYTES = 1024L * 1024L;
+    private static final int MAX_COLORS_PROPERTIES_BYTES = 64 * 1024;
+    private static final int MAX_ARCHIVE_ENTRIES = 64;
     private static final int MAX_THEME_ID_LENGTH = 128;
+    private static final Pattern VALID_THEME_ID = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9._-]*");
     private static final String DOCUMENT_INVALID = "EARLY_THEME_SELECTION_DOCUMENT_INVALID";
     private static final String SCHEMA_UNSUPPORTED = "EARLY_THEME_SELECTION_SCHEMA_UNSUPPORTED";
     private static final String SELECTION_INVALID = "EARLY_THEME_SELECTION_VALUE_INVALID";
     private static final String DOCUMENT_UNREADABLE = "EARLY_THEME_SELECTION_DOCUMENT_UNREADABLE";
-    private static final String THEMES_DIR = "themes";
     private static final long LOOK_AND_FEEL_TIMEOUT_MILLIS = 60_000L;
     private static final long LOOK_AND_FEEL_POLL_MILLIS = 100L;
 
@@ -174,28 +194,45 @@ public final class EarlyThemeAppearanceBootstrap {
     }
 
     private Optional<String> readSelectionThemeId() {
-        final Path document = home.resolve("config").resolve(PLUGIN_ID).resolve(SELECTION_PATH);
-        if (!Files.isRegularFile(document)) {
+        final Path document = home.resolve(CONFIG_DIR).resolve(PLUGIN_ID).resolve(SELECTION_PATH);
+        if (!Files.exists(document, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(document)) {
             return Optional.empty();
         }
-        final Map<String, String> entries;
+        final String text;
         try {
+            rejectSymlinkChain(document);
+            if (!Files.isRegularFile(document, LinkOption.NOFOLLOW_LINKS)) {
+                return diagnosed(DOCUMENT_UNREADABLE, "selection document is not a regular file");
+            }
             if (Files.size(document) > MAX_DOCUMENT_BYTES) {
                 return diagnosed(DOCUMENT_INVALID, "document exceeds the size limit");
             }
-            entries = parseTypedConfigDocument(Files.readString(document, StandardCharsets.UTF_8));
-        } catch (SelectionDocumentException malformed) {
-            return diagnosed(malformed.reason, malformed.getMessage());
+            final byte[] bytes = Files.readAllBytes(document);
+            if (bytes.length > MAX_DOCUMENT_BYTES) {
+                return diagnosed(DOCUMENT_INVALID, "document exceeds the size limit");
+            }
+            text = decodeUtf8(bytes);
         } catch (IOException unreadable) {
             return diagnosed(DOCUMENT_UNREADABLE, unreadable.getClass().getSimpleName());
         }
-        final String encoded = entries.get(SELECTED_THEME_KEY);
+        final StoredDocument stored;
+        try {
+            stored = TypedConfigDocumentCodec.decode(text);
+        } catch (IOException malformed) {
+            return diagnosed(DOCUMENT_INVALID, malformed.getMessage());
+        }
+        if (stored.schemaVersion() != SUPPORTED_SCHEMA_VERSION) {
+            return diagnosed(
+                    SCHEMA_UNSUPPORTED,
+                    "schemaVersion " + stored.schemaVersion() + " is not " + SUPPORTED_SCHEMA_VERSION);
+        }
+        final String encoded = stored.encodedValues().get(SELECTED_THEME_KEY);
         if (encoded == null) {
-            // The plugin persists the schema defaults for keys it never wrote.
+            // The plugin persists schema defaults for keys it never wrote.
             return Optional.empty();
         }
         final Optional<String> themeId = decodeSelectedTheme(encoded);
-        if (themeId.isEmpty() && (encoded.isEmpty() || "[]".equals(encoded))) {
+        if (themeId.isEmpty() && (encoded.isEmpty() || EMPTY_LIST_JSON.equals(encoded))) {
             // The plugin persists an empty bounded list when no theme is selected.
             return Optional.empty();
         }
@@ -205,139 +242,88 @@ public final class EarlyThemeAppearanceBootstrap {
         return NATIVE_THEME_ID.equals(themeId.orElseThrow()) ? Optional.empty() : themeId;
     }
 
-    /**
-     * Validates the private {@code ui-theme} selection document against the exact typed-config
-     * document schema the runtime writer emits. A document that does not match is never
-     * half-read: the reader fails with one bounded diagnostic instead of silently loading a
-     * different theme or none at all.
-     */
-    private static Map<String, String> parseTypedConfigDocument(final String text) throws SelectionDocumentException {
-        final String[] lines = text.split("\\n", -1);
-        if (lines.length < 5 || !lines[lines.length - 1].isEmpty()) {
-            throw new SelectionDocumentException(DOCUMENT_INVALID, "document framing is incomplete");
-        }
-        if (!DOCUMENT_HEADER.equals(lines[0])) {
-            throw new SelectionDocumentException(DOCUMENT_INVALID, "document header is not " + DOCUMENT_HEADER);
-        }
-        final int schemaVersion = parseMetadata(lines[1], SCHEMA_VERSION_PREFIX, DOCUMENT_INVALID);
-        if (schemaVersion != SUPPORTED_SCHEMA_VERSION) {
-            throw new SelectionDocumentException(
-                    SCHEMA_UNSUPPORTED, "schemaVersion " + schemaVersion + " is not " + SUPPORTED_SCHEMA_VERSION);
-        }
-        if (parseRevision(lines[2]) < 0) {
-            throw new SelectionDocumentException(DOCUMENT_INVALID, "revision is negative");
-        }
-        final int count = parseMetadata(lines[3], COUNT_PREFIX, DOCUMENT_INVALID);
-        if (count < 0 || lines.length != count + 5) {
-            throw new SelectionDocumentException(DOCUMENT_INVALID, "count does not match the persisted entry lines");
-        }
-        final Base64.Decoder decoder = Base64.getUrlDecoder();
-        final Map<String, String> entries = new LinkedHashMap<>();
-        for (int index = 0; index < count; index++) {
-            final String line = lines[index + 4];
-            final int separator = line.indexOf(':');
-            if (separator <= 0 || separator != line.lastIndexOf(':')) {
-                throw new SelectionDocumentException(DOCUMENT_INVALID, "entry framing is invalid");
-            }
-            try {
-                final String key = new String(decoder.decode(line.substring(0, separator)), StandardCharsets.UTF_8);
-                final String value = new String(decoder.decode(line.substring(separator + 1)), StandardCharsets.UTF_8);
-                if (key.isBlank() || entries.putIfAbsent(key, value) != null) {
-                    throw new SelectionDocumentException(DOCUMENT_INVALID, "entry key is blank or duplicated");
-                }
-            } catch (IllegalArgumentException malformedEntry) {
-                throw new SelectionDocumentException(DOCUMENT_INVALID, "entry encoding is invalid");
-            }
-        }
-        return entries;
-    }
-
-    private static int parseMetadata(final String line, final String prefix, final String reason)
-            throws SelectionDocumentException {
-        if (!line.startsWith(prefix)) {
-            throw new SelectionDocumentException(reason, "metadata line is not " + prefix + "<value>");
-        }
+    private static String decodeUtf8(final byte[] bytes) throws IOException {
         try {
-            return Integer.parseInt(line.substring(prefix.length()));
-        } catch (NumberFormatException outOfRange) {
-            throw new SelectionDocumentException(reason, "metadata " + prefix + "<value> is not an int");
-        }
-    }
-
-    /** The writer's revision is a {@code long}; parse it as one so a valid document is never rejected. */
-    private static long parseRevision(final String line) throws SelectionDocumentException {
-        if (!line.startsWith(REVISION_PREFIX)) {
-            throw new SelectionDocumentException(
-                    DOCUMENT_INVALID, "metadata line is not " + REVISION_PREFIX + "<value>");
-        }
-        try {
-            return Long.parseLong(line.substring(REVISION_PREFIX.length()));
-        } catch (NumberFormatException outOfRange) {
-            throw new SelectionDocumentException(DOCUMENT_INVALID, "revision is not a long");
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (CharacterCodingException exception) {
+            throw new IOException("selection document is not valid UTF-8", exception);
         }
     }
 
     private static Optional<String> decodeSelectedTheme(final String encoded) {
-        if (encoded.isEmpty()) {
+        if (encoded.isEmpty() || !encoded.startsWith(LIST_PREFIX) || !encoded.endsWith(LIST_SUFFIX)) {
             return Optional.empty();
         }
-        if (!encoded.startsWith("[\"") || !encoded.endsWith("\"]")) {
+        if (encoded.length() <= LIST_PREFIX.length() + LIST_SUFFIX.length()) {
             return Optional.empty();
         }
-        final String themeId = encoded.substring(2, encoded.length() - 2);
-        // The plugin codec emits plain JSON strings; the reader accepts no escapes, so a value
-        // it cannot read unambiguously is rejected rather than guessed.
-        if (themeId.isBlank()
-                || themeId.length() > MAX_THEME_ID_LENGTH
-                || themeId.indexOf('"') >= 0
-                || themeId.indexOf('\\') >= 0) {
+        final String themeId = encoded.substring(LIST_PREFIX.length(), encoded.length() - LIST_SUFFIX.length());
+        // Rejects separators, parent traversals, control characters, and escapes before path resolution.
+        if (themeId.length() > MAX_THEME_ID_LENGTH
+                || !VALID_THEME_ID.matcher(themeId).matches()
+                || themeId.contains(PARENT_SEGMENT)
+                || themeId.endsWith(TRAILING_DOT)) {
             return Optional.empty();
         }
         return Optional.of(themeId);
     }
 
+    /** Rejects symbolic links along the target path and its ancestors up to the home root. */
+    private void rejectSymlinkChain(final Path path) throws IOException {
+        Path current = path.toAbsolutePath().normalize();
+        while (current != null && current.startsWith(home)) {
+            if (Files.isSymbolicLink(current)) {
+                throw new IOException("symbolic link rejected");
+            }
+            if (current.equals(home)) {
+                break;
+            }
+            current = current.getParent();
+        }
+        if (current == null || !current.equals(home)) {
+            throw new IOException("path escaped Turboism home");
+        }
+        if (Files.isSymbolicLink(home)) {
+            throw new IOException("Turboism home symbolic link rejected");
+        }
+    }
+
     private static Optional<String> diagnosed(final String reason, final String detail) {
         dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                "appearance",
-                reason + " config/" + PLUGIN_ID + "/" + SELECTION_PATH + ": " + detail
+                APPEARANCE_COMPONENT,
+                reason + " " + CONFIG_DIR + "/" + PLUGIN_ID + "/" + SELECTION_PATH + ": " + detail
                         + "; early theme injection skipped");
         return Optional.empty();
     }
 
-    /** One bounded, non-retryable reason the persisted selection could not be read. */
-    private static final class SelectionDocumentException extends Exception {
-        private final String reason;
-
-        private SelectionDocumentException(final String reason, final String detail) {
-            super(detail);
-            this.reason = reason;
-        }
-    }
-
     private Optional<Map<String, String>> loadBuiltinColors(final String themeId) {
-        // Built-in themes used to ship inside the agent JAR under /themes/<directory>/;
-        // the lookup stays fail-open so a classpath that still provides them keeps working.
-        final String slug = themeId.startsWith("turboism.") ? themeId.substring("turboism.".length()) : themeId;
+        // Legacy built-in themes ship under /themes/<directory>/; keep lookup fail-open.
+        final String slug = themeId.startsWith(BUILTIN_PREFIX) ? themeId.substring(BUILTIN_PREFIX.length()) : themeId;
         final String[] slugs = {slug, themeId.replace('.', '-')};
         for (String candidate : slugs) {
             final String base = "/" + THEMES_DIR + "/" + candidate + "/";
             try (InputStream input =
-                    EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + "theme.properties")) {
+                    EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + THEME_PROPERTIES_FILE)) {
                 if (input == null) {
                     continue;
                 }
                 final Properties meta = new Properties();
                 meta.load(input);
-                if (!themeId.equals(meta.getProperty("id"))) {
+                if (!themeId.equals(meta.getProperty(THEME_ID_PROPERTY))) {
                     continue;
                 }
                 try (InputStream colors =
-                        EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + "colors.properties")) {
+                        EarlyThemeAppearanceBootstrap.class.getResourceAsStream(base + COLORS_PROPERTIES_FILE)) {
                     if (colors != null) {
                         return Optional.of(loadProperties(colors));
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (IOException | IllegalArgumentException ignored) {
                 return Optional.empty();
             }
         }
@@ -345,31 +331,48 @@ public final class EarlyThemeAppearanceBootstrap {
     }
 
     private Optional<Map<String, String>> loadImportedColors(final String themeId) {
+        final Path themesRoot = home.resolve(DATA_DIR)
+                .resolve(PLUGIN_ID)
+                .resolve(THEMES_DIR)
+                .toAbsolutePath()
+                .normalize();
         final Path archive =
-                home.resolve("data").resolve(PLUGIN_ID).resolve("themes").resolve(themeId + ".zip");
-        if (!Files.isRegularFile(archive)) {
+                themesRoot.resolve(themeId + ARCHIVE_EXTENSION).toAbsolutePath().normalize();
+        if (!archive.startsWith(themesRoot) || !themesRoot.equals(archive.getParent())) {
             return Optional.empty();
         }
-        try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive))) {
-            ZipEntry entry;
-            while ((entry = zip.getNextEntry()) != null) {
-                if (!entry.isDirectory() && entry.getName().endsWith("colors.properties")) {
-                    return Optional.of(loadProperties(zip));
+        if (!Files.exists(archive, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(archive)) {
+            return Optional.empty();
+        }
+        try {
+            rejectSymlinkChain(archive);
+            if (!Files.isRegularFile(archive, LinkOption.NOFOLLOW_LINKS) || Files.size(archive) > MAX_ARCHIVE_BYTES) {
+                return Optional.empty();
+            }
+            try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive, LinkOption.NOFOLLOW_LINKS))) {
+                int entryCount = 0;
+                ZipEntry entry;
+                while ((entry = zip.getNextEntry()) != null) {
+                    entryCount++;
+                    if (entryCount > MAX_ARCHIVE_ENTRIES) {
+                        return Optional.empty();
+                    }
+                    if (!entry.isDirectory() && entry.getName().endsWith(COLORS_PROPERTIES_FILE)) {
+                        final byte[] bytes = zip.readNBytes(MAX_COLORS_PROPERTIES_BYTES + 1);
+                        if (bytes.length > MAX_COLORS_PROPERTIES_BYTES) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(loadProperties(new ByteArrayInputStream(bytes)));
+                    }
                 }
             }
-        } catch (Exception ignored) {
+        } catch (IOException | IllegalArgumentException ignored) {
             return Optional.empty();
         }
         return Optional.empty();
     }
 
-    private static Map<String, String> loadProperties(final Path path) throws Exception {
-        try (InputStream input = Files.newInputStream(path)) {
-            return loadProperties(input);
-        }
-    }
-
-    private static Map<String, String> loadProperties(final InputStream input) throws Exception {
+    private static Map<String, String> loadProperties(final InputStream input) throws IOException {
         final Properties properties = new Properties();
         properties.load(input);
         final LinkedHashMap<String, String> values = new LinkedHashMap<>();

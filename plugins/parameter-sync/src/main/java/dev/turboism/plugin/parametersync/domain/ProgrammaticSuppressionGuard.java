@@ -11,7 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ProgrammaticSuppressionGuard {
 
-    private static final long DEFAULT_EXPIRY_NANOS = 500_000_000L; // 500 ms window
+    private static final long DEFAULT_EXPIRY_NANOS = 500_000_000L;
+    private static final float VALUE_TOLERANCE = 2e-3f;
     private final ConcurrentHashMap<String, SuppressedState> suppressed = new ConcurrentHashMap<>();
 
     private record SuppressedState(float expectedValue, long expiryNanos) {}
@@ -45,13 +46,17 @@ public final class ProgrammaticSuppressionGuard {
             suppressed.remove(id, state);
             return false;
         }
-        // If the value is close to the expected value, consume the suppression
-        if (Math.abs(state.expectedValue() - currentValue) < 2e-3f) {
-            suppressed.remove(id, state);
-            return true;
+        // Consume matching programmatic echoes and drop stale entries so distinct user edits flow immediately.
+        suppressed.remove(id, state);
+        return Math.abs(state.expectedValue() - currentValue) < VALUE_TOLERANCE;
+    }
+
+    /** Removes any pending suppression entry for a single parameter. */
+    public void clearParameter(final String parameterId) {
+        if (parameterId == null || parameterId.isBlank()) {
+            return;
         }
-        // Still within the recent write window
-        return true;
+        suppressed.remove(parameterId.strip());
     }
 
     /** Clears all pending programmatic-write suppression entries. */

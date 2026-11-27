@@ -34,10 +34,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -59,16 +63,23 @@ public final class ParameterSyncPlugin implements CubismPlugin {
     public static final String CONTEXT_MENU_QUICK_SYNC_ID = "parameter-sync.menu.quick-sync";
 
     private static final int MENU_PRIORITY = 85;
+    private static final int WORKER_POOL_SIZE = 1;
+    private static final int WORKER_QUEUE_CAPACITY = 64;
+    private static final long WORKER_KEEP_ALIVE_SECONDS = 0L;
+    private static final long SHUTDOWN_AWAIT_SECONDS = 2L;
+    private static final float VALUE_CHANGE_TOLERANCE = 1e-4f;
+    private static final String WORKER_THREAD_NAME = "parameter-sync-worker";
 
     private PluginContext context;
     private PluginLogger logger;
     private PluginLocalization i18n;
-    private ScheduledExecutorService asyncExecutor;
+    private ExecutorService asyncExecutor;
     private ParameterSyncStorage storage;
     private ParameterSyncEngine engine;
 
     private final Map<String, SyncRuleSet> modelRuleSets = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<SyncRuleSet>> activeLoads = new ConcurrentHashMap<>();
+    private final Set<CompletableFuture<?>> pendingSaves = ConcurrentHashMap.newKeySet();
     private final Set<String> loadedGuids = ConcurrentHashMap.newKeySet();
     private final List<Registration> registrations = new ArrayList<>();
     private final AtomicBoolean enabled = new AtomicBoolean(false);
@@ -86,11 +97,18 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         this.context = Objects.requireNonNull(context, "context");
         this.logger = context.logger();
         this.i18n = context.localization();
-        this.asyncExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            final Thread thread = new Thread(runnable, "parameter-sync-worker");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.asyncExecutor = new ThreadPoolExecutor(
+                WORKER_POOL_SIZE,
+                WORKER_POOL_SIZE,
+                WORKER_KEEP_ALIVE_SECONDS,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(WORKER_QUEUE_CAPACITY),
+                runnable -> {
+                    final Thread thread = new Thread(runnable, WORKER_THREAD_NAME);
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.CallerRunsPolicy());
         this.storage = new ParameterSyncStorage(context.storage(), logger, asyncExecutor);
         this.engine = new ParameterSyncEngine();
         logger.info("ParameterSyncPlugin initialized");
@@ -131,6 +149,9 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         parameterCache.clear();
         pendingTargetValues.clear();
         lastAppliedValues.clear();
+        if (engine != null) {
+            engine.suppressionGuard().clear();
+        }
         syncScheduled.set(false);
 
         synchronized (registrations) {
@@ -149,7 +170,16 @@ public final class ParameterSyncPlugin implements CubismPlugin {
     public void shutdown() {
         disable();
         if (asyncExecutor != null) {
-            asyncExecutor.shutdown();
+            try {
+                CompletableFuture.allOf(pendingSaves.toArray(CompletableFuture[]::new))
+                        .get(SHUTDOWN_AWAIT_SECONDS, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | TimeoutException failure) {
+                logger.warn("Parameter sync persistence did not finish before shutdown: " + failure.getMessage());
+            } finally {
+                asyncExecutor.shutdown();
+            }
         }
         logger.info("ParameterSyncPlugin shutdown");
     }
@@ -251,9 +281,10 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                     final Optional<Parameter> targetOpt = lookupCachedParameter(model, targetId);
                     if (targetOpt.isPresent()) {
                         final Parameter targetParam = targetOpt.get();
+                        final float currentVal;
                         try {
-                            final float currentVal = targetParam.getValue();
-                            if (Math.abs(currentVal - targetVal) < 1e-4f) {
+                            currentVal = targetParam.getValue();
+                            if (Math.abs(currentVal - targetVal) < VALUE_CHANGE_TOLERANCE) {
                                 lastAppliedValues.put(targetId, targetVal);
                                 continue;
                             }
@@ -265,7 +296,13 @@ public final class ParameterSyncPlugin implements CubismPlugin {
                         engine.suppressionGuard().markProgrammaticWrite(targetId, targetVal);
                         try {
                             targetParam.setValue(targetVal);
+                            final float afterVal = targetParam.getValue();
+                            if (Float.compare(currentVal, afterVal) == 0) {
+                                engine.suppressionGuard().clearParameter(targetId);
+                                lastAppliedValues.remove(targetId, targetVal);
+                            }
                         } catch (RuntimeException ignored) {
+                            engine.suppressionGuard().clearParameter(targetId);
                             lastAppliedValues.remove(targetId, targetVal);
                         }
                     }
@@ -286,7 +323,8 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         final Parameter cached = parameterCache.get(paramId);
         if (cached != null) {
             try {
-                cached.id();
+                // Probe live value state so handles invalidated by same-GUID reloads are evicted.
+                cached.getValue();
                 return Optional.of(cached);
             } catch (RuntimeException stale) {
                 parameterCache.remove(paramId, cached);
@@ -465,7 +503,10 @@ public final class ParameterSyncPlugin implements CubismPlugin {
         loadedGuids.add(modelGuid);
         final ParameterSyncData data =
                 ParameterSyncData.of(modelGuid, ruleSet.isGlobalEnabled(), ruleSet.synchronizedIds());
-        return storage.save(data).toCompletableFuture();
+        final CompletableFuture<Boolean> save = storage.save(data).toCompletableFuture();
+        pendingSaves.add(save);
+        save.whenComplete((ignored, failure) -> pendingSaves.remove(save));
+        return save;
     }
 
     private void preloadActiveModel() {

@@ -801,12 +801,102 @@ class ParameterLockPluginTest {
         assertNotNull(newModel.findParam("PARAM_M1").paletteEntry.currentAction);
     }
 
+    @Test
+    void unmountedSiblingRowDoesNotThrashAlreadyDecoratedRowsOnPollTicks() {
+        final String guid = "guid-partial-palette";
+        final FakeModel partialModel = new FakeModel(guid, List.of("PARAM_VISIBLE", "PARAM_COLLAPSED"));
+        final FakeParameter visibleParam = partialModel.findParam("PARAM_VISIBLE");
+        final FakeParameter collapsedParam = partialModel.findParam("PARAM_COLLAPSED");
+        collapsedParam.viewScopeReady = false;
+
+        context.activeModel = partialModel;
+        plugin.checkActivationOnce();
+        awaitCondition(() -> plugin.lockState().hasLoaded(guid) && visibleParam.paletteEntry.currentAction != null);
+
+        assertFalse(plugin.isFullyDecorated());
+        assertEquals(1, visibleParam.paletteEntry.overrideCalls);
+        assertEquals(0, visibleParam.paletteEntry.closeCalls);
+        final Registration firstReg = plugin.activeRowRegistrations().get("param:PARAM_VISIBLE");
+        assertNotNull(firstReg);
+
+        plugin.checkActivationOnce();
+        plugin.checkActivationOnce();
+        plugin.checkActivationOnce();
+
+        assertEquals(1, visibleParam.paletteEntry.overrideCalls);
+        assertEquals(0, visibleParam.paletteEntry.closeCalls);
+        assertSame(firstReg, plugin.activeRowRegistrations().get("param:PARAM_VISIBLE"));
+
+        collapsedParam.viewScopeReady = true;
+        plugin.checkActivationOnce();
+
+        assertTrue(plugin.isFullyDecorated());
+        assertEquals(1, collapsedParam.paletteEntry.overrideCalls);
+        assertEquals(1, visibleParam.paletteEntry.overrideCalls);
+        assertEquals(0, visibleParam.paletteEntry.closeCalls);
+        assertSame(firstReg, plugin.activeRowRegistrations().get("param:PARAM_VISIBLE"));
+    }
+
+    @Test
+    void unexpectedStorageReadFailureDoesNotPermanentlyFreezeUnlockedParameters() {
+        final String guid = "guid-storage-read-failure";
+        final FakeModel model = new FakeModel(guid, List.of("PARAM_X"));
+        final FakeParameter paramX = model.findParam("PARAM_X");
+        paramX.setValue(1.0f);
+
+        final FakePluginContext failingContext = new FakePluginContext();
+        failingContext.activeModel = model;
+        failingContext.storageOverride = new InMemoryPluginStorage() {
+            @Override
+            public java.util.concurrent.CompletionStage<dev.turboism.sdk.storage.StorageReadResult<String>> readUtf8(
+                    final StoragePath path, final int maxBytes) {
+                throw new IllegalStateException("simulated synchronous storage failure");
+            }
+        };
+
+        final ParameterLockPlugin failingPlugin = new ParameterLockPlugin();
+        try {
+            failingPlugin.init(failingContext);
+            failingPlugin.enable();
+            awaitCondition(() -> failingPlugin.lockState().hasLoaded(guid));
+
+            assertEquals(5.0f, failingPlugin.beforeSetParameterValue(paramX, 5.0f));
+        } finally {
+            failingPlugin.shutdown();
+        }
+    }
+
+    @Test
+    void tabSwitchWithoutPollDoesNotLeakLocksAcrossModels() {
+        final FakeParameter paramA = modelA.findParam("PARAM_ANGLE_X");
+        paramA.setValue(5.0f);
+        final FakeParameter paramB = modelB.findParam("PARAM_ANGLE_X");
+        paramB.setValue(50.0f);
+
+        plugin.lockState().mergeLoadedLocks(modelB.id().value(), Set.of());
+        plugin.lockState().setLocked(modelA.id().value(), "PARAM_ANGLE_X", true);
+
+        context.activeModel = modelA;
+        assertEquals(5.0f, plugin.beforeSetParameterValue(paramA, 15.0f));
+
+        // Switch active tab to modelB without firing onModelOpened or checkActivationOnce.
+        context.activeModel = modelB;
+        assertEquals(75.0f, plugin.beforeSetParameterValue(paramB, 75.0f));
+        assertEquals(modelB.id().value(), plugin.lockState().activeModel());
+
+        // Switch back to modelA without polling: modelA lock remains enforced immediately.
+        context.activeModel = modelA;
+        assertEquals(5.0f, plugin.beforeSetParameterValue(paramA, 25.0f));
+        assertEquals(modelA.id().value(), plugin.lockState().activeModel());
+    }
+
     private static void awaitCondition(final java.util.function.BooleanSupplier condition) {
         Await.condition(condition);
     }
 
     static final class FakePluginContext implements PluginContext {
         final InMemoryPluginStorage storage = new InMemoryPluginStorage();
+        PluginStorage storageOverride;
         final FakeActionRegistry actionRegistry = new FakeActionRegistry();
         final FakeContextMenuRegistry contextMenuRegistry = new FakeContextMenuRegistry();
         final FakePaletteToolbarRegistry paletteToolbarRegistry = new FakePaletteToolbarRegistry();
@@ -858,7 +948,7 @@ class ParameterLockPluginTest {
 
         @Override
         public PluginStorage storage() {
-            return storage;
+            return storageOverride != null ? storageOverride : storage;
         }
 
         @Override
@@ -993,12 +1083,16 @@ class ParameterLockPluginTest {
     static final class FakePaletteEntry implements PaletteEntry {
         PaletteRowAction currentAction;
         boolean closed = false;
+        int overrideCalls = 0;
+        int closeCalls = 0;
 
         @Override
         public Registration overrideLeadingAction(final PaletteRowAction action) {
+            this.overrideCalls++;
             this.currentAction = action;
             this.closed = false;
             return () -> {
+                this.closeCalls++;
                 this.closed = true;
                 if (this.currentAction == action) {
                     this.currentAction = null;

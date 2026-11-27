@@ -102,10 +102,6 @@ final class AcpChatWindow implements AcpChatController.View {
     private static final float TIMESTAMP_FONT_DELTA = 1.5F;
     private static final AgentItem CUSTOM_ITEM = new AgentItem(AgentCatalog.CUSTOM_AGENT_ID, null);
 
-    static {
-        installFallbackSwingUis(UIManager.getDefaults());
-    }
-
     private final PluginLocalization localization;
     private final JFrame agentFrame;
     private final JFrame settingsFrame;

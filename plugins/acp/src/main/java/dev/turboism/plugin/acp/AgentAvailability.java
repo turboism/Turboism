@@ -9,12 +9,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -46,7 +49,11 @@ final class AgentAvailability {
     /** Bounded fan-out: each worker blocks on external CLI processes, not on host CPU. */
     private static final int DISCOVERY_WORKERS = 4;
 
+    private static final int PROBE_STREAM_WORKERS = 2;
+    private static final int PROBE_STREAM_QUEUE_CAPACITY = 2;
+
     private static final String DISCOVERY_THREAD_PREFIX = "turboism-acp-discovery-probe-";
+    private static final String PROBE_STREAM_THREAD_PREFIX = "turboism-acp-probe-stream-";
 
     private AgentAvailability() {}
 
@@ -104,9 +111,13 @@ final class AgentAvailability {
     }
 
     private static ThreadFactory daemonProbeThreads() {
+        return daemonThreads(DISCOVERY_THREAD_PREFIX);
+    }
+
+    private static ThreadFactory daemonThreads(final String prefix) {
         final AtomicInteger threadNumber = new AtomicInteger(1);
         return runnable -> {
-            final Thread thread = new Thread(runnable, DISCOVERY_THREAD_PREFIX + threadNumber.getAndIncrement());
+            final Thread thread = new Thread(runnable, prefix + threadNumber.getAndIncrement());
             thread.setDaemon(true);
             return thread;
         };
@@ -229,10 +240,17 @@ final class AgentAvailability {
 
     /** Help/version output may be written to either stream by native CLIs and Windows shims. */
     private static String probe(final List<String> command) throws Exception {
+        final ExecutorService streamReaders = new ThreadPoolExecutor(
+                PROBE_STREAM_WORKERS,
+                PROBE_STREAM_WORKERS,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(PROBE_STREAM_QUEUE_CAPACITY),
+                daemonThreads(PROBE_STREAM_THREAD_PREFIX));
         try (AcpProcessTransport process =
                 AcpProcessTransport.start(new AgentLaunchSpec(command, Path.of(System.getProperty("user.home"))))) {
-            final var stdout = read(process.stdout());
-            final var stderr = read(process.stderr());
+            final var stdout = read(process.stdout(), streamReaders);
+            final var stderr = read(process.stderr(), streamReaders);
             try {
                 final long deadline = System.nanoTime() + PROBE_TIMEOUT.toNanos();
                 java.util.concurrent.CompletableFuture.allOf(stdout, stderr)
@@ -244,17 +262,22 @@ final class AgentAvailability {
             } finally {
                 process.terminate(Duration.ofMillis(PROBE_TERMINATE_GRACE_MILLIS));
             }
+        } finally {
+            streamReaders.shutdownNow();
         }
     }
 
-    private static java.util.concurrent.CompletableFuture<String> read(final java.io.InputStream input) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            try {
-                return readProbeOutput(input);
-            } catch (IOException failure) {
-                throw new java.util.concurrent.CompletionException(failure);
-            }
-        });
+    private static java.util.concurrent.CompletableFuture<String> read(
+            final java.io.InputStream input, final Executor executor) {
+        return java.util.concurrent.CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return readProbeOutput(input);
+                    } catch (IOException failure) {
+                        throw new java.util.concurrent.CompletionException(failure);
+                    }
+                },
+                executor);
     }
 
     /** Windows JRE 17 FileInputStream.readNBytes tries to seek on non-seekable process pipes. */

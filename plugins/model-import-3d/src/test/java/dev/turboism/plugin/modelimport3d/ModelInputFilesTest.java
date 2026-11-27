@@ -118,7 +118,7 @@ class ModelInputFilesTest {
     }
 
     static Optional<byte[]> load(byte[] input, FilesService f) throws Exception {
-        return ModelInputFiles.normalize(input, f.sdk(), "model-test", () -> true)
+        return ModelInputFiles.normalize(input, f.sdk(), "model-test", () -> true, Runnable::run)
                 .toCompletableFuture()
                 .get(30, TimeUnit.SECONDS);
     }
@@ -198,7 +198,7 @@ class ModelInputFilesTest {
             pending.countDown();
             return choice;
         };
-        var output = ModelInputFiles.normalize(OBJ, f.sdk(), "model-test", active::get);
+        var output = ModelInputFiles.normalize(OBJ, f.sdk(), "model-test", active::get, Runnable::run);
         assertTrue(pending.await(5, TimeUnit.SECONDS));
         active.set(false);
         choice.complete(f.grant());
@@ -217,7 +217,7 @@ class ModelInputFilesTest {
             pending.countDown();
             return reading;
         };
-        var output = ModelInputFiles.normalize(OBJ, f.sdk(), "model-test", active::get);
+        var output = ModelInputFiles.normalize(OBJ, f.sdk(), "model-test", active::get, Runnable::run);
         assertTrue(pending.await(5, TimeUnit.SECONDS));
         active.set(false);
         reading.complete(result(MTL, false));
@@ -356,5 +356,20 @@ class ModelInputFilesTest {
                 System.setProperty("turboism.requireImport3dFixtures", previous);
             }
         }
+    }
+
+    @Test
+    void normalizeExecutesOnSuppliedExecutorInsteadOfCommonPool() throws Exception {
+        var f = new FilesService(MTL, image());
+        var dispatches = new java.util.concurrent.atomic.AtomicInteger();
+        Executor recording = task -> {
+            dispatches.incrementAndGet();
+            task.run();
+        };
+        Optional<byte[]> normalized = ModelInputFiles.normalize(OBJ, f.sdk(), "model-exec", () -> true, recording)
+                .toCompletableFuture()
+                .get(30, TimeUnit.SECONDS);
+        assertTrue(normalized.isPresent());
+        assertTrue(dispatches.get() >= 3, "expected each normalization pass to run on supplied executor");
     }
 }

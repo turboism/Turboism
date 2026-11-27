@@ -2,6 +2,7 @@ package dev.turboism.pluginmanagement;
 
 import dev.turboism.core.io.Sha256;
 import dev.turboism.internal.TurboismEndpoints;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,6 +22,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -65,6 +68,21 @@ public final class PluginCatalogClient {
             "/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/download/[^/?#]+/[A-Za-z0-9][A-Za-z0-9._-]*\\.jar");
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern ARTIFACT_FILE_NAME_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*\\.jar");
+    private static final int CANCEL_DISCONNECT_WORKERS = 2;
+    private static final int CANCEL_DISCONNECT_QUEUE_CAPACITY = 16;
+    private static final long CANCEL_DISCONNECT_KEEP_ALIVE_SECONDS = 30L;
+    private static final String CANCEL_DISCONNECT_THREAD_PREFIX = RuntimeThreads.THREAD_NAME_PREFIX + "-catalog-cancel";
+    private static final ThreadPoolExecutor CANCEL_DISCONNECT_EXECUTOR = createCancelDisconnectExecutor();
+
+    private static ThreadPoolExecutor createCancelDisconnectExecutor() {
+        final ThreadPoolExecutor lane = RuntimeThreads.fixedLane(
+                CANCEL_DISCONNECT_WORKERS,
+                CANCEL_DISCONNECT_QUEUE_CAPACITY,
+                RuntimeThreads.daemonThreads(CANCEL_DISCONNECT_THREAD_PREFIX));
+        lane.setKeepAliveTime(CANCEL_DISCONNECT_KEEP_ALIVE_SECONDS, TimeUnit.SECONDS);
+        lane.allowCoreThreadTimeOut(true);
+        return lane;
+    }
 
     /** Pluggable HTTP connection factory used by unit tests. */
     @FunctionalInterface
@@ -157,7 +175,13 @@ public final class PluginCatalogClient {
         public boolean cancel() {
             if (!state.compareAndSet(State.ACTIVE, State.CANCELLED)) return false;
             final HttpURLConnection active = connection.get();
-            if (active != null) CompletableFuture.runAsync(() -> disconnectQuietly(active));
+            if (active != null) {
+                try {
+                    CompletableFuture.runAsync(() -> disconnectQuietly(active), CANCEL_DISCONNECT_EXECUTOR);
+                } catch (RejectedExecutionException ignored) {
+                    // Cancellation state is already recorded; drop only the best-effort async disconnect.
+                }
+            }
             return true;
         }
 
