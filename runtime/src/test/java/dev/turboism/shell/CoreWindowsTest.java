@@ -32,6 +32,7 @@ class CoreWindowsTest {
             return switch (key) {
                 case "about.eula" -> "EULA";
                 case "about.license" -> "License";
+                case "about.support-me" -> "Support Me";
                 case "about.tagline" -> "For you, a bouquet";
                 case "common.turboism" -> "Turboism";
                 default -> key;
@@ -446,6 +447,7 @@ class CoreWindowsTest {
         assertTrue(html.contains("href=\"https://github.com/turboism/Turboism/blob/main/LICENSE\">License</a>"));
         assertTrue(html.contains("href=\"https://github.com/turboism/Turboism/blob/main/EULA.md\">EULA</a>"));
         assertTrue(html.indexOf(">License</a>") < html.indexOf(">EULA</a>"));
+        assertTrue(html.contains(">EULA</a> / <a href=\"https://turboism.dev/sponsor\">Support Me</a>"));
         assertFalse(html.contains(">Website</a>"));
         assertTrue(html.contains("</a> / <a href="));
         assertTrue(html.contains("text-align:center"));

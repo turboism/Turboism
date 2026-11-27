@@ -31,6 +31,7 @@ public final class TurboismEndpoints {
     public static final String PLUGIN_ARTIFACTS_CDN_PREFIX = DOWNLOAD_ORIGIN + "/plugins/";
 
     public static final String DOWNLOAD_PAGE_URL = SITE_ORIGIN + "/download";
+    public static final String SPONSOR_PAGE_URL = SITE_ORIGIN + "/sponsor";
     public static final String PLUGIN_MARKET_URL = SITE_ORIGIN + "/plugins";
     public static final String PLUGIN_MARKET_ITEM_PREFIX = PLUGIN_MARKET_URL + "/";
 
