@@ -79,7 +79,7 @@ public final class AtlasCacheReuseTransformer implements ClassFileTransformer {
             final Class<?> classBeingRedefined,
             final ProtectionDomain domain,
             final byte[] classfileBuffer) {
-        return transform(null, className, classBeingRedefined, domain, classfileBuffer);
+        return transform((Module) null, loader, className, classBeingRedefined, domain, classfileBuffer);
     }
 
     @Override

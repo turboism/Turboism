@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas.image;
 
+import dev.turboism.adapter.cubism.optimization.atlas.DirectArgbTileBlitter;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -217,34 +218,51 @@ public final class AtlasTileBboxDelegate {
             g15.setTransform(shifted);
             call(host.hintsMask, g15); // quality set, BILINEAR
 
-            if ((long) bw * bh >= PARALLEL_TRANSFORM_PIXELS) {
+            final int maskSrcW = s8.getWidth();
+            final int maskSrcH = s8.getHeight();
+            final int clipW = bw;
+            final int clipH = bh;
+            if ((long) clipW * clipH >= PARALLEL_TRANSFORM_PIXELS) {
+                final BufferedImage maskDst = s10;
                 final BufferedImage maskSrc = s8;
-                final ForkJoinTask<?> maskTask =
-                        ForkJoinPool.commonPool().submit(() -> g15.drawImage(maskSrc, x, y, null));
+                final ForkJoinTask<?> maskTask = ForkJoinPool.commonPool().submit(() -> {
+                    if (!DirectArgbTileBlitter.tryResampleByteGrayBilinear(
+                            maskDst, clipW, clipH, shifted, maskSrc, x, y, maskSrcW, maskSrcH)) {
+                        g15.drawImage(maskSrc, x, y, null);
+                    }
+                });
                 g16.drawImage(s7, x, y, null);
                 maskTask.join();
             } else {
                 g16.drawImage(s7, x, y, null);
-                g15.drawImage(s8, x, y, null);
-            }
-
-            // Merge only the requested bbox: s9/s10 may be pooled oversize images whose
-            // real widths differ, so each raster is indexed by its own stride.
-            for (int j = 0; j <= bh - 1; j++) {
-                int row9 = j * s9.getWidth();
-                int row10 = j * s10.getWidth();
-                for (int i = 0; i <= bw - 1; i++) {
-                    i13[i + row9] = ((b14[i + row10] & 255) << 24) | (i13[i + row9] & 0xFFFFFF);
+                if (!DirectArgbTileBlitter.tryResampleByteGrayBilinear(
+                        s10, bw, bh, shifted, s8, x, y, maskSrcW, maskSrcH)) {
+                    g15.drawImage(s8, x, y, null);
                 }
             }
 
-            AffineTransform oldT = pageG.getTransform();
-            RenderingHints oldH = pageG.getRenderingHints();
-            call(host.hintsSpeed, pageG); // speed set, NEAREST
+            final AffineTransform oldT = pageG.getTransform();
             pageG.setTransform(new AffineTransform());
-            pageG.drawImage(s9, bx, by, null);
-            pageG.setTransform(oldT);
-            pageG.setRenderingHints(oldH);
+            try {
+                if (!DirectArgbTileBlitter.tryCompositeOpaqueRgbAndByteAlpha(dst, pageG, bx, by, bw, bh, s9, s10)) {
+                    // Merge only the requested bbox: s9/s10 may be pooled oversize images whose
+                    // real widths differ, so each raster is indexed by its own stride.
+                    for (int j = 0; j <= bh - 1; j++) {
+                        final int row9 = j * s9.getWidth();
+                        final int row10 = j * s10.getWidth();
+                        for (int i = 0; i <= bw - 1; i++) {
+                            i13[i + row9] = ((b14[i + row10] & 255) << 24) | (i13[i + row9] & 0xFFFFFF);
+                        }
+                    }
+
+                    final RenderingHints oldH = pageG.getRenderingHints();
+                    call(host.hintsSpeed, pageG); // speed set, NEAREST
+                    pageG.drawImage(s9, bx, by, null);
+                    pageG.setRenderingHints(oldH);
+                }
+            } finally {
+                pageG.setTransform(oldT);
+            }
         } finally {
             // Original has no dispose(); release mirrors host order.
             if (s7 != null) call(host.poolRelease, s7);

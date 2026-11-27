@@ -49,7 +49,14 @@ public final class AtlasCacheReusePatcher {
     static final String MANAGER = "com/live2d/graphics/cachedImage/CCachedImageManager";
     static final String DELEGATE = "dev/turboism/adapter/cubism/textureatlas/cache/AtlasCacheReuseDelegate";
 
+    private static volatile boolean patched;
+
     private AtlasCacheReusePatcher() {}
+
+    /** Reports whether {@link #patch(byte[])} has rewritten {@code CTextureAtlas.updateTexture}. */
+    public static boolean isPatched() {
+        return patched;
+    }
 
     /** Thrown when the observed method shape differs from the reviewed structure. */
     public static final class NotApplicable extends Exception {
@@ -70,7 +77,9 @@ public final class AtlasCacheReusePatcher {
         if (!shapeOk(anchors)) {
             throw new NotApplicable("anchor mismatch: " + anchors);
         }
-        return rewrite(original);
+        final byte[] rewritten = rewrite(original);
+        patched = true;
+        return rewritten;
     }
 
     /** Runs only the shape gate; the counts are returned for diagnostics. */

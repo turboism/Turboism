@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.adapter.cubism.optimization.atlas.AtlasDirectCompositingPatcher;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import org.objectweb.asm.ClassReader;
@@ -60,6 +61,8 @@ public final class TextureAtlasLoadingTransformer implements ClassFileTransforme
                     ? TextureAtlasEdgeFillTransformer.patch(bytes)
                     : null;
             if (edgeFillPatched != null) return edgeFillPatched;
+            final byte[] atlasBakePatched = AtlasDirectCompositingPatcher.patch(className, bytes);
+            if (atlasBakePatched != null) return atlasBakePatched;
         }
         if (!MODEL.equals(className)) return null;
         final ClassReader reader = new ClassReader(bytes);
