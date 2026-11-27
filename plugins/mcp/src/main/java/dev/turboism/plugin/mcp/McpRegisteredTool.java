@@ -18,6 +18,10 @@ final class McpRegisteredTool {
     private static final String DEFINITIONS_POINTER = "#/$defs/";
 
     private static final int MAX_SCHEMA_DEPTH = 64;
+    private static final String INPUT_SCHEMA = "inputSchema";
+    private static final String OUTPUT_SCHEMA = "outputSchema";
+    private static final String SCHEMA_TYPE = "type";
+    private static final String OBJECT_TYPE = "object";
 
     private final Map<String, Object> publicDefinition;
     private final String name;
@@ -79,8 +83,8 @@ final class McpRegisteredTool {
         requiredText(definition, "name");
         requiredText(definition, "title");
         requiredText(definition, "description");
-        requiredSchema(definition, "inputSchema");
-        requiredSchema(definition, "outputSchema");
+        requiredSchema(definition, INPUT_SCHEMA);
+        requiredSchema(definition, OUTPUT_SCHEMA);
         final McpExecutionBridge checkedExecution = Objects.requireNonNull(execution, "execution");
         final Handler checkedRaw = Objects.requireNonNull(rawHandler, "rawHandler");
         final Handler standalone = arguments -> switch (Objects.requireNonNull(affinity, "affinity")) {
@@ -95,7 +99,7 @@ final class McpRegisteredTool {
                 affinity,
                 transactionEligible,
                 Objects.requireNonNull(versionSupport, "versionSupport"),
-                isExactSchema(definition.get("outputSchema"), 0, definitionsOf(definition.get("outputSchema"))),
+                isExactSchema(definition.get(OUTPUT_SCHEMA), 0, definitionsOf(definition.get(OUTPUT_SCHEMA))),
                 checkedRaw,
                 standalone);
     }
@@ -258,7 +262,27 @@ final class McpRegisteredTool {
 
     private static Map<String, Object> immutableDefinition(final Map<String, Object> value) {
         Objects.requireNonNull(value, "publicDefinition");
-        return Collections.unmodifiableMap(new LinkedHashMap<>(value));
+        final LinkedHashMap<String, Object> definition = new LinkedHashMap<>(value);
+        definition.computeIfPresent(INPUT_SCHEMA, McpRegisteredTool::toolObjectSchema);
+        definition.computeIfPresent(OUTPUT_SCHEMA, McpRegisteredTool::toolObjectSchema);
+        return Collections.unmodifiableMap(definition);
+    }
+
+    /** Declares the object root required by MCP while preserving the schema constraints. */
+    private static Map<?, ?> toolObjectSchema(final String field, final Object value) {
+        if (!(value instanceof Map<?, ?> schema)) {
+            throw new IllegalArgumentException("MCP tool definition requires object " + field);
+        }
+        if (schema.containsKey(SCHEMA_TYPE)) {
+            if (!OBJECT_TYPE.equals(schema.get(SCHEMA_TYPE))) {
+                throw new IllegalArgumentException("MCP tool schema requires an object root: " + field);
+            }
+            return schema;
+        }
+        final LinkedHashMap<Object, Object> declared = new LinkedHashMap<>();
+        declared.put(SCHEMA_TYPE, OBJECT_TYPE);
+        declared.putAll(schema);
+        return Collections.unmodifiableMap(declared);
     }
 
     private static String requiredText(final Map<String, Object> definition, final String field) {
