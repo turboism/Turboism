@@ -2,6 +2,7 @@ package dev.turboism.automesh.host;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,6 +20,12 @@ final class AutoMeshFunnelTestSupport {
     private static final String ROOT_ENVIRONMENT_VARIABLE = "TURBOISM_CUBISM_REF";
     private static final String ROOT_ENVIRONMENT_VARIABLE_ROOT = "TURBOISM_CUBISM_REF_ROOT";
     private static final String JAR_NAME = "Live2D_Cubism.jar";
+    private static final String JDOM_JAR_NAME = "jdom-1.1.jar";
+    private static final String LIVE2D_PREFIX = "Live2D";
+    private static final String JAR_EXTENSION = ".jar";
+    private static final String USER_HOME_PROPERTY = "user.home";
+    private static final String CUBISM_REFERENCE_RELATIVE = ".local/share/cubism-reference";
+    private static final int REFERENCE_WALK_DEPTH = 10;
 
     private AutoMeshFunnelTestSupport() {}
 
@@ -44,7 +51,60 @@ final class AutoMeshFunnelTestSupport {
     /** @return the reviewed Editor jar of {@code version}, or {@code null} when it is absent */
     static Path jar(final Path root, final String version) {
         final Path jar = root.resolve(version).resolve(JAR_NAME);
-        return Files.isRegularFile(jar) ? jar : null;
+        if (Files.isRegularFile(jar)) {
+            return jar;
+        }
+        final Path referenceBase = Path.of(System.getProperty(USER_HOME_PROPERTY), CUBISM_REFERENCE_RELATIVE, version);
+        if (!Files.isDirectory(referenceBase)) {
+            return null;
+        }
+        try (var stream = Files.walk(referenceBase, REFERENCE_WALK_DEPTH)) {
+            return stream.filter(path -> Files.isRegularFile(path)
+                            && JAR_NAME.equals(path.getFileName().toString()))
+                    .findFirst()
+                    .orElse(null);
+        } catch (final IOException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolves non-Live2D runtime dependency jars when an artifact directory lacks {@code jdom-1.1.jar}.
+     *
+     * @param artifactDir parent directory of a reviewed {@code Live2D_Cubism.jar}
+     * @return extra dependency jar URLs needed to link XML-typed Cubism signatures
+     * @throws IOException if scanning local reference directories fails
+     */
+    static List<URL> thirdPartyJarUrls(final Path artifactDir) throws IOException {
+        if (Files.isRegularFile(artifactDir.resolve(JDOM_JAR_NAME))) {
+            return List.of();
+        }
+        final Path referenceRoot = Path.of(System.getProperty(USER_HOME_PROPERTY), CUBISM_REFERENCE_RELATIVE);
+        if (!Files.isDirectory(referenceRoot)) {
+            return List.of();
+        }
+        final Path jdomFile;
+        try (var stream = Files.walk(referenceRoot, REFERENCE_WALK_DEPTH)) {
+            jdomFile = stream.filter(path -> Files.isRegularFile(path)
+                            && JDOM_JAR_NAME.equals(path.getFileName().toString()))
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (jdomFile == null || jdomFile.getParent() == null) {
+            return List.of();
+        }
+        final List<URL> urls = new ArrayList<>();
+        try (var paths = Files.list(jdomFile.getParent())) {
+            for (final Path candidate : paths.toList()) {
+                final String fileName = candidate.getFileName().toString();
+                if (Files.isRegularFile(candidate)
+                        && fileName.endsWith(JAR_EXTENSION)
+                        && !fileName.startsWith(LIVE2D_PREFIX)) {
+                    urls.add(candidate.toUri().toURL());
+                }
+            }
+        }
+        return urls;
     }
 
     /** @return the class bytes of {@code internalName} inside {@code jar} */

@@ -25,8 +25,8 @@ final class NativeInterpolationSaveCache {
                         EditorParameterInterpolationSelectorContract.CAPABILITY_ID,
                         EditorParameterInterpolationSelectorContract.REQUIRED_ALIASES)) return nativeSave.get();
         if (!SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("Save requires Editor thread.");
-        if (dev.turboism.adapter.cubism.interpolation.DerivedCacheSerializationBridge.availableForModel(source))
-            return nativeSave.get();
+        if (dev.turboism.adapter.cubism.optimization.interpolation.DerivedCacheSerializationBridge.availableForModel(
+                source)) return nativeSave.get();
         // Resolve every member before clearing the first cache.
         for (String alias : List.of(
                 "cubism.editor-model.model-source.all-art-meshes",

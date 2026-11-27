@@ -99,7 +99,7 @@ def analyze(marker_path, sample_path, jfr_path=None):
             unknown_frames = len(frames) - len(classes)
             execution_samples.append((epoch,
                 any(c.startswith("com.live2d.graphics3d.editableMesh.triangulation.") for c in classes),
-                any(c == "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex" for c in classes),
+                any(c == "dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndex" for c in classes),
                 unknown_frames))
     windows = []
     for start, end in zip(markers[::2], markers[1::2]):

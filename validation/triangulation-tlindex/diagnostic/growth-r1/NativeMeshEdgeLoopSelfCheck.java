@@ -16,7 +16,7 @@ import java.util.jar.JarFile;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableOwnedAccess;
-import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeLookup;
+import dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeLookup;
 
 /** Functional owned-loop differential experiment. Boxed research map; no gain claim. */
 public final class NativeMeshEdgeLoopSelfCheck {

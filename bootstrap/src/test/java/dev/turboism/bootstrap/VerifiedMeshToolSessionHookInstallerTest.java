@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.mesh.MeshEditorLifecycleTransformer;
 import dev.turboism.adapter.cubism.mesh.MeshToolSessionHostProfile;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;

@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.exportperf.DownscaleFastOp;
-import dev.turboism.adapter.cubism.exportperf.EdgeCleanFastOp;
+import dev.turboism.adapter.cubism.optimization.export.DownscaleFastOp;
+import dev.turboism.adapter.cubism.optimization.export.EdgeCleanFastOp;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.ByteArrayOutputStream;

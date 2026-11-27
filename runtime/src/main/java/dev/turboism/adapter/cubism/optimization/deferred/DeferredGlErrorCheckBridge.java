@@ -211,7 +211,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
                 if (observed != 0) {
                     glErrors++;
                     deferredErrors++;
-                    dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
+                    dev.turboism.adapter.cubism.optimization.shader.NativeShaderUniformBridge.invalidateAll();
                     final Throwable report = DeferredGlErrorReporter.buildReport(
                             deferredAccessors, observed, deferredContext, deferredThrowSite);
                     if (report != null) {
@@ -302,7 +302,7 @@ public final class DeferredGlErrorCheckBridge implements AutoCloseable {
     private void retire() {
         deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
-        dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
+        dev.turboism.adapter.cubism.optimization.shader.NativeShaderUniformBridge.invalidateAll();
         frameContextValid = false;
         retired = true;
         failures++;

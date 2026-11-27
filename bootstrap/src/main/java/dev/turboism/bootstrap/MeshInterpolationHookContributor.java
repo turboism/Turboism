@@ -82,8 +82,9 @@ final class MeshInterpolationHookContributor implements ReportedHookContributor 
         };
 
         try {
-            final var handle = dev.turboism.adapter.cubism.interpolation.VerifiedMeshInterpolationInstaller.install(
-                    environment.instrumentation(), diagnosticCallback, interpolation, serialization);
+            final var handle =
+                    dev.turboism.adapter.cubism.optimization.interpolation.VerifiedMeshInterpolationInstaller.install(
+                            environment.instrumentation(), diagnosticCallback, interpolation, serialization);
             if (handle != null) {
                 return () -> {
                     try {

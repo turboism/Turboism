@@ -8,7 +8,7 @@ import java.io.File;
 import java.util.*;
 import java.lang.management.ManagementFactory;
 import java.security.MessageDigest;
-import dev.turboism.adapter.cubism.interpolation.NativeMeshInterpolationBridge;
+import dev.turboism.adapter.cubism.optimization.interpolation.NativeMeshInterpolationBridge;
 
 /** Full official 2D cache call chain; does not simulate Editor history or mouse input. */
 public final class CatInterpolationCacheProof {

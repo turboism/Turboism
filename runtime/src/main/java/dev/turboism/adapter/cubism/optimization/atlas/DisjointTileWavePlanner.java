@@ -21,14 +21,30 @@ public final class DisjointTileWavePlanner {
         /** Empty sentinel box when a tile lies completely outside the target atlas page. */
         public static final TileBounds EMPTY = new TileBounds(0, 0, 0, 0);
 
+        /**
+         * Returns whether this bounding box covers zero destination pixels.
+         *
+         * @return {@code true} when width or height is non-positive
+         */
         public boolean isEmpty() {
             return x0 >= x1 || y0 >= y1;
         }
 
+        /**
+         * Computes the covered destination area in pixels.
+         *
+         * @return non-negative pixel count
+         */
         public long areaPx() {
             return isEmpty() ? EMPTY_AREA : (long) (x1 - x0) * (y1 - y0);
         }
 
+        /**
+         * Returns whether this box overlaps {@code other} on at least one destination pixel.
+         *
+         * @param other comparison bounding box
+         * @return {@code true} when both non-empty boxes intersect
+         */
         public boolean intersects(final TileBounds other) {
             return !isEmpty() && !other.isEmpty() && x0 < other.x1 && x1 > other.x0 && y0 < other.y1 && y1 > other.y0;
         }

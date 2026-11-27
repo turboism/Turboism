@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.save;
 
-import dev.turboism.adapter.cubism.exportperf.FastPngEncoder;
-import dev.turboism.adapter.cubism.exportperf.FastPngExporter;
+import dev.turboism.adapter.cubism.optimization.image.FastPngEncoder;
 import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -17,8 +16,31 @@ public final class ImageSaveFastPngSupport {
 
     private static final String PNG_FORMAT = "png";
     private static final int FILE_BUFFER_BYTES = 64 * 1024;
+    private static volatile PreparedPngConsumer preparedPngConsumer;
+
+    /** Consumes an already encoded PNG payload prepared by the export pipeline. */
+    @FunctionalInterface
+    public interface PreparedPngConsumer {
+        /**
+         * Writes a prepared PNG payload to {@code output} if one is available.
+         *
+         * @param output destination stream receiving encoded PNG bytes
+         * @return {@code true} if a prepared PNG payload was written
+         * @throws IOException if writing to {@code output} fails
+         */
+        boolean tryConsume(OutputStream output) throws IOException;
+    }
 
     private ImageSaveFastPngSupport() {}
+
+    /**
+     * Registers the consumer that drains prepared PNG payloads before fallback encoding.
+     *
+     * @param consumer consumer callback, or {@code null} to clear registration
+     */
+    public static void registerPreparedPngConsumer(final PreparedPngConsumer consumer) {
+        preparedPngConsumer = consumer;
+    }
 
     /**
      * Attempts fast lossless PNG writing for {@code UtImage.saveImage_exe}.
@@ -34,7 +56,8 @@ public final class ImageSaveFastPngSupport {
         }
         try {
             if (output instanceof OutputStream out) {
-                if (FastPngExporter.tryConsumePreparedPng(out)) {
+                final PreparedPngConsumer consumer = preparedPngConsumer;
+                if (consumer != null && consumer.tryConsume(out)) {
                     out.flush();
                     return true;
                 }

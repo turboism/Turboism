@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.exportperf.RuntimeExportAccelerationTransformer;
+import dev.turboism.adapter.cubism.optimization.export.RuntimeExportAccelerationTransformer;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import java.lang.instrument.ClassFileTransformer;
 

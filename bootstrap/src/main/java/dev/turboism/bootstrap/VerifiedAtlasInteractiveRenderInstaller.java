@@ -1,9 +1,9 @@
 package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.optimization.HostMemberVerifier;
-import dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderBridge;
-import dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderTarget;
-import dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderTransformer;
+import dev.turboism.adapter.cubism.optimization.atlas.interactive.AtlasInteractiveRenderBridge;
+import dev.turboism.adapter.cubism.optimization.atlas.interactive.AtlasInteractiveRenderTarget;
+import dev.turboism.adapter.cubism.optimization.atlas.interactive.AtlasInteractiveRenderTransformer;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import java.io.IOException;

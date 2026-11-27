@@ -54,7 +54,7 @@ final class BorrowedEdgeBytecodePrototype {
      }
      @Override public void visitMethodInsn(int opcode,String owner,String called,String descriptor,boolean itf) {
       pops=0;
-      if(owner.equals("dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge")) {
+      if(owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgeBridge")) {
        if(called.equals("enter")) {
         super.visitInsn(Opcodes.POP);
         super.visitMethodInsn(opcode,CONTROL,"enter","()Ljava/lang/AutoCloseable;",false);
@@ -88,7 +88,7 @@ def main():
     args = parser.parse_args()
     root = Path.cwd()
     authority = root / 'runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java'
-    preparation = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java'
+    preparation = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgePreparation.java'
     jars = {profile: getattr(args, 'jar_' + profile).resolve() for profile in ('5203', '5302', '5303')}
     # Production admits the Kotlin JAR by presence inside the reviewed host directory;
     # the internal SHA-256 pin was removed. Record the observed digest instead.

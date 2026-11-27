@@ -1,5 +1,5 @@
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.*;
 import java.net.*;

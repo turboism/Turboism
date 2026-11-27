@@ -505,7 +505,7 @@ public final class AtlasDirectCompositingPatcher {
     private static final class TextureUpdateScan extends ClassVisitor {
         private static final String PAGE_LAMBDA = "com/live2d/cubism/doc/model/texture/H";
         private static final String LEGACY_PARALLELIZER =
-                "dev/turboism/adapter/cubism/exportperf/AtlasRebuildParallelizer";
+                "dev/turboism/adapter/cubism/optimization/export/AtlasRebuildParallelizer";
         private boolean hasAtlasListField;
         private boolean hasRunMethod;
         private boolean callsPageLambda;

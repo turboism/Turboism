@@ -16,7 +16,7 @@ def allocation(weight=23):
         'startTime': '1970-01-01T00:00:02+00:00', 'weight': weight,
         'objectClass': {'name': 'java/util/ArrayList'},
         'stackTrace': {'frames': [
-            {'method': {'type': {'name': 'dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex'},
+            {'method': {'type': {'name': 'dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex'},
                         'name': 'put', 'descriptor': '()V'}},
             {'method': {'type': {'name': 'com/live2d/graphics3d/editableMesh/triangulation/h'},
                         'name': 'a', 'descriptor': '()V'}}]}}}

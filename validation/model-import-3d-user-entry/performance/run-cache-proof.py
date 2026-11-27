@@ -56,7 +56,7 @@ def main():
     if sha(model) != expected_model or sha(host) != "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21":
         raise SystemExit("Refused: model or official artifact does not match reviewed Cat fixture")
     sources = sorted(Path(__file__).resolve().parent.glob("*.java"))
-    sources += sorted((Path(__file__).resolve().parents[3] / "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation").glob("*.java"))
+    sources += sorted((Path(__file__).resolve().parents[3] / "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/interpolation").glob("*.java"))
     libraries = sorted(args.lib.resolve().rglob("*.jar")) + [args.asm.resolve()]
     import os
     classpath = os.pathsep.join(str(path) for path in [output, *libraries])

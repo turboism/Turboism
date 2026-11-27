@@ -1,6 +1,6 @@
 package dev.turboism.validation.tlindex.singleagent;
 
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
 import dev.turboism.bootstrap.TriangulationSingleAgentValidationHook;
 import dev.turboism.bootstrap.TurboismAgent;
 import java.lang.management.ManagementFactory;

@@ -1,6 +1,6 @@
 package dev.turboism.validation.tlindex.diagnostic;
 
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -380,7 +380,7 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
                 input = productionStage("TriangulationMembershipPatcher", "patch", input);
             }
             if (leased) {
-                var method = Class.forName("dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgePatcher")
+                var method = Class.forName("dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgePatcher")
                         .getDeclaredMethod("patchShape", byte[].class, java.util.function.Function.class, String.class);
                 method.setAccessible(true);
                 try {

@@ -1,4 +1,4 @@
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import dev.turboism.agent.shaded.asm.ClassReader;
 import dev.turboism.agent.shaded.asm.ClassVisitor;
 import dev.turboism.agent.shaded.asm.ClassWriter;

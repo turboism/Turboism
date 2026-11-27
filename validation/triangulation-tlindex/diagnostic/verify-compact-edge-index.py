@@ -27,7 +27,7 @@ public final class IndexSuiteRunner {
   private IndexSuiteRunner() { }
   public static void main(String[] args) {
     var request = LauncherDiscoveryRequestBuilder.request().selectors(DiscoverySelectors.selectClass(
-      "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTest")).build();
+      "dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndexTest")).build();
     var listener = new SummaryGeneratingListener();
     var launcher = LauncherFactory.create();
     launcher.registerTestExecutionListeners(listener);
@@ -50,8 +50,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     root = Path.cwd()
-    source = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java'
-    tests = root / 'runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTest.java'
+    source = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex.java'
+    tests = root / 'runtime/src/test/java/dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndexTest.java'
     prototype = Path(__file__).with_name('CompactEdgeBucketSelfCheck.java')
     if sha(source) != '2fe0f008cd71ff373e0ae0a4453707fd7b4aa6aa114df13d3ca06b426d3d52ec':
         raise ValueError('unreviewed helper source')

@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import dev.turboism.adapter.cubism.temporarydeform.NativeTemporaryDeformBridge;
 import dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinator;
 import dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformHostProfile;

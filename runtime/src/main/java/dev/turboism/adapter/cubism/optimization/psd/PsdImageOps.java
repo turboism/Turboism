@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.psd;
 
-import dev.turboism.adapter.cubism.exportperf.DownscaleFastOp;
-import dev.turboism.adapter.cubism.exportperf.EdgeCleanFastOp;
+import dev.turboism.adapter.cubism.optimization.export.DownscaleFastOp;
+import dev.turboism.adapter.cubism.optimization.export.EdgeCleanFastOp;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.DataBufferInt;
@@ -13,11 +14,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Provides thread-safe image operations, fast convolution filters, and a bounded daemon worker
@@ -31,7 +27,7 @@ public final class PsdImageOps {
 
     private static final int MIN_WORKERS = 2;
     private static final int MAX_WORKERS = 8;
-    private static final long WORKER_IDLE_SECONDS = 30L;
+    private static final int MAX_QUEUE_CAPACITY = 65_536;
     private static final int KERNEL_3X3_LEN = 9;
     private static final int KERNEL_3X3_SIZE = 3;
     private static final int CHANNEL_COUNT_RGB = 3;
@@ -41,7 +37,7 @@ public final class PsdImageOps {
     private static final int DEFAULT_EDGE_DIVISOR = 1;
     private static final int DEFAULT_BLUR_DIVISOR = 9;
     private static final int LAPLACIAN_CENTER = -8;
-    private static final String THREAD_NAME_PREFIX = "turboism-psd-worker-";
+    private static final String WORKER_PREFIX = RuntimeThreads.THREAD_NAME_PREFIX + "-psd-worker";
 
     private static final String WRITABLE_IMAGE_CLASS = "com.live2d.graphics.CWritableImage";
     private static final String COLOR_TYPE_ENUM = "com.live2d.graphics.n";
@@ -68,7 +64,7 @@ public final class PsdImageOps {
     /**
      * Returns the shared bounded daemon worker pool for independent PSD layer CPU work.
      *
-     * @return daemon executor service capped between 2 and 8 threads with idle timeout
+     * @return daemon executor service capped between 2 and 8 threads
      */
     public static ExecutorService workerPool() {
         return WORKER_POOL;
@@ -540,17 +536,10 @@ public final class PsdImageOps {
     }
 
     private static ExecutorService createWorkerPool() {
-        final int workers = workerCount();
-        final AtomicInteger id = new AtomicInteger(1);
-        final ThreadFactory factory = runnable -> {
-            final Thread thread = new Thread(runnable, THREAD_NAME_PREFIX + id.getAndIncrement());
-            thread.setDaemon(true);
-            return thread;
-        };
-        final ThreadPoolExecutor pool = new ThreadPoolExecutor(
-                workers, workers, WORKER_IDLE_SECONDS, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), factory);
-        pool.allowCoreThreadTimeOut(true);
-        return pool;
+        return RuntimeThreads.fixedLane(
+                workerCount(),
+                RuntimeThreads.linkedQueue(MAX_QUEUE_CAPACITY),
+                RuntimeThreads.daemonThreads(WORKER_PREFIX, RuntimeThreads.contextClassLoader(PsdImageOps.class)));
     }
 
     private static ImageHandles resolveHandles(final ClassLoader loader) {
@@ -599,6 +588,7 @@ public final class PsdImageOps {
                             "a",
                             MethodType.methodType(BufferedImage.class, BufferedImage.class, int.class, boolean.class));
                 } catch (final Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     // Optional when unit testing without host edge clean utility on classpath.
                 }
 

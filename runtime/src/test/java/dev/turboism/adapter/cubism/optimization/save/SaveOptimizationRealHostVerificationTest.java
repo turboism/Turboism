@@ -10,8 +10,8 @@ import static org.objectweb.asm.Opcodes.ASM9;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
-import dev.turboism.adapter.cubism.exportperf.RuntimeExportAccelerationTransformer;
-import dev.turboism.adapter.cubism.modelopen.ModelOpenAccelerationTransformer;
+import dev.turboism.adapter.cubism.optimization.export.RuntimeExportAccelerationTransformer;
+import dev.turboism.adapter.cubism.optimization.modelopen.ModelOpenAccelerationTransformer;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;

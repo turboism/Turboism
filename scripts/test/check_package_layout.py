@@ -11,6 +11,15 @@ FORBIDDEN_DIRECTORIES = (
     "sdk/src/main/java/dev/turboism/sdk/cubism/callback",
     "sdk/src/main/java/dev/turboism/sdk/cubism/write",
     "sdk/src/main/java/dev/turboism/sdk/event/cubism",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/exportperf",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/modelopen",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/meshedit",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/interpolation",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/shader",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/startup",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/cache",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/interactive",
 )
 
 FORBIDDEN_FILES = (

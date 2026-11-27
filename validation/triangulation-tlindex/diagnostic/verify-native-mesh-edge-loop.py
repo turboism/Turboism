@@ -78,7 +78,7 @@ def main():
         source = Path(__file__).resolve().parent
         sources = [source / (name + '.java') for name in ('NativeMeshEdgeLoopPrototype', 'NativeMeshEdgeLoopSelfCheck')]
         sources.extend([source / 'NativeMeshEdgeTableOwnedAccess.java',
-                        Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeTable.java').resolve()])
+                        Path('runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/NativeMeshEdgeTable.java').resolve()])
         runtime = Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh').resolve()
         sources.extend(runtime / (name + '.java') for name in ('NativeMeshEdgePatcher', 'NativeMeshEdgeLookup',
                         'LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle'))

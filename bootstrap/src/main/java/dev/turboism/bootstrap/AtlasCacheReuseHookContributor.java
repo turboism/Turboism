@@ -1,7 +1,7 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseDelegate;
-import dev.turboism.adapter.cubism.textureatlas.cache.VerifiedAtlasCacheReuseInstaller;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReuseDelegate;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.VerifiedAtlasCacheReuseInstaller;
 import dev.turboism.config.AtlasCacheReusePreference;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 

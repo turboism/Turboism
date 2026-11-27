@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller;
 import dev.turboism.adapter.jdk.PipeImplLoopbackInstaller;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;

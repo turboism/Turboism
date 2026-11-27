@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.textureatlas.image.VerifiedAtlasTileBboxInstaller;
+import dev.turboism.adapter.cubism.optimization.atlas.image.VerifiedAtlasTileBboxInstaller;
 import dev.turboism.config.AtlasTileBboxPreference;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 

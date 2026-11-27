@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.optimization.atlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.AlphaComposite;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -297,6 +298,7 @@ public final class AtlasTilePageCompositor {
             }
             return new PrewarmedPage(pageW, pageH, atlasName, totalEntryCount, edgeFill, tiles);
         } catch (final Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }
@@ -377,6 +379,7 @@ public final class AtlasTilePageCompositor {
         } catch (final RuntimeException | Error failure) {
             throw failure;
         } catch (final Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }
@@ -498,6 +501,7 @@ public final class AtlasTilePageCompositor {
                             tileG.drawImage(work.srcBi, 0, 0, null);
                         }
                     } catch (final Throwable t) {
+                        FatalErrors.rethrowIfFatal(t);
                         rethrowUnchecked(t);
                     } finally {
                         tileG.dispose();
@@ -545,6 +549,7 @@ public final class AtlasTilePageCompositor {
                 hintHandle.invokeExact((Graphics) g2d);
                 return;
             } catch (final Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Fall through to explicit bicubic hint.
             }
         }
@@ -890,6 +895,7 @@ public final class AtlasTilePageCompositor {
             try {
                 disposeUiG.invoke(uiG);
             } catch (final Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Best-effort graphics disposal.
             }
         }
@@ -901,6 +907,7 @@ public final class AtlasTilePageCompositor {
             try {
                 flushWritable.invoke(writable);
             } catch (final Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Best-effort cleanup on abort.
             }
         }

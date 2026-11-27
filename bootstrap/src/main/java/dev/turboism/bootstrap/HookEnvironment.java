@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.kernel.KernelRuntime;
 import dev.turboism.mapping.verification.CompatibilityResolution;

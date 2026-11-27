@@ -20,7 +20,7 @@ class AllocationSitesTest(unittest.TestCase):
     def valid(self):return [event(1500+i*3000,frames=chain.CHAIN) for i in range(3)]
 
     def test_disjoint_partition_and_overlapping_owners(self):
-        helper=('dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable','lookup')
+        helper=('dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeTable','lookup')
         events=self.valid()+[event(1600,weight=50,frames=[helper]+chain.CHAIN)]
         r=analysis.summarize(events,WINDOWS,chain)['cycles'][0]
         self.assertEqual(150,r['sampledWeightBytes']['all'])

@@ -70,9 +70,9 @@ public final class NativeMeshCacheCopySelfCheck {
         if (agent) {
             if (Class.forName("dev.turboism.bootstrap.TurboismAgent").getClassLoader() != null)
                 throw new AssertionError("canonical premain required");
-            Class<?> bridge = Class.forName("dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge");
+            Class<?> bridge = Class.forName("dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge");
             admission = bridge.getDeclaredMethod("enterMesh", Class.class); admission.setAccessible(true);
-            Class<?> table = Class.forName("dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable");
+            Class<?> table = Class.forName("dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeTable");
             reservation = table.getDeclaredMethod("reservedBytes"); reservation.setAccessible(true);
         }
         Class<?> pt = Class.forName("com.live2d.graphics3d.editableMesh.MPoint2$PointType");

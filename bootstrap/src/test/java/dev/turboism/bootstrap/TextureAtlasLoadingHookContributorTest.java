@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.mesh.TextureAtlasTriangleSetTransformer;
-import dev.turboism.adapter.cubism.mesh.TriangulationSpatialIndexTransformer;
-import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoadingTransformer;
+import dev.turboism.adapter.cubism.optimization.atlas.TextureAtlasLoadingTransformer;
+import dev.turboism.adapter.cubism.optimization.triangulation.TextureAtlasTriangleSetTransformer;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationSpatialIndexTransformer;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.RuntimeConfigRepository;
 import dev.turboism.config.RuntimeStartupConfig;

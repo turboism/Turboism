@@ -29,8 +29,8 @@ public final class CatNativeDragAgent {
         : "cat-cost-drag".equals(System.getProperty("turboism.validation.mi3d.mode"))
         ? "7a59b95c14fd8b4a4bfaabd387b4d11fbf3d30f5d865d6099f24b7a590d9f192"
         : "1e9f9dc49f3db472dc3068bc08e3993cd7a10583a9d9bafae5e85f47073cf5aa";
-    static final String BRIDGE = "dev.turboism.adapter.cubism.interpolation.NativeMeshInterpolationBridge";
-    static final String SHADER_BRIDGE = "dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge";
+    static final String BRIDGE = "dev.turboism.adapter.cubism.optimization.interpolation.NativeMeshInterpolationBridge";
+    static final String SHADER_BRIDGE = "dev.turboism.adapter.cubism.optimization.shader.NativeShaderUniformBridge";
     static final String BRIDGE_CLASS_SHA = SHADER_PRODUCT
         ? "c674ae4e26836e699a4b5d63b393e8b06756df8493ae78401a4ef2fda5a3016b"
         : Boolean.getBoolean("turboism.validation.mi3d.editableDrag")

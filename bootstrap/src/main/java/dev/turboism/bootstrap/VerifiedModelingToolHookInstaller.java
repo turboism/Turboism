@@ -3,7 +3,7 @@ package dev.turboism.bootstrap;
 import dev.turboism.adapter.cubism.modeling.ModelingToolHostProfile;
 import dev.turboism.adapter.cubism.modeling.ModelingToolLifecycleTransformer;
 import dev.turboism.adapter.cubism.modeling.NativeModelingToolBridge;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.Objects;

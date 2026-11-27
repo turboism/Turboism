@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.optimization.save;
 
 import static org.objectweb.asm.Opcodes.ASM9;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -11,7 +12,7 @@ import org.objectweb.asm.MethodVisitor;
  * Provides classloader-aware ASM {@link ClassWriter} construction and structural bytecode scans
  * for save-path patchers.
  */
-public final class SavePerfClassWriters {
+final class SavePerfClassWriters {
 
     private static final String OBJECT_INTERNAL = "java/lang/Object";
 
@@ -119,6 +120,7 @@ public final class SavePerfClassWriters {
             } while (class1 != null && !class1.isAssignableFrom(class2));
             return class1 == null ? OBJECT_INTERNAL : class1.getName().replace('.', '/');
         } catch (final Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return OBJECT_INTERNAL;
         }
     }

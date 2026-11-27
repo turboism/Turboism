@@ -61,7 +61,7 @@ final class ShaderUniformHookContributor implements ReportedHookContributor {
             }
         };
         try {
-            final var handle = dev.turboism.adapter.cubism.shader.VerifiedShaderUniformInstaller.install(
+            final var handle = dev.turboism.adapter.cubism.optimization.shader.VerifiedShaderUniformInstaller.install(
                     environment.instrumentation(), diagnosticCallback);
             if (handle != null) {
                 return () -> {

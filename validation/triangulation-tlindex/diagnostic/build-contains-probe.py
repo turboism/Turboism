@@ -7,7 +7,7 @@ import sys
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-SOURCE = ROOT / 'runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java'
+SOURCE = ROOT / 'runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex.java'
 SOURCE_SHA = 'bcbcc330f72b430d73dd91ec15967da42b69600b0e1e6184f7374b18d46fa841'
 AGENT_SHA = '77ce425567f8a4fb1ef1c5055fe5015a33c1cf1dcefbc90dcfff9c0bbeebd17c'
 PREFIX = 'dev/turboism/adapter/cubism/mesh/'

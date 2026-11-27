@@ -4,7 +4,7 @@ import com.live2d.cubism.doc.model.*;
 import com.live2d.cubism.doc.model.drawable.artMesh.*;
 import com.live2d.cubism.doc.model.interpolator.extendedInterpolation.*;
 import com.live2d.serialize.UUSerialize;
-import dev.turboism.adapter.cubism.interpolation.NativeMeshInterpolationBridge;
+import dev.turboism.adapter.cubism.optimization.interpolation.NativeMeshInterpolationBridge;
 import java.io.File;
 import java.util.*;
 

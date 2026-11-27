@@ -2,7 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.modeling.ModelingToolHostProfile;
 import dev.turboism.adapter.cubism.modeling.NativeModelingToolBridge;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.SelectorAdmission;
 import java.util.Set;

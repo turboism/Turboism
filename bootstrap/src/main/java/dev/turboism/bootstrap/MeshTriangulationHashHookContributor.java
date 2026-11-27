@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.mesh.VerifiedMeshTriangulationHashInstaller;
+import dev.turboism.adapter.cubism.optimization.triangulation.VerifiedMeshTriangulationHashInstaller;
 import dev.turboism.config.MeshTriangulationPreference;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 

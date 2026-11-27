@@ -1,6 +1,6 @@
 package dev.turboism.validation.tlindex.diagnostic;
 
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import dev.turboism.validation.atlasimage.t039.T039OwnedTargetLoader;
 import dev.turboism.validation.atlasimage.t039.T039ShadowAgent;
 import java.io.InputStream;

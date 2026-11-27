@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderTarget;
+import dev.turboism.adapter.cubism.optimization.atlas.interactive.AtlasInteractiveRenderTarget;
 import dev.turboism.config.PerformanceSettingsConfig;
 import dev.turboism.config.RuntimeStartupConfig;
 import java.nio.file.Path;

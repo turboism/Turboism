@@ -3,8 +3,8 @@ package dev.turboism.diagnostic;
 import com.live2d.cubism.doc.model.*;
 import com.live2d.cubism.doc.model.drawable.artMesh.*;
 import com.live2d.serialize.*;
-import dev.turboism.adapter.cubism.interpolation.DerivedCacheSerializationBridge;
-import dev.turboism.adapter.cubism.interpolation.NativeMeshInterpolationBridge;
+import dev.turboism.adapter.cubism.optimization.interpolation.DerivedCacheSerializationBridge;
+import dev.turboism.adapter.cubism.optimization.interpolation.NativeMeshInterpolationBridge;
 import java.nio.file.*;
 import java.util.*;
 import java.security.MessageDigest;
@@ -82,16 +82,16 @@ public final class CatProjectionRoundtripProof {
             },"cat-save-heap-sampler");
             sampler.setDaemon(true);sampler.start();
             long allocatedBefore=CatInterpolationCacheProof.allocated(),started=System.nanoTime();
-            long streamedBefore=dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.streamedArchives();
+            long streamedBefore=dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.streamedArchives();
             System.out.println("BEFORE_SAVE "+DerivedCacheSerializationBridge.diagnostic()+" usedHeap="+(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory()));
             try {
                 if(!UUSerialize.INSTANCE.serializeToFile(Path.of(args[2]).toFile(),model,true,CompressOption.FAST,null,new HashMap<>(),false,-1))throw new AssertionError("official native serialization failed");
             } finally {
                 measuring.set(false);sampler.interrupt();sampler.join();
                 System.out.println("SAVE_COST elapsedNs="+(System.nanoTime()-started)+" threadAllocatedBytes="+(CatInterpolationCacheProof.allocated()-allocatedBefore)+" sampledHeapPeakBytes="+peak.get());
-                System.out.println("AFTER_SAVE "+DerivedCacheSerializationBridge.diagnostic()+" streamedArchives="+dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.streamedArchives());
+                System.out.println("AFTER_SAVE "+DerivedCacheSerializationBridge.diagnostic()+" streamedArchives="+dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.streamedArchives());
             }
-            if(Boolean.getBoolean("turboism.meshInterpolation.serializationStreaming") && dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.streamedArchives()!=streamedBefore+1)throw new AssertionError("full streaming path not used");
+            if(Boolean.getBoolean("turboism.meshInterpolation.serializationStreaming") && dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.streamedArchives()!=streamedBefore+1)throw new AssertionError("full streaming path not used");
             if(!CatRuntimeInterpolationAgent.installation.serializationPatched())throw new AssertionError("serialization hooks absent");
             if(DerivedCacheSerializationBridge.projectCache() || !bank.equals(CatInterpolationCacheProof.bank(forms)) || !structure.equals(structure(model)))throw new AssertionError("save changed live source/cache");
             for(int i=0;i<forms.size();i++)if(versions[i]!=forms.get(i).getEditVersion())throw new AssertionError("save changed live version");

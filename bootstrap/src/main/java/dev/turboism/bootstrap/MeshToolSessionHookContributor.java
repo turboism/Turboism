@@ -4,7 +4,7 @@ import dev.turboism.adapter.cubism.mesh.MeshToolSessionHostProfile;
 import dev.turboism.adapter.cubism.mesh.MeshToolSessionResolver;
 import dev.turboism.adapter.cubism.mesh.NativeMeshToolSession;
 import dev.turboism.adapter.cubism.mesh.NativeMeshToolSessionBridge;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import java.util.Set;
 
 /** Installs the verified mesh-session lifecycle bridge before plugin initialization. */

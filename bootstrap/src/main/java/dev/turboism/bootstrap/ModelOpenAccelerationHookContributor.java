@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.modelopen.ModelOpenAccelerationTransformer;
+import dev.turboism.adapter.cubism.optimization.modelopen.ModelOpenAccelerationTransformer;
 import dev.turboism.config.optimization.OptimizationCatalog;
 import java.lang.instrument.ClassFileTransformer;
 

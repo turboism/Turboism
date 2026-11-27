@@ -45,7 +45,7 @@ def main():
     math.write_text('''final class AngleGuardMath {
  private AngleGuardMath() {}
  static boolean reject(float cross,float dot) {
-  return dev.turboism.adapter.cubism.mesh.TriangulationAngleGuard.reject(cross,dot);
+  return dev.turboism.adapter.cubism.optimization.triangulation.TriangulationAngleGuard.reject(cross,dot);
  }
 }
 ''')
@@ -63,7 +63,7 @@ final class AngleGuardBytecodePrototype {
  }
  static byte[] patchShape(byte[] bytes) throws Exception { return patch(bytes); }
  static byte[] patch(byte[] bytes) throws Exception {
-  Class<?> type=Class.forName("dev.turboism.adapter.cubism.mesh.TriangulationAngleGuardPatcher");
+  Class<?> type=Class.forName("dev.turboism.adapter.cubism.optimization.triangulation.TriangulationAngleGuardPatcher");
   Method patch=type.getDeclaredMethod("patch",byte[].class); patch.setAccessible(true);
   byte[] production;
   try { production=(byte[])patch.invoke(null,(Object)bytes); }
@@ -79,12 +79,12 @@ final class AngleGuardBytecodePrototype {
     if(!name.equals("d")||!desc.equals("()V")) return original;
     return new MethodVisitor(Opcodes.ASM9,original) {
      @Override public void visitMethodInsn(int opcode,String owner,String called,String descriptor,boolean itf) {
-      if(owner.equals("dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge")) {
+      if(owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgeBridge")) {
        if(called.equals("enter")) {
         super.visitInsn(Opcodes.POP);
         super.visitMethodInsn(opcode,"AngleGuardNativeSelfCheck$Control","enter","()Ljava/lang/AutoCloseable;",false);
        } else super.visitMethodInsn(opcode,"AngleGuardNativeSelfCheck$Control",called,descriptor,itf);
-      } else if(owner.equals("dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard")) {
+      } else if(owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/TriangulationAngleGuard")) {
        super.visitMethodInsn(opcode,"AngleGuardNativeSelfCheck$Control",called,descriptor,itf);
       } else super.visitMethodInsn(opcode,owner,called,descriptor,itf);
      }
@@ -107,7 +107,7 @@ final class AngleGuardBytecodePrototype {
     if original.count(before) != 1:
         raise ValueError('owned scalar control source drift')
     predicate = generated / 'ProductionAnglePredicateSelfCheck.java'
-    predicate.write_text(original.replace(before, '''        return dev.turboism.adapter.cubism.mesh.TriangulationAngleGuard.reject(
+    predicate.write_text(original.replace(before, '''        return dev.turboism.adapter.cubism.optimization.triangulation.TriangulationAngleGuard.reject(
                 ax * by - ay * bx, ax * bx + ay * by);''').replace(
                     'AngleRejectionSelfCheck', 'ProductionAnglePredicateSelfCheck'))
     sources = [math, wrapper, predicate, base / 'AngleGuardNativeSelfCheck.java', base / 'AngleGuardCostSelfCheck.java']

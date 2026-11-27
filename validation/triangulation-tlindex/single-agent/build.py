@@ -44,7 +44,7 @@ def main():
         manifest = jar.read("META-INF/MANIFEST.MF").decode().replace("\r\n", "\n")
         if "Premain-Class: dev.turboism.bootstrap.TurboismAgent\n" not in manifest or "Boot-Class-Path: turboism-agent.jar\n" not in manifest:
             raise ValueError("base Agent entry or canonical boot path rejected")
-        if "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.class" not in jar.namelist():
+        if "dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgeBridge.class" not in jar.namelist():
             raise ValueError("base Agent lacks the production lazy bridge")
     src = Path(__file__).resolve().parent
     out = args.out.resolve()

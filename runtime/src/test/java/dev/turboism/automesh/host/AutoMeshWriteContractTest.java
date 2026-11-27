@@ -176,6 +176,7 @@ class AutoMeshWriteContractTest {
                     urls.add(candidate.toUri().toURL());
                 }
             }
+            urls.addAll(AutoMeshFunnelTestSupport.thirdPartyJarUrls(directory));
             return urls.toArray(URL[]::new);
         }
 

@@ -375,6 +375,7 @@ public final class ImageSavePreEncoder {
                     lookup.findVirtual(writableClass, "getJBufferedImage", MethodType.methodType(BufferedImage.class)),
                     lookup.findVirtual(writableClass, "getPngBytes", MethodType.methodType(byte[].class)));
         } catch (final Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }

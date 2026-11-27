@@ -2,7 +2,7 @@ package dev.turboism.diagnostic;
 
 import com.live2d.cubism.doc.model.interpolator.extendedInterpolation.ExtendedInterpolationType;
 import com.live2d.graphics3d.type.GVector2;
-import dev.turboism.adapter.cubism.interpolation.EllipseWeights;
+import dev.turboism.adapter.cubism.optimization.interpolation.EllipseWeights;
 import java.util.*;
 
 /** Exact official-library coefficient differential, without a model or Editor. */

@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.optimization.atlas;
 
-import dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseDelegate;
-import dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReusePatcher;
-import dev.turboism.adapter.cubism.textureatlas.cache.AtlasPageScheduler;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReuseDelegate;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReusePatcher;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasPageScheduler;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
@@ -327,6 +328,7 @@ public final class AtlasPageRebuildCoordinator {
             try {
                 return (boolean) getEdgeFill.invoke(taeModel);
             } catch (final Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 return true;
             }
         }
@@ -400,6 +402,7 @@ public final class AtlasPageRebuildCoordinator {
             try {
                 return (boolean) isCanceled.invoke(progress);
             } catch (final Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 return false;
             }
         }
@@ -413,6 +416,7 @@ public final class AtlasPageRebuildCoordinator {
             } catch (final RuntimeException | Error e) {
                 throw e;
             } catch (final Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Non-fatal progress reporting guard.
             }
         }
@@ -423,6 +427,7 @@ public final class AtlasPageRebuildCoordinator {
             } catch (final RuntimeException | Error e) {
                 throw e;
             } catch (final Throwable t) {
+                FatalErrors.rethrowIfFatal(t);
                 throw new IllegalStateException("Failed progress subtask", t);
             }
         }
@@ -448,6 +453,7 @@ public final class AtlasPageRebuildCoordinator {
             } catch (final RuntimeException | Error e) {
                 throw e;
             } catch (final Throwable t) {
+                FatalErrors.rethrowIfFatal(t);
                 throw new IllegalStateException("Atlas texture update failed", t);
             }
         }

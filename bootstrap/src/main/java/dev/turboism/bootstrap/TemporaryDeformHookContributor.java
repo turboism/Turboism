@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformHostProfile;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.SelectorAdmission;

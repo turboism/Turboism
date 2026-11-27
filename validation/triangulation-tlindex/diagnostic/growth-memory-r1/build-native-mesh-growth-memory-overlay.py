@@ -87,7 +87,7 @@ def main():
         raise ValueError('frozen production candidate identity')
     if guard.quiet_jobs():
         raise RuntimeError('performance work queued/running')
-    source = Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeLookup.java')
+    source = Path('runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/NativeMeshEdgeLookup.java')
     reviewed = Path('build/t093-native-table-growth-r1/sole-premain-r1/compile-sources/NativeMeshEdgeLookup.java')
     if source.read_bytes() != reviewed.read_bytes():
         raise ValueError('helper source differs from reviewed T093 compile input')

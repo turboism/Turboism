@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.json.Json;
 import dev.turboism.test.Stubs;

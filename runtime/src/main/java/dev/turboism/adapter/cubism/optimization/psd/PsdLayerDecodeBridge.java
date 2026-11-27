@@ -576,6 +576,7 @@ public final class PsdLayerDecodeBridge {
                     final Object companion = colorTypeClass.getField("a").get(null);
                     colorTypeA = companion.getClass().getMethod("a").invoke(companion);
                 } catch (final Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     // Optional icon helpers may not be present in isolated unit tests.
                 }
 

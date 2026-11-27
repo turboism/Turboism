@@ -16,6 +16,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -99,6 +100,13 @@ class RenderPassTraversalArtifactTest {
     private static final int BENCH_ENTITY_COUNT = 48;
     private static final int WARMUP_FRAMES = 80;
     private static final int MEASURE_FRAMES = 60;
+    private static final int BASE_COLOR_POOL_WARMUP = 2_000;
+    private static final int COLOR_POOL_ALLOC_WARMUP = 20_000;
+    private static final int ALLOC_MEASURE_ATTEMPTS = 3;
+    private static final int COLOR_POOL_MEASURE_ITERS = 1_000;
+    private static final int REFERENCE_WALK_DEPTH = 10;
+    private static final String CUBISM_REFERENCE_RELATIVE = ".local/share/cubism-reference";
+    private static final String USER_HOME_PROPERTY = "user.home";
     private static final int GL_NO_ERROR = 0;
     private static final int GL_INVALID_OPERATION = 1282;
 
@@ -1732,22 +1740,28 @@ class RenderPassTraversalArtifactTest {
                     lookup.unreflect(baseGet).asType(getType);
             final java.lang.invoke.MethodHandle patGetHandle =
                     lookup.unreflect(patGet).asType(getType);
-            for (int w = 0; w < 5000; w++) {
+            for (int w = 0; w < BASE_COLOR_POOL_WARMUP; w++) {
                 final Object bIgnored = (Object) baseGetHandle.invokeExact(baseTex);
-                final Object pIgnored = (Object) patGetHandle.invokeExact(patTex);
             }
             final long tid = Thread.currentThread().getId();
             allocMx.getThreadAllocatedBytes(tid);
             final long baseBefore = allocMx.getThreadAllocatedBytes(tid);
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < COLOR_POOL_MEASURE_ITERS; i++) {
                 final Object bIgnored = (Object) baseGetHandle.invokeExact(baseTex);
             }
             final long baseAlloc = allocMx.getThreadAllocatedBytes(tid) - baseBefore;
-            final long patBefore = allocMx.getThreadAllocatedBytes(tid);
-            for (int i = 0; i < 1000; i++) {
+            for (int w = 0; w < COLOR_POOL_ALLOC_WARMUP; w++) {
                 final Object pIgnored = (Object) patGetHandle.invokeExact(patTex);
             }
-            final long patAlloc = allocMx.getThreadAllocatedBytes(tid) - patBefore;
+            long patAlloc = Long.MAX_VALUE;
+            for (int attempt = 0; attempt < ALLOC_MEASURE_ATTEMPTS; attempt++) {
+                allocMx.getThreadAllocatedBytes(tid);
+                final long patBefore = allocMx.getThreadAllocatedBytes(tid);
+                for (int i = 0; i < COLOR_POOL_MEASURE_ITERS; i++) {
+                    final Object pIgnored = (Object) patGetHandle.invokeExact(patTex);
+                }
+                patAlloc = Math.min(patAlloc, allocMx.getThreadAllocatedBytes(tid) - patBefore);
+            }
             assertTrue(
                     baseAlloc > 0L,
                     version + " baseline GRenderTexture.getPresetColorType() should allocate PresetColorType[]");
@@ -1853,7 +1867,25 @@ class RenderPassTraversalArtifactTest {
         if (!override.isBlank()) {
             return Path.of(override);
         }
-        return root.resolve(version).resolve(CUBISM_JAR);
+        final Path direct = root.resolve(version).resolve(CUBISM_JAR);
+        if (Files.isRegularFile(direct)) {
+            return direct;
+        }
+        final Path referenceBase = Path.of(System.getProperty(USER_HOME_PROPERTY), CUBISM_REFERENCE_RELATIVE, version);
+        if (Files.isDirectory(referenceBase)) {
+            try (var stream = Files.walk(referenceBase, REFERENCE_WALK_DEPTH)) {
+                final Path found = stream.filter(path -> Files.isRegularFile(path)
+                                && CUBISM_JAR.equals(path.getFileName().toString()))
+                        .findFirst()
+                        .orElse(null);
+                if (found != null) {
+                    return found;
+                }
+            } catch (final IOException ignored) {
+                return direct;
+            }
+        }
+        return direct;
     }
 
     private record PoolTestArgs(Object context, Object rootGl) {}

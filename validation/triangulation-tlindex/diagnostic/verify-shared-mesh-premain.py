@@ -41,7 +41,7 @@ def main():
     try:
         classes = out / 'bridge-classes'
         classes.mkdir()
-        bridge = Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.java').resolve()
+        bridge = Path('runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgeBridge.java').resolve()
         lifecycle = bridge.with_name('TriangulationDefinitionLifecycle.java')
         source_names = ['LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle', 'PointTriangleReusePatcher', 'PointTriangleReusePreparation']
         if args.integration:

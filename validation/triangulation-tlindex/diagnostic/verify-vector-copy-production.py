@@ -53,12 +53,12 @@ final class VectorCopyBytecodePrototype {
       if(owner.equals(V)&&called.equals("<init>")&&descriptor.equals("(L"+V+";)V"))
        super.visitMethodInsn(Opcodes.INVOKESTATIC,CONTROL,"nativeCopy","()V",false);
       afterMinus=owner.equals(P+"TriPoint")&&called.equals("minus");
-      if(owner.equals("dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge")) {
+      if(owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgeBridge")) {
        if(called.equals("enter")) {
         super.visitInsn(Opcodes.POP);
         super.visitMethodInsn(opcode,CONTROL,"enter","()Ljava/lang/AutoCloseable;",false);
        } else super.visitMethodInsn(opcode,CONTROL,called,descriptor,itf);
-      } else if(owner.equals("dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard"))
+      } else if(owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/TriangulationAngleGuard"))
        super.visitMethodInsn(opcode,CONTROL,called,descriptor,itf);
       else super.visitMethodInsn(opcode,owner,called,descriptor,itf);
      }

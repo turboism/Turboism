@@ -321,6 +321,7 @@ Selector contracts and target-class tables that narrow verified capabilities to 
 | target-classes/`warp-deform-edit-acceleration.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | target-classes/`warp-position-projection.json` | `TargetClassTable` | 5.0.00–5.3.05 |
 | `plugins/mcp/src/main/java/dev/turboism/plugin/mcp/McpHistoryCommandDomain.java` | `HISTORY_SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
+| `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/atlas/interactive/AtlasInteractiveRenderTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/extinterpsibling/ExtendedInterpolationSiblingTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/hittest/MeshHitTestTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/memory/MemoryLeakMitigationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
@@ -328,7 +329,6 @@ Selector contracts and target-class tables that narrow verified capabilities to 
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/renderpass/RenderPassTraversalTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpdraw/WarpNormalPointElisionTarget.java` | `SUPPORTED_VERSIONS` | 5.0.06–5.3.05 |
 | `runtime/src/main/java/dev/turboism/adapter/cubism/optimization/warpgrid/WarpGridInterpolationTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
-| `runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/interactive/AtlasInteractiveRenderTarget.java` | `SUPPORTED_VERSIONS` | 5.0.00–5.3.05 |
 
 ## Version monotonicity
 

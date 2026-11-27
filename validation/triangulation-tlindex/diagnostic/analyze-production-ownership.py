@@ -15,7 +15,7 @@ import subprocess
 
 EVENTS = 'jdk.ExecutionSample,jdk.NativeMethodSample,jdk.ObjectAllocationSample,jdk.GCHeapSummary,jdk.GarbageCollection,jdk.GCPhasePause,jdk.Deoptimization'
 TRI = 'com.live2d.graphics3d.editableMesh.triangulation.'
-INDEX = 'dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex'
+INDEX = 'dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndex'
 
 
 class Pipe:

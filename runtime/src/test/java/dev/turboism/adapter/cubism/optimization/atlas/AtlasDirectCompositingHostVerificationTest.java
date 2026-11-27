@@ -6,10 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.adapter.cubism.exportperf.RuntimeExportAccelerationTransformer;
-import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoadingTransformer;
-import dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseTransformer;
-import dev.turboism.adapter.cubism.textureatlas.image.AtlasTileBboxTransformer;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReuseTransformer;
+import dev.turboism.adapter.cubism.optimization.atlas.image.AtlasTileBboxTransformer;
+import dev.turboism.adapter.cubism.optimization.export.RuntimeExportAccelerationTransformer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
