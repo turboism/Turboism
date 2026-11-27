@@ -87,6 +87,9 @@ final class CoreWindows implements AutoCloseable {
     static final String ABOUT_THANKS = TurboismEndpoints.THANKS_ORIGIN;
     static final String ABOUT_LICENSE = TurboismEndpoints.GITHUB_LICENSE_URL;
     static final String ABOUT_EULA = TurboismEndpoints.GITHUB_EULA_URL;
+    static final String ABOUT_SPONSOR = TurboismEndpoints.SPONSOR_PAGE_URL;
+    private static final String ABOUT_SPONSOR_LABEL_KEY = "about.support-me";
+    private static final String ABOUT_LINK_SEPARATOR = " / ";
     private static final int ABOUT_BODY_WIDTH = 360;
     private static final String LINK_COLOR_KEY = "Component.linkColor";
     private static final Color FALLBACK_LINK_COLOR = new Color(0x155dfc);
@@ -1425,7 +1428,7 @@ final class CoreWindows implements AutoCloseable {
     /**
      * The About body is intentionally minimal and centered in the window: the
      * product name, the framework version, the tagline, and the
-     * License and EULA links. The product name links to the website and the
+     * license, EULA, and sponsor links. The product name links to the website and the
      * version links to the download page.
      */
     static String aboutHtml(final PluginLocalization i18n, final String version) {
@@ -1452,9 +1455,11 @@ final class CoreWindows implements AutoCloseable {
                 + "<div class=\"tagline\"><a href=\"" + ABOUT_THANKS + "\">"
                 + ShellHtml.escape(i18n.text("about.tagline")) + "</a></div>"
                 + "<div class=\"links\"><a href=\"" + ABOUT_LICENSE + "\">"
-                + ShellHtml.escape(i18n.text("about.license")) + "</a> / "
+                + ShellHtml.escape(i18n.text("about.license")) + "</a>" + ABOUT_LINK_SEPARATOR
                 + "<a href=\"" + ABOUT_EULA + "\">"
-                + ShellHtml.escape(i18n.text("about.eula")) + "</a></div>"
+                + ShellHtml.escape(i18n.text("about.eula")) + "</a>" + ABOUT_LINK_SEPARATOR
+                + "<a href=\"" + ABOUT_SPONSOR + "\">"
+                + ShellHtml.escape(i18n.text(ABOUT_SPONSOR_LABEL_KEY)) + "</a></div>"
                 + "</td></tr></table>"
                 + "</body></html>";
     }
@@ -1464,7 +1469,8 @@ final class CoreWindows implements AutoCloseable {
                 && !ABOUT_THANKS.equals(value)
                 && !UPDATE_DOWNLOAD_PAGE.equals(value)
                 && !ABOUT_LICENSE.equals(value)
-                && !ABOUT_EULA.equals(value)) {
+                && !ABOUT_EULA.equals(value)
+                && !ABOUT_SPONSOR.equals(value)) {
             return;
         }
         if (!openHttpLink(value)) {
