@@ -454,6 +454,7 @@ final class CoreWindows implements AutoCloseable {
             final JPanel outer = rendered.panel();
             JPanel content = outer;
             PendingSection activeSection = null;
+            java.util.function.BooleanSupplier cubismJvmSave = null;
             int row = nextRow(outer);
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
                 final SettingsControl control = entry.contribution().control();
@@ -467,14 +468,23 @@ final class CoreWindows implements AutoCloseable {
                     content = activeSection.content();
                     row = 0;
                 } else {
-                    saves.add(renderControl(
+                    final java.util.function.BooleanSupplier save = renderControl(
                             owner,
                             content,
                             row++,
                             control,
                             toggleCoordinator,
-                            activeSection != null ? activeSection.toggles() : null));
+                            activeSection != null ? activeSection.toggles() : null);
+                    if (CubismJvmSettingsContribution.CONTRIBUTION_ID.equals(control.id())) {
+                        cubismJvmSave = save;
+                    } else {
+                        saves.add(save);
+                    }
                 }
+            }
+            // GraalVM availability uses the persisted custom path.
+            if (cubismJvmSave != null) {
+                saves.add(cubismJvmSave);
             }
             flushSection(outer, activeSection, toggleCoordinator);
             toggleCoordinator.syncGroupStates();

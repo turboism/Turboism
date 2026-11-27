@@ -182,8 +182,8 @@ class DeclarativeSettingsRendererTest {
                         "Performance",
                         OptionalInt.of(200),
                         List.of(
-                                new SettingsSnapshot.Entry("turboism.core", pathContribution),
-                                new SettingsSnapshot.Entry("turboism.core", jvmContribution)))),
+                                new SettingsSnapshot.Entry("turboism.core", jvmContribution),
+                                new SettingsSnapshot.Entry("turboism.core", pathContribution)))),
                 plugins(),
                 RuntimeLogReader.unavailable(),
                 dev.turboism.internal.core.KeybindingService.unavailable());
