@@ -78,9 +78,20 @@ the localized files themselves.
 ```bash
 # Default is a dry run; --submit actually dispatches GitHub Actions.
 python3 scripts/release/product.py candidate --channel stable --submit
+python3 scripts/release/product.py candidate --channel stable --from-beta --submit
 python3 scripts/release/product.py candidate --channel beta --version 0.43.10-beta.1 --submit
 python3 scripts/release/product.py candidate --channel nightly --submit
 ```
+
+When a same-commit Beta candidate has already passed full `checkRelease` and native
+Windows verification on `main`, `--from-beta` (or explicit `--from-beta-run` and
+`--from-beta-attempt`) dispatches the fast Stable path in `release.yml`. Preflight and
+the `build-fast-stable` job verify the Beta run, its `build` and
+`windows-release-verification` job conclusions, and its `build-ledger` entry at the
+exact source SHA. The workflow then allocates a new Stable `buildNumber`, reuses the
+Gradle build cache to assemble native Stable packages, re-verifies all artifacts and
+bundled plugins, and runs the normal signing and promotion steps. This path does not
+relabel a Beta artifact and does not depend on expired Beta Actions artifacts.
 
 The wrapper rejects local uncommitted files or HEAD different from remote main.
 It does not push local changes. A manual Nightly request follows the same

@@ -25,6 +25,16 @@ on:
         description: Exact main commit to build; mismatches fail rather than follow a moving branch
         required: true
         type: string
+      promote_from_beta_run_id:
+        description: Verified same-SHA Beta candidate run id for fast Stable promotion (leave blank for full verification)
+        required: false
+        default: ''
+        type: string
+      promote_from_beta_attempt:
+        description: Exact run attempt of the verified Beta candidate (required when promote_from_beta_run_id is set)
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -37,10 +47,14 @@ jobs:
   preflight:
     if: github.repository == 'turboism/Turboism' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
     outputs:
       should_build: ${{ steps.target.outputs.should_build }}
       channel: ${{ steps.target.outputs.channel }}
       version: ${{ steps.target.outputs.version }}
+      build_mode: ${{ steps.target.outputs.build_mode }}
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
@@ -53,9 +67,13 @@ jobs:
           EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
           CHANNEL: ${{ github.event_name == 'schedule' && 'nightly' || inputs.channel }}
           VERSION: ${{ inputs.version }}
+          PROMOTE_FROM_BETA_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_from_beta_run_id || '' }}
+          PROMOTE_FROM_BETA_ATTEMPT: ${{ github.event_name == 'workflow_dispatch' && inputs.promote_from_beta_attempt || '' }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"; fi
-          python3 scripts/release/product-build.py preflight --source "$GITHUB_SHA" --channel "$CHANNEL" --version "$VERSION"
+          python3 scripts/release/product-build.py preflight \
+            --source "$GITHUB_SHA" --channel "$CHANNEL" --version "$VERSION" \
+            --beta-run-id "$PROMOTE_FROM_BETA_RUN_ID" --beta-attempt "$PROMOTE_FROM_BETA_ATTEMPT"
   allocate-build:
     needs: preflight
     if: needs.preflight.outputs.should_build == 'true'
@@ -76,7 +94,7 @@ jobs:
       TURBOISM_BUILD_VERSION: ${{ needs.allocate-build.outputs.build_version }}
       TURBOISM_BUILD_CHANNEL: ${{ needs.allocate-build.outputs.build_channel }}
       ORG_GRADLE_PROJECT_turboismRelease: 'true'
-    if: needs.preflight.outputs.should_build == 'true'
+    if: needs.preflight.outputs.should_build == 'true' && needs.preflight.outputs.build_mode == 'full'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     outputs:
@@ -342,14 +360,236 @@ jobs:
             echo "Channel: $TURBOISM_BUILD_CHANNEL; version: $TURBOISM_BUILD_VERSION; Build: $TURBOISM_BUILD_NUMBER"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  sign-framework-update:
-    needs: [preflight, allocate-build, build]
-    # Off by default: without the repository variable the candidate build is byte-identical to today.
-    # Only Stable and Beta are signed; Nightly keeps the full-package path because the feed admission
-    # only accepts workflow_dispatch/release identities from release-github-only.yml.
+  build-fast-stable:
+    needs: [preflight, allocate-build]
     if: >-
       needs.preflight.outputs.should_build == 'true' &&
-      needs.build.result == 'success' &&
+      needs.preflight.outputs.build_mode == 'fast-stable' &&
+      needs.preflight.outputs.channel == 'stable'
+    permissions:
+      contents: read
+      actions: read
+    env:
+      TURBOISM_BUILD_NUMBER: ${{ needs.allocate-build.outputs.build_number }}
+      TURBOISM_SOURCE_REVISION: ${{ github.sha }}
+      TURBOISM_BUILD_VERSION: ${{ needs.allocate-build.outputs.build_version }}
+      TURBOISM_BUILD_CHANNEL: ${{ needs.allocate-build.outputs.build_channel }}
+      ORG_GRADLE_PROJECT_turboismRelease: 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out immutable candidate revision
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify requested source identity and prior Beta gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ github.sha }}
+          PROMOTE_FROM_BETA_RUN_ID: ${{ inputs.promote_from_beta_run_id }}
+          PROMOTE_FROM_BETA_ATTEMPT: ${{ inputs.promote_from_beta_attempt }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+          test "$TURBOISM_BUILD_CHANNEL" = stable
+          test '${{ needs.allocate-build.outputs.run_attempt }}' = "$GITHUB_RUN_ATTEMPT" || { echo '::error::A rebuilt candidate needs a new identity. Re-run ALL jobs, including allocate-build.'; exit 1; }
+          python3 scripts/release/product-build.py verify-beta-source \
+            --source "$GITHUB_SHA" \
+            --beta-run-id "$PROMOTE_FROM_BETA_RUN_ID" \
+            --beta-attempt "$PROMOTE_FROM_BETA_ATTEMPT"
+
+      - name: Resolve and verify release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("gradle/common-java.gradle.kts").read_text(encoding="utf-8")
+          match = re.search(r'turboismFrameworkVersion"\]\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', text)
+          if match is None:
+              raise SystemExit("framework version is unavailable")
+          print(match.group(1))
+          PY
+          )"
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          test "$VERSION" = "$TURBOISM_BUILD_VERSION"
+          if git show-ref --verify --quiet "refs/tags/v$VERSION"; then
+            test "$(git rev-parse "v$VERSION^{commit}")" = "$GITHUB_SHA"
+          fi
+          grep -Fq "## [$VERSION] - " docs/en/CHANGELOG.md
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Restore Gradle build and SDK reference caches
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: |
+            ~/.gradle/caches/build-cache-1
+            ~/.gradle/caches/turboism-sdk-reference-v1
+          key: turboism-gradle-build-cache-v1-${{ github.workflow }}-fast-stable-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-release-gates-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-CI-${{ github.sha }}-
+            turboism-gradle-build-cache-v1-${{ github.workflow }}-
+            turboism-gradle-build-cache-v1-Unified build channel checks-release-gates-
+            turboism-gradle-build-cache-v1-CI-
+            turboism-gradle-build-cache-v1-
+
+      - name: Install NSIS for unsigned packaging
+        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends nsis
+
+      - name: Prepare framework self-update activation resources
+        env:
+          FRAMEWORK_UPDATE_TRUSTED_KEYS: ${{ vars.FRAMEWORK_UPDATE_TRUSTED_KEYS }}
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+        run: |
+          set -euo pipefail
+          resource_dir="$GITHUB_WORKSPACE/build/framework-update-client"
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ]; then
+            FRAMEWORK_UPDATES_ENABLED=true python3 scripts/release/prepare-framework-client.py --output-dir "$resource_dir"
+            printf 'TURBOISM_FRAMEWORK_UPDATE_RESOURCES=%s\n' "$resource_dir" >> "$GITHUB_ENV"
+          else
+            FRAMEWORK_UPDATES_ENABLED=false python3 scripts/release/prepare-framework-client.py --output-dir "$resource_dir"
+          fi
+
+      - name: Assemble release archives and Windows installer
+        env:
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+        run: |
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ]; then
+            bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}" --skip-nsis --with-inventory
+            test -f build/windows-installer/generated/framework-payload-inventory.json
+          else
+            bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}"
+          fi
+
+      - name: Verify checksums and release metadata
+        env:
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+        run: |
+          (
+            cd build/windows-installer/dist
+            sha256sum -c *.sha256
+          )
+          skip_args=()
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ]; then
+            skip_args=(--skip-installer)
+          fi
+          python3 scripts/release/verify-release.py \
+            --version "${{ steps.version.outputs.version }}" \
+            --channel "$TURBOISM_BUILD_CHANNEL" \
+            --dist build/windows-installer/dist \
+            --release-plugins packaging/release-plugins.txt \
+            --windows-stage build/windows-installer/staging \
+            --manifest-output build/release-orchestrator/framework-artifacts.json \
+            "${skip_args[@]}"
+
+      - name: Verify bundled plugin versions
+        run: |
+          python3 scripts/release/prepare-market-release.py \
+            --verify-bundled build/windows-installer/staging/plugins \
+            --catalog https://plugin.turboism.dev/api/v2/catalog.json
+
+      - name: Generate deterministic release candidate
+        env:
+          FRAMEWORK_UPDATE_SIGNING_ENABLED: ${{ vars.FRAMEWORK_UPDATE_SIGNING_ENABLED }}
+        run: |
+          python3 scripts/release/promote-github-release.py candidate-tag \
+            --source-root "$GITHUB_WORKSPACE" --source-sha "$GITHUB_SHA"
+          skip_args=()
+          if [ "$FRAMEWORK_UPDATE_SIGNING_ENABLED" = true ]; then
+            skip_args=(--skip-installer)
+          fi
+          python3 scripts/release/turboism-release.py build \
+            --require-tag \
+            --dist build/windows-installer/dist \
+            "${skip_args[@]}" \
+            --candidate build/release-orchestrator/candidate.json
+
+      - name: Extract release notes from changelog
+        run: |
+          python3 scripts/release/extract-release-notes.py \
+            docs/en/CHANGELOG.md "${{ steps.version.outputs.version }}" \
+            > build/release-orchestrator/release-notes.md
+
+      - name: Write allocated build identity into the candidate evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/build-identity.py receipt --source "$GITHUB_SHA" --version "$TURBOISM_BUILD_VERSION" --channel "$TURBOISM_BUILD_CHANNEL" --output build/release-orchestrator/build-identity.json
+
+      - name: Upload verified candidate payload
+        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/windows-installer/dist
+            build/windows-installer/staging
+            build/windows-installer/generated/framework-payload-inventory.json
+            build/release-orchestrator/candidate.json
+            build/release-orchestrator/build-identity.json
+            build/release-orchestrator/framework-artifacts.json
+            build/release-orchestrator/release-notes.md
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload the signable payload for the protected signing job
+        if: vars.FRAMEWORK_UPDATE_SIGNING_ENABLED == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-release-payload-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/windows-installer/dist
+            build/windows-installer/staging
+            build/windows-installer/generated/framework-payload-inventory.json
+            build/release-orchestrator/candidate.json
+            build/release-orchestrator/build-identity.json
+            build/release-orchestrator/framework-artifacts.json
+            build/release-orchestrator/release-notes.md
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Report candidate promotion identity
+        run: |
+          {
+            echo '## Fast Stable candidate verified — no official tag or Release was published'
+            echo "Source: $GITHUB_SHA"
+            echo "Verified same-SHA Beta source: run ${{ inputs.promote_from_beta_run_id }} attempt ${{ inputs.promote_from_beta_attempt }}"
+            echo "Candidate run: $GITHUB_RUN_ID; attempt: $GITHUB_RUN_ATTEMPT"
+            echo 'Review the artifacts, then explicitly dispatch release-github-only.yml.'
+            echo "Channel: $TURBOISM_BUILD_CHANNEL; version: $TURBOISM_BUILD_VERSION; Build: $TURBOISM_BUILD_NUMBER"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  sign-framework-update:
+    needs: [preflight, allocate-build, build, build-fast-stable]
+    # Off by default: without the repository variable the candidate build is byte-identical to today.
+    # Only Stable and Beta are signed; Nightly keeps the full-package path because the feed admission
+    # only accepts workflow_dispatch/release events from release-github-only.yml.
+    if: >-
+      !failure() && !cancelled() &&
+      needs.preflight.result == 'success' &&
+      needs.allocate-build.result == 'success' &&
+      needs.preflight.outputs.should_build == 'true' &&
+      (needs.build.result == 'success' || needs.build-fast-stable.result == 'success') &&
       needs.preflight.outputs.channel != 'nightly' &&
       vars.FRAMEWORK_UPDATE_SIGNING_ENABLED == 'true'
     permissions:
@@ -360,7 +600,7 @@ jobs:
     with:
       source_sha: ${{ github.sha }}
       channel: ${{ needs.preflight.outputs.channel }}
-      version: ${{ needs.build.outputs.version }}
+      version: ${{ needs.build.outputs.version || needs.build-fast-stable.outputs.version }}
       payload_artifact: turboism-release-payload-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   publish-nightly:
@@ -394,7 +634,7 @@ jobs:
 
   windows-release-verification:
     needs: preflight
-    if: needs.preflight.outputs.should_build == 'true'
+    if: needs.preflight.outputs.should_build == 'true' && needs.preflight.outputs.build_mode == 'full'
     runs-on: windows-2022
     timeout-minutes: 30
     steps:

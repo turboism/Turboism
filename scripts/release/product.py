@@ -17,17 +17,31 @@ if _SCRIPTS_DIR not in sys.path:
 from turboism_dev.paths import repo_root
 
 ROOT = repo_root()
+from turboism_release.beta_promotion import (
+    STABLE_CHANNEL,
+    find_latest_verified_beta_run,
+    parse_beta_source_args,
+    verify_source_beta_run,
+)
 from turboism_release.channels import CHANNELS, resolve_version
 from turboism_release.versions import framework_version
 from turboism_release.promotion import GitHub, validate_run
 from turboism_release.contracts import ReleaseError
 
 
-def candidate_command(channel, version, source):
+def candidate_command(channel, version, source, *, beta_run_id='', beta_attempt=''):
     command = ['gh','workflow','run','release.yml','--repo','turboism/Turboism','--ref','main',
                '-f','channel='+channel,'-f','expected_source_sha='+source]
     if version:
         command += ['-f','version='+version]
+    parsed_beta = parse_beta_source_args(beta_run_id, beta_attempt)
+    if parsed_beta is not None:
+        if channel != STABLE_CHANNEL:
+            raise ValueError('Fast Beta promotion applies only to the stable channel')
+        command += [
+            '-f', 'promote_from_beta_run_id=' + parsed_beta[0],
+            '-f', f'promote_from_beta_attempt={parsed_beta[1]}',
+        ]
     return command
 
 
@@ -76,6 +90,9 @@ def main(argv=None):
         p.add_argument('--channel',choices=CHANNELS,default='stable')
         p.add_argument('--version',default='')
         if name == 'candidate':
+            p.add_argument('--from-beta',action='store_true',help='Auto-resolve the latest verified same-SHA Beta run for fast Stable promotion')
+            p.add_argument('--from-beta-run',default='',help='Verified same-SHA Beta candidate run id for fast Stable promotion')
+            p.add_argument('--from-beta-attempt',default='',help='Verified same-SHA Beta candidate run attempt')
             p.add_argument('--submit',action='store_true',help='Actually dispatch CI (default only prints the verified command)')
     p=commands.add_parser('info');p.add_argument('--jar',type=Path,required=True)
     p=commands.add_parser('promote');p.add_argument('--run-id',required=True);p.add_argument('--attempt',type=int,required=True)
@@ -89,9 +106,25 @@ def main(argv=None):
         if args.version:command.append('-PturboismVersion='+args.version)
         return subprocess.run(command,cwd=ROOT).returncode
     if args.command == 'candidate':
-        resolve_version(framework_version(ROOT),args.channel,args.version)
+        declared = framework_version(ROOT)
+        resolve_version(declared,args.channel,args.version)
+        explicit_beta = parse_beta_source_args(args.from_beta_run, args.from_beta_attempt)
+        if args.from_beta and explicit_beta is not None:
+            raise ValueError('Use either --from-beta or --from-beta-run/--from-beta-attempt, not both')
+        if (args.from_beta or explicit_beta is not None) and args.channel != STABLE_CHANNEL:
+            raise ValueError('Fast Beta promotion applies only to the stable channel')
         source=clean_source()
-        command=candidate_command(args.channel,args.version,source)
+        beta_run_id = ''
+        beta_attempt = ''
+        if args.from_beta:
+            verified = find_latest_verified_beta_run(GitHub(), source, declared)
+            beta_run_id, beta_attempt = verified['runId'], str(verified['runAttempt'])
+            print(f"Verified same-SHA Beta source: {verified['version']} (Build {verified['buildNumber']}, run {beta_run_id} attempt {beta_attempt})")
+        elif explicit_beta is not None:
+            verified = verify_source_beta_run(GitHub(), source, declared, explicit_beta[0], explicit_beta[1])
+            beta_run_id, beta_attempt = verified['runId'], str(verified['runAttempt'])
+            print(f"Verified same-SHA Beta source: {verified['version']} (Build {verified['buildNumber']}, run {beta_run_id} attempt {beta_attempt})")
+        command=candidate_command(args.channel,args.version,source,beta_run_id=beta_run_id,beta_attempt=beta_attempt)
     else:
         validate_run(GitHub().api(f'actions/runs/{args.run_id}'),args.run_id,args.source,args.attempt)
         command=['gh','workflow','run','release-github-only.yml','--repo','turboism/Turboism','--ref','main',
