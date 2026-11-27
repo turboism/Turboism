@@ -91,8 +91,16 @@ class FrameworkUpdatesWindowTest {
 
         Fixture(Function<String, List<PluginUpdateRow>> planner, Function<PluginUpdateRow, String> notes)
                 throws Exception {
+            this(planner, notes, (from, to, locale) -> Optional.empty());
+        }
+
+        Fixture(
+                Function<String, List<PluginUpdateRow>> planner,
+                Function<PluginUpdateRow, String> notes,
+                FrameworkUpdatesWindow.FrameworkNotesLoader frameworkNotes)
+                throws Exception {
             window = edt(() -> new FrameworkUpdatesWindow(
-                    I18N, discovery, new EmptyPlugins(), service, planner, nanos::get, notes));
+                    I18N, discovery, new EmptyPlugins(), service, planner, nanos::get, notes, frameworkNotes));
             edt(() -> {
                 window.show();
                 return null;
@@ -979,6 +987,19 @@ class FrameworkUpdatesWindowTest {
 
         public OperationResult setEnabled(String id, boolean enabled) {
             return OperationResult.accepted("OK", "");
+        }
+    }
+
+    @Test
+    void frameworkRowLoadsStructuredRangeNotesBetweenCurrentAndTargetVersions() throws Exception {
+        final AtomicReference<String> requestedRange = new AtomicReference<>();
+        try (Fixture f = new Fixture(target -> List.of(), row -> "", (from, to, locale) -> {
+            requestedRange.set(from + "->" + to + ":" + locale.getLanguage());
+            return Optional.of("### Added\n\n- Range change between " + from + " and " + to + ".");
+        })) {
+            await(() -> f.window.releaseNotesPane().getText().contains("Range change between"));
+            assertTrue(requestedRange.get().contains("->"));
+            assertTrue(f.window.releaseNotesPane().getText().contains("Range change between"));
         }
     }
 }

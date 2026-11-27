@@ -13,6 +13,7 @@ import dev.turboism.pluginmanagement.RuntimePluginManagementService;
 import dev.turboism.runtime.exec.RuntimeThreads;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.update.StructuredChangelogClient;
 import dev.turboism.update.UpdatePreferencesStore;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -23,6 +24,7 @@ import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -66,6 +68,13 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private static final String LIST_TABLE_CARD = "table";
     private static final String LIST_PLACEHOLDER_CARD = "placeholder";
 
+    @FunctionalInterface
+    interface FrameworkNotesLoader {
+        Optional<String> load(String fromVersion, String toVersion, Locale locale);
+    }
+
+    private record FrameworkNotesKey(String fromVersion, String toVersion, String language) {}
+
     private final PluginLocalization i18n;
     private final CoreUpdateService discovery;
     private final CoreFrameworkUpdates updates;
@@ -73,9 +82,11 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
     private final CoordinatedPluginUpdateService coordinatedService;
     private final Function<String, List<PluginUpdateRow>> planner;
     private final Function<PluginUpdateRow, String> notesLoader;
+    private final FrameworkNotesLoader frameworkNotesLoader;
     private final ExecutorService notesWorker =
             RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-update-notes"));
     private final Map<PluginUpdateRow, CompletableFuture<String>> notesCache = new HashMap<>();
+    private final Map<FrameworkNotesKey, CompletableFuture<Optional<String>>> frameworkNotesCache = new HashMap<>();
     private final ExecutorService worker =
             RuntimeThreads.serialLane(RuntimeThreads.daemonThreadsWithFixedName("turboism-framework-updates-window"));
     private final List<Registration> subscriptions = new ArrayList<>();
@@ -189,11 +200,26 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
             final Function<String, List<PluginUpdateRow>> customPlanner,
             final LongSupplier nanoTime,
             final Function<PluginUpdateRow, String> customNotesLoader) {
+        this(i18n, discovery, plugins, coordinator, customPlanner, nanoTime, customNotesLoader, null);
+    }
+
+    FrameworkUpdatesWindow(
+            final PluginLocalization i18n,
+            final CoreUpdateService discovery,
+            final CorePluginManagement plugins,
+            final CoordinatedPluginUpdateService coordinator,
+            final Function<String, List<PluginUpdateRow>> customPlanner,
+            final LongSupplier nanoTime,
+            final Function<PluginUpdateRow, String> customNotesLoader,
+            final FrameworkNotesLoader customFrameworkNotesLoader) {
         this.i18n = i18n;
         this.nanoTime = nanoTime;
         this.discovery = discovery;
         this.updates = discovery.frameworkUpdates();
         this.plugins = plugins;
+        this.frameworkNotesLoader = customFrameworkNotesLoader != null
+                ? customFrameworkNotesLoader
+                : new StructuredChangelogClient()::fetchRange;
         pluginTableModel = new PluginSelectionTableModel();
         pluginTable = new JTable(pluginTableModel);
         notesLoader = customNotesLoader != null
@@ -567,7 +593,7 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         }
         notesComponentName.setText(String.valueOf(pluginTableModel.getValueAt(index, 1)));
         if (pluginTableModel.isFramework(index)) {
-            showNotes(discovery.snapshot().notesFor(i18n.locale()));
+            renderFrameworkNotes(generation);
             return;
         }
         final PluginUpdateRow row = pluginTableModel.pluginAt(index).withSelected(false);
@@ -577,6 +603,39 @@ final class FrameworkUpdatesWindow implements AutoCloseable {
         future.whenComplete((notes, failure) -> CoreDialogs.onEdt(() -> {
             if (closed || generation != notesGeneration) return;
             showNotes(failure == null ? notes : text("updates.install.notes.failed"));
+        }));
+    }
+
+    private void renderFrameworkNotes(final long generation) {
+        final CoreUpdateService.Snapshot snap = discovery.snapshot();
+        final String fallback = snap.notesFor(i18n.locale());
+        final Optional<String> target = snap.availableVersion();
+        final String current = snap.localVersion();
+        if (target.isEmpty() || current == null || current.isBlank() || current.equals(target.orElseThrow())) {
+            showNotes(fallback);
+            return;
+        }
+        final Locale locale = i18n.locale();
+        final FrameworkNotesKey key = new FrameworkNotesKey(current, target.orElseThrow(), locale.getLanguage());
+        final CompletableFuture<Optional<String>> future = frameworkNotesCache.computeIfAbsent(
+                key,
+                lookup -> CompletableFuture.supplyAsync(
+                        () -> frameworkNotesLoader.load(lookup.fromVersion(), lookup.toVersion(), locale),
+                        notesWorker));
+        if (future.isDone()) {
+            final String resolved = future.getNow(Optional.empty())
+                    .filter(text -> !text.isBlank())
+                    .orElse(fallback);
+            showNotes(resolved);
+            return;
+        }
+        showNotes(fallback.isBlank() ? text("updates.install.notes.loading") : fallback);
+        future.whenComplete((notes, failure) -> CoreDialogs.onEdt(() -> {
+            if (closed || generation != notesGeneration) return;
+            final String resolved = (failure == null && notes != null)
+                    ? notes.filter(text -> !text.isBlank()).orElse(fallback)
+                    : fallback;
+            showNotes(resolved);
         }));
     }
 

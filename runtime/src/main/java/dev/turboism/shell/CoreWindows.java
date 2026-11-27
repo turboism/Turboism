@@ -62,6 +62,7 @@ final class CoreWindows implements AutoCloseable {
     private final CorePluginManagement plugins;
     private final CoreLogWindow logWindow;
     private final KeybindingsWindow keybindingsWindow;
+    private final Runnable openGuide;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog pluginDetailsDialog;
@@ -97,6 +98,7 @@ final class CoreWindows implements AutoCloseable {
     private static final String TOOLTIP_SUFFIX = ".tooltip";
     private static final String STARTUP_TAB_ID = "startup";
     private static final int STARTUP_CHANNEL_ROW = 0;
+    static final String NEW_USER_GUIDE_LABEL_KEY = "settings.new-user-guide";
     private static final String SKIP_UPDATE_KEY = "settings.skip-update";
     private static final String SKIP_SPLASH_KEY = "settings.skip-splash";
     private static final String SKIP_INFORMATION_KEY = "settings.skip-information";
@@ -125,10 +127,22 @@ final class CoreWindows implements AutoCloseable {
             final CorePluginManagement plugins,
             final RuntimeLogReader logs,
             final dev.turboism.internal.core.KeybindingService keybindings) {
+        this(i18n, settings, settingsContributions, plugins, logs, keybindings, () -> {});
+    }
+
+    CoreWindows(
+            final PluginLocalization i18n,
+            final RuntimeSettingsService settings,
+            final SettingsContributionSource settingsContributions,
+            final CorePluginManagement plugins,
+            final RuntimeLogReader logs,
+            final dev.turboism.internal.core.KeybindingService keybindings,
+            final Runnable openGuide) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
+        this.openGuide = Objects.requireNonNull(openGuide);
         this.logWindow = new CoreLogWindow(i18n, logs);
         this.keybindingsWindow = new KeybindingsWindow(i18n, keybindings);
         this.pluginSettingsWindow = new PluginSettingsWindow(
@@ -191,8 +205,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     /**
-     * Opens the one-time guide. The same window instance is reused, so reopening it from the menu
-     * starts at the first page; {@code dismissed} runs once per user dismissal, never on teardown.
+     * Opens the guide at its first page. Only user dismissal runs the callback.
      */
     void showGuide(final Runnable dismissed) {
         CoreDialogs.onEdt(() -> {
@@ -376,6 +389,9 @@ final class CoreWindows implements AutoCloseable {
         clean.addActionListener(ignored -> CoreDialogs.message(
                 owner, text("common.turboism"), settings.cleanEmptyDocks().message()));
         maintenance.add(clean);
+        final JButton guide = new JButton(text(NEW_USER_GUIDE_LABEL_KEY));
+        guide.addActionListener(ignored -> openGuide.run());
+        maintenance.add(guide);
         builtins.put("maintenance", new BuiltinTab(text("settings.tab.maintenance"), 400, maintenance));
 
         final RenderedSettings rendered = renderSettings(owner, builtins);
