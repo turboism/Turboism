@@ -107,6 +107,11 @@ public final class TextureUvMapping {
         return pixelsPerUv;
     }
 
+    /** Returns the maximum UV displacement on each axis for a pixel-space offset. */
+    Point2 uvPadding(final double pixels) {
+        return new Point2((float) (pixels * Math.hypot(a, b)), (float) (pixels * Math.hypot(c, d)));
+    }
+
     /** Mean length of the two column vectors of the uv-to-pixel affine. */
     private static double scale(final double m00, final double m01, final double m10, final double m11) {
         return 0.5 * (Math.hypot(m00, m10) + Math.hypot(m01, m11));

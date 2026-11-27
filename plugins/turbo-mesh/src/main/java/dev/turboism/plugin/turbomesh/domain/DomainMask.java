@@ -205,9 +205,10 @@ public final class DomainMask {
                 final double u = u0 + (x + 0.5) * cell;
                 final double v = v0 + (y + 0.5) * cell;
                 mapUv(uvToPixel, imageWidth, imageHeight, u, v, p);
-                final int px = clampPixel((int) p[0], imageWidth);
-                final int py = clampPixel((int) p[1], imageHeight);
-                final int argbPx = argb[py * imageWidth + px];
+                if (p[0] < 0 || p[0] >= imageWidth || p[1] < 0 || p[1] >= imageHeight) {
+                    continue;
+                }
+                final int argbPx = argb[(int) p[1] * imageWidth + (int) p[0]];
                 painted[y * width + x] = (argbPx >>> 24) >= PAINTED_ALPHA_FLOOR;
                 luminance[y * width + x] = (0.2126f * ((argbPx >>> 16) & 0xFF)
                                 + 0.7152f * ((argbPx >>> 8) & 0xFF)

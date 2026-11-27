@@ -127,7 +127,7 @@ public final class PlacementDomainPlanner {
             }
             uvRings.add(List.copyOf(uvRing));
         }
-        if (!fitsFootprint(source.uvs(), allOutlineUvs)) {
+        if (!fitsFootprint(source.uvs(), allOutlineUvs, pixelToUv.uvPadding(settings.bleedMarginPx()))) {
             diagnostics.accept(
                     "turbo-mesh planning domain: adaptive silhouette left the uv footprint, alpha-mask fallback");
             return null;
@@ -154,14 +154,17 @@ public final class PlacementDomainPlanner {
         }
     }
 
-    /** True when every vertex stays within {@link #UV_FOOTPRINT_TOLERANCE} of the source uv bounds. */
-    private static boolean fitsFootprint(final List<Point2> sourceUvs, final List<Point2> planUvs) {
+    /** Rejects outlines of unrelated artwork while allowing the requested bleed outside the source footprint. */
+    private static boolean fitsFootprint(
+            final List<Point2> sourceUvs, final List<Point2> planUvs, final Point2 bleedUv) {
         final double[] bounds = uvBounds(sourceUvs);
+        final double toleranceU = UV_FOOTPRINT_TOLERANCE + bleedUv.x();
+        final double toleranceV = UV_FOOTPRINT_TOLERANCE + bleedUv.y();
         for (final Point2 uv : planUvs) {
-            if (uv.x() < bounds[0] - UV_FOOTPRINT_TOLERANCE
-                    || uv.x() > bounds[2] + UV_FOOTPRINT_TOLERANCE
-                    || uv.y() < bounds[1] - UV_FOOTPRINT_TOLERANCE
-                    || uv.y() > bounds[3] + UV_FOOTPRINT_TOLERANCE) {
+            if (uv.x() < bounds[0] - toleranceU
+                    || uv.x() > bounds[2] + toleranceU
+                    || uv.y() < bounds[1] - toleranceV
+                    || uv.y() > bounds[3] + toleranceV) {
                 return false;
             }
         }
