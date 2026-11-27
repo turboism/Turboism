@@ -364,6 +364,11 @@
         "op": "replace",
         "path": "/entries/48/source",
         "value": "exact-5.3.02-classfile-observation-and-semantic-remap"
+      },
+      {
+        "op": "replace",
+        "path": "/entries/49/semanticName",
+        "value": "cubism.mapping.v5_3_02.ui_main_toolbar.constructor.label"
       }
     ]
   }

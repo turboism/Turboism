@@ -182,6 +182,12 @@
         "template": 1
       }
     ],
+    "cubism.ui-main-toolbar.label.create": [
+      {
+        "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
+        "template": 1
+      }
+    ],
     "cubism.ui-main-toolbar.main-frame-view.class": [
       {
         "versions": "5.0.00-5.2.02,5.3.00-5.3.01,5.3.03-5.3.05",
