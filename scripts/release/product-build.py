@@ -8,6 +8,13 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from turboism_release.beta_promotion import (
+    BUILD_MODE_FAST_STABLE,
+    BUILD_MODE_FULL,
+    DISPATCH_EVENT,
+    parse_beta_source_args,
+    verify_source_beta_run,
+)
 from turboism_release.channels import CHANNELS, resolve_version
 from turboism_release.versions import framework_version
 from turboism_release.promotion import GitHub
@@ -29,20 +36,41 @@ def check_source(source):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command',choices=['preflight','prepare','publish-nightly'])
+    parser.add_argument('command',choices=['preflight','prepare','publish-nightly','verify-beta-source'])
     parser.add_argument('--source',required=True)
     parser.add_argument('--channel',choices=CHANNELS,default='stable')
     parser.add_argument('--version',default='')
     parser.add_argument('--attempt',type=int)
+    parser.add_argument('--beta-run-id',default='')
+    parser.add_argument('--beta-attempt',default='')
     parser.add_argument('--bundle',type=Path,default=Path('build/release-orchestrator'))
     parser.add_argument('--skip-installer',action='store_true')
     args = parser.parse_args(argv)
     check_source(args.source)
     github = GitHub()
+    if args.command == 'verify-beta-source':
+        parsed_beta = parse_beta_source_args(args.beta_run_id, args.beta_attempt)
+        if parsed_beta is None:
+            raise ValueError('Fast Stable promotion requires --beta-run-id and --beta-attempt')
+        declared = framework_version(Path.cwd())
+        verified = verify_source_beta_run(
+            github,
+            args.source,
+            declared,
+            parsed_beta[0],
+            parsed_beta[1],
+            current_run_id=os.environ.get('GITHUB_RUN_ID', ''),
+        )
+        print(json.dumps({'verifiedBeta': verified}, sort_keys=True))
+        return 0
     if args.command == 'preflight':
         declared = framework_version(Path.cwd())
         target = resolve_version(declared,args.channel,args.version)
+        parsed_beta = parse_beta_source_args(args.beta_run_id, args.beta_attempt)
+        build_mode = BUILD_MODE_FULL
         if args.channel == 'nightly':
+            if parsed_beta is not None:
+                raise ValueError('Fast Beta promotion applies only to the stable channel')
             result = nightly.plan(github,args.source,target)
             target = result['base_version']
         else:
@@ -50,12 +78,30 @@ def main(argv=None):
             if github.api(f'git/ref/tags/v{target}',optional=True) is not None:
                 raise ValueError('This version already has a public tag; resume its existing candidate promotion instead of rebuilding')
             if args.channel == 'beta':
+                if parsed_beta is not None:
+                    raise ValueError('Fast Beta promotion applies only to the stable channel')
                 extractor = prerelease._load_script('preflight_beta_notes',prerelease.SCRIPTS/'extract-release-notes.py')
                 extractor.extract((Path.cwd()/'docs'/'en'/'CHANGELOG.md').read_text(encoding='utf-8'),declared)
-        result.update(channel=args.channel,version=target,source_sha=args.source)
+            elif parsed_beta is not None:
+                if os.environ.get('GITHUB_EVENT_NAME') != DISPATCH_EVENT:
+                    raise ValueError('Fast Beta promotion requires a manual workflow_dispatch run')
+                extractor = prerelease._load_script('preflight_stable_notes',prerelease.SCRIPTS/'extract-release-notes.py')
+                extractor.extract((Path.cwd()/'docs'/'en'/'CHANGELOG.md').read_text(encoding='utf-8'),declared)
+                verified_beta = verify_source_beta_run(
+                    github,
+                    args.source,
+                    declared,
+                    parsed_beta[0],
+                    parsed_beta[1],
+                    current_run_id=os.environ.get('GITHUB_RUN_ID', ''),
+                )
+                build_mode = BUILD_MODE_FAST_STABLE
+                result['reason'] = 'fast_stable_from_beta'
+                result['verified_beta'] = verified_beta
+        result.update(channel=args.channel,version=target,source_sha=args.source,build_mode=build_mode)
         if os.environ.get('GITHUB_OUTPUT'):
             with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-                for key in ('should_build','channel','version'):
+                for key in ('should_build','channel','version','build_mode'):
                     value = str(result[key]).lower() if type(result[key]) is bool else result[key]
                     f.write(f'{key}={value}\n')
         print(json.dumps(result,sort_keys=True))

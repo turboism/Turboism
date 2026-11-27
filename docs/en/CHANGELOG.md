@@ -44,6 +44,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Fixed
 
+- Mesh toolbar restores registered mesh tools and the radius slider by resolving the radius label during toolbar host verification.
 - Cubism OpenGL cleanup drains pending VBOs across shared contexts on canvas reinitialization and panel disposal without GL errors, ArtMesh Mirror persists per-mesh axis lock, angle, and pivot with centered handles, 3D model preset imports ask for confirmation before replacing a scene, and Geometric Mesh Layout connects concentric rings independently of center spokes.
 - Mesh layout preserves geometry and toolbar selection. AutoMesh keeps the selected preset, and Turbo Mesh improves transparent bleed, region separation, and adaptive vertex placement.
 - ACP finds Antigravity more reliably and handles DeepSeek model selection.

@@ -438,7 +438,42 @@ def check_workflow(root: Path, gates: dict[str, set[str]]) -> None:
         assert not forbidden, f'unified {event} paths must stay scoped to channel/release inputs: {forbidden}'
     check_channel_topology(unified)
     check_history_gate(root)
-    check_windows_release_gate(workflow_document(root, 'release.yml'))
+    release_workflow = workflow_document(root, 'release.yml')
+    check_windows_release_gate(release_workflow)
+    check_fast_stable_promotion(release_workflow)
+
+
+def check_fast_stable_promotion(workflow: dict) -> None:
+    """Guard the fast Beta-to-Stable job so it stays Stable-only and Beta-verified."""
+    jobs = workflow['jobs']
+    fast = jobs['build-fast-stable']
+    assert set(fast['needs']) == {'preflight', 'allocate-build'}, \
+        'fast stable job must depend on preflight and allocate-build'
+    fast_if = fast.get('if', '')
+    for required in (
+        "needs.preflight.outputs.should_build == 'true'",
+        "needs.preflight.outputs.build_mode == 'fast-stable'",
+        "needs.preflight.outputs.channel == 'stable'",
+    ):
+        assert required in fast_if, f'fast stable job condition lost {required}'
+    assert fast.get('permissions') == {'contents': 'read', 'actions': 'read'}, \
+        'fast stable job must stay read-only with actions:read for Beta verification'
+    runs = job_runs(fast)
+    for marker in (
+        'scripts/release/product-build.py verify-beta-source',
+        'packaging/windows-installer/assemble-release.sh',
+        'scripts/release/verify-release.py',
+        'scripts/release/prepare-market-release.py',
+        'scripts/release/promote-github-release.py candidate-tag',
+        'scripts/release/turboism-release.py build',
+        'scripts/release/build-identity.py receipt',
+    ):
+        assert marker in runs, f'fast stable job lost required step: {marker}'
+    signing = jobs['sign-framework-update']
+    assert 'build-fast-stable' in signing['needs'], \
+        'framework signing job must accept fast stable candidates'
+    assert '!failure() && !cancelled()' in signing.get('if', ''), \
+        'framework signing job must fail closed when either build path fails'
 
 
 def check_windows_release_gate(workflow: dict) -> None:
