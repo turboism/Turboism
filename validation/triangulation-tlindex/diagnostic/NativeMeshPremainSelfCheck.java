@@ -1,6 +1,6 @@
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
-import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeLookup;
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeLookup;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import dev.turboism.agent.shaded.asm.*;
 import dev.turboism.bootstrap.TurboismAgent;
 import java.lang.instrument.ClassFileTransformer;
@@ -96,7 +96,7 @@ public final class NativeMeshPremainSelfCheck {
             if (admitted) require(NativeMeshEdgeLookup.find(mesh, 0, 2, false) == 1
                     && edge.getMethod("getType").invoke(edges.get(0)) == normal, "actual woven append/table promotion");
         }
-        Class<?> table = Class.forName("dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable");
+        Class<?> table = Class.forName("dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeTable");
         var reservation = table.getDeclaredMethod("reservedBytes"); reservation.setAccessible(true);
         require((int) reservation.invoke(null) == 0, "scope reservation fully released");
         if (!admitted) require(callbacks > 0, "modified SDK callback actually runs through native fallback");

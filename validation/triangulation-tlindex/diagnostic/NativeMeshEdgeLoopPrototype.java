@@ -25,7 +25,7 @@ final class NativeMeshEdgeLoopPrototype implements Opcodes {
             // Owned controls replace only the admission/counter frontends. Actual production
             // field access, primitive storage, find, append and disposal execute unchanged.
             for (MethodNode method : type.methods) for (AbstractInsnNode n : method.instructions) {
-                if (n instanceof MethodInsnNode call && call.owner.equals("dev/turboism/adapter/cubism/mesh/NativeMeshEdgeLookup")) {
+                if (n instanceof MethodInsnNode call && call.owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/NativeMeshEdgeLookup")) {
                     call.owner = CONTROL;
                     if (call.name.equals("find")) call.name = "runtimeFind";
                     else if (call.name.equals("appended")) call.name = "runtimeAppended";

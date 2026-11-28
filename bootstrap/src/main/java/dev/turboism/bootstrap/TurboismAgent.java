@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller;
 import dev.turboism.bootstrap.KernelRuntimeLauncher.ResolvedHost;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.kernel.KernelRuntime;
@@ -155,8 +155,8 @@ public final class TurboismAgent {
             // retain their previous instrumentation and cannot admit lazy-edge leases.
             final Instrumentation hookInstrumentation =
                     attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN && instrumentation != null
-                            ? dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle.forPremain(
-                                            instrumentation, TurboismAgent.class.getName())
+                            ? dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle
+                                    .forPremain(instrumentation, TurboismAgent.class.getName())
                                     .instrumentation()
                             : instrumentation;
             JvmShims.install(attachmentMode, hookInstrumentation, options);

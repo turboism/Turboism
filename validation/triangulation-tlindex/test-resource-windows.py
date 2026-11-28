@@ -91,7 +91,7 @@ class WindowAccountingTest(unittest.TestCase):
             events.append({"type": "jdk.ExecutionSample", "values": {
                 "startTime": datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).isoformat(),
                 "stackTrace": {"frames": [{"method": {"type": {"name": name}}} for name in (
-                    "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex",
+                    "dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex",
                     "com/live2d/graphics3d/editableMesh/triangulation/TriangleList")]}}})
         jfr.write_text(json.dumps({"recording": {"events": events}}))
         operations = [w for w in self.analyze(jfr)["windows"] if w["phase"] == "operation"]

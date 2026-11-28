@@ -1,4 +1,4 @@
-import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeLookup;
+import dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeLookup;
 import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableOwnedAccess;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;

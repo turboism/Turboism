@@ -1,7 +1,7 @@
 package dev.turboism.validation.tlindex.diagnostic;
 
 import com.sun.management.ThreadMXBean;
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import java.lang.management.ManagementFactory;
 
 /** Owned admission-path allocation accounting; no Cubism or production gain claim. */

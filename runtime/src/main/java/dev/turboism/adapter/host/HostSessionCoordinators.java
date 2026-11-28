@@ -435,7 +435,8 @@ final class HostSessionCoordinators {
                     dynamicModelAccess.releaseUnboundBorrowedModel();
                     // The closed document's atlas pages are the only instances the retained
                     // page outputs could still serve; keep them no longer.
-                    dev.turboism.adapter.cubism.textureatlas.cache.AtlasCacheReuseDelegate.releaseRetainedOutputs();
+                    dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReuseDelegate
+                            .releaseRetainedOutputs();
                 }
             });
         });

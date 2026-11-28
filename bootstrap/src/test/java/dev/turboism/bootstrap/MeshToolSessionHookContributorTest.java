@@ -2,7 +2,7 @@ package dev.turboism.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import org.junit.jupiter.api.Test;
 

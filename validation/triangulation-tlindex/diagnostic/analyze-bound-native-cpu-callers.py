@@ -53,14 +53,14 @@ def summarize(events, windows, frame_name):
         c = counters[index]
         c['scopes']['all'] += 1
         c['scopes']['indexInclusive'] += int(any(frame.startswith(
-            'dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex') for frame in frames))
+            'dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndex') for frame in frames))
         c['scopes']['triangulationInclusive'] += int(any(frame.startswith(
             'com.live2d.graphics3d.editableMesh.triangulation.') for frame in frames))
         c['scopes']['emptyStack'] += int(not frames)
         c['scopes']['truncatedStack'] += int(bool(trace.get('truncated')))
         c['leaf'][leaf] += 1
         c['callers'][chain] += 1
-        if leaf.startswith('dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle('):
+        if leaf.startswith('dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndex.settle('):
             c['settleCallers'][chain] += 1
         if leaf.startswith('java.util.Objects.checkIndex('):
             c['checkIndexCallers'][chain] += 1

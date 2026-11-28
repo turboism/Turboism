@@ -78,7 +78,7 @@ def summarize(events, commands):
                     raise ValueError('negative allocation sample weight')
                 frames = (value.get('stackTrace') or {}).get('frames', [])
                 names = [method(frame) for frame in frames]
-                if any(n.startswith('dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.put(') for n in names):
+                if any(n.startswith('dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex.put(') for n in names):
                     bucket_classes[(value.get('objectClass') or {}).get('name', '<unknown>')] += weight
                 weights['all'] += weight
                 if not frames:

@@ -106,9 +106,9 @@ final class MeshMirrorPremainLifecycleTest {
     @Test
     void agentmainCannotAdmitPremainOnlyFeature() {
         assertFalse(MeshMirrorHookContributor.premainOnly(
-                dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.AGENTMAIN));
+                dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode.AGENTMAIN));
         assertTrue(MeshMirrorHookContributor.premainOnly(
-                dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.PREMAIN));
+                dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode.PREMAIN));
     }
 
     private static Instrumentation instrumentation(

@@ -1,7 +1,7 @@
 package dev.turboism.validation.tlindex.singleagent;
 
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
-import dev.turboism.adapter.cubism.textureatlas.image.AtlasTileBboxTransformer;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.atlas.image.AtlasTileBboxTransformer;
 import dev.turboism.bootstrap.TriangulationSingleAgentShadowPreHook;
 import dev.turboism.bootstrap.TriangulationSingleAgentValidationHook;
 import dev.turboism.bootstrap.TurboismAgent;

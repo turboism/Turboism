@@ -1,8 +1,8 @@
 package dev.turboism.validation.tlindex.diagnostic;
 
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
-import dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTransformer;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndexTransformer;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.Constructor;
 import java.net.URL;

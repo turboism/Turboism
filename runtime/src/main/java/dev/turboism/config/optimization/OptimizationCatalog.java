@@ -593,7 +593,11 @@ public final class OptimizationCatalog {
             "warp-deform-edit-acceleration",
             Optimization.Access.PERSISTED_LAUNCHER,
             List.of("turboism.optimization.warpDeformEditAcceleration"),
-            List.of("TURBOISM_WARP_DEFORM_EDIT_ACCELERATION", "TURBOISM_EDIT_DRAG_RESPONSIVENESS"),
+            List.of(
+                    "TURBOISM_WARP_DEFORM_EDIT_ACCELERATION",
+                    "TURBOISM_EDIT_DRAG_RESPONSIVENESS",
+                    "TURBOISM_ANIMATION_ACCELERATION",
+                    "TURBOISM_PHYSICS_ACCELERATION"),
             Set.of("cubism.deformer.warp-deform-edit-acceleration"),
             Optional.of(new Optimization.Placement(SECTION_EDITING, 53)),
             "settings.optimization.warp-deform-edit-acceleration",

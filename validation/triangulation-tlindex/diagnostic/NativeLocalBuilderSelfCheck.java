@@ -76,7 +76,7 @@ public final class NativeLocalBuilderSelfCheck implements Opcodes {
                     @Override public void visitMethodInsn(final int opcode, final String owner,
                             final String called, final String desc, final boolean itf) {
                         super.visitMethodInsn(opcode, name.equals(TL)
-                                && owner.equals("dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge")
+                                && owner.equals("dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgeBridge")
                                 ? CONTROL : owner, called, desc, itf);
                     }
                 };

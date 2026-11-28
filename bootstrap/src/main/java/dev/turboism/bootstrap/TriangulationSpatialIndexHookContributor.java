@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.mesh.TriangulationSpatialIndexTransformer;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationSpatialIndexTransformer;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.optimization.OptimizationCatalog;
 

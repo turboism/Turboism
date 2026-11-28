@@ -32,7 +32,7 @@ def summarize(events, windows):
         names = [HELPERS['method'](f) for f in (value.get('stackTrace') or {}).get('frames', [])]
         cls = (value.get('objectClass') or {}).get('name', '<unknown>')
         triangulation = any(n.startswith('com/live2d/graphics3d/editableMesh/triangulation/') for n in names)
-        put = any(n.startswith('dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.put(') for n in names)
+        put = any(n.startswith('dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex.put(') for n in names)
         for window, total in zip(windows, totals):
             # Same inclusive convention as the inherited analyzer, not a disjoint partition.
             if not window['startEpochMillis'] <= stamp <= window['endEpochMillis']:

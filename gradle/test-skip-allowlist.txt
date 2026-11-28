@@ -32,6 +32,8 @@ dev.turboism.bootstrap.VerifiedTextureUploadPreparationInstallerTest.* # exact r
 dev.turboism.bootstrap.VerifiedUniformLocationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpDeformEditAccelerationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedEditDragResponsivenessInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedPhysicsAccelerationInstallerTest.* # exact reference artifact not supplied
+dev.turboism.bootstrap.VerifiedAnimationAccelerationInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedWarpPositionProjectionInstallerTest.* # exact reference artifact not supplied
 dev.turboism.bootstrap.VerifiedMemoryLeakMitigationInstallerTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design
 dev.turboism.bootstrap.VerifiedCondyRollbackTest.deferredCameraAndMeshSetupInstallersPublishBeforeRetransformAndRestoreAcrossCycles() # requires local Cubism 5.3.05 reference JAR or -Dturboism.test.cubism5305Jar; offline CI runs skip by design
@@ -49,6 +51,8 @@ dev.turboism.adapter.cubism.optimization.sorting.SortingInfoCacheArtifactTest.* 
 dev.turboism.adapter.cubism.optimization.scenehandler.InputAndRenderWeavesArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.warpgrid.WarpGridInterpolationArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
+dev.turboism.adapter.cubism.optimization.physics.PhysicsAccelerationArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
+dev.turboism.adapter.cubism.optimization.animation.AnimationAccelerationArtifactTest.* # requires local reviewed Cubism reference JARs; offline runs skip by design.
 dev.turboism.adapter.cubism.optimization.lineupload.LineRendererUploadSplitArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.paramrow.ParameterRowRepaintArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
 dev.turboism.adapter.cubism.optimization.hittest.MeshHitTestArtifactTest.* # requires TURBOISM_CUBISM_REF exact-host evidence.
@@ -127,19 +131,21 @@ dev.turboism.adapter.cubism.mesh.NativeAutoMeshWriteTest.eachReviewedArtifactCar
 dev.turboism.adapter.cubism.mesh.NativeAutoMeshWriteTest.everyHostClassNameTheWriteLoadsExistsInEachReviewedArtifact() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
 dev.turboism.automesh.host.AutoMeshLiveRouteTest.theMeshEditorPopupPlacesThroughTheGuardedFunnel() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
 dev.turboism.automesh.host.AutoMeshWriteContractTest.everyReviewedArtifactCarriesTheMembersTheWriteNames() # requires TURBOISM_CUBISM_REF with the reviewed Editor jars; the licensed archive is never committed.
-dev.turboism.adapter.cubism.textureatlas.TextureAtlasPipelineParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
-dev.turboism.adapter.cubism.textureatlas.TextureAtlasRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 20 reviewed versions); the licensed archive is never committed.
-dev.turboism.adapter.cubism.modelopen.ModelOpenRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
-dev.turboism.adapter.cubism.meshedit.MeshEditRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 21 reviewed versions); the licensed archive is never committed.
-dev.turboism.adapter.cubism.textureatlas.interactive.AtlasInteractiveRenderArtifactTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.atlas.TextureAtlasPipelineParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.atlas.TextureAtlasRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 20 reviewed versions); the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.modelopen.ModelOpenRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.meshedit.MeshEditRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 21 reviewed versions); the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.atlas.interactive.AtlasInteractiveRenderArtifactTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.optimization.memory.MemoryLeakMitigationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.optimization.warpdeform.WarpDeformEditAccelerationTest.transformsAndDefinesBytecodeAcrossAllAvailableReviewedCubismJars(Path) # requires local reviewed Cubism Editor JARs or -Dturboism.test.cubismEditorJar; offline CI runs skip by design.
 dev.turboism.adapter.cubism.optimization.warpdeform.WarpDeformEditAccelerationTest.verifiesLiveExecutionParityAndOverlayDirtyGatingOnCubismJar() # requires local reviewed Cubism Editor JARs or -Dturboism.test.cubismEditorJar; offline CI runs skip by design.
 dev.turboism.adapter.cubism.optimization.warpdeform.WarpDeformEditAccelerationTest.verifiesEditSubtreeParallelParityOverlayElisionAndMultiTransformerComposition() # requires local reviewed Cubism Editor JARs or -Dturboism.test.cubismEditorJar; offline CI runs skip by design.
-dev.turboism.adapter.cubism.exportperf.RuntimeExportRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
-dev.turboism.adapter.cubism.exportperf.EdgeAndDownscaleParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.export.RuntimeExportRealHostPatchVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
+dev.turboism.adapter.cubism.optimization.export.EdgeAndDownscaleParityTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformNativeTransformerTest.transformsRealCubismHostJarsAcrossSupportedVersionsWithZeroTurboismReferences() # requires TURBOISM_CUBISM_REF or local cubism-host-artifacts with reviewed Editor jars; the licensed archive is never committed.
 dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinatorTest.toolDetailDropdownReconciliationSuppressesSpuriousNativeSelectionEvents() # requires TURBOISM_CUBISM_REF or local cubism-host-artifacts with Live2D_Cubism.jar; the licensed archive is never committed.
 dev.turboism.adapter.cubism.temporarydeform.TemporaryDeformCoordinatorTest.warpTargetAdapterWritesEditableKeyformAndSkipsMissingModelUpdate() # requires TURBOISM_CUBISM_REF or local cubism-host-artifacts with Live2D_Cubism.jar; the licensed archive is never committed.
 dev.turboism.adapter.cubism.optimization.CondySlotRetransformRollbackTest.realReviewedHostArtifactInstallRollbackReinstallCyclesComposeCleanly() # requires local Cubism 5.3.05 reference JAR or -Dturboism.test.cubism5305Jar; offline CI runs skip by design
 dev.turboism.adapter.cubism.optimization.camera.CameraMatrixCacheBridgeTest.compiledReaderCompilesAgainstRealCubismJarWhenPresent() # requires local Cubism 5.3.05 reference JAR or -Dturboism.test.cubism5305Jar; offline CI runs skip by design
+dev.turboism.adapter.cubism.optimization.save.SaveOptimizationRealHostVerificationTest.* # requires local reviewed Cubism Editor JARs (5.0.00-5.3.05); offline CI runs skip by design
+dev.turboism.adapter.cubism.optimization.atlas.AtlasDirectCompositingHostVerificationTest.* # requires TURBOISM_CUBISM_REF / local Cubism reference jars (all 21 reviewed versions); the licensed archive is never committed.

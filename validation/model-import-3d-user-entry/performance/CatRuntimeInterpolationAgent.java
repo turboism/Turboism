@@ -1,7 +1,7 @@
 package dev.turboism.diagnostic;
 
 import java.lang.instrument.Instrumentation;
-import dev.turboism.adapter.cubism.interpolation.VerifiedMeshInterpolationInstaller;
+import dev.turboism.adapter.cubism.optimization.interpolation.VerifiedMeshInterpolationInstaller;
 
 /** Isolated carrier for the actual reflection-only production candidate. */
 public final class CatRuntimeInterpolationAgent {

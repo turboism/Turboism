@@ -1,4 +1,4 @@
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
 import dev.turboism.bootstrap.TurboismAgent;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +25,7 @@ public final class NativeMeshProductionExecutionSelfCheck {
                 int.class, boolean.class);
         run.setAccessible(true);
         ArrayList<String> rows = new ArrayList<>();
-        Class<?> table = Class.forName("dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable");
+        Class<?> table = Class.forName("dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeTable");
         Method reservation = table.getDeclaredMethod("reservedBytes"); reservation.setAccessible(true);
         // SDK Classes delegate to the actual system loader, so this fixture loader
         // does not generate or replace any native definition in either leg.

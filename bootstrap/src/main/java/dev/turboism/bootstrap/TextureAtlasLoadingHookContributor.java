@@ -1,7 +1,7 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.mesh.TextureAtlasTriangleSetTransformer;
-import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLoadingTransformer;
+import dev.turboism.adapter.cubism.optimization.atlas.TextureAtlasLoadingTransformer;
+import dev.turboism.adapter.cubism.optimization.triangulation.TextureAtlasTriangleSetTransformer;
 import dev.turboism.config.NativeOptimizationDiagnostics;
 import dev.turboism.config.optimization.OptimizationCatalog;
 

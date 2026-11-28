@@ -51,7 +51,7 @@ def analyze(markers, undo, jfr, outcome):
         for operation in operations:
             if operation['startEpochMillis'] <= stamp < operation['endEpochMillis']:
                 operation['nativeTriangulationSamples'] += int(any(n.startswith('com.live2d.graphics3d.editableMesh.triangulation.') for n in names))
-                operation['productionIndexSamples'] += int(any(n == 'dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex' for n in names))
+                operation['productionIndexSamples'] += int(any(n == 'dev.turboism.adapter.cubism.optimization.triangulation.TriangulationEdgeIndex' for n in names))
     observed = all(o['nativeTriangulationSamples'] > 0 for o in operations)
     return {'schemaVersion': 1, 'triggerVerdict': 'REPEATED_TARGET_OBSERVED' if observed else 'REPEATED_TARGET_UNPROVEN',
             'performanceAcceptance': 'NOT_APPLICABLE_DIAGNOSTIC', 'perCycleOutputEquivalence': 'NOT_PROVEN',

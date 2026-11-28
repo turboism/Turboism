@@ -54,8 +54,8 @@ class CallerScopeTests(unittest.TestCase):
             frame('java/util/ArrayList', 'get', '(I)Ljava/lang/Object;'),
             frame('com/live2d/graphics3d/editableMesh/triangulation/h', 'a')]),
             event(1700000000004, [
-                frame('dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex', 'settle'),
-                frame('dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex', 'contains')])]
+                frame('dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex', 'settle'),
+                frame('dev/turboism/adapter/cubism/optimization/triangulation/TriangulationEdgeIndex', 'contains')])]
         cycle = callers.summarize(iter(events), windows(), frame_name)['cycles'][0]
         self.assertEqual(3, cycle['sampleScopes']['all'])
         self.assertEqual(1, cycle['sampleScopes']['indexInclusive'])

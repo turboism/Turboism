@@ -1,6 +1,6 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.mesh.VerifiedTriangulationEdgeIndexInstaller;
+import dev.turboism.adapter.cubism.optimization.triangulation.VerifiedTriangulationEdgeIndexInstaller;
 import dev.turboism.config.TriangulationEdgeIndexPreference;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 

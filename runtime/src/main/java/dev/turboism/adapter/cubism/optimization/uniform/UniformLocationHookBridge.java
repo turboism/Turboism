@@ -662,7 +662,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public synchronized void invalidate() {
         deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
-        dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
+        dev.turboism.adapter.cubism.optimization.shader.NativeShaderUniformBridge.invalidateAll();
         cache.invalidate();
         frameSupported = false;
         frameContextValid = false;
@@ -674,7 +674,7 @@ public final class UniformLocationHookBridge implements AutoCloseable {
     public synchronized void retire() {
         deferredActive.set(false);
         SkippedFrameUploadElisionBridge.invalidateUploads();
-        dev.turboism.adapter.cubism.shader.NativeShaderUniformBridge.invalidateAll();
+        dev.turboism.adapter.cubism.optimization.shader.NativeShaderUniformBridge.invalidateAll();
         cache.invalidate();
         frameSupported = false;
         frameContextValid = false;

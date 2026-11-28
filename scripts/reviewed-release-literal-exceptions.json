@@ -19,8 +19,8 @@
       "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/uniform/UniformLocationLifecycleTransformer.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
     },
     {
-      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxTarget.java",
-      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/textureatlas/image/AtlasTileBboxTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
+      "path": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/atlas/image/AtlasTileBboxTarget.java",
+      "evidence": "runtime/src/main/java/dev/turboism/adapter/cubism/optimization/atlas/image/AtlasTileBboxTarget.java: Optimization target pin table derived from verification records; the transform is admitted on exactly these reviewed versions."
     },
     {
       "path": "runtime/src/main/java/dev/turboism/mapping/verification/EditorModelRuntimeScope.java",

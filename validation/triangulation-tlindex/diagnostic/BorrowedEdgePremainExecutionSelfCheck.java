@@ -1,4 +1,4 @@
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;

@@ -158,14 +158,17 @@ class VerifiedUniformLocationInstallerTest {
             // registered retransformation-incapable, so its patched definition is what
             // this installer observes.
             fixture.baseline.put(
-                    shader, dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.composedDefinition(reference));
+                    shader,
+                    dev.turboism.adapter.cubism.optimization.shader.ShaderUniformTransformer.composedDefinition(
+                            reference));
             IllegalStateException rejected = assertThrows(
                     IllegalStateException.class,
                     () -> new VerifiedUniformLocationInstaller(fixture.context()),
                     "a patched body without our own patch record is foreign instrumentation");
             assertTrue(rejected.getMessage().contains(shader + ".preDraw_exe"), rejected.getMessage());
 
-            dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.markPatched(fixture.loader, shader);
+            dev.turboism.adapter.cubism.optimization.shader.ShaderUniformTransformer.markPatched(
+                    fixture.loader, shader);
             try {
                 VerifiedUniformLocationInstaller uniform = new VerifiedUniformLocationInstaller(fixture.context());
                 assertTrue(uniform.seamComposed(), "the composed shader seam must be recognised");
@@ -174,7 +177,8 @@ class VerifiedUniformLocationInstallerTest {
                 uniform.close();
                 assertTrue(uniform.restored(), "restore must see the composed baseline it was admitted under");
             } finally {
-                dev.turboism.adapter.cubism.shader.ShaderUniformTransformer.clearPatched(fixture.loader, shader);
+                dev.turboism.adapter.cubism.optimization.shader.ShaderUniformTransformer.clearPatched(
+                        fixture.loader, shader);
             }
         }
     }

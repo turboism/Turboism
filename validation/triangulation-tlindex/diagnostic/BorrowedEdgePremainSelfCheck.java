@@ -1,5 +1,5 @@
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
-import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.TriangulationDefinitionLifecycle;
 import dev.turboism.bootstrap.TurboismAgent;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.agent.shaded.asm.*;

@@ -159,6 +159,8 @@ final class NativeOptimizationPolicy {
     static boolean warpDeformEditAccelerationEnabled(final HookEnvironment environment) {
         final boolean enabled = requested(environment, OptimizationCatalog.WARP_DEFORM_EDIT_ACCELERATION);
         dev.turboism.adapter.cubism.optimization.drag.EditDragResponsivenessBridge.setConfiguredDefault(enabled);
+        dev.turboism.adapter.cubism.optimization.animation.AnimationAccelerationBridge.setConfiguredDefault(enabled);
+        dev.turboism.adapter.cubism.optimization.physics.PhysicsAccelerationBridge.setConfiguredDefault(enabled);
         return enabled;
     }
 }

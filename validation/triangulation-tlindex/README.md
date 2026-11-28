@@ -17,7 +17,7 @@ weave shape, integrated A/B status, and the historical host plan.
 
 ## Production continuation (T029-TLPROD)
 
-The production bridge is `runtime/.../mesh/TriangulationEdgeIndex.java`, not this
+The production bridge is `runtime/.../optimization/triangulation/TriangulationEdgeIndex.java`, not this
 own-shadow fixture's Bridge. Its weak identity registry avoids Set value hashing,
 expunges collected keys on subsequent accesses and unregisters normal clears;
 proven-dead sets keep only weak tombstones so clearing never reactivates an unsafe
@@ -222,7 +222,7 @@ final host performance/resource acceptance remain open. No new host task was add
 
 ### Owned definition lifecycle for integration (2026-10-02)
 
-`runtime/.../mesh/TriangulationDefinitionLifecycle.java` provides the JDK-only
+`runtime/.../optimization/triangulation/TriangulationDefinitionLifecycle.java` provides the JDK-only
 ownership gateway for the pending lazy-edge integration. Bootstrap passes its
 handle to both premain installers and the bootstrap thread, before JvmShims
 installation. Admission requires one trusted premain Agent with the expected

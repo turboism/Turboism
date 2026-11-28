@@ -3,7 +3,7 @@ package dev.turboism.diagnostic;
 import com.live2d.cubism.doc.model.drawable.artMesh.*;
 import com.live2d.cubism.doc.model.interpolator.extendedInterpolation.*;
 import com.live2d.serialize.UUSerialize;
-import dev.turboism.adapter.cubism.interpolation.DerivedCacheSerializationBridge;
+import dev.turboism.adapter.cubism.optimization.interpolation.DerivedCacheSerializationBridge;
 import java.util.*;
 import org.jdom.output.XMLOutputter;
 
@@ -57,18 +57,18 @@ public final class CacheProjectionProof {
             var out=java.nio.file.Path.of(args[0]);
             var legacy=out.resolve("small-native-string.cmo3").toFile();
             var streamed=out.resolve("small-native-stream.cmo3").toFile();
-            dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.enabled(false);
+            dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.enabled(false);
             if(!UUSerialize.INSTANCE.serializeToFile(legacy,extension,true,com.live2d.serialize.CompressOption.FAST,null,new HashMap<>(),false,-1))throw new AssertionError("small official save");
-            long streamedBefore=dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.streamedArchives();
-            dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.enabled(true);
+            long streamedBefore=dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.streamedArchives();
+            dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.enabled(true);
             if(!UUSerialize.INSTANCE.serializeToFile(streamed,extension,true,com.live2d.serialize.CompressOption.FAST,null,new HashMap<>(),false,-1))throw new AssertionError("small streaming save");
-            if(dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.streamedArchives()!=streamedBefore+1)throw new AssertionError("streaming path not used");
+            if(dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.streamedArchives()!=streamedBefore+1)throw new AssertionError("streaming path not used");
             var a=new com.live2d.serialize.archiver.ArchiveReader(legacy);var b=new com.live2d.serialize.archiver.ArchiveReader(streamed);
             try {
                 if(!Arrays.equals(a.getFileByFilePath("main.xml"),b.getFileByFilePath("main.xml")))throw new AssertionError("streamed XML differs from official bytes");
             } finally { a.close();b.close(); }
             System.out.println("PASS_STREAMING_XML_EXACT_OFFICIAL_BYTES");
-            dev.turboism.adapter.cubism.interpolation.NativeXmlStreamingBridge.enabled(false);
+            dev.turboism.adapter.cubism.optimization.interpolation.NativeXmlStreamingBridge.enabled(false);
         }
         DerivedCacheSerializationBridge.enabled(false);
         if(!withCache.equals(xml(extension)))throw new AssertionError("disabled hook failed to restore official serialization");

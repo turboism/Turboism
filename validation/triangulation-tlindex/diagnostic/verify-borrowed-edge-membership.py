@@ -22,7 +22,7 @@ def main():
     args = parser.parse_args()
     root = Path.cwd()
     authority = root / 'runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java'
-    preparation = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java'
+    preparation = root / 'runtime/src/main/java/dev/turboism/adapter/cubism/optimization/triangulation/LazyTriangulationEdgePreparation.java'
     source = Path(__file__).resolve().with_name('BorrowedEdgeMembershipSelfCheck.java')
     jars = {profile: getattr(args, 'jar_' + profile).resolve() for profile in ('5203', '5302', '5303')}
     # Production admits the Kotlin JAR by presence inside the reviewed host directory;

@@ -390,7 +390,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
                     "start",
                     AgentOptions.class,
                     Instrumentation.class,
-                    dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.class,
+                    dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode.class,
                     List.class,
                     List.class,
                     OptimizationPlan.class);
@@ -399,7 +399,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
                     null,
                     options,
                     instrumentation(new ArrayList<>(), getClass()),
-                    dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+                    dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller.AttachmentMode.PREMAIN,
                     List.of(),
                     List.of(),
                     null);

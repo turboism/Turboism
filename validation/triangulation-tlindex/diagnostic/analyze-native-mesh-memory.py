@@ -92,7 +92,7 @@ def audit(events, windows, expected_scopes=711):
                 continue
             names = [((f.get('method') or {}).get('type') or {}).get('name', '').replace('/', '.')
                      for f in (v.get('stackTrace') or {}).get('frames', [])]
-            bucket = ('table' if 'dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable' in names else
+            bucket = ('table' if 'dev.turboism.adapter.cubism.optimization.triangulation.NativeMeshEdgeTable' in names else
                       'nativeTriangulation' if any('.triangulation.' in n for n in names) else 'other')
             slot = allocations.setdefault(phase, {}).setdefault(bucket, {'samples': 0, 'estimatedWeightBytes': 0})
             slot['samples'] += 1; slot['estimatedWeightBytes'] += v['weight']

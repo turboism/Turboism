@@ -56,7 +56,7 @@ final class OptimizationCatalogTest {
         assertEquals(32, OptimizationCatalog.launcherFieldNames().size());
         assertEquals(32, OptimizationCatalog.booleanLauncherFieldNames().size());
         assertEquals(11, OptimizationCatalog.rootFieldNames().size());
-        assertEquals(50, OptimizationCatalog.protocols().size(), "45 reported protocols plus 5 probe protocols");
+        assertEquals(52, OptimizationCatalog.protocols().size(), "47 reported protocols plus 5 probe protocols");
     }
 
     private static final java.util.Set<Optimization> DEFAULT_ON = java.util.Set.of(

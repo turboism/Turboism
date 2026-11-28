@@ -2,7 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.mesh.MeshMirrorHostProfile;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
-import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
+import dev.turboism.adapter.cubism.optimization.startup.StartupSuppressionInstaller;
 import dev.turboism.core.lifecycle.CapabilityAdmission;
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;

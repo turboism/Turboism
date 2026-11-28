@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.turboism.adapter.cubism.optimization.ReviewedMethodShape;
-import dev.turboism.adapter.cubism.shader.ShaderUniformTransformer;
+import dev.turboism.adapter.cubism.optimization.shader.ShaderUniformTransformer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;

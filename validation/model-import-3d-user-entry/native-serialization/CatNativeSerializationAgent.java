@@ -49,7 +49,7 @@ public final class CatNativeSerializationAgent {
         require(count==557568,"full Cat source and derived inventory");return sink.finish();
     }
     static Class<?> bridge(String name)throws Exception {
-        Class<?> type=Class.forName("dev.turboism.adapter.cubism.interpolation."+name);
+        Class<?> type=Class.forName("dev.turboism.adapter.cubism.optimization.interpolation."+name);
         var url=type.getResource("/"+type.getName().replace('.','/')+".class");
         require(url!=null && url.getProtocol().equals("jar"),"runtime jar resource");
         var connection=(java.net.JarURLConnection)url.openConnection();connection.setUseCaches(false);

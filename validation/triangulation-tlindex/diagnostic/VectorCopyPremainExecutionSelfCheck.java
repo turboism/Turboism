@@ -1,4 +1,4 @@
-import dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge;
+import dev.turboism.adapter.cubism.optimization.triangulation.LazyTriangulationEdgeBridge;
 import dev.turboism.bootstrap.TurboismAgent;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import java.nio.file.Path;

@@ -30,7 +30,7 @@ def main():
     out.mkdir(parents=True, exist_ok=False)
     (out / 'classes').mkdir()
     here = Path(__file__).resolve().parent
-    sources = sorted(here.glob('*.java')) + sorted((here.parents[2] / 'runtime/src/main/java/dev/turboism/adapter/cubism/interpolation').glob('*.java'))
+    sources = sorted(here.glob('*.java')) + sorted((here.parents[2] / 'runtime/src/main/java/dev/turboism/adapter/cubism/optimization/interpolation').glob('*.java'))
     # Root path is three parents above performance/.
     root = here.parents[2]
     for source in sources:
