@@ -89,7 +89,7 @@ final class CoreWindows implements AutoCloseable {
     static final String ABOUT_LICENSE = TurboismEndpoints.GITHUB_LICENSE_URL;
     static final String ABOUT_EULA = TurboismEndpoints.GITHUB_EULA_URL;
     static final String ABOUT_SPONSOR = TurboismEndpoints.SPONSOR_PAGE_URL;
-    private static final String ABOUT_SPONSOR_LABEL_KEY = "about.support-me";
+    static final String ABOUT_SPONSOR_LABEL_KEY = "about.support-me";
     private static final String ABOUT_LINK_SEPARATOR = " / ";
     private static final int ABOUT_BODY_WIDTH = 360;
     private static final String LINK_COLOR_KEY = "Component.linkColor";

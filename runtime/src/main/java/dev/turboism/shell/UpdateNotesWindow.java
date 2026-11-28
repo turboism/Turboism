@@ -96,6 +96,7 @@ final class UpdateNotesWindow {
         final String defaultHeading = i18n.format("update-notes.page.title", releaseNotes.version());
         final ParsedNotes parsed = parseMarkdown(markdown, defaultHeading);
         final List<CardPageView.Link> links = mergeLinks(i18n, parsed.links());
+        final CardPageView.ClosingSection authorSupport = FramelessCardWindow.authorSupport(i18n);
         if (parsed.sections().isEmpty()) {
             final String fallbackIntro =
                     upgradeIntro.isBlank() ? i18n.text("update-notes.fallback.intro") : upgradeIntro;
@@ -105,15 +106,22 @@ final class UpdateNotesWindow {
                     List.of(i18n.text("update-notes.fallback.detail")),
                     List.of(),
                     links,
-                    linkOpener));
+                    linkOpener,
+                    authorSupport));
         }
         final List<CardPageView> views = new ArrayList<>(parsed.sections().size());
         for (int index = 0; index < parsed.sections().size(); index++) {
             final Section section = parsed.sections().get(index);
             final String pageIntro = index == 0 ? upgradeIntro : "";
-            final List<CardPageView.Link> pageLinks = index == parsed.sections().size() - 1 ? links : List.of();
+            final boolean lastPage = index == parsed.sections().size() - 1;
             views.add(CardPageView.markdown(
-                    section.heading(), pageIntro, section.paragraphs(), section.bullets(), pageLinks, linkOpener));
+                    section.heading(),
+                    pageIntro,
+                    section.paragraphs(),
+                    section.bullets(),
+                    lastPage ? links : List.of(),
+                    linkOpener,
+                    lastPage ? authorSupport : null));
         }
         return List.copyOf(views);
     }

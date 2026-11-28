@@ -1,6 +1,7 @@
 package dev.turboism.shell;
 
 import dev.turboism.core.net.HttpLinks;
+import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -70,6 +71,8 @@ final class FramelessCardWindow {
     private static final Color DOT_IDLE_COLOR = new Color(0xD3D9E3);
     private static final Color HOVER_COLOR = new Color(47, 111, 237, 26);
     private static final Color TRANSPARENT = new Color(0, 0, 0, 0);
+    private static final String AUTHOR_SUPPORT_TITLE_KEY = "card.author-support.title";
+    private static final String AUTHOR_SUPPORT_BODY_KEY = "card.author-support.body";
 
     private final PluginLocalization i18n;
     private final Runnable onDismissed;
@@ -82,6 +85,14 @@ final class FramelessCardWindow {
     private final PageDots dots;
     private int index;
     private boolean dismissed;
+
+    static CardPageView.ClosingSection authorSupport(final PluginLocalization i18n) {
+        return new CardPageView.ClosingSection(
+                i18n.text(AUTHOR_SUPPORT_TITLE_KEY),
+                i18n.text(AUTHOR_SUPPORT_BODY_KEY),
+                new CardPageView.Link(
+                        i18n.text(CoreWindows.ABOUT_SPONSOR_LABEL_KEY), TurboismEndpoints.SPONSOR_PAGE_URL));
+    }
 
     FramelessCardWindow(
             final PluginLocalization i18n,
