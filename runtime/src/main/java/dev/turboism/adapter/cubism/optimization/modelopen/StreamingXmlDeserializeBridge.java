@@ -110,7 +110,6 @@ public final class StreamingXmlDeserializeBridge {
     private static final String ENUM_VALUE_OF = "valueOf";
 
     private static final long NO_FILE_FORMAT_VERSION = -1L;
-    private static final int NO_SEEK_OFFSET = -1;
 
     private static final ClassValue<HostBinding> HOST_BINDING_CACHE = new ClassValue<>() {
         @Override
@@ -223,7 +222,9 @@ public final class StreamingXmlDeserializeBridge {
         private final Map<String, Object> readObjectRefs;
         private final List<Object> hostPostProcessTasks;
         private final List<Runnable> localPostProcessTasks = new ArrayList<>();
+        private final List<Runnable> sharedForwardFixups = new ArrayList<>();
         private final JdomBuilderImpl jdomBuilder;
+        private boolean inSharedSection;
 
         @SuppressWarnings("unchecked")
         Session(final Utf8XmlPullScanner scanner, final Object xmlReader, final HostBinding host) throws Throwable {
@@ -304,101 +305,103 @@ public final class StreamingXmlDeserializeBridge {
             return mainResult;
         }
 
+        /**
+         * Parses {@code <shared>} in a single forward pass and resolves deferred forward references
+         * once every shared ID is registered.
+         */
         private void readSharedSection() throws Throwable {
             if (scanner.isEmptyElement()) {
                 return;
             }
-            final List<SharedEntry> entries = new ArrayList<>();
-            while (true) {
-                final int ev = scanner.nextChildOrEnd();
-                if (ev == Utf8XmlPullScanner.EVENT_END_ELEMENT) {
-                    break;
-                }
-                if (ev != Utf8XmlPullScanner.EVENT_START_ELEMENT) {
-                    throw new Utf8XmlPullScanner.StreamingAbortException("Unexpected EOF inside <shared>");
-                }
-                final int startOffset = scanner.getElementStartPos();
-                final String id = scanner.getAttributeValue(ATTR_ID);
-                if (id == null) {
-                    throw new Utf8XmlPullScanner.StreamingAbortException("Missing xs.id in <shared> child");
-                }
-                final String tag = scanner.getTagName();
-                final Object leaf = tryReadLeafValue(tag);
-                if (leaf != UNHANDLED) {
-                    if (leaf != null) {
-                        readObjectRefs.put(id, leaf);
+            final List<MaterializedSharedEntry> deferredJdomSetups = new ArrayList<>();
+            inSharedSection = true;
+            try {
+                while (true) {
+                    final int ev = scanner.nextChildOrEnd();
+                    if (ev == Utf8XmlPullScanner.EVENT_END_ELEMENT) {
+                        break;
                     }
-                    continue;
-                }
-                final Object container = tryCreateContainerInstance(tag);
-                if (container != UNHANDLED) {
-                    if (container != null) {
-                        readObjectRefs.put(id, container);
-                        entries.add(new SharedEntry(startOffset, tag, null, container, null));
+                    if (ev != Utf8XmlPullScanner.EVENT_START_ELEMENT) {
+                        throw new Utf8XmlPullScanner.StreamingAbortException("Unexpected EOF inside <shared>");
                     }
-                    scanner.skipCurrentElementBody();
-                    continue;
-                }
-                final Object serializer = host.findSerializer.invokeExact(xmlReader, tag);
-                if (serializer == null) {
-                    scanner.skipCurrentElementBody();
-                    continue;
-                }
-                if (host.classSerializerType.isInstance(serializer)) {
-                    final Class<?> clazz = (Class<?>) host.getClassByTagName.invokeExact(xmlReader, tag);
-                    if (clazz == null) {
-                        throw new Utf8XmlPullScanner.StreamingAbortException("Unresolved class for tag: " + tag);
+                    final String id = scanner.getAttributeValue(ATTR_ID);
+                    if (id == null) {
+                        throw new Utf8XmlPullScanner.StreamingAbortException("Missing xs.id in <shared> child");
                     }
-                    if (clazz.isEnum()) {
-                        final Object enumVal = resolveEnumInstance(clazz, scanner.getAttributeValue(ATTR_VALUE));
-                        scanner.skipCurrentElementBody();
-                        if (enumVal != null) {
-                            readObjectRefs.put(id, enumVal);
+                    final String tag = scanner.getTagName();
+                    final Object leaf = tryReadLeafValue(tag);
+                    if (leaf != UNHANDLED) {
+                        if (leaf != null) {
+                            readObjectRefs.put(id, leaf);
                         }
                         continue;
                     }
-                    if (host.postProcessType.isAssignableFrom(clazz)) {
+                    final Object container = tryCreateContainerInstance(tag);
+                    if (container != UNHANDLED) {
+                        if (container != null) {
+                            readObjectRefs.put(id, container);
+                            populateContainerInstance(tag, container);
+                        } else {
+                            scanner.skipCurrentElementBody();
+                        }
+                        continue;
+                    }
+                    final Object serializer = host.findSerializer.invokeExact(xmlReader, tag);
+                    if (serializer == null) {
+                        scanner.skipCurrentElementBody();
+                        continue;
+                    }
+                    if (host.classSerializerType.isInstance(serializer)) {
+                        final Class<?> clazz = (Class<?>) host.getClassByTagName.invokeExact(xmlReader, tag);
+                        if (clazz == null) {
+                            throw new Utf8XmlPullScanner.StreamingAbortException("Unresolved class for tag: " + tag);
+                        }
+                        if (clazz.isEnum()) {
+                            final Object enumVal = resolveEnumInstance(clazz, scanner.getAttributeValue(ATTR_VALUE));
+                            scanner.skipCurrentElementBody();
+                            if (enumVal != null) {
+                                readObjectRefs.put(id, enumVal);
+                            }
+                            continue;
+                        }
+                        if (host.postProcessType.isAssignableFrom(clazz)) {
+                            final Object elem = scanner.materializeCurrentElement(jdomBuilder);
+                            final Object instance =
+                                    host.serializerCreateInstance.invokeExact(serializer, elem, xmlReader);
+                            if (instance != null) {
+                                readObjectRefs.put(id, instance);
+                                deferredJdomSetups.add(new MaterializedSharedEntry(serializer, instance, elem));
+                            }
+                            continue;
+                        }
+                        final Object instance = DeserializeReflectFastBridge.newInstance(clazz);
+                        readObjectRefs.put(id, instance);
+                        populateClassObject(serializer, instance);
+                    } else {
                         final Object elem = scanner.materializeCurrentElement(jdomBuilder);
                         final Object instance = host.serializerCreateInstance.invokeExact(serializer, elem, xmlReader);
                         if (instance != null) {
                             readObjectRefs.put(id, instance);
-                            entries.add(new SharedEntry(NO_SEEK_OFFSET, tag, serializer, instance, elem));
+                            deferredJdomSetups.add(new MaterializedSharedEntry(serializer, instance, elem));
                         }
-                        continue;
-                    }
-                    final Object instance = DeserializeReflectFastBridge.newInstance(clazz);
-                    readObjectRefs.put(id, instance);
-                    scanner.skipCurrentElementBody();
-                    entries.add(new SharedEntry(startOffset, tag, serializer, instance, null));
-                } else {
-                    final Object elem = scanner.materializeCurrentElement(jdomBuilder);
-                    final Object instance = host.serializerCreateInstance.invokeExact(serializer, elem, xmlReader);
-                    if (instance != null) {
-                        readObjectRefs.put(id, instance);
-                        entries.add(new SharedEntry(NO_SEEK_OFFSET, tag, serializer, instance, elem));
                     }
                 }
+            } finally {
+                inSharedSection = false;
             }
 
-            final int afterSharedPos = scanner.getPos();
-            for (final SharedEntry entry : entries) {
-                if (entry.materializedElement != null) {
-                    host.serializerSetupInstance.invokeExact(
-                            entry.serializer, entry.materializedElement, entry.instance, xmlReader);
-                    if (host.postProcessType.isInstance(entry.instance)) {
-                        host.onDeserialized.invokeExact(entry.instance, entry.materializedElement, xmlReader);
-                    }
-                } else {
-                    scanner.seek(entry.startOffset);
-                    scanner.readStartTagAtCurrentPos();
-                    if (entry.serializer != null) {
-                        populateClassObject(entry.serializer, entry.instance);
-                    } else {
-                        populateContainerInstance(entry.tag, entry.instance);
-                    }
+            for (final Runnable fixup : sharedForwardFixups) {
+                fixup.run();
+            }
+            sharedForwardFixups.clear();
+
+            for (final MaterializedSharedEntry entry : deferredJdomSetups) {
+                host.serializerSetupInstance.invokeExact(
+                        entry.serializer, entry.materializedElement, entry.instance, xmlReader);
+                if (host.postProcessType.isInstance(entry.instance)) {
+                    host.onDeserialized.invokeExact(entry.instance, entry.materializedElement, xmlReader);
                 }
             }
-            scanner.seek(afterSharedPos);
         }
 
         private Object readMainSection() throws Throwable {
@@ -452,6 +455,9 @@ public final class StreamingXmlDeserializeBridge {
                 scanner.skipCurrentElementBody();
                 final Object existing = readObjectRefs.get(refId);
                 if (existing == null) {
+                    if (inSharedSection) {
+                        return new DeferredRef(refId);
+                    }
                     throw new Utf8XmlPullScanner.StreamingAbortException("Unresolved xs.ref: " + refId);
                 }
                 return existing;
@@ -495,7 +501,7 @@ public final class StreamingXmlDeserializeBridge {
         }
 
         private Object deserializeViaLocalJdom(final Object serializer) throws Throwable {
-            final Object elem = scanner.materializeCurrentElement(jdomBuilder);
+            final Object elem = materializeCurrentElementForInlineJdom();
             final Object instance = host.serializerCreateInstance.invokeExact(serializer, elem, xmlReader);
             if (instance != null) {
                 host.serializerSetupInstance.invokeExact(serializer, elem, instance, xmlReader);
@@ -504,6 +510,30 @@ public final class StreamingXmlDeserializeBridge {
                 }
             }
             return instance;
+        }
+
+        /**
+         * Aborts when an inline JDOM subtree inside {@code <shared>} references a forward ID that
+         * host JDOM setup cannot defer.
+         */
+        private Object materializeCurrentElementForInlineJdom() throws Throwable {
+            if (!inSharedSection) {
+                return scanner.materializeCurrentElement(jdomBuilder);
+            }
+            jdomBuilder.beginRefCheck(readObjectRefs);
+            try {
+                return scanner.materializeCurrentElement(jdomBuilder);
+            } finally {
+                jdomBuilder.endRefCheck();
+            }
+        }
+
+        private Object resolveRequiredRef(final String refId) {
+            final Object resolved = readObjectRefs.get(refId);
+            if (resolved == null) {
+                throw new Utf8XmlPullScanner.StreamingAbortException("Unresolved forward xs.ref: " + refId);
+            }
+            return resolved;
         }
 
         private Object tryReadLeafValue(final String tag) {
@@ -617,11 +647,22 @@ public final class StreamingXmlDeserializeBridge {
                 }
                 final String childId = scanner.getAttributeValue(ATTR_ID);
                 final Object item = deserializeCurrentElement();
-                if (childId != null && item != null) {
-                    readObjectRefs.put(childId, item);
-                }
-                if (item != null) {
-                    list.add(item);
+                if (item instanceof DeferredRef) {
+                    if (childId != null) {
+                        throw new Utf8XmlPullScanner.StreamingAbortException(
+                                "Cannot combine xs.id with deferred xs.ref: " + childId);
+                    }
+                    final int slotIndex = list.size();
+                    list.add(null);
+                    final String refId = ((DeferredRef) item).refId;
+                    sharedForwardFixups.add(() -> list.set(slotIndex, resolveRequiredRef(refId)));
+                } else {
+                    if (childId != null && item != null) {
+                        readObjectRefs.put(childId, item);
+                    }
+                    if (item != null) {
+                        list.add(item);
+                    }
                 }
             }
         }
@@ -639,7 +680,14 @@ public final class StreamingXmlDeserializeBridge {
                     }
                     final String key = scanner.getAttributeValue(ATTR_NAME);
                     final Object val = deserializeCurrentElement();
-                    map.put(key, val);
+                    if (val instanceof DeferredRef) {
+                        final String refId = ((DeferredRef) val).refId;
+                        // Insert placeholder now to preserve LinkedHashMap key order.
+                        map.put(key, null);
+                        sharedForwardFixups.add(() -> map.put(key, resolveRequiredRef(refId)));
+                    } else {
+                        map.put(key, val);
+                    }
                 }
             }
             final List<Object> deferredKeys = new ArrayList<>();
@@ -680,8 +728,21 @@ public final class StreamingXmlDeserializeBridge {
                 if (entryKey == null) {
                     throw new Utf8XmlPullScanner.StreamingAbortException("Null map entry key");
                 }
-                deferredKeys.add(entryKey);
-                deferredValues.add(entryVal);
+                final int entryIndex = deferredKeys.size();
+                if (entryKey instanceof DeferredRef) {
+                    deferredKeys.add(null);
+                    final String keyRefId = ((DeferredRef) entryKey).refId;
+                    sharedForwardFixups.add(() -> deferredKeys.set(entryIndex, resolveRequiredRef(keyRefId)));
+                } else {
+                    deferredKeys.add(entryKey);
+                }
+                if (entryVal instanceof DeferredRef) {
+                    deferredValues.add(null);
+                    final String valRefId = ((DeferredRef) entryVal).refId;
+                    sharedForwardFixups.add(() -> deferredValues.set(entryIndex, resolveRequiredRef(valRefId)));
+                } else {
+                    deferredValues.add(entryVal);
+                }
             }
             localPostProcessTasks.add(() -> {
                 for (int i = 0; i < deferredKeys.size(); i++) {
@@ -691,18 +752,39 @@ public final class StreamingXmlDeserializeBridge {
         }
 
         private void populateSet(final Set<Object> set) throws Throwable {
+            List<Object> deferredTail = null;
             while (true) {
                 final int ev = scanner.nextChildOrEnd();
                 if (ev == Utf8XmlPullScanner.EVENT_END_ELEMENT) {
-                    return;
+                    break;
                 }
                 if (ev != Utf8XmlPullScanner.EVENT_START_ELEMENT) {
                     throw new Utf8XmlPullScanner.StreamingAbortException("Unexpected EOF inside set");
                 }
                 final Object item = deserializeCurrentElement();
-                if (item != null) {
+                if (deferredTail != null) {
+                    if (item != null) {
+                        deferredTail.add(item);
+                    }
+                } else if (item instanceof DeferredRef) {
+                    // Defer this item and all following items to preserve LinkedHashSet insertion order.
+                    deferredTail = new ArrayList<>();
+                    deferredTail.add(item);
+                } else if (item != null) {
                     set.add(item);
                 }
+            }
+            if (deferredTail != null) {
+                final List<Object> itemsToAdd = deferredTail;
+                sharedForwardFixups.add(() -> {
+                    for (final Object entry : itemsToAdd) {
+                        if (entry instanceof DeferredRef) {
+                            set.add(resolveRequiredRef(((DeferredRef) entry).refId));
+                        } else {
+                            set.add(entry);
+                        }
+                    }
+                });
             }
         }
 
@@ -717,7 +799,25 @@ public final class StreamingXmlDeserializeBridge {
                     throw new Utf8XmlPullScanner.StreamingAbortException("Unexpected EOF inside object array");
                 }
                 final Object item = deserializeCurrentElement();
-                Array.set(array, index++, item);
+                final int slot = index++;
+                if (item instanceof DeferredRef) {
+                    final Class<?> componentType = array.getClass().getComponentType();
+                    if (componentType == null || componentType.isPrimitive()) {
+                        throw new Utf8XmlPullScanner.StreamingAbortException(
+                                "Cannot defer forward xs.ref into primitive array");
+                    }
+                    final String refId = ((DeferredRef) item).refId;
+                    sharedForwardFixups.add(() -> {
+                        final Object resolved = resolveRequiredRef(refId);
+                        if (!componentType.isInstance(resolved)) {
+                            throw new Utf8XmlPullScanner.StreamingAbortException(
+                                    "Incompatible forward xs.ref type for array: " + refId);
+                        }
+                        Array.set(array, slot, resolved);
+                    });
+                } else {
+                    Array.set(array, slot, item);
+                }
             }
         }
 
@@ -749,7 +849,7 @@ public final class StreamingXmlDeserializeBridge {
                     } else if (host.classSerializerType.isInstance(superSerializer)) {
                         populateClassObject(superSerializer, target);
                     } else {
-                        final Object superElem = scanner.materializeCurrentElement(jdomBuilder);
+                        final Object superElem = materializeCurrentElementForInlineJdom();
                         host.serializerSetupInstance.invokeExact(superSerializer, superElem, target, xmlReader);
                     }
                     continue;
@@ -778,6 +878,34 @@ public final class StreamingXmlDeserializeBridge {
             final Field backingField = (Field) host.getBackingField.invokeExact(propertySet);
             if (kProperty != null && host.kMutableProperty1Type.isInstance(kProperty)) {
                 final Object value = deserializeCurrentElement();
+                if (value instanceof DeferredRef) {
+                    if (backingField != null && isNonDeferrableFieldType(backingField.getType())) {
+                        throw new Utf8XmlPullScanner.StreamingAbortException(
+                                "Cannot defer forward xs.ref for primitive or enum property");
+                    }
+                    final String refId = ((DeferredRef) value).refId;
+                    sharedForwardFixups.add(() -> {
+                        final Object resolved = resolveRequiredRef(refId);
+                        if (backingField != null && !backingField.getType().isInstance(resolved)) {
+                            throw new Utf8XmlPullScanner.StreamingAbortException(
+                                    "Incompatible forward xs.ref type for property: " + refId);
+                        }
+                        try {
+                            if (!DeserializeReflectFastBridge.trySetMutableProperty(
+                                    propertySet, kProperty, backingField, target, resolved)) {
+                                invokeKotlinSetterFallback(kProperty, target, resolved);
+                            }
+                        } catch (final Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            if (isCancelException(failure)) {
+                                sneakyThrow(failure);
+                            }
+                            throw new Utf8XmlPullScanner.StreamingAbortException(
+                                    "Failed to apply deferred property ref: " + refId);
+                        }
+                    });
+                    return;
+                }
                 if (!DeserializeReflectFastBridge.trySetMutableProperty(
                         propertySet, kProperty, backingField, target, value)) {
                     invokeKotlinSetterFallback(kProperty, target, value);
@@ -786,6 +914,35 @@ public final class StreamingXmlDeserializeBridge {
             }
             if (backingField != null) {
                 final Object value = deserializeCurrentElement();
+                if (value instanceof DeferredRef) {
+                    if (isNonDeferrableFieldType(backingField.getType())) {
+                        throw new Utf8XmlPullScanner.StreamingAbortException(
+                                "Cannot defer forward xs.ref for primitive or enum field");
+                    }
+                    final String refId = ((DeferredRef) value).refId;
+                    sharedForwardFixups.add(() -> {
+                        final Object resolved = resolveRequiredRef(refId);
+                        if (!backingField.getType().isInstance(resolved)) {
+                            throw new Utf8XmlPullScanner.StreamingAbortException(
+                                    "Incompatible forward xs.ref type for field: " + refId);
+                        }
+                        try {
+                            if (!DeserializeReflectFastBridge.trySetBackingField(
+                                    propertySet, backingField, target, resolved)) {
+                                final Field opened = ReflectAccess.open(backingField);
+                                opened.set(target, resolved);
+                            }
+                        } catch (final Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
+                            if (isCancelException(failure)) {
+                                sneakyThrow(failure);
+                            }
+                            throw new Utf8XmlPullScanner.StreamingAbortException(
+                                    "Failed to apply deferred field ref: " + refId);
+                        }
+                    });
+                    return;
+                }
                 if (!DeserializeReflectFastBridge.trySetBackingField(propertySet, backingField, target, value)) {
                     final Field opened = ReflectAccess.open(backingField);
                     opened.set(target, value);
@@ -793,6 +950,10 @@ public final class StreamingXmlDeserializeBridge {
                 return;
             }
             scanner.skipCurrentElementBody();
+        }
+
+        private static boolean isNonDeferrableFieldType(final Class<?> fieldType) {
+            return fieldType.isPrimitive() || fieldType.isEnum();
         }
 
         private void invokeKotlinSetterFallback(final Object kProperty, final Object target, final Object value)
@@ -829,21 +990,20 @@ public final class StreamingXmlDeserializeBridge {
         }
     }
 
-    private static final class SharedEntry {
-        final int startOffset;
-        final String tag;
+    private static final class DeferredRef {
+        final String refId;
+
+        DeferredRef(final String refId) {
+            this.refId = refId;
+        }
+    }
+
+    private static final class MaterializedSharedEntry {
         final Object serializer;
         final Object instance;
         final Object materializedElement;
 
-        SharedEntry(
-                final int startOffset,
-                final String tag,
-                final Object serializer,
-                final Object instance,
-                final Object materializedElement) {
-            this.startOffset = startOffset;
-            this.tag = tag;
+        MaterializedSharedEntry(final Object serializer, final Object instance, final Object materializedElement) {
             this.serializer = serializer;
             this.instance = instance;
             this.materializedElement = materializedElement;
@@ -854,10 +1014,22 @@ public final class StreamingXmlDeserializeBridge {
 
         private final HostBinding host;
         final Object factory;
+        private Map<String, Object> refCheckMap;
+        private Set<String> localIds;
 
         JdomBuilderImpl(final HostBinding host) throws Throwable {
             this.host = host;
             this.factory = host.newUncheckedJdomFactory.invokeExact();
+        }
+
+        void beginRefCheck(final Map<String, Object> existingRefs) {
+            this.refCheckMap = existingRefs;
+            this.localIds = null;
+        }
+
+        void endRefCheck() {
+            this.refCheckMap = null;
+            this.localIds = null;
         }
 
         @Override
@@ -867,6 +1039,19 @@ public final class StreamingXmlDeserializeBridge {
 
         @Override
         public void addAttribute(final Object element, final String name, final String value) throws Throwable {
+            if (refCheckMap != null) {
+                if (ATTR_ID.equals(name)) {
+                    if (localIds == null) {
+                        localIds = new HashSet<>();
+                    }
+                    localIds.add(value);
+                } else if (ATTR_REF.equals(name)
+                        && !refCheckMap.containsKey(value)
+                        && (localIds == null || !localIds.contains(value))) {
+                    throw new Utf8XmlPullScanner.StreamingAbortException(
+                            "Unresolved forward xs.ref inside JDOM subtree: " + value);
+                }
+            }
             final Object attr = host.jdomAttribute.invokeExact(factory, name, value);
             host.jdomSetAttribute.invokeExact(factory, element, attr);
         }
