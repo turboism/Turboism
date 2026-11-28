@@ -5,6 +5,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -65,8 +68,81 @@ public final class ArchiveReadBridge {
     private static final int ONE_BYTE_PROBE = 1;
 
     private static final ThreadLocal<Inflater> RAW_INFLATER = ThreadLocal.withInitial(() -> new Inflater(true));
+    private static final Map<Object, ArchivePrefetchSession> PREFETCH_SESSIONS =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     private ArchiveReadBridge() {}
+
+    /**
+     * Starts parallel background prefetch and inflation for non-excluded entries of {@code archiveReader}.
+     *
+     * @param archiveReader Cubism {@code ArchiveReader} instance, nullable
+     * @param excludePath entry path to skip (typically the entry being read synchronously), nullable
+     */
+    public static void startArchivePrefetch(final Object archiveReader, final String excludePath) {
+        if (archiveReader == null) {
+            return;
+        }
+        synchronized (PREFETCH_SESSIONS) {
+            if (PREFETCH_SESSIONS.containsKey(archiveReader)) {
+                return;
+            }
+            PREFETCH_SESSIONS.put(archiveReader, ArchivePrefetchSession.tryStart(archiveReader, excludePath));
+        }
+    }
+
+    /**
+     * Claims a prefetched stream for {@code path}, auto-starting background prefetch on the first
+     * eligible archive read so subsequent entries avoid serial I/O and inflation.
+     *
+     * @param archiveReader Cubism {@code ArchiveReader} instance, nullable
+     * @param path archive entry path, nullable
+     * @return zero-copy stream when prefetched, or {@code null} to execute the native read path
+     */
+    public static InputStream tryTakePrefetchedStream(final Object archiveReader, final String path) {
+        if (archiveReader == null || path == null) {
+            return null;
+        }
+        ArchivePrefetchSession session = PREFETCH_SESSIONS.get(archiveReader);
+        if (session == null) {
+            synchronized (PREFETCH_SESSIONS) {
+                session = PREFETCH_SESSIONS.get(archiveReader);
+                if (session == null) {
+                    PREFETCH_SESSIONS.put(archiveReader, ArchivePrefetchSession.tryStart(archiveReader, path));
+                    return null;
+                }
+            }
+        }
+        if (!session.isActive()) {
+            return null;
+        }
+        return session.tryTakeStream(path);
+    }
+
+    /**
+     * Cancels background prefetch work, releases unconsumed buffers, and closes the prefetch
+     * channel associated with {@code archiveReader}.
+     *
+     * @param archiveReader Cubism {@code ArchiveReader} instance, nullable
+     */
+    public static void closeArchivePrefetch(final Object archiveReader) {
+        if (archiveReader == null) {
+            return;
+        }
+        final ArchivePrefetchSession previous;
+        synchronized (PREFETCH_SESSIONS) {
+            previous = PREFETCH_SESSIONS.put(archiveReader, ArchivePrefetchSession.DISABLED);
+        }
+        if (previous != null) {
+            previous.close();
+        }
+    }
+
+    static void registerPrefetchSessionForTest(final Object archiveReader, final ArchivePrefetchSession session) {
+        synchronized (PREFETCH_SESSIONS) {
+            PREFETCH_SESSIONS.put(archiveReader, session);
+        }
+    }
 
     /**
      * Wraps an owned RAW archive buffer so unread callers can claim the array without copying.

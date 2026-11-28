@@ -3,9 +3,12 @@ package dev.turboism.adapter.cubism.optimization.modelopen;
 import static org.objectweb.asm.Opcodes.ALOAD;
 import static org.objectweb.asm.Opcodes.ASM9;
 import static org.objectweb.asm.Opcodes.ASTORE;
+import static org.objectweb.asm.Opcodes.ATHROW;
 import static org.objectweb.asm.Opcodes.CHECKCAST;
 import static org.objectweb.asm.Opcodes.DUP;
 import static org.objectweb.asm.Opcodes.ICONST_0;
+import static org.objectweb.asm.Opcodes.IFNULL;
+import static org.objectweb.asm.Opcodes.INVOKEINTERFACE;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
@@ -13,6 +16,7 @@ import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.NOP;
 import static org.objectweb.asm.Opcodes.POP;
+import static org.objectweb.asm.Opcodes.RETURN;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,11 +39,17 @@ final class ArchiveReadPatcher {
 
     private static final String READ_FILE_BY_PATH_NAME = "readFileByFilePath";
     private static final String READ_FILE_BY_PATH_DESC = "(Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V";
+    private static final String CLOSE_NAME = "close";
+    private static final String CLOSE_DESC = "()V";
     private static final String LAMBDA_INVOKE_NAME = "a";
     private static final String LAMBDA_INVOKE_DESC = "(Ljava/io/InputStream;)V";
 
     private static final String BYTE_ARRAY_INPUT_STREAM = "java/io/ByteArrayInputStream";
     private static final String INPUT_STREAM = "java/io/InputStream";
+    private static final String THROWABLE = "java/lang/Throwable";
+    private static final String FUNCTION1_OWNER = "kotlin/jvm/functions/Function1";
+    private static final String FUNCTION1_INVOKE = "invoke";
+    private static final String FUNCTION1_INVOKE_DESC = "(Ljava/lang/Object;)Ljava/lang/Object;";
     private static final String ZIP_INPUT_STREAM = "java/util/zip/ZipInputStream";
     private static final String INIT_NAME = "<init>";
     private static final String BAIS_INIT_DESC = "([B)V";
@@ -54,8 +64,18 @@ final class ArchiveReadPatcher {
     private static final String WRAP_RAW_BYTES = "wrapRawBytes";
     private static final String OPEN_ZIP_ENTRY_STREAM = "openZipEntryStream";
     private static final String READ_ALL_BYTES = "readAllBytes";
+    private static final String TRY_TAKE_PREFETCHED_STREAM = "tryTakePrefetchedStream";
+    private static final String TRY_TAKE_PREFETCHED_STREAM_DESC =
+            "(Ljava/lang/Object;Ljava/lang/String;)Ljava/io/InputStream;";
+    private static final String CLOSE_ARCHIVE_PREFETCH = "closeArchivePrefetch";
+    private static final String CLOSE_ARCHIVE_PREFETCH_DESC = "(Ljava/lang/Object;)V";
     private static final String BYTES_TO_STREAM_DESC = "([B)Ljava/io/InputStream;";
     private static final String READ_ALL_BYTES_DESC = "(Ljava/io/InputStream;)[B";
+    private static final int PARAM_THIS = 0;
+    private static final int PARAM_PATH = 1;
+    private static final int PARAM_CALLBACK = 2;
+    private static final int FAST_STREAM_LOCAL = 3;
+    private static final int FAST_ERROR_LOCAL = 4;
 
     private static final int RAW_IDLE = 0;
     private static final int RAW_SEEN_NEW = 1;
@@ -109,10 +129,27 @@ final class ArchiveReadPatcher {
                     final String signature,
                     final String[] exceptions) {
                 final MethodVisitor delegate = super.visitMethod(access, name, desc, signature, exceptions);
-                if (!READ_FILE_BY_PATH_NAME.equals(name) || !READ_FILE_BY_PATH_DESC.equals(desc)) {
-                    return delegate;
+                if (READ_FILE_BY_PATH_NAME.equals(name) && READ_FILE_BY_PATH_DESC.equals(desc)) {
+                    final ArchiveReaderMethodVisitor bodyVisitor = new ArchiveReaderMethodVisitor(delegate, patched);
+                    return new ArchivePrefetchEntryVisitor(bodyVisitor, patched);
                 }
-                return new ArchiveReaderMethodVisitor(delegate, patched);
+                if (CLOSE_NAME.equals(name) && CLOSE_DESC.equals(desc)) {
+                    return new MethodVisitor(ASM9, delegate) {
+                        @Override
+                        public void visitCode() {
+                            super.visitCode();
+                            patched[0] = true;
+                            super.visitVarInsn(ALOAD, PARAM_THIS);
+                            super.visitMethodInsn(
+                                    INVOKESTATIC,
+                                    BRIDGE_OWNER,
+                                    CLOSE_ARCHIVE_PREFETCH,
+                                    CLOSE_ARCHIVE_PREFETCH_DESC,
+                                    false);
+                        }
+                    };
+                }
+                return delegate;
             }
         };
         reader.accept(visitor, ClassReader.EXPAND_FRAMES);
@@ -162,6 +199,59 @@ final class ArchiveReadPatcher {
         };
         reader.accept(visitor, ClassReader.EXPAND_FRAMES);
         return patched[0] ? writer.toByteArray() : null;
+    }
+
+    private static final class ArchivePrefetchEntryVisitor extends MethodVisitor {
+
+        private final boolean[] patched;
+
+        private ArchivePrefetchEntryVisitor(final MethodVisitor delegate, final boolean[] patched) {
+            super(ASM9, delegate);
+            this.patched = patched;
+        }
+
+        @Override
+        public void visitCode() {
+            super.visitCode();
+            this.patched[0] = true;
+            final Label tryStart = new Label();
+            final Label tryEnd = new Label();
+            final Label catchHandler = new Label();
+            final Label popFallthrough = new Label();
+            final Label fallthrough = new Label();
+
+            super.visitTryCatchBlock(tryStart, tryEnd, catchHandler, null);
+            super.visitVarInsn(ALOAD, PARAM_CALLBACK);
+            super.visitJumpInsn(IFNULL, fallthrough);
+            super.visitVarInsn(ALOAD, PARAM_THIS);
+            super.visitVarInsn(ALOAD, PARAM_PATH);
+            super.visitMethodInsn(
+                    INVOKESTATIC, BRIDGE_OWNER, TRY_TAKE_PREFETCHED_STREAM, TRY_TAKE_PREFETCHED_STREAM_DESC, false);
+            super.visitInsn(DUP);
+            super.visitJumpInsn(IFNULL, popFallthrough);
+            super.visitVarInsn(ASTORE, FAST_STREAM_LOCAL);
+
+            super.visitLabel(tryStart);
+            super.visitVarInsn(ALOAD, PARAM_CALLBACK);
+            super.visitVarInsn(ALOAD, FAST_STREAM_LOCAL);
+            super.visitMethodInsn(INVOKEINTERFACE, FUNCTION1_OWNER, FUNCTION1_INVOKE, FUNCTION1_INVOKE_DESC, true);
+            super.visitInsn(POP);
+            super.visitLabel(tryEnd);
+            super.visitVarInsn(ALOAD, FAST_STREAM_LOCAL);
+            super.visitMethodInsn(INVOKEVIRTUAL, INPUT_STREAM, CLOSE_NAME, CLOSE_DESC, false);
+            super.visitInsn(RETURN);
+
+            super.visitLabel(catchHandler);
+            super.visitVarInsn(ASTORE, FAST_ERROR_LOCAL);
+            super.visitVarInsn(ALOAD, FAST_STREAM_LOCAL);
+            super.visitMethodInsn(INVOKEVIRTUAL, INPUT_STREAM, CLOSE_NAME, CLOSE_DESC, false);
+            super.visitVarInsn(ALOAD, FAST_ERROR_LOCAL);
+            super.visitInsn(ATHROW);
+
+            super.visitLabel(popFallthrough);
+            super.visitInsn(POP);
+            super.visitLabel(fallthrough);
+        }
     }
 
     private static final class ArchiveReaderMethodVisitor extends MethodVisitor {
