@@ -57,7 +57,19 @@ public final class ModelOpenAccelerationTransformer implements ClassFileTransfor
                 return BufferedRandomAccessReadPatcher.tryPatch(className, loader, classfileBuffer);
             }
             if (DeserializeGcElisionPatcher.TARGET_INTERNAL_NAME.equals(className)) {
-                return DeserializeGcElisionPatcher.tryPatch(className, loader, classfileBuffer);
+                byte[] current = classfileBuffer;
+                boolean modified = false;
+                final byte[] gcPatched = DeserializeGcElisionPatcher.tryPatch(className, loader, current);
+                if (gcPatched != null) {
+                    current = gcPatched;
+                    modified = true;
+                }
+                final byte[] streamPatched = StreamingXmlDeserializePatcher.tryPatch(className, loader, current);
+                if (streamPatched != null) {
+                    current = streamPatched;
+                    modified = true;
+                }
+                return modified ? current : null;
             }
             if (DeserializeReflectFastPatcher.isSupportedTarget(className)) {
                 return DeserializeReflectFastPatcher.tryPatch(className, loader, classfileBuffer);
