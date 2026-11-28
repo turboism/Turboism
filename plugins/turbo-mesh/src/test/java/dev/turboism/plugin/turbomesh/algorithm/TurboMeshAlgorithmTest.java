@@ -245,6 +245,40 @@ class TurboMeshAlgorithmTest {
         return max - min;
     }
 
+    @Test
+    void bothAlgorithmsLeaveBleedOutsideATightlyCroppedTexture() throws AutoMeshComputeException {
+        final int width = 32;
+        final int height = 64;
+        final int[] pixels = new int[width * height];
+        java.util.Arrays.fill(pixels, 0xff336699);
+        final double bleed = 6.0;
+        final double contourTolerancePx = 2.0;
+        final TexturePixels texture = new TexturePixels(width, height, pixels);
+        final Map<String, String> regionValues = Map.of(
+                RegionAlgorithm.PARAMETER_AUTO_BLEED_MARGIN,
+                "false",
+                RegionAlgorithm.PARAMETER_BLEED_MARGIN,
+                Double.toString(bleed));
+        final Map<String, String> adaptiveValues =
+                Map.of(AdaptiveAlgorithm.PARAMETER_BLEED_MARGIN, Double.toString(bleed));
+        for (final AutoMeshAlgorithm algorithm :
+                List.of(RegionAlgorithm.create(LOCALIZATION), AdaptiveAlgorithm.create(LOCALIZATION))) {
+            final Map<String, String> values =
+                    algorithm.id().equals(RegionAlgorithm.ID) ? regionValues : adaptiveValues;
+            final AutoMeshResult result =
+                    algorithm.compute().compute(request(Optional.of(texture), values), activeToken());
+            final ArtMeshGeometry mesh = assertInstanceOf(AutoMeshResult.Success.class, result, algorithm.id())
+                    .geometry();
+            assertNoDegenerateTriangle(mesh);
+            final var xStats = mesh.uvs().stream().mapToDouble(Point2::x).summaryStatistics();
+            final var yStats = mesh.uvs().stream().mapToDouble(Point2::y).summaryStatistics();
+            assertEquals(-bleed / width, xStats.getMin(), contourTolerancePx / width, algorithm.id());
+            assertEquals(1.0 + bleed / width, xStats.getMax(), contourTolerancePx / width, algorithm.id());
+            assertEquals(-bleed / height, yStats.getMin(), contourTolerancePx / height, algorithm.id());
+            assertEquals(1.0 + bleed / height, yStats.getMax(), contourTolerancePx / height, algorithm.id());
+        }
+    }
+
     private static Set<String> parameterIds(final AutoMeshAlgorithm algorithm) {
         return algorithm.parameters().stream()
                 .map(AlgorithmParameterDescriptor::id)

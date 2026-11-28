@@ -21,9 +21,6 @@ final class RegionRaster {
     /** Minimum transparent core radius preserved inside interior alpha holes during bleed expansion. */
     static final double MIN_HOLE_CORE_PX = 2.0;
 
-    /** Minimum image edge size above which bleed leaves the outer 1-pixel frame untouched. */
-    private static final int SAFE_FRAME_MIN_EXTENT = 3;
-
     /** Alpha value from which a pixel counts as a colour source for the border fill. */
     static final int ALPHA_OPAQUE = 250;
 
@@ -124,14 +121,14 @@ final class RegionRaster {
         final int maxY = bounds[3];
         final double effectiveBleed = Math.max(0.0, bleedMarginPx);
         final int pad = (int) Math.ceil(effectiveBleed) + CROP_MARGIN_PX;
-        final int originX = Math.max(0, minX - pad);
-        final int originY = Math.max(0, minY - pad);
-        final int cropWidth = Math.min(width - 1, maxX + pad) - originX + 1;
-        final int cropHeight = Math.min(height - 1, maxY + pad) - originY + 1;
-        final int[] croppedPixels = new int[cropWidth * cropHeight];
-        for (int y = 0; y < cropHeight; y++) {
-            System.arraycopy(argb, (originY + y) * width + originX, croppedPixels, y * cropWidth, cropWidth);
-        }
+        final int outsidePad = effectiveBleed > 0.0 ? pad : 0;
+        final int originX = Math.max(-outsidePad, minX - pad);
+        final int originY = Math.max(-outsidePad, minY - pad);
+        final int endX = Math.min(width + outsidePad, maxX + pad + 1);
+        final int endY = Math.min(height + outsidePad, maxY + pad + 1);
+        final int cropWidth = endX - originX;
+        final int cropHeight = endY - originY;
+        final int[] croppedPixels = copyWithTransparentPadding(argb, width, height, originX, originY, endX, endY);
         final boolean[] solidMask = new boolean[cropWidth * cropHeight];
         final boolean[] visibleMask = new boolean[cropWidth * cropHeight];
         for (int i = 0; i < solidMask.length; i++) {
@@ -141,7 +138,7 @@ final class RegionRaster {
         }
         final boolean[] domainMask = effectiveBleed <= 0.0
                 ? solidMask.clone()
-                : buildBleedDomain(visibleMask, cropWidth, cropHeight, originX, originY, width, height, effectiveBleed);
+                : buildBleedDomain(visibleMask, cropWidth, cropHeight, effectiveBleed);
         final float[] rgb = filledColour(croppedPixels, cropWidth, cropHeight);
         final float[] lab = new float[rgb.length];
         for (int i = 0; i < solidMask.length; i++) {
@@ -160,6 +157,26 @@ final class RegionRaster {
                 domainMask,
                 rgb,
                 lab);
+    }
+
+    /** Supplies transparent pixels beyond the source edges for silhouette expansion. */
+    private static int[] copyWithTransparentPadding(
+            final int[] argb,
+            final int width,
+            final int height,
+            final int startX,
+            final int startY,
+            final int endX,
+            final int endY) {
+        final int stride = endX - startX;
+        final int[] pixels = new int[stride * (endY - startY)];
+        final int copyX = Math.max(0, startX);
+        final int copyWidth = Math.min(endX, width) - copyX;
+        final int copyEndY = Math.min(endY, height);
+        for (int y = Math.max(0, startY); y < copyEndY; y++) {
+            System.arraycopy(argb, y * width + copyX, pixels, (y - startY) * stride + copyX - startX, copyWidth);
+        }
+        return pixels;
     }
 
     private static int[] solidBounds(final int[] argb, final int width, final int height) {
@@ -191,18 +208,10 @@ final class RegionRaster {
      * Expands the visible silhouette into transparent bleed while keeping interior alpha holes open.
      *
      * <p>Exterior transparent pixels dilate up to {@code bleedMarginPx}. Interior holes cap their
-     * inward bleed below their maximum inscribed radius so small holes never collapse shut. The
-     * outer 1-pixel frame of the source image stays unexpanded so pixel-corner UVs stay in bounds.</p>
+     * inward bleed below their maximum inscribed radius to keep small holes open.</p>
      */
     private static boolean[] buildBleedDomain(
-            final boolean[] visibleMask,
-            final int cropWidth,
-            final int cropHeight,
-            final int originX,
-            final int originY,
-            final int imageWidth,
-            final int imageHeight,
-            final double bleedMarginPx) {
+            final boolean[] visibleMask, final int cropWidth, final int cropHeight, final double bleedMarginPx) {
         final int cells = cropWidth * cropHeight;
         final double[] distance = EuclideanDistanceTransform.distanceFromMask(visibleMask, cropWidth, cropHeight);
         final boolean[] exterior = new boolean[cells];
@@ -245,28 +254,16 @@ final class RegionRaster {
         }
 
         final boolean[] domain = visibleMask.clone();
-        final boolean clampFrameX = imageWidth >= SAFE_FRAME_MIN_EXTENT;
-        final boolean clampFrameY = imageHeight >= SAFE_FRAME_MIN_EXTENT;
-        for (int y = 0; y < cropHeight; y++) {
-            final int srcY = originY + y;
-            final boolean onFrameY = clampFrameY && (srcY == 0 || srcY == imageHeight - 1);
-            for (int x = 0; x < cropWidth; x++) {
-                final int cell = y * cropWidth + x;
-                if (visibleMask[cell]) {
-                    continue;
-                }
-                final int srcX = originX + x;
-                final boolean onFrameX = clampFrameX && (srcX == 0 || srcX == imageWidth - 1);
-                if (onFrameX || onFrameY) {
-                    continue;
-                }
-                if (exterior[cell]) {
-                    domain[cell] = distance[cell] <= bleedMarginPx;
-                } else {
-                    final double holeBleed =
-                            Math.min(bleedMarginPx, Math.max(0.0, holePeak[holeIds[cell]] - MIN_HOLE_CORE_PX));
-                    domain[cell] = distance[cell] <= holeBleed;
-                }
+        for (int cell = 0; cell < cells; cell++) {
+            if (visibleMask[cell]) {
+                continue;
+            }
+            if (exterior[cell]) {
+                domain[cell] = distance[cell] <= bleedMarginPx;
+            } else {
+                final double holeBleed =
+                        Math.min(bleedMarginPx, Math.max(0.0, holePeak[holeIds[cell]] - MIN_HOLE_CORE_PX));
+                domain[cell] = distance[cell] <= holeBleed;
             }
         }
         return domain;
