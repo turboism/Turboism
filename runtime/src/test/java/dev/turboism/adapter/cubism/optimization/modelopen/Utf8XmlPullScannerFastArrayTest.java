@@ -165,6 +165,44 @@ final class Utf8XmlPullScannerFastArrayTest {
                 () -> openFirstChild("<root><i>2147483648</i></root>").readIntArray(1));
     }
 
+    @Test
+    void swarSkipAndParseFloatArraySliceMatchInlineAcrossAlignments() {
+        final int count = 192;
+        final StringBuilder payload = new StringBuilder();
+        final float[] expected = new float[count];
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                payload.append(' ');
+            }
+            final String token =
+                    switch (i % 6) {
+                        case 0 -> "-0.0";
+                        case 1 -> "1.2345678e-5";
+                        case 2 -> "1.4E-45";
+                        case 3 -> "NaN";
+                        case 4 -> "-Infinity";
+                        default -> String.valueOf((i - 96) * 0.125f);
+                    };
+            payload.append(token);
+            expected[i] = Float.parseFloat(token);
+        }
+        final String text = payload.toString();
+        for (int pad = 0; pad < 16; pad++) {
+            final String xml = "<r>" + " ".repeat(pad) + "<fa>" + text + "</fa><" + SENTINEL_TAG + "/></r>";
+            final Utf8XmlPullScanner scanner = openFirstChild(xml);
+            final int start = scanner.getPos();
+            final int end = scanner.trySkipSimpleTextBody();
+            assertEquals(true, end > start);
+            final float[] actual = new float[count];
+            Utf8XmlPullScanner.parseFloatArraySlice(scanner.rawBytes(), start, end, actual);
+            assertFloatBitsEqual(expected, actual);
+            assertNextTagIsSentinel(scanner);
+        }
+
+        final Utf8XmlPullScanner entityScanner = openFirstChild("<r><fa>1.0&#x20;2.0</fa><" + SENTINEL_TAG + "/></r>");
+        assertEquals(-1, entityScanner.trySkipSimpleTextBody());
+    }
+
     private static Utf8XmlPullScanner openFirstChild(final String xml) {
         final Utf8XmlPullScanner scanner = new Utf8XmlPullScanner(xml.getBytes(StandardCharsets.UTF_8));
         assertEquals(Utf8XmlPullScanner.EVENT_START_ELEMENT, scanner.nextTagOrPi());

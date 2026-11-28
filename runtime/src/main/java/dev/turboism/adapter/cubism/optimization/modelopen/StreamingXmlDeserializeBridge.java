@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.optimization.modelopen;
 
 import dev.turboism.core.reflect.ReflectAccess;
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.io.File;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -18,6 +19,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Hybrid streaming XML deserializer for Cubism {@code UUSerialize.deserialize_exe}.
@@ -45,6 +50,15 @@ public final class StreamingXmlDeserializeBridge {
     private static final String CARRAY_LIST_CLASS = "com.live2d.type.CArrayList";
     private static final String CANCEL_EXCEPTION_CLASS = "jp.noids.framework.e.a";
     private static final String IMAGE_RESOURCE_CLASS_NAME = "com.live2d.graphics.CImageResource";
+    private static final int PARALLEL_FLOAT_MIN_COUNT = 64;
+    private static final int FLOAT_BATCH_MAX_ARRAYS = 64;
+    private static final int FLOAT_BATCH_TARGET_FLOATS = 8_192;
+    private static final int MIN_FLOAT_POOL_THREADS = 2;
+    private static final int MAX_FLOAT_POOL_THREADS = 4;
+    private static final int FLOAT_POOL_QUEUE_CAPACITY = 2_048;
+    private static final String FLOAT_POOL_THREAD_NAME = "turboism-xml-float-parse";
+
+    private static volatile ExecutorService floatParsePool;
 
     private static final String JDOM_FACTORY_CLASS = "org.jdom.UncheckedJDOMFactory";
     private static final String JDOM_ELEMENT_CLASS = "org.jdom.Element";
@@ -180,6 +194,54 @@ public final class StreamingXmlDeserializeBridge {
         return HostBinding.resolve(loader);
     }
 
+    private static ExecutorService getOrCreateFloatParsePool() {
+        final ExecutorService existing = floatParsePool;
+        if (existing != null) {
+            return existing;
+        }
+        synchronized (StreamingXmlDeserializeBridge.class) {
+            if (floatParsePool == null) {
+                final int workers = Math.min(
+                        MAX_FLOAT_POOL_THREADS,
+                        Math.max(MIN_FLOAT_POOL_THREADS, Runtime.getRuntime().availableProcessors() - 1));
+                floatParsePool = RuntimeThreads.fixedLane(
+                        workers,
+                        FLOAT_POOL_QUEUE_CAPACITY,
+                        RuntimeThreads.daemonThreads(
+                                FLOAT_POOL_THREAD_NAME,
+                                RuntimeThreads.contextClassLoader(StreamingXmlDeserializeBridge.class)));
+            }
+            return floatParsePool;
+        }
+    }
+
+    private static final class DeferredFloatBatch {
+        private final byte[] data;
+        private final float[][] targets = new float[FLOAT_BATCH_MAX_ARRAYS][];
+        private final int[] starts = new int[FLOAT_BATCH_MAX_ARRAYS];
+        private final int[] ends = new int[FLOAT_BATCH_MAX_ARRAYS];
+        private int size;
+        private int totalFloats;
+
+        DeferredFloatBatch(final byte[] data) {
+            this.data = data;
+        }
+
+        void add(final float[] dst, final int start, final int end) {
+            final int idx = size++;
+            targets[idx] = dst;
+            starts[idx] = start;
+            ends[idx] = end;
+            totalFloats += dst.length;
+        }
+
+        void run() {
+            for (int i = 0; i < size; i++) {
+                Utf8XmlPullScanner.parseFloatArraySlice(data, starts[i], ends[i], targets[i]);
+            }
+        }
+    }
+
     private static boolean isCancelException(final Throwable failure) {
         return CANCEL_EXCEPTION_CLASS.equals(failure.getClass().getName());
     }
@@ -225,6 +287,10 @@ public final class StreamingXmlDeserializeBridge {
         private final List<Object> hostPostProcessTasks;
         private final List<Runnable> localPostProcessTasks = new ArrayList<>();
         private final JdomBuilderImpl jdomBuilder;
+        private final boolean parallelFloatEnabled =
+                Runtime.getRuntime().availableProcessors() >= MIN_FLOAT_POOL_THREADS;
+        private DeferredFloatBatch pendingFloatBatch;
+        private List<Future<?>> floatParseFutures;
 
         @SuppressWarnings("unchecked")
         Session(final Utf8XmlPullScanner scanner, final Object xmlReader, final HostBinding host) throws Throwable {
@@ -237,28 +303,35 @@ public final class StreamingXmlDeserializeBridge {
         }
 
         Object deserializeDocument(final int appVersion) throws Throwable {
-            final Object missingImports = host.newEmptyCArrayList.invokeExact();
-            int event = scanner.nextTagOrPi();
-            while (event == Utf8XmlPullScanner.EVENT_PI) {
-                processInstruction(scanner.getPiTarget(), scanner.getPiData(), missingImports);
-                event = scanner.nextTagOrPi();
-            }
-            if (event != Utf8XmlPullScanner.EVENT_START_ELEMENT) {
-                throw new Utf8XmlPullScanner.StreamingAbortException("Missing root XML element");
-            }
-            if (appVersion >= 0) {
-                final String versionAttr = scanner.getAttributeValue(ATTR_FILE_FORMAT_VERSION);
-                final long fileVersion = versionAttr != null
-                        ? parseLongOrDefault(versionAttr, NO_FILE_FORMAT_VERSION)
-                        : NO_FILE_FORMAT_VERSION;
-                if (fileVersion > (long) appVersion) {
-                    return UNHANDLED;
+            try {
+                final Object missingImports = host.newEmptyCArrayList.invokeExact();
+                int event = scanner.nextTagOrPi();
+                while (event == Utf8XmlPullScanner.EVENT_PI) {
+                    processInstruction(scanner.getPiTarget(), scanner.getPiData(), missingImports);
+                    event = scanner.nextTagOrPi();
                 }
+                if (event != Utf8XmlPullScanner.EVENT_START_ELEMENT) {
+                    throw new Utf8XmlPullScanner.StreamingAbortException("Missing root XML element");
+                }
+                if (appVersion >= 0) {
+                    final String versionAttr = scanner.getAttributeValue(ATTR_FILE_FORMAT_VERSION);
+                    final long fileVersion = versionAttr != null
+                            ? parseLongOrDefault(versionAttr, NO_FILE_FORMAT_VERSION)
+                            : NO_FILE_FORMAT_VERSION;
+                    if (fileVersion > (long) appVersion) {
+                        return UNHANDLED;
+                    }
+                }
+                if (TAG_ROOT.equals(scanner.getTagName())) {
+                    return readStructuredRoot();
+                }
+                final Object result = deserializeCurrentElement();
+                awaitDeferredFloatBatches();
+                return result;
+            } catch (final Throwable failure) {
+                cancelDeferredFloatBatches();
+                throw failure;
             }
-            if (TAG_ROOT.equals(scanner.getTagName())) {
-                return readStructuredRoot();
-            }
-            return deserializeCurrentElement();
         }
 
         private void processInstruction(final String rawTarget, final String rawData, final Object missingImports)
@@ -301,6 +374,7 @@ public final class StreamingXmlDeserializeBridge {
             if (!seenShared || !seenMain) {
                 throw new Utf8XmlPullScanner.StreamingAbortException("Root missing <shared> or <main>");
             }
+            awaitDeferredFloatBatches();
             runPostProcessTasks();
             return mainResult;
         }
@@ -516,6 +590,97 @@ public final class StreamingXmlDeserializeBridge {
             }
         }
 
+        private float[] readFloatArrayPossiblyDeferred(final int count) {
+            if (!parallelFloatEnabled || count < PARALLEL_FLOAT_MIN_COUNT || scanner.isEmptyElement()) {
+                return scanner.readFloatArray(count);
+            }
+            final int textStart = scanner.getPos();
+            final int textEnd = scanner.trySkipSimpleTextBody();
+            if (textEnd < 0) {
+                return scanner.readFloatArray(count);
+            }
+            final float[] dst = new float[count];
+            DeferredFloatBatch batch = pendingFloatBatch;
+            if (batch == null) {
+                batch = new DeferredFloatBatch(scanner.rawBytes());
+                pendingFloatBatch = batch;
+            }
+            batch.add(dst, textStart, textEnd);
+            if (batch.size >= FLOAT_BATCH_MAX_ARRAYS || batch.totalFloats >= FLOAT_BATCH_TARGET_FLOATS) {
+                submitFloatBatch(batch);
+                pendingFloatBatch = null;
+            }
+            return dst;
+        }
+
+        private void submitFloatBatch(final DeferredFloatBatch batch) {
+            final ExecutorService pool = getOrCreateFloatParsePool();
+            try {
+                final Future<?> future = pool.submit(batch::run);
+                if (floatParseFutures == null) {
+                    floatParseFutures = new ArrayList<>();
+                }
+                floatParseFutures.add(future);
+            } catch (final RejectedExecutionException rejected) {
+                batch.run();
+            }
+        }
+
+        private void awaitDeferredFloatBatches() {
+            final DeferredFloatBatch tail = pendingFloatBatch;
+            pendingFloatBatch = null;
+            if (tail != null) {
+                tail.run();
+            }
+            final List<Future<?>> futures = floatParseFutures;
+            if (futures == null || futures.isEmpty()) {
+                return;
+            }
+            floatParseFutures = null;
+            Throwable firstFailure = null;
+            boolean interrupted = false;
+            for (final Future<?> future : futures) {
+                while (true) {
+                    try {
+                        future.get();
+                        break;
+                    } catch (final InterruptedException e) {
+                        interrupted = true;
+                    } catch (final ExecutionException e) {
+                        if (firstFailure == null) {
+                            firstFailure = e.getCause() != null ? e.getCause() : e;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+                if (firstFailure == null) {
+                    throw new Utf8XmlPullScanner.StreamingAbortException("Interrupted during parallel float[] parse");
+                }
+            }
+            if (firstFailure != null) {
+                FatalErrors.rethrowIfFatal(firstFailure);
+                if (firstFailure instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new Utf8XmlPullScanner.StreamingAbortException("Parallel float[] parse failed");
+            }
+        }
+
+        private void cancelDeferredFloatBatches() {
+            pendingFloatBatch = null;
+            final List<Future<?>> futures = floatParseFutures;
+            if (futures == null) {
+                return;
+            }
+            floatParseFutures = null;
+            for (final Future<?> future : futures) {
+                future.cancel(true);
+            }
+        }
+
         private Object tryReadLeafValue(final String tag) {
             switch (tag) {
                 case TAG_STRING:
@@ -539,7 +704,7 @@ public final class StreamingXmlDeserializeBridge {
                 case TAG_FILE:
                     return new File(scanner.readElementText());
                 case TAG_FLOAT_ARRAY:
-                    return scanner.readFloatArray(parseCountAttr());
+                    return readFloatArrayPossiblyDeferred(parseCountAttr());
                 case TAG_INT_ARRAY:
                     return scanner.readIntArray(parseCountAttr());
                 case TAG_DOUBLE_ARRAY:
