@@ -38,10 +38,15 @@ final class CardPageView extends JPanel {
     private static final Pattern CODE_SPAN = Pattern.compile("`([^`\\r\\n]+)`");
     private static final Pattern STRONG = Pattern.compile("\\*\\*([^*\\r\\n]+)\\*\\*");
     private static final Pattern EMPHASIS = Pattern.compile("(?<!\\*)\\*([^*\\r\\n]+)\\*(?!\\*)");
+    private static final String CLOSING_SECTION_HEADING = "<h2>%s</h2>";
+    private static final String CLOSING_SECTION_BODY = "<p class=\"body\">%s</p>";
+    private static final String CLOSING_SECTION_LINK = "<p class=\"body\"><a href=\"%s\">%s</a></p>";
+    private static final String PAGE_END = "</body></html>";
     /** One style block for every page, so the reusable control stays visually consistent. */
     private static final String PAGE_STYLE = "<html><head><meta charset=\"UTF-8\"><style>"
             + "body{margin:0;font-family:\"Segoe UI\",\"Microsoft YaHei\",Inter,sans-serif;color:#3F4A5A;}"
             + "h1{margin:0 0 10px 0;font-size:20px;color:#1F2937;}"
+            + "h2{margin:14px 0 6px 0;font-size:15px;color:#1F2937;}"
             + "p.intro{margin:0 0 12px 0;font-size:13px;line-height:1.65;}"
             + "p.body{margin:0 0 10px 0;font-size:13px;line-height:1.65;}"
             + "ul{margin:0;padding-left:18px;}"
@@ -57,6 +62,8 @@ final class CardPageView extends JPanel {
             Objects.requireNonNull(url, "url");
         }
     }
+
+    record ClosingSection(String title, String body, Link link) {}
 
     private final String title;
     private final List<String> bullets;
@@ -86,7 +93,17 @@ final class CardPageView extends JPanel {
             final List<String> bullets,
             final List<Link> links,
             final Consumer<String> linkOpener) {
-        this(title, bullets, html(title, intro, bullets), links, linkOpener);
+        this(title, intro, bullets, links, linkOpener, null);
+    }
+
+    CardPageView(
+            final String title,
+            final String intro,
+            final List<String> bullets,
+            final List<Link> links,
+            final Consumer<String> linkOpener,
+            final ClosingSection closingSection) {
+        this(title, bullets, html(title, intro, bullets, closingSection), links, linkOpener);
     }
 
     /** Creates a card page whose heading, paragraphs, and bullets support safe inline Markdown. */
@@ -96,8 +113,10 @@ final class CardPageView extends JPanel {
             final List<String> paragraphs,
             final List<String> bullets,
             final List<Link> links,
-            final Consumer<String> linkOpener) {
-        return new CardPageView(title, bullets, markdownHtml(title, intro, paragraphs, bullets), links, linkOpener);
+            final Consumer<String> linkOpener,
+            final ClosingSection closingSection) {
+        return new CardPageView(
+                title, bullets, markdownHtml(title, intro, paragraphs, bullets, closingSection), links, linkOpener);
     }
 
     private CardPageView(
@@ -152,6 +171,11 @@ final class CardPageView extends JPanel {
      * markup; the footer links are Swing controls and carry no HTML.
      */
     static String html(final String title, final String intro, final List<String> bullets) {
+        return html(title, intro, bullets, null);
+    }
+
+    private static String html(
+            final String title, final String intro, final List<String> bullets, final ClosingSection closingSection) {
         final StringBuilder html = new StringBuilder(512);
         html.append(PAGE_STYLE).append("<h1>").append(ShellHtml.escape(title)).append("</h1>");
         if (!intro.isBlank()) {
@@ -161,12 +185,21 @@ final class CardPageView extends JPanel {
         for (final String bullet : bullets) {
             html.append("<li>").append(ShellHtml.escape(bullet)).append("</li>");
         }
-        return html.append("</ul></body></html>").toString();
+        return finishHtml(html.append("</ul>"), closingSection);
     }
 
     /** Renders a page body with safe inline Markdown formatting; only validated HTTP links become anchors. */
     static String markdownHtml(
             final String title, final String intro, final List<String> paragraphs, final List<String> bullets) {
+        return markdownHtml(title, intro, paragraphs, bullets, null);
+    }
+
+    private static String markdownHtml(
+            final String title,
+            final String intro,
+            final List<String> paragraphs,
+            final List<String> bullets,
+            final ClosingSection closingSection) {
         final StringBuilder html = new StringBuilder(512);
         html.append(PAGE_STYLE).append("<h1>").append(inlineMarkdown(title)).append("</h1>");
         if (intro != null && !intro.isBlank()) {
@@ -186,7 +219,20 @@ final class CardPageView extends JPanel {
             }
             html.append("</ul>");
         }
-        return html.append("</body></html>").toString();
+        return finishHtml(html, closingSection);
+    }
+
+    private static String finishHtml(final StringBuilder html, final ClosingSection section) {
+        if (section != null) {
+            html.append(CLOSING_SECTION_HEADING.formatted(ShellHtml.escape(section.title())));
+            html.append(CLOSING_SECTION_BODY.formatted(ShellHtml.escape(section.body())));
+            if (HttpLinks.isAllowed(section.link().url())) {
+                html.append(CLOSING_SECTION_LINK.formatted(
+                        ShellHtml.escape(section.link().url()),
+                        ShellHtml.escape(section.link().label())));
+            }
+        }
+        return html.append(PAGE_END).toString();
     }
 
     private static String inlineMarkdown(final String value) {

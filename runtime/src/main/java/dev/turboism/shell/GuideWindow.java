@@ -2,6 +2,7 @@ package dev.turboism.shell;
 
 import dev.turboism.internal.TurboismEndpoints;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -98,17 +99,27 @@ final class GuideWindow {
         return PAGES;
     }
 
-    private static List<CardPageView> buildPages(final PluginLocalization i18n, final Consumer<String> linkOpener) {
-        return PAGES.stream().map(page -> createPage(i18n, page, linkOpener)).toList();
+    static List<CardPageView> buildPages(final PluginLocalization i18n, final Consumer<String> linkOpener) {
+        final List<CardPageView> views = new ArrayList<>(PAGES.size());
+        final int lastPage = PAGES.size() - 1;
+        final CardPageView.ClosingSection authorSupport = FramelessCardWindow.authorSupport(i18n);
+        for (int index = 0; index < PAGES.size(); index++) {
+            views.add(createPage(i18n, PAGES.get(index), linkOpener, index == lastPage ? authorSupport : null));
+        }
+        return List.copyOf(views);
     }
 
     private static CardPageView createPage(
-            final PluginLocalization i18n, final Page page, final Consumer<String> linkOpener) {
+            final PluginLocalization i18n,
+            final Page page,
+            final Consumer<String> linkOpener,
+            final CardPageView.ClosingSection closingSection) {
         final List<String> bullets = page.bulletKeys().stream().map(i18n::text).toList();
         final List<CardPageView.Link> links = page.links().stream()
                 .map(link -> new CardPageView.Link(i18n.text(link.labelKey()), link.url()))
                 .toList();
-        return new CardPageView(i18n.text(page.titleKey()), i18n.text(page.introKey()), bullets, links, linkOpener);
+        return new CardPageView(
+                i18n.text(page.titleKey()), i18n.text(page.introKey()), bullets, links, linkOpener, closingSection);
     }
 
     /** One guide page: localized title and body keys, three bullets, and fixed footer links. */

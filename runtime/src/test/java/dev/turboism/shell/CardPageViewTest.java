@@ -6,11 +6,20 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.internal.TurboismEndpoints;
+import dev.turboism.internal.core.UpdateNotesService.ReleaseNotes;
+import dev.turboism.test.plugin.FakePluginContext;
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JButton;
+import javax.swing.JEditorPane;
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +85,32 @@ class CardPageViewTest {
         assertFalse(html.contains("href=\"sdk/review.md\""), "relative paths never become active hyperlinks");
         assertTrue(html.contains("local"));
         assertTrue(html.contains("<code>a &amp; b</code>"));
+    }
+
+    @Test
+    void authorSupportAppearsOnlyOnTheLastPageOfEachFlow() throws Exception {
+        final var i18n = FakePluginContext.passThroughLocalization(Locale.ENGLISH);
+        final var notes = new ReleaseNotes(
+                "0.70.3", Optional.empty(), Map.of("en", "### Added\n\n- Feature\n\n### Fixed\n\n- Bug"));
+        final var emptyNotes = new ReleaseNotes("0.70.3", Optional.empty(), Map.of());
+
+        SwingUtilities.invokeAndWait(() -> {
+            for (final List<CardPageView> pages : List.of(
+                    GuideWindow.buildPages(i18n, ignored -> {}),
+                    UpdateNotesWindow.buildPages(i18n, notes, ignored -> {}),
+                    UpdateNotesWindow.buildPages(i18n, emptyNotes, ignored -> {}))) {
+                final int lastPage = pages.size() - 1;
+                for (int index = 0; index < pages.size(); index++) {
+                    final CardPageView page = pages.get(index);
+                    final BorderLayout layout = (BorderLayout) page.getLayout();
+                    final JScrollPane scroll = (JScrollPane) layout.getLayoutComponent(BorderLayout.CENTER);
+                    final String html = ((JEditorPane) scroll.getViewport().getView()).getText();
+                    assertEquals(index == lastPage, html.contains("card.author-support.title"));
+                    assertEquals(index == lastPage, html.contains("card.author-support.body"));
+                    assertEquals(index == lastPage, html.contains(TurboismEndpoints.SPONSOR_PAGE_URL));
+                }
+            }
+        });
     }
 
     private static JButton findLink(final Container container) {
