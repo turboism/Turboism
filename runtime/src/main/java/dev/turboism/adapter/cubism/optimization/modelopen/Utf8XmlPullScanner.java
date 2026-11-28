@@ -65,6 +65,12 @@ final class Utf8XmlPullScanner {
     private static final byte BYTE_TAB = '\t';
     private static final byte BYTE_CR = '\r';
     private static final byte BYTE_LF = '\n';
+    private static final byte BYTE_PLUS = '+';
+    private static final byte BYTE_DOT = '.';
+    private static final byte BYTE_ZERO = '0';
+    private static final byte BYTE_NINE = '9';
+    private static final byte BYTE_EXP_LOWER = 'e';
+    private static final byte BYTE_EXP_UPPER = 'E';
 
     private static final int COMMENT_PREFIX_LEN = 4;
     private static final int COMMENT_SUFFIX_LEN = 3;
@@ -79,7 +85,10 @@ final class Utf8XmlPullScanner {
     private static final int RADIX_HEX = 16;
     private static final int MAX_EXACT_DOUBLE_DIGITS = 15;
     private static final int MAX_EXACT_POW10 = 22;
+    private static final int MAX_EXPLICIT_EXP_GUARD = MAX_EXACT_POW10 * RADIX_TEN;
     private static final int MAX_SAFE_FAST_INT_DIGITS = 9;
+    private static final float POSITIVE_ZERO = 0.0f;
+    private static final float NEGATIVE_ZERO = -0.0f;
     private static final long FLOAT_TIE_LOW29_MASK = 0x1FFF_FFFFL;
     private static final long FLOAT_TIE_GUARD_LOW = 0x0FFF_FFFEL;
     private static final long FLOAT_TIE_GUARD_HIGH = 0x1000_0002L;
@@ -328,8 +337,8 @@ final class Utf8XmlPullScanner {
     }
 
     /**
-     * Parses a space-separated {@code float[]} directly from UTF-8 bytes of the current element
-     * without allocating an intermediate text {@link String}.
+     * Parses a space-separated {@code float[]} in a single forward byte pass without allocating an
+     * intermediate text {@link String} on the fast path.
      */
     float[] readFloatArray(final int count) {
         if (emptyElement) {
@@ -338,33 +347,179 @@ final class Utf8XmlPullScanner {
             }
             throw new StreamingAbortException("Empty float-array element with non-zero count");
         }
-        final int textStart = pos;
-        final int textEnd = findSimpleTextEnd(textStart);
+        final int startPos = pos;
+        final byte[] buf = this.data;
+        final int len = this.length;
+        int p = startPos;
+        if (count == 0) {
+            if (p + 1 < len && buf[p] == BYTE_LT && buf[p + 1] == BYTE_SLASH) {
+                pos = p;
+                readEndTag();
+                return EMPTY_FLOATS;
+            }
+            return FloatArrayDeserializerBridge.parseFloatArray(count, readElementText(), false);
+        }
+
+        final float[] result = new float[count];
+        for (int index = 0; index < count; index++) {
+            if (p >= len) {
+                pos = startPos;
+                return FloatArrayDeserializerBridge.parseFloatArray(count, readElementText(), false);
+            }
+            final int tokenStart = p;
+            boolean negative = false;
+            final byte signByte = buf[p];
+            if (signByte == BYTE_DASH) {
+                negative = true;
+                p++;
+            } else if (signByte == BYTE_PLUS) {
+                p++;
+            }
+
+            long mantissa = 0L;
+            int sigDigits = 0;
+            int fracDigits = 0;
+            boolean seenDigit = false;
+            boolean tokenFallback = false;
+
+            while (p < len) {
+                final byte ch = buf[p];
+                if (ch >= BYTE_ZERO && ch <= BYTE_NINE) {
+                    seenDigit = true;
+                    final int digit = ch - BYTE_ZERO;
+                    if (mantissa != 0L || digit != 0) {
+                        sigDigits++;
+                        if (sigDigits > MAX_EXACT_DOUBLE_DIGITS) {
+                            tokenFallback = true;
+                            break;
+                        }
+                        mantissa = mantissa * RADIX_TEN + digit;
+                    }
+                    p++;
+                } else {
+                    break;
+                }
+            }
+
+            if (!tokenFallback && p < len && buf[p] == BYTE_DOT) {
+                p++;
+                final int fracStart = p;
+                while (p < len) {
+                    final byte ch = buf[p];
+                    if (ch >= BYTE_ZERO && ch <= BYTE_NINE) {
+                        seenDigit = true;
+                        final int digit = ch - BYTE_ZERO;
+                        if (mantissa != 0L || digit != 0) {
+                            sigDigits++;
+                            if (sigDigits > MAX_EXACT_DOUBLE_DIGITS) {
+                                tokenFallback = true;
+                                break;
+                            }
+                            mantissa = mantissa * RADIX_TEN + digit;
+                        }
+                        p++;
+                    } else {
+                        break;
+                    }
+                }
+                fracDigits = p - fracStart;
+            }
+
+            int explicitExp = 0;
+            if (!tokenFallback && seenDigit && p < len) {
+                final byte expMarker = buf[p];
+                if (expMarker == BYTE_EXP_LOWER || expMarker == BYTE_EXP_UPPER) {
+                    p++;
+                    if (p >= len) {
+                        tokenFallback = true;
+                    } else {
+                        boolean expNeg = false;
+                        final byte expSign = buf[p];
+                        if (expSign == BYTE_DASH) {
+                            expNeg = true;
+                            p++;
+                        } else if (expSign == BYTE_PLUS) {
+                            p++;
+                        }
+                        final int expDigitStart = p;
+                        while (p < len) {
+                            final byte ec = buf[p];
+                            if (ec >= BYTE_ZERO && ec <= BYTE_NINE) {
+                                if (explicitExp > MAX_EXPLICIT_EXP_GUARD) {
+                                    tokenFallback = true;
+                                    break;
+                                }
+                                explicitExp = explicitExp * RADIX_TEN + (ec - BYTE_ZERO);
+                                p++;
+                            } else {
+                                break;
+                            }
+                        }
+                        if (p == expDigitStart) {
+                            tokenFallback = true;
+                        } else if (expNeg) {
+                            explicitExp = -explicitExp;
+                        }
+                    }
+                }
+            }
+
+            final byte delim;
+            if (!tokenFallback && seenDigit && p < len && ((delim = buf[p]) == BYTE_SPACE || delim == BYTE_LT)) {
+                if (delim == BYTE_LT && (p + 1 >= len || buf[p + 1] != BYTE_SLASH)) {
+                    pos = startPos;
+                    return FloatArrayDeserializerBridge.parseFloatArray(count, readElementText(), false);
+                }
+                final float fastValue = tryConvertExactFloat(negative, mantissa, explicitExp - fracDigits);
+                result[index] = Float.isNaN(fastValue) ? parseFloatFallback(tokenStart, p) : fastValue;
+            } else {
+                // Delegate individual edge tokens without aborting the single pass unless markup,
+                // entities, CRLF, or non-ASCII bytes require full XML text normalization.
+                while (p < len) {
+                    final byte b = buf[p];
+                    if (b == BYTE_SPACE || b == BYTE_LT) {
+                        break;
+                    }
+                    if (b == BYTE_AMP || b == BYTE_CR || (b & BYTE_MASK) > ASCII_MAX) {
+                        pos = startPos;
+                        return FloatArrayDeserializerBridge.parseFloatArray(count, readElementText(), false);
+                    }
+                    p++;
+                }
+                if (p >= len || (buf[p] == BYTE_LT && (p + 1 >= len || buf[p + 1] != BYTE_SLASH))) {
+                    pos = startPos;
+                    return FloatArrayDeserializerBridge.parseFloatArray(count, readElementText(), false);
+                }
+                result[index] = parseFloatBytes(tokenStart, p);
+            }
+
+            if (index + 1 < count) {
+                if (buf[p] == BYTE_SPACE) {
+                    p++;
+                } else {
+                    throw new StreamingAbortException("Float array token underflow");
+                }
+            }
+        }
+
+        if (buf[p] == BYTE_LT) {
+            pos = p;
+            readEndTag();
+            return result;
+        }
+        final int textEnd = findSimpleTextEnd(p);
         if (textEnd < 0) {
+            pos = startPos;
             return FloatArrayDeserializerBridge.parseFloatArray(count, readElementText(), false);
         }
         pos = textEnd;
         readEndTag();
-        if (count == 0) {
-            return EMPTY_FLOATS;
-        }
-        final float[] result = new float[count];
-        int cursor = textStart;
-        for (int index = 0; index < count; index++) {
-            if (cursor > textEnd) {
-                throw new StreamingAbortException("Float array token underflow");
-            }
-            final int sep = indexOfSpace(cursor, textEnd);
-            final int tokenEnd = sep >= 0 ? sep : textEnd;
-            result[index] = parseFloatBytes(cursor, tokenEnd);
-            cursor = sep >= 0 ? sep + 1 : textEnd + 1;
-        }
         return result;
     }
 
     /**
-     * Parses a space-separated {@code int[]} directly from UTF-8 bytes of the current element
-     * without allocating an intermediate text {@link String}.
+     * Parses a space-separated {@code int[]} in a single forward byte pass without allocating an
+     * intermediate text {@link String} on the fast path.
      */
     int[] readIntArray(final int count) {
         if (emptyElement) {
@@ -373,27 +528,100 @@ final class Utf8XmlPullScanner {
             }
             throw new StreamingAbortException("Empty int-array element with non-zero count");
         }
-        final int textStart = pos;
-        final int textEnd = findSimpleTextEnd(textStart);
+        final int startPos = pos;
+        final byte[] buf = this.data;
+        final int len = this.length;
+        int p = startPos;
+        if (count == 0) {
+            if (p + 1 < len && buf[p] == BYTE_LT && buf[p + 1] == BYTE_SLASH) {
+                pos = p;
+                readEndTag();
+                return EMPTY_INTS;
+            }
+            return IntArrayDeserializerBridge.parseIntArray(count, readElementText(), false);
+        }
+
+        final int[] result = new int[count];
+        for (int index = 0; index < count; index++) {
+            if (p >= len) {
+                pos = startPos;
+                return IntArrayDeserializerBridge.parseIntArray(count, readElementText(), false);
+            }
+            final int tokenStart = p;
+            boolean negative = false;
+            final byte firstByte = buf[p];
+            if (firstByte == BYTE_DASH) {
+                negative = true;
+                p++;
+            } else if (firstByte == BYTE_PLUS) {
+                p++;
+            }
+            final int digitStart = p;
+            int accum = 0;
+            boolean tokenFallback = false;
+            while (p < len) {
+                final byte ch = buf[p];
+                if (ch >= BYTE_ZERO && ch <= BYTE_NINE) {
+                    if (p - digitStart >= MAX_SAFE_FAST_INT_DIGITS) {
+                        tokenFallback = true;
+                        break;
+                    }
+                    accum = accum * RADIX_TEN + (ch - BYTE_ZERO);
+                    p++;
+                } else {
+                    break;
+                }
+            }
+
+            final byte delim;
+            if (!tokenFallback && p > digitStart && p < len && ((delim = buf[p]) == BYTE_SPACE || delim == BYTE_LT)) {
+                if (delim == BYTE_LT && (p + 1 >= len || buf[p + 1] != BYTE_SLASH)) {
+                    pos = startPos;
+                    return IntArrayDeserializerBridge.parseIntArray(count, readElementText(), false);
+                }
+                result[index] = negative ? -accum : accum;
+            } else {
+                // Delegate individual edge tokens without aborting the single pass unless markup,
+                // entities, CRLF, or non-ASCII bytes require full XML text normalization.
+                while (p < len) {
+                    final byte b = buf[p];
+                    if (b == BYTE_SPACE || b == BYTE_LT) {
+                        break;
+                    }
+                    if (b == BYTE_AMP || b == BYTE_CR || (b & BYTE_MASK) > ASCII_MAX) {
+                        pos = startPos;
+                        return IntArrayDeserializerBridge.parseIntArray(count, readElementText(), false);
+                    }
+                    p++;
+                }
+                if (p >= len || (buf[p] == BYTE_LT && (p + 1 >= len || buf[p + 1] != BYTE_SLASH))) {
+                    pos = startPos;
+                    return IntArrayDeserializerBridge.parseIntArray(count, readElementText(), false);
+                }
+                result[index] = parseIntBytes(tokenStart, p);
+            }
+
+            if (index + 1 < count) {
+                if (buf[p] == BYTE_SPACE) {
+                    p++;
+                } else {
+                    throw new StreamingAbortException("Int array token underflow");
+                }
+            }
+        }
+
+        if (buf[p] == BYTE_LT) {
+            pos = p;
+            readEndTag();
+            return result;
+        }
+        final int textEnd = findSimpleTextEnd(p);
         if (textEnd < 0) {
+            pos = startPos;
             return IntArrayDeserializerBridge.parseIntArray(count, readElementText(), false);
         }
         pos = textEnd;
         readEndTag();
-        if (count == 0) {
-            return EMPTY_INTS;
-        }
-        final int[] result = new int[count];
-        int cursor = textStart;
-        for (int index = 0; index < count; index++) {
-            if (cursor > textEnd) {
-                throw new StreamingAbortException("Int array token underflow");
-            }
-            final int sep = indexOfSpace(cursor, textEnd);
-            final int tokenEnd = sep >= 0 ? sep : textEnd;
-            result[index] = parseIntBytes(cursor, tokenEnd);
-            cursor = sep >= 0 ? sep + 1 : textEnd + 1;
-        }
         return result;
     }
 
@@ -1020,13 +1248,29 @@ final class Utf8XmlPullScanner {
         return -1;
     }
 
-    private int indexOfSpace(final int start, final int end) {
-        for (int i = start; i < end; i++) {
-            if (data[i] == BYTE_SPACE) {
-                return i;
-            }
+    /**
+     * Converts an exact decimal mantissa and base-10 exponent to a float, or returns {@code NaN}
+     * when double-rounding, subnormal scaling, or overflow requires JDK fallback.
+     */
+    private static float tryConvertExactFloat(final boolean negative, final long mantissa, final int exp10) {
+        if (mantissa == 0L) {
+            return negative ? NEGATIVE_ZERO : POSITIVE_ZERO;
         }
-        return -1;
+        if (exp10 < -MAX_EXACT_POW10 || exp10 > MAX_EXACT_POW10) {
+            return Float.NaN;
+        }
+        final double exactDouble =
+                exp10 >= 0 ? ((double) mantissa * POW10_TABLE[exp10]) : ((double) mantissa / POW10_TABLE[-exp10]);
+        if (exactDouble < Float.MIN_NORMAL || exactDouble > Float.MAX_VALUE) {
+            return Float.NaN;
+        }
+        // Reject values near a float midpoint where double-rounding could shift the final ULP.
+        final long low29 = Double.doubleToRawLongBits(exactDouble) & FLOAT_TIE_LOW29_MASK;
+        if (low29 > FLOAT_TIE_GUARD_LOW && low29 < FLOAT_TIE_GUARD_HIGH) {
+            return Float.NaN;
+        }
+        final float value = (float) exactDouble;
+        return negative ? -value : value;
     }
 
     private float parseFloatBytes(final int start, final int end) {
@@ -1131,25 +1375,8 @@ final class Utf8XmlPullScanner {
             }
         }
 
-        if (mantissa == 0L) {
-            return negative ? -0.0f : 0.0f;
-        }
-        final int exp10 = explicitExp - fracDigits;
-        if (exp10 < -MAX_EXACT_POW10 || exp10 > MAX_EXACT_POW10) {
-            return parseFloatFallback(trimmedStart, e);
-        }
-        final double exactDouble =
-                exp10 >= 0 ? ((double) mantissa * POW10_TABLE[exp10]) : ((double) mantissa / POW10_TABLE[-exp10]);
-        if (exactDouble < Float.MIN_NORMAL || exactDouble > Float.MAX_VALUE) {
-            return parseFloatFallback(trimmedStart, e);
-        }
-        // Reject values near a float midpoint where double-rounding could shift the final ULP.
-        final long low29 = Double.doubleToRawLongBits(exactDouble) & FLOAT_TIE_LOW29_MASK;
-        if (low29 > FLOAT_TIE_GUARD_LOW && low29 < FLOAT_TIE_GUARD_HIGH) {
-            return parseFloatFallback(trimmedStart, e);
-        }
-        final float value = (float) exactDouble;
-        return negative ? -value : value;
+        final float fastValue = tryConvertExactFloat(negative, mantissa, explicitExp - fracDigits);
+        return Float.isNaN(fastValue) ? parseFloatFallback(trimmedStart, e) : fastValue;
     }
 
     private float parseFloatFallback(final int start, final int end) {
