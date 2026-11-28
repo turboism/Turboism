@@ -22,10 +22,12 @@ import static org.objectweb.asm.Opcodes.IFNULL;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.IMUL;
 import static org.objectweb.asm.Opcodes.INEG;
+import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.IRETURN;
 import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.ISUB;
+import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 
@@ -51,6 +53,8 @@ final class ImageDecodePatcher {
             "(Ljava/io/InputStream;Ljava/io/InputStream;I)Ljava/awt/image/BufferedImage;";
     private static final String TRY_CONVERT_NAME = "tryConvertToIntArgb";
     private static final String TRY_CONVERT_DESC = "(Ljava/awt/image/BufferedImage;I)Ljava/awt/image/BufferedImage;";
+    private static final String WRAP_IMMUTABLE_BYTES_NAME = "wrapImmutableImageBytes";
+    private static final String WRAP_IMMUTABLE_BYTES_DESC = "([B)Ljava/io/ByteArrayInputStream;";
 
     private static final String GET_BUFFERED_IMAGE_NAME = "getBufferedImage";
     private static final String GET_BUFFERED_IMAGE_DESC =
@@ -63,6 +67,12 @@ final class ImageDecodePatcher {
     private static final String IMAGEIO_OWNER = "javax/imageio/ImageIO";
     private static final String IMAGEIO_READ_NAME = "read";
     private static final String IMAGEIO_READ_STREAM_DESC = "(Ljava/io/InputStream;)Ljava/awt/image/BufferedImage;";
+
+    private static final String BYTE_ARRAY_INPUT_STREAM = "java/io/ByteArrayInputStream";
+    private static final String CTOR_NAME = "<init>";
+    private static final String BYTE_ARRAY_CTOR_DESC = "([B)V";
+    private static final String GET_IMAGE_EXE_NAME = "getImage_exe";
+    private static final String GET_IMAGE_EXE_DESC = "()Lcom/live2d/graphics/CWritableImage;";
 
     private static final String FIELD_LOADED_COUNT = "loadedCount";
     private static final String FIELD_LOADED_BYTES = "loadedBytes";
@@ -77,6 +87,7 @@ final class ImageDecodePatcher {
     private static final String INT_VOID_DESC = "(I)V";
     private static final String NEEDS_PREDECODE_DESC = "()Z";
     private static final int REQUIRED_STATS_REWRITE_SITES = 10;
+    private static final int REQUIRED_ZERO_COPY_REWRITE_SITES = 1;
 
     private ImageDecodePatcher() {}
 
@@ -179,6 +190,7 @@ final class ImageDecodePatcher {
         }
         final ClassWriter writer = ModelOpenClassWriters.newFrameWriter(reader, loader);
         final int[] statsRewrites = new int[1];
+        final int[] zeroCopyRewrites = new int[1];
         final ClassVisitor visitor = new ClassVisitor(ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
@@ -188,7 +200,11 @@ final class ImageDecodePatcher {
                     final String signature,
                     final String[] exceptions) {
                 final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                return new ImageResourceStatsMethodVisitor(mv, statsRewrites);
+                MethodVisitor chained = new ImageResourceStatsMethodVisitor(mv, statsRewrites);
+                if (GET_IMAGE_EXE_NAME.equals(name) && GET_IMAGE_EXE_DESC.equals(desc)) {
+                    chained = new ImageResourceZeroCopyStreamVisitor(chained, zeroCopyRewrites);
+                }
+                return chained;
             }
 
             @Override
@@ -219,7 +235,8 @@ final class ImageDecodePatcher {
             }
         };
         reader.accept(visitor, ClassReader.EXPAND_FRAMES);
-        if (statsRewrites[0] != REQUIRED_STATS_REWRITE_SITES) {
+        if (statsRewrites[0] != REQUIRED_STATS_REWRITE_SITES
+                || zeroCopyRewrites[0] != REQUIRED_ZERO_COPY_REWRITE_SITES) {
             return null;
         }
         return writer.toByteArray();
@@ -477,6 +494,143 @@ final class ImageDecodePatcher {
         private void flushBuffer() {
             this.capturingCount = false;
             this.capturingBytes = false;
+            while (!this.buffer.isEmpty()) {
+                this.buffer.removeFirst().run();
+            }
+        }
+    }
+
+    /**
+     * Replaces {@code new ByteArrayInputStream(imageFileBuf)} in {@code getImage_exe()} with
+     * {@link ImageDecodeBridge#wrapImmutableImageBytes(byte[])} so PNG decoding avoids copying the
+     * image buffer while preserving {@link java.io.ByteArrayInputStream} static typing.
+     */
+    private static final class ImageResourceZeroCopyStreamVisitor extends MethodVisitor {
+
+        private static final int STAGE_NONE = 0;
+        private static final int STAGE_AFTER_NEW = 1;
+        private static final int STAGE_AFTER_DUP = 2;
+        private static final int STAGE_AFTER_ALOAD = 3;
+
+        private final int[] rewriteCount;
+        private final ArrayDeque<Runnable> buffer = new ArrayDeque<>();
+        private int stage = STAGE_NONE;
+        private int arrayVarSlot;
+
+        private ImageResourceZeroCopyStreamVisitor(final MethodVisitor delegate, final int[] rewriteCount) {
+            super(ASM9, delegate);
+            this.rewriteCount = rewriteCount;
+        }
+
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
+            if (this.stage == STAGE_NONE && opcode == NEW && BYTE_ARRAY_INPUT_STREAM.equals(type)) {
+                this.stage = STAGE_AFTER_NEW;
+                this.buffer.addLast(() -> super.visitTypeInsn(opcode, type));
+                return;
+            }
+            flushBuffer();
+            super.visitTypeInsn(opcode, type);
+        }
+
+        @Override
+        public void visitInsn(final int opcode) {
+            if (this.stage == STAGE_AFTER_NEW && opcode == DUP) {
+                this.stage = STAGE_AFTER_DUP;
+                this.buffer.addLast(() -> super.visitInsn(opcode));
+                return;
+            }
+            flushBuffer();
+            super.visitInsn(opcode);
+        }
+
+        @Override
+        public void visitVarInsn(final int opcode, final int varIndex) {
+            if (this.stage == STAGE_AFTER_DUP && opcode == ALOAD) {
+                this.stage = STAGE_AFTER_ALOAD;
+                this.arrayVarSlot = varIndex;
+                this.buffer.addLast(() -> super.visitVarInsn(opcode, varIndex));
+                return;
+            }
+            flushBuffer();
+            super.visitVarInsn(opcode, varIndex);
+        }
+
+        @Override
+        public void visitMethodInsn(
+                final int opcode,
+                final String owner,
+                final String name,
+                final String descriptor,
+                final boolean isInterface) {
+            if (this.stage == STAGE_AFTER_ALOAD
+                    && opcode == INVOKESPECIAL
+                    && BYTE_ARRAY_INPUT_STREAM.equals(owner)
+                    && CTOR_NAME.equals(name)
+                    && BYTE_ARRAY_CTOR_DESC.equals(descriptor)) {
+                super.visitVarInsn(ALOAD, this.arrayVarSlot);
+                super.visitMethodInsn(
+                        INVOKESTATIC, BRIDGE_OWNER, WRAP_IMMUTABLE_BYTES_NAME, WRAP_IMMUTABLE_BYTES_DESC, false);
+                this.buffer.clear();
+                this.stage = STAGE_NONE;
+                this.rewriteCount[0]++;
+                return;
+            }
+            flushBuffer();
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+        }
+
+        @Override
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
+            flushBuffer();
+            super.visitFieldInsn(opcode, owner, name, descriptor);
+        }
+
+        @Override
+        public void visitIntInsn(final int opcode, final int operand) {
+            flushBuffer();
+            super.visitIntInsn(opcode, operand);
+        }
+
+        @Override
+        public void visitJumpInsn(final int opcode, final Label label) {
+            flushBuffer();
+            super.visitJumpInsn(opcode, label);
+        }
+
+        @Override
+        public void visitLabel(final Label label) {
+            flushBuffer();
+            super.visitLabel(label);
+        }
+
+        @Override
+        public void visitLdcInsn(final Object value) {
+            flushBuffer();
+            super.visitLdcInsn(value);
+        }
+
+        @Override
+        public void visitIincInsn(final int varIndex, final int increment) {
+            flushBuffer();
+            super.visitIincInsn(varIndex, increment);
+        }
+
+        @Override
+        public void visitFrame(
+                final int type, final int numLocal, final Object[] local, final int numStack, final Object[] stack) {
+            flushBuffer();
+            super.visitFrame(type, numLocal, local, numStack, stack);
+        }
+
+        @Override
+        public void visitEnd() {
+            flushBuffer();
+            super.visitEnd();
+        }
+
+        private void flushBuffer() {
+            this.stage = STAGE_NONE;
             while (!this.buffer.isEmpty()) {
                 this.buffer.removeFirst().run();
             }

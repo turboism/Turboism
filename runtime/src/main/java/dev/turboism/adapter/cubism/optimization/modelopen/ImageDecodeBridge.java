@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,7 +44,13 @@ public final class ImageDecodeBridge {
     private static final int MIN_POOL_THREADS = 2;
     private static final int MAX_POOL_THREADS = 6;
     private static final int MAX_PREDECODE_QUEUE_CAPACITY = 512;
-    private static final long MAX_IN_FLIGHT_PIXELS = 33_554_432L;
+    private static final long MIN_IN_FLIGHT_PIXELS = 33_554_432L;
+    private static final long MAX_IN_FLIGHT_PIXELS_CAP = 201_326_592L;
+    private static final long ARGB_BYTES_PER_PIXEL = 4L;
+    private static final long HEAP_BUDGET_DIVISOR = 8L;
+    private static final long BYTES_PER_BUDGET_PIXEL = ARGB_BYTES_PER_PIXEL * HEAP_BUDGET_DIVISOR;
+    private static final long MAX_IN_FLIGHT_PIXELS =
+            computeMaxInFlightPixels(Runtime.getRuntime().maxMemory());
     private static final int MIN_PREDECODE_WIDTH = 1;
     private static final String PREDECODE_THREAD_NAME = "turboism-png-predecode";
 
@@ -51,6 +58,7 @@ public final class ImageDecodeBridge {
     private static final String METHOD_GET_CACHED_ATLAS_IMAGE = "getCachedAtlasImage";
     private static final String METHOD_GET_ALL_MODEL_IMAGES = "getAllModelImages";
     private static final String METHOD_GET_FILTERED_IMAGE = "getFilteredImage";
+    private static final String FIELD_FILTERED_IMAGE = "_filteredImage";
     private static final String METHOD_GET_TEXTURE_LIST = "getTextureList";
     private static final String METHOD_GET_CHILDREN = "getChildren";
     private static final String METHOD_GET_IMAGE_RESOURCE = "getImageResource";
@@ -86,6 +94,17 @@ public final class ImageDecodeBridge {
     }
 
     /**
+     * Wraps an immutable image payload in a {@link ByteArrayInputStream} so unread callers can
+     * decode directly without copying the backing array.
+     *
+     * @param imageBytes immutable encoded image payload
+     * @return {@link ByteArrayInputStream} backed directly by {@code imageBytes}
+     */
+    public static ByteArrayInputStream wrapImmutableImageBytes(final byte[] imageBytes) {
+        return new ReadOnlyByteArrayInputStream(imageBytes);
+    }
+
+    /**
      * Decodes a buffered image directly into {@code TYPE_INT_ARGB} for eligible in-memory PNG
      * streams, falling back to {@link ImageIO} with memory-cached streams otherwise.
      *
@@ -99,7 +118,7 @@ public final class ImageDecodeBridge {
             final InputStream activeStream, final InputStream originalStream, final int targetType) throws IOException {
         if (originalStream instanceof ByteArrayInputStream && activeStream != null) {
             if (targetType == BufferedImage.TYPE_INT_ARGB) {
-                final byte[] rawBytes = activeStream.readAllBytes();
+                final byte[] rawBytes = extractRawBytes(activeStream);
                 final BufferedImage direct = FastPngDecoder.tryDecodeToIntArgb(rawBytes);
                 if (direct != null) {
                     return direct;
@@ -114,6 +133,16 @@ public final class ImageDecodeBridge {
             }
         }
         return ImageIO.read(activeStream);
+    }
+
+    static byte[] extractRawBytes(final InputStream stream) throws IOException {
+        if (stream instanceof ReadOnlyByteArrayInputStream readOnlyStream) {
+            final byte[] direct = readOnlyStream.claimUnreadBackingArray();
+            if (direct != null) {
+                return direct;
+            }
+        }
+        return ArchiveReadBridge.readAllBytes(stream);
     }
 
     /**
@@ -186,6 +215,20 @@ public final class ImageDecodeBridge {
      * @param textureManager Cubism {@code CTextureManager} instance, nullable
      */
     public static void scheduleTextureManagerPredecode(final Object textureManager) {
+        scheduleTextureManagerPredecode(textureManager, true);
+    }
+
+    /**
+     * Submits undecoded texture images from a deserialized {@code CTextureManager} to a bounded
+     * background worker pool.
+     *
+     * @param textureManager Cubism {@code CTextureManager} instance, nullable
+     * @param allowLazyModelImageFilter {@code false} before {@code CModelSource.setup()} to read
+     *     only already-deserialized {@code CModelImage._filteredImage} fields without triggering
+     *     lazy filter evaluation
+     */
+    public static void scheduleTextureManagerPredecode(
+            final Object textureManager, final boolean allowLazyModelImageFilter) {
         if (textureManager == null) {
             return;
         }
@@ -196,7 +239,7 @@ public final class ImageDecodeBridge {
         final List<Object> candidates = new ArrayList<>();
         try {
             collectAtlasResources(textureManager, handles, candidates);
-            collectModelImageResources(textureManager, handles, candidates);
+            collectModelImageResources(textureManager, handles, allowLazyModelImageFilter, candidates);
             collectTextureListResources(textureManager, handles, candidates);
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -230,15 +273,21 @@ public final class ImageDecodeBridge {
     }
 
     private static void collectModelImageResources(
-            final Object textureManager, final PredecodeHandles handles, final List<Object> out) throws Throwable {
-        if (handles.getAllModelImages == null || handles.getFilteredImage == null) {
+            final Object textureManager,
+            final PredecodeHandles handles,
+            final boolean allowLazyModelImageFilter,
+            final List<Object> out)
+            throws Throwable {
+        final MethodHandle imageGetter =
+                allowLazyModelImageFilter ? handles.getFilteredImage : handles.getRawFilteredImage;
+        if (handles.getAllModelImages == null || imageGetter == null) {
             return;
         }
         final Object modelImages = handles.getAllModelImages.invoke(textureManager);
         if (modelImages instanceof List<?> list) {
             for (final Object modelImage : list) {
                 if (modelImage != null) {
-                    final Object res = handles.getFilteredImage.invoke(modelImage);
+                    final Object res = imageGetter.invoke(modelImage);
                     if (res != null) {
                         out.add(res);
                     }
@@ -367,6 +416,14 @@ public final class ImageDecodeBridge {
         return Math.min(MAX_POOL_THREADS, Math.max(MIN_POOL_THREADS, cpuCount - 1));
     }
 
+    static long computeMaxInFlightPixels(final long maxHeapBytes) {
+        if (maxHeapBytes <= 0L) {
+            return MIN_IN_FLIGHT_PIXELS;
+        }
+        final long heapScaled = maxHeapBytes / BYTES_PER_BUDGET_PIXEL;
+        return Math.min(MAX_IN_FLIGHT_PIXELS_CAP, Math.max(MIN_IN_FLIGHT_PIXELS, heapScaled));
+    }
+
     private static void convertAbgrToArgb(
             final byte[] src,
             final int[] dst,
@@ -456,6 +513,14 @@ public final class ImageDecodeBridge {
                     lookup.findVirtual(managerClass, METHOD_GET_ALL_MODEL_IMAGES, MethodType.methodType(List.class));
             final MethodHandle getFilteredImage = lookup.findVirtual(
                     modelImageClass, METHOD_GET_FILTERED_IMAGE, MethodType.methodType(imageResClass));
+            MethodHandle getRawFilteredImage = null;
+            try {
+                final Field filteredImageField = modelImageClass.getDeclaredField(FIELD_FILTERED_IMAGE);
+                filteredImageField.setAccessible(true);
+                getRawFilteredImage = MethodHandles.lookup().unreflectGetter(filteredImageField);
+            } catch (final NoSuchFieldException | IllegalAccessException | RuntimeException ignored) {
+                // Skip pre-setup model images when direct field access is unavailable.
+            }
             final MethodHandle getTextureList =
                     lookup.findVirtual(managerClass, METHOD_GET_TEXTURE_LIST, MethodType.methodType(texGroupClass));
             final MethodHandle getTextureGroupChildren =
@@ -485,6 +550,7 @@ public final class ImageDecodeBridge {
                     getCachedAtlasImage,
                     getAllModelImages,
                     getFilteredImage,
+                    getRawFilteredImage,
                     getTextureList,
                     getTextureGroupChildren,
                     getTextureImageResource,
@@ -498,6 +564,24 @@ public final class ImageDecodeBridge {
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             return null;
+        }
+    }
+
+    private static final class ReadOnlyByteArrayInputStream extends ByteArrayInputStream {
+
+        private final byte[] backing;
+
+        private ReadOnlyByteArrayInputStream(final byte[] bytes) {
+            super(bytes);
+            this.backing = bytes;
+        }
+
+        private byte[] claimUnreadBackingArray() {
+            if (this.pos != 0 || this.count != this.backing.length) {
+                return null;
+            }
+            this.pos = this.count;
+            return this.backing;
         }
     }
 
@@ -525,6 +609,7 @@ public final class ImageDecodeBridge {
             MethodHandle getCachedAtlasImage,
             MethodHandle getAllModelImages,
             MethodHandle getFilteredImage,
+            MethodHandle getRawFilteredImage,
             MethodHandle getTextureList,
             MethodHandle getTextureGroupChildren,
             MethodHandle getTextureImageResource,

@@ -15,8 +15,9 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 
 /**
- * Patches model-open lifecycle callers to trigger background PNG pre-decoding after factory setup
- * and elide the redundant immediate second {@code CModelSource.setup()} during document open.
+ * Patches model-open lifecycle callers to trigger background PNG pre-decoding before and after
+ * factory setup and elide the redundant immediate second {@code CModelSource.setup()} during
+ * document open.
  */
 final class ModelOpenFlowPatcher {
 
@@ -37,6 +38,7 @@ final class ModelOpenFlowPatcher {
     private static final String FLOW_BRIDGE = "dev/turboism/adapter/cubism/optimization/modelopen/ModelOpenFlowBridge";
     private static final String BEGIN_FACTORY_OPEN = "beginFactoryOpen";
     private static final String END_DOCUMENT_LOAD = "endDocumentLoad";
+    private static final String BEFORE_FACTORY_SETUP = "beforeFactorySetup";
     private static final String MARK_FACTORY_COMPLETED = "markFactorySetupCompleted";
     private static final String CONSUME_FACTORY_COMPLETED = "consumeFactorySetupCompleted";
     private static final String OBJECT_BOOL_DESC = "(Ljava/lang/Object;)Z";
@@ -85,6 +87,9 @@ final class ModelOpenFlowPatcher {
                                 && SETUP_METHOD_NAME.equals(mName)
                                 && SETUP_METHOD_DESC.equals(mDesc)) {
                             patched[0] = true;
+                            super.visitInsn(DUP);
+                            super.visitMethodInsn(
+                                    INVOKESTATIC, FLOW_BRIDGE, BEFORE_FACTORY_SETUP, OBJECT_VOID_DESC, false);
                             super.visitInsn(DUP);
                             super.visitMethodInsn(opcode, owner, mName, mDesc, isInterface);
                             super.visitMethodInsn(

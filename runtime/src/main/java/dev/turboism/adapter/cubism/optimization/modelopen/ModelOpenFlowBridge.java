@@ -36,12 +36,30 @@ public final class ModelOpenFlowBridge {
     }
 
     /**
-     * Schedules background PNG pre-decoding on {@code modelSource}'s texture manager before factory
-     * {@code CModelSource.setup()} runs, keeping {@code CModelSource.setup()} bytecode untouched.
+     * Schedules background PNG pre-decoding for already-deserialized texture resources before
+     * factory {@code CModelSource.setup()} runs, avoiding lazy filter evaluation before setup.
      *
      * @param modelSource deserialized {@code CModelSource} instance about to initialize
      */
     public static void beforeFactorySetup(final Object modelSource) {
+        schedulePredecode(modelSource, false);
+    }
+
+    /**
+     * Records that factory deserialization finished invoking {@code CModelSource.setup()} cleanly on
+     * {@code modelSource} and schedules background PNG pre-decoding for any textures registered
+     * during setup.
+     *
+     * @param modelSource initialized {@code CModelSource} instance
+     */
+    public static void markFactorySetupCompleted(final Object modelSource) {
+        if (modelSource != null) {
+            COMPLETED_FACTORY_SETUP.set(new WeakReference<>(modelSource));
+            schedulePredecode(modelSource, true);
+        }
+    }
+
+    private static void schedulePredecode(final Object modelSource, final boolean allowLazyModelImageFilter) {
         if (modelSource == null) {
             return;
         }
@@ -55,23 +73,10 @@ public final class ModelOpenFlowBridge {
             }
             final Object textureManager = getter.invoke(modelSource);
             if (textureManager != null) {
-                ImageDecodeBridge.scheduleTextureManagerPredecode(textureManager);
+                ImageDecodeBridge.scheduleTextureManagerPredecode(textureManager, allowLazyModelImageFilter);
             }
         } catch (final Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
-        }
-    }
-
-    /**
-     * Records that factory deserialization finished invoking {@code CModelSource.setup()} cleanly on
-     * {@code modelSource} and schedules background PNG pre-decoding to overlap verify and UI build.
-     *
-     * @param modelSource initialized {@code CModelSource} instance
-     */
-    public static void markFactorySetupCompleted(final Object modelSource) {
-        if (modelSource != null) {
-            COMPLETED_FACTORY_SETUP.set(new WeakReference<>(modelSource));
-            beforeFactorySetup(modelSource);
         }
     }
 
