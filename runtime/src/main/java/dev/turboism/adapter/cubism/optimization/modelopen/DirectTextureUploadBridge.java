@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.modelopen;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.runtime.exec.RuntimeThreads;
 import java.awt.Transparency;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
@@ -21,8 +22,17 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Packs sRGB Cubism images directly into bounded pooled direct buffers for JOGL texture upload.
@@ -68,6 +78,14 @@ public final class DirectTextureUploadBridge {
     private static final int MAX_DIMENSION = 16_384;
     private static final long MAX_TOTAL_PIXELS = (long) MAX_DIMENSION * MAX_DIMENSION;
     static final int MAX_POOLED_BUFFER_BYTES = 67_108_864;
+    static final long PARALLEL_PIXEL_THRESHOLD = 4_194_304L;
+    static final int MIN_PARALLEL_ROWS = 64;
+    private static final int MIN_ROWS_PER_SLICE = 16;
+    private static final int SINGLE_CHUNK = 1;
+    private static final int MIN_PARALLEL_CHUNKS = 2;
+    private static final int MAX_PACK_WORKERS = 8;
+    private static final int PACK_QUEUE_CAPACITY = 64;
+    private static final String PACK_WORKER_PREFIX = RuntimeThreads.THREAD_NAME_PREFIX + "-tex-pack";
     private static final int MAX_POOLED_BUFFERS = 2;
     private static final int RESULT_ARRAY_LENGTH = 3;
     private static final long HANDLED_FLAG = 1L;
@@ -115,6 +133,7 @@ public final class DirectTextureUploadBridge {
     private static final AtomicLong STRIPED_GL3_UPLOADS = new AtomicLong();
     private static final AtomicLong OVERSIZED_DIRECT_ALLOCATIONS = new AtomicLong();
     private static final AtomicLong FALLBACK_BUFFER_REUSES = new AtomicLong();
+    private static final AtomicLong PARALLEL_BAND_PACKS = new AtomicLong();
 
     private static volatile JoglHandles cachedHandles;
 
@@ -279,6 +298,23 @@ public final class DirectTextureUploadBridge {
             final int bandRows,
             final boolean flipY,
             final ByteBuffer outBuffer) {
+        return packRgbaPremultipliedBand(src, dstWidth, dstHeight, yStart, bandRows, flipY, outBuffer, null, true);
+    }
+
+    /**
+     * Packs rows {@code [yStart, yStart + bandRows)} with an explicit executor and parallelism switch
+     * so tests can verify byte-exact parity and fallback behavior deterministically.
+     */
+    static boolean packRgbaPremultipliedBand(
+            final BufferedImage src,
+            final int dstWidth,
+            final int dstHeight,
+            final int yStart,
+            final int bandRows,
+            final boolean flipY,
+            final ByteBuffer outBuffer,
+            final ExecutorService executor,
+            final boolean allowParallel) {
         if (src == null || outBuffer == null || yStart < 0 || bandRows <= 0 || yStart + bandRows > dstHeight) {
             return false;
         }
@@ -306,18 +342,28 @@ public final class DirectTextureUploadBridge {
             }
             final int stride = sppsm.getScanlineStride();
             final int baseOffset = dbInt.getOffset() - transY * stride - transX;
-            packIntArgbBand(
-                    dbInt.getData(),
-                    baseOffset,
-                    stride,
-                    srcW,
-                    srcH,
+            final int[] pixels = dbInt.getData();
+            final boolean alreadyPremultiplied = imageType == BufferedImage.TYPE_INT_ARGB_PRE;
+            packBand(
                     dstWidth,
                     yStart,
                     bandRows,
-                    flipY,
-                    imageType == BufferedImage.TYPE_INT_ARGB_PRE,
-                    outBuffer);
+                    outBuffer,
+                    executor,
+                    allowParallel,
+                    (sliceYStart, sliceRows, targetSlice, cancelled) -> packIntArgbBand(
+                            pixels,
+                            baseOffset,
+                            stride,
+                            srcW,
+                            srcH,
+                            dstWidth,
+                            sliceYStart,
+                            sliceRows,
+                            flipY,
+                            alreadyPremultiplied,
+                            targetSlice,
+                            cancelled));
         } else if (imageType == BufferedImage.TYPE_4BYTE_ABGR) {
             if (!(raster.getSampleModel() instanceof ComponentSampleModel csm)
                     || csm.getPixelStride() != BYTES_PER_PIXEL
@@ -328,8 +374,26 @@ public final class DirectTextureUploadBridge {
             }
             final int stride = csm.getScanlineStride();
             final int baseOffset = dbByte.getOffset() - transY * stride - transX * BYTES_PER_PIXEL;
-            packByteAbgrBand(
-                    dbByte.getData(), baseOffset, stride, srcW, srcH, dstWidth, yStart, bandRows, flipY, outBuffer);
+            final byte[] pixels = dbByte.getData();
+            packBand(
+                    dstWidth,
+                    yStart,
+                    bandRows,
+                    outBuffer,
+                    executor,
+                    allowParallel,
+                    (sliceYStart, sliceRows, targetSlice, cancelled) -> packByteAbgrBand(
+                            pixels,
+                            baseOffset,
+                            stride,
+                            srcW,
+                            srcH,
+                            dstWidth,
+                            sliceYStart,
+                            sliceRows,
+                            flipY,
+                            targetSlice,
+                            cancelled));
         } else {
             return false;
         }
@@ -374,6 +438,179 @@ public final class DirectTextureUploadBridge {
                 && db.getNumBanks() == 1;
     }
 
+    private static void packBand(
+            final int dstW,
+            final int yStart,
+            final int bandRows,
+            final ByteBuffer outBuffer,
+            final ExecutorService executor,
+            final boolean allowParallel,
+            final RowRangePacker packer) {
+        final int chunkCount = resolveParallelChunkCount(dstW, bandRows, allowParallel);
+        if (chunkCount < MIN_PARALLEL_CHUNKS) {
+            packer.pack(yStart, bandRows, outBuffer, null);
+            return;
+        }
+        final ExecutorService pool = executor != null ? executor : PackPoolHolder.EXECUTOR;
+        if (packBandInParallel(dstW, yStart, bandRows, outBuffer, pool, chunkCount, packer)) {
+            PARALLEL_BAND_PACKS.incrementAndGet();
+            return;
+        }
+        outBuffer.clear();
+        packer.pack(yStart, bandRows, outBuffer, null);
+    }
+
+    private static int resolveParallelChunkCount(final int dstW, final int bandRows, final boolean allowParallel) {
+        if (!allowParallel
+                || bandRows < MIN_PARALLEL_ROWS
+                || Thread.currentThread().isInterrupted()) {
+            return SINGLE_CHUNK;
+        }
+        final long bandPixels = (long) dstW * bandRows;
+        if (bandPixels < PARALLEL_PIXEL_THRESHOLD) {
+            return SINGLE_CHUNK;
+        }
+        final int maxParallelism =
+                Math.min(MAX_PACK_WORKERS, Runtime.getRuntime().availableProcessors());
+        if (maxParallelism < MIN_PARALLEL_CHUNKS) {
+            return SINGLE_CHUNK;
+        }
+        final int rowBoundedChunks = bandRows / MIN_ROWS_PER_SLICE;
+        return Math.min(maxParallelism, rowBoundedChunks);
+    }
+
+    /**
+     * Dispatches disjoint destination row slices across worker threads and packs the final slice on
+     * the calling thread, leaving {@code outBuffer.position()} at the band end on success.
+     */
+    private static boolean packBandInParallel(
+            final int dstW,
+            final int yStart,
+            final int bandRows,
+            final ByteBuffer outBuffer,
+            final ExecutorService pool,
+            final int chunkCount,
+            final RowRangePacker packer) {
+        final int dstRowBytes = dstW * BYTES_PER_PIXEL;
+        final int baseRows = bandRows / chunkCount;
+        final int remainderRows = bandRows % chunkCount;
+        final AtomicBoolean cancelled = new AtomicBoolean(false);
+        final AtomicReference<Throwable> workerFailure = new AtomicReference<>();
+        final List<Future<?>> futures = new ArrayList<>(chunkCount - SINGLE_CHUNK);
+
+        int rowOffset = ZERO_OFFSET;
+        try {
+            for (int chunk = ZERO_OFFSET; chunk < chunkCount - SINGLE_CHUNK; chunk++) {
+                final int chunkRows = baseRows + (chunk < remainderRows ? SINGLE_CHUNK : ZERO_OFFSET);
+                final int chunkYStart = yStart + rowOffset;
+                final int startByte = rowOffset * dstRowBytes;
+                final int endByte = (rowOffset + chunkRows) * dstRowBytes;
+                // Duplicate gives each worker isolated position and limit over disjoint buffer memory.
+                final ByteBuffer slice = outBuffer.duplicate();
+                slice.limit(endByte).position(startByte);
+                rowOffset += chunkRows;
+                futures.add(pool.submit(() -> {
+                    if (cancelled.get()) {
+                        return;
+                    }
+                    try {
+                        packer.pack(chunkYStart, chunkRows, slice, cancelled);
+                    } catch (final Throwable failure) {
+                        cancelled.set(true);
+                        workerFailure.compareAndSet(null, failure);
+                    }
+                }));
+            }
+        } catch (final RejectedExecutionException rejected) {
+            cancelAndDrain(futures, cancelled);
+            rethrowFatalWorkerFailure(workerFailure);
+            return false;
+        }
+
+        final int callerRows = bandRows - rowOffset;
+        final int callerYStart = yStart + rowOffset;
+        final int callerStartByte = rowOffset * dstRowBytes;
+        final int callerEndByte = bandRows * dstRowBytes;
+        final ByteBuffer callerSlice = outBuffer.duplicate();
+        callerSlice.limit(callerEndByte).position(callerStartByte);
+        try {
+            packer.pack(callerYStart, callerRows, callerSlice, cancelled);
+        } catch (final Throwable failure) {
+            cancelled.set(true);
+            cancelAndDrain(futures, cancelled);
+            FatalErrors.rethrowIfFatal(failure);
+            rethrowFatalWorkerFailure(workerFailure);
+            return false;
+        }
+
+        boolean interrupted = false;
+        for (final Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (final InterruptedException e) {
+                interrupted = true;
+                cancelAndDrain(futures, cancelled);
+                break;
+            } catch (final ExecutionException e) {
+                workerFailure.compareAndSet(null, e.getCause());
+                cancelAndDrain(futures, cancelled);
+                break;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+            rethrowFatalWorkerFailure(workerFailure);
+            return false;
+        }
+        final Throwable failure = workerFailure.get();
+        if (failure != null) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+        if (cancelled.get()) {
+            return false;
+        }
+        outBuffer.position(callerEndByte);
+        return true;
+    }
+
+    /**
+     * Stops queued tasks and awaits running workers uninterruptibly so no worker writes to a pooled
+     * buffer after serial fallback or buffer return begins.
+     */
+    private static void cancelAndDrain(final List<Future<?>> futures, final AtomicBoolean cancelled) {
+        cancelled.set(true);
+        for (final Future<?> future : futures) {
+            future.cancel(false);
+        }
+        boolean interrupted = false;
+        for (final Future<?> future : futures) {
+            if (future.isCancelled()) {
+                continue;
+            }
+            while (true) {
+                try {
+                    future.get();
+                    break;
+                } catch (final InterruptedException e) {
+                    interrupted = true;
+                } catch (final ExecutionException | CancellationException ignored) {
+                    break;
+                }
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void rethrowFatalWorkerFailure(final AtomicReference<Throwable> workerFailure) {
+        final Throwable failure = workerFailure.get();
+        if (failure != null) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
     private static void packIntArgbBand(
             final int[] pixels,
             final int baseOffset,
@@ -385,11 +622,15 @@ public final class DirectTextureUploadBridge {
             final int bandRows,
             final boolean flipY,
             final boolean alreadyPremultiplied,
-            final ByteBuffer outBuffer) {
+            final ByteBuffer outBuffer,
+            final AtomicBoolean cancelled) {
         final int dstRowBytes = dstW * BYTES_PER_PIXEL;
         final byte[] row = borrowRowScratch(dstRowBytes);
         final int imageEnd = Math.min(yStart + bandRows, srcH);
         for (int dstY = yStart; dstY < imageEnd; dstY++) {
+            if (cancelled != null && cancelled.get()) {
+                return;
+            }
             final int srcY = flipY ? (srcH - 1 - dstY) : dstY;
             final int rowStart = baseOffset + srcY * stride;
             int outIdx = 0;
@@ -419,7 +660,7 @@ public final class DirectTextureUploadBridge {
         final int imageRowsWritten = Math.max(0, imageEnd - yStart);
         final int zeroRowCount = bandRows - imageRowsWritten;
         if (zeroRowCount > 0) {
-            writeZeroRows(outBuffer, row, dstRowBytes, zeroRowCount);
+            writeZeroRows(outBuffer, row, dstRowBytes, zeroRowCount, cancelled);
         }
     }
 
@@ -433,11 +674,15 @@ public final class DirectTextureUploadBridge {
             final int yStart,
             final int bandRows,
             final boolean flipY,
-            final ByteBuffer outBuffer) {
+            final ByteBuffer outBuffer,
+            final AtomicBoolean cancelled) {
         final int dstRowBytes = dstW * BYTES_PER_PIXEL;
         final byte[] row = borrowRowScratch(dstRowBytes);
         final int imageEnd = Math.min(yStart + bandRows, srcH);
         for (int dstY = yStart; dstY < imageEnd; dstY++) {
+            if (cancelled != null && cancelled.get()) {
+                return;
+            }
             final int srcY = flipY ? (srcH - 1 - dstY) : dstY;
             int srcIdx = baseOffset + srcY * stride;
             int outIdx = 0;
@@ -460,14 +705,21 @@ public final class DirectTextureUploadBridge {
         final int imageRowsWritten = Math.max(0, imageEnd - yStart);
         final int zeroRowCount = bandRows - imageRowsWritten;
         if (zeroRowCount > 0) {
-            writeZeroRows(outBuffer, row, dstRowBytes, zeroRowCount);
+            writeZeroRows(outBuffer, row, dstRowBytes, zeroRowCount, cancelled);
         }
     }
 
     private static void writeZeroRows(
-            final ByteBuffer outBuffer, final byte[] zeroRow, final int dstRowBytes, final int zeroRowCount) {
+            final ByteBuffer outBuffer,
+            final byte[] zeroRow,
+            final int dstRowBytes,
+            final int zeroRowCount,
+            final AtomicBoolean cancelled) {
         Arrays.fill(zeroRow, 0, dstRowBytes, (byte) 0);
         for (int i = 0; i < zeroRowCount; i++) {
+            if (cancelled != null && cancelled.get()) {
+                return;
+            }
             outBuffer.put(zeroRow, 0, dstRowBytes);
         }
     }
@@ -723,6 +975,10 @@ public final class DirectTextureUploadBridge {
 
     static long fallbackBufferReuseCount() {
         return FALLBACK_BUFFER_REUSES.get();
+    }
+
+    static long parallelBandPackCount() {
+        return PARALLEL_BAND_PACKS.get();
     }
 
     static int pooledBufferCount() {
@@ -1025,6 +1281,28 @@ public final class DirectTextureUploadBridge {
             // Optional diagnostic error check method not present on mock targets.
         }
         return null;
+    }
+
+    @FunctionalInterface
+    private interface RowRangePacker {
+        void pack(int dstYStart, int rowCount, ByteBuffer targetSlice, AtomicBoolean cancelled);
+    }
+
+    private static final class PackPoolHolder {
+        private static final ExecutorService EXECUTOR = createPackPool();
+
+        private PackPoolHolder() {}
+
+        private static ExecutorService createPackPool() {
+            final int workers = Math.max(
+                    SINGLE_CHUNK,
+                    Math.min(MAX_PACK_WORKERS, Runtime.getRuntime().availableProcessors()) - SINGLE_CHUNK);
+            return RuntimeThreads.fixedLane(
+                    workers,
+                    PACK_QUEUE_CAPACITY,
+                    RuntimeThreads.daemonThreads(
+                            PACK_WORKER_PREFIX, RuntimeThreads.contextClassLoader(DirectTextureUploadBridge.class)));
+        }
     }
 
     private record JoglHandles(

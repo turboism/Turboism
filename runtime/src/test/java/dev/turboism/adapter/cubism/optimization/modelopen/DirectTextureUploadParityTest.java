@@ -15,13 +15,20 @@ import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferByte;
 import java.awt.image.DataBufferInt;
 import java.awt.image.Raster;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -227,6 +234,202 @@ final class DirectTextureUploadParityTest {
 
         ModelOpenFlowBridge.endDocumentLoad();
         assertFalse(DirectTextureUploadBridge.hasTransientFallbackBuffer());
+    }
+
+    @Test
+    void parallelPackingMatchesSerialByteForByteAcrossLayoutsFlipYAndStripedBands() {
+        final int srcW = 2051;
+        final int srcH = 2053;
+        final int dstW = 2064;
+        final int dstH = 2560;
+        final int stripeYStart = 512;
+        final int stripeRows = 2048;
+        final int fullBytes = dstW * dstH * 4;
+        final int stripeBytes = dstW * stripeRows * 4;
+        final ByteBuffer serialBuf = ByteBuffer.allocateDirect(fullBytes);
+        final ByteBuffer parallelBuf = ByteBuffer.allocateDirect(fullBytes);
+        final boolean expectParallel = Runtime.getRuntime().availableProcessors() >= 2;
+
+        for (final int type :
+                new int[] {BufferedImage.TYPE_INT_ARGB, BufferedImage.TYPE_INT_ARGB_PRE, BufferedImage.TYPE_4BYTE_ABGR
+                }) {
+            final BufferedImage src = buildSyntheticLargeImage(srcW, srcH, type);
+
+            for (final boolean flipY : new boolean[] {false, true}) {
+                final long parallelBefore = DirectTextureUploadBridge.parallelBandPackCount();
+                assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                        src, dstW, dstH, 0, dstH, flipY, serialBuf, null, false));
+                assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                        src, dstW, dstH, 0, dstH, flipY, parallelBuf, null, true));
+                assertEquals(0, parallelBuf.position());
+                assertEquals(fullBytes, parallelBuf.limit());
+                if (expectParallel) {
+                    assertEquals(parallelBefore + 1L, DirectTextureUploadBridge.parallelBandPackCount());
+                }
+                assertBufferBytesEqual(serialBuf, parallelBuf, fullBytes);
+            }
+
+            // Striped band (yStart > 0) spanning image rows and bottom zero-padded rows.
+            final long stripeParallelBefore = DirectTextureUploadBridge.parallelBandPackCount();
+            assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                    src, dstW, dstH, stripeYStart, stripeRows, true, serialBuf, null, false));
+            assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                    src, dstW, dstH, stripeYStart, stripeRows, true, parallelBuf, null, true));
+            assertEquals(0, parallelBuf.position());
+            assertEquals(stripeBytes, parallelBuf.limit());
+            if (expectParallel) {
+                assertEquals(stripeParallelBefore + 1L, DirectTextureUploadBridge.parallelBandPackCount());
+            }
+            assertBufferBytesEqual(serialBuf, parallelBuf, stripeBytes);
+        }
+    }
+
+    @Test
+    void parallelPackingFallsBackToSerialOnRejectionAndInterruption() {
+        final int size = 2048;
+        final int requiredBytes = size * size * 4;
+        final BufferedImage src = buildSyntheticLargeImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        final ByteBuffer serialBuf = ByteBuffer.allocateDirect(requiredBytes);
+        final ByteBuffer fallbackBuf = ByteBuffer.allocateDirect(requiredBytes);
+        assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                src, size, size, 0, size, false, serialBuf, null, false));
+
+        // Saturated / rejecting executor must fall back cleanly to serial packing.
+        final ExecutorService rejectingExecutor = new RejectingExecutorService();
+        final long countBeforeReject = DirectTextureUploadBridge.parallelBandPackCount();
+        assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                src, size, size, 0, size, false, fallbackBuf, rejectingExecutor, true));
+        assertEquals(0, fallbackBuf.position());
+        assertEquals(requiredBytes, fallbackBuf.limit());
+        assertEquals(countBeforeReject, DirectTextureUploadBridge.parallelBandPackCount());
+        assertBufferBytesEqual(serialBuf, fallbackBuf, requiredBytes);
+
+        // Interruption while awaiting worker futures must restore interrupt status and fall back to serial.
+        if (Runtime.getRuntime().availableProcessors() >= 2) {
+            final Thread caller = Thread.currentThread();
+            final CountDownLatch taskStarted = new CountDownLatch(1);
+            final ExecutorService interruptingExecutor = new AbstractExecutorService() {
+                @Override
+                public void execute(final Runnable command) {
+                    final Thread t = new Thread(() -> {
+                        taskStarted.countDown();
+                        caller.interrupt();
+                        command.run();
+                    });
+                    t.setDaemon(true);
+                    t.start();
+                }
+
+                @Override
+                public void shutdown() {}
+
+                @Override
+                public List<Runnable> shutdownNow() {
+                    return Collections.emptyList();
+                }
+
+                @Override
+                public boolean isShutdown() {
+                    return false;
+                }
+
+                @Override
+                public boolean isTerminated() {
+                    return false;
+                }
+
+                @Override
+                public boolean awaitTermination(final long timeout, final TimeUnit unit) {
+                    return true;
+                }
+            };
+            try {
+                assertTrue(DirectTextureUploadBridge.packRgbaPremultipliedBand(
+                        src, size, size, 0, size, false, fallbackBuf, interruptingExecutor, true));
+                assertTrue(Thread.currentThread().isInterrupted());
+                assertEquals(0, fallbackBuf.position());
+                assertEquals(requiredBytes, fallbackBuf.limit());
+                assertBufferBytesEqual(serialBuf, fallbackBuf, requiredBytes);
+            } finally {
+                Thread.interrupted();
+            }
+        }
+    }
+
+    private static BufferedImage buildSyntheticLargeImage(final int width, final int height, final int type) {
+        final BufferedImage img = new BufferedImage(width, height, type);
+        if (type == BufferedImage.TYPE_4BYTE_ABGR) {
+            final byte[] data = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
+            int idx = 0;
+            for (int y = 0; y < height; y++) {
+                final int a = (y * 13 + 7) & 0xFF;
+                for (int x = 0; x < width; x++) {
+                    data[idx++] = (byte) a;
+                    data[idx++] = (byte) ((x * 29 + y) & 0xFF);
+                    data[idx++] = (byte) ((x * 13 + y * 7) & 0xFF);
+                    data[idx++] = (byte) ((x * 5 + 3) & 0xFF);
+                }
+            }
+            return img;
+        }
+        final int[] data = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
+        final boolean premul = type == BufferedImage.TYPE_INT_ARGB_PRE;
+        for (int y = 0; y < height; y++) {
+            final int a = (y * 13 + 7) & 0xFF;
+            final int rowBase = y * width;
+            for (int x = 0; x < width; x++) {
+                final int r = (x * 5 + 3) & 0xFF;
+                final int g = (x * 13 + y * 7) & 0xFF;
+                final int b = (x * 29 + y) & 0xFF;
+                if (premul) {
+                    final int pr = (r * a + 127) / 255;
+                    final int pg = (g * a + 127) / 255;
+                    final int pb = (b * a + 127) / 255;
+                    data[rowBase + x] = (a << 24) | (pr << 16) | (pg << 8) | pb;
+                } else {
+                    data[rowBase + x] = (a << 24) | (r << 16) | (g << 8) | b;
+                }
+            }
+        }
+        return img;
+    }
+
+    private static void assertBufferBytesEqual(final ByteBuffer expected, final ByteBuffer actual, final int length) {
+        final byte[] expectedBytes = new byte[length];
+        final byte[] actualBytes = new byte[length];
+        expected.duplicate().get(expectedBytes);
+        actual.duplicate().get(actualBytes);
+        assertArrayEquals(expectedBytes, actualBytes);
+    }
+
+    private static final class RejectingExecutorService extends AbstractExecutorService {
+        @Override
+        public void execute(final Runnable command) {
+            throw new RejectedExecutionException("saturated");
+        }
+
+        @Override
+        public void shutdown() {}
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return false;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return false;
+        }
+
+        @Override
+        public boolean awaitTermination(final long timeout, final TimeUnit unit) {
+            return true;
+        }
     }
 
     private static byte[] reassembleStrips(final List<byte[]> strips, final int width, final int height) {
