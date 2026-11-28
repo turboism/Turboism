@@ -44,6 +44,7 @@ public final class StreamingXmlDeserializeBridge {
     private static final String POST_PROCESS_IFACE = "com.live2d.serialize.IXmlSerializable_postProcess";
     private static final String CARRAY_LIST_CLASS = "com.live2d.type.CArrayList";
     private static final String CANCEL_EXCEPTION_CLASS = "jp.noids.framework.e.a";
+    private static final String IMAGE_RESOURCE_CLASS_NAME = "com.live2d.graphics.CImageResource";
 
     private static final String JDOM_FACTORY_CLASS = "org.jdom.UncheckedJDOMFactory";
     private static final String JDOM_ELEMENT_CLASS = "org.jdom.Element";
@@ -388,6 +389,7 @@ public final class StreamingXmlDeserializeBridge {
                     if (host.postProcessType.isInstance(entry.instance)) {
                         host.onDeserialized.invokeExact(entry.instance, entry.materializedElement, xmlReader);
                     }
+                    maybeScheduleImagePredecode(entry.instance);
                 } else {
                     scanner.seek(entry.startOffset);
                     scanner.readStartTagAtCurrentPos();
@@ -502,8 +504,16 @@ public final class StreamingXmlDeserializeBridge {
                 if (host.postProcessType.isInstance(instance)) {
                     host.onDeserialized.invokeExact(instance, elem, xmlReader);
                 }
+                maybeScheduleImagePredecode(instance);
             }
             return instance;
+        }
+
+        private static void maybeScheduleImagePredecode(final Object instance) {
+            if (instance != null
+                    && IMAGE_RESOURCE_CLASS_NAME.equals(instance.getClass().getName())) {
+                ImageDecodeBridge.scheduleImageResourcePredecode(instance);
+            }
         }
 
         private Object tryReadLeafValue(final String tag) {
