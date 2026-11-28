@@ -1339,6 +1339,7 @@ public final class StreamingXmlDeserializeBridge {
                             callablesJvmClass.getMethod("setAccessible", kCallableClass, boolean.class),
                             MethodType.methodType(void.class, Object.class, boolean.class));
                 } catch (final Throwable ignored) {
+                    FatalErrors.rethrowIfFatal(ignored);
                     kCallableSetAccessible = null;
                 }
 

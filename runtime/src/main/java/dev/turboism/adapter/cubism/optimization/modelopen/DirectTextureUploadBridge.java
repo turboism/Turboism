@@ -516,6 +516,7 @@ public final class DirectTextureUploadBridge {
                     try {
                         packer.pack(chunkYStart, chunkRows, slice, cancelled);
                     } catch (final Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         cancelled.set(true);
                         workerFailure.compareAndSet(null, failure);
                     }
@@ -536,9 +537,9 @@ public final class DirectTextureUploadBridge {
         try {
             packer.pack(callerYStart, callerRows, callerSlice, cancelled);
         } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             cancelled.set(true);
             cancelAndDrain(futures, cancelled);
-            FatalErrors.rethrowIfFatal(failure);
             rethrowFatalWorkerFailure(workerFailure);
             return false;
         }
