@@ -22,6 +22,18 @@ class ProductCliTest(unittest.TestCase):
         self.assertIn('expected_source_sha='+'a'*40,c)
         self.assertFalse(any('buildNumber' in x or 'counter' in x for x in c))
 
+    def test_promote_command_defaults_to_admit_and_accepts_explicit_mode(self):
+        sha = 'a' * 40
+        default_cmd = self.cli.promote_command('12345', 1, sha)
+        self.assertIn('framework_publish=admit', default_cmd)
+        self.assertIn('confirmation=publish-github-only:' + sha, default_cmd)
+        init_cmd = self.cli.promote_command('12345', 1, sha, framework_publish='initialize')
+        self.assertIn('framework_publish=initialize', init_cmd)
+        none_cmd = self.cli.promote_command('12345', 1, sha, framework_publish='none')
+        self.assertIn('framework_publish=none', none_cmd)
+        with self.assertRaises(ValueError):
+            self.cli.promote_command('12345', 1, sha, framework_publish='invalid')
+
     def test_info_reads_own_embedded_identity_without_network(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'agent.jar'

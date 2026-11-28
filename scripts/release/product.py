@@ -28,6 +28,22 @@ from turboism_release.versions import framework_version
 from turboism_release.promotion import GitHub, validate_run
 from turboism_release.contracts import ReleaseError
 
+FRAMEWORK_PUBLISH_MODES = ('admit', 'initialize', 'none')
+DEFAULT_FRAMEWORK_PUBLISH = 'admit'
+
+
+def promote_command(run_id, attempt, source, *, framework_publish=DEFAULT_FRAMEWORK_PUBLISH):
+    if framework_publish not in FRAMEWORK_PUBLISH_MODES:
+        raise ValueError(f'Unsupported framework publish mode: {framework_publish}')
+    return [
+        'gh', 'workflow', 'run', 'release-github-only.yml', '--repo', 'turboism/Turboism', '--ref', 'main',
+        '-f', 'candidate_run_id=' + run_id,
+        '-f', f'candidate_run_attempt={attempt}',
+        '-f', 'source_sha=' + source,
+        '-f', 'confirmation=publish-github-only:' + source,
+        '-f', 'framework_publish=' + framework_publish,
+    ]
+
 
 def candidate_command(channel, version, source, *, beta_run_id='', beta_attempt=''):
     command = ['gh','workflow','run','release.yml','--repo','turboism/Turboism','--ref','main',
@@ -96,7 +112,10 @@ def main(argv=None):
             p.add_argument('--submit',action='store_true',help='Actually dispatch CI (default only prints the verified command)')
     p=commands.add_parser('info');p.add_argument('--jar',type=Path,required=True)
     p=commands.add_parser('promote');p.add_argument('--run-id',required=True);p.add_argument('--attempt',type=int,required=True)
-    p.add_argument('--source',required=True);p.add_argument('--submit',action='store_true')
+    p.add_argument('--source',required=True)
+    p.add_argument('--framework-publish',choices=FRAMEWORK_PUBLISH_MODES,default=DEFAULT_FRAMEWORK_PUBLISH,
+                   help='Framework self-update feed admission mode (default: admit)')
+    p.add_argument('--submit',action='store_true')
     args=parser.parse_args(argv)
     if args.command == 'info':
         print(json.dumps(read_jar_info(args.jar),ensure_ascii=False,indent=2));return 0
@@ -127,9 +146,7 @@ def main(argv=None):
         command=candidate_command(args.channel,args.version,source,beta_run_id=beta_run_id,beta_attempt=beta_attempt)
     else:
         validate_run(GitHub().api(f'actions/runs/{args.run_id}'),args.run_id,args.source,args.attempt)
-        command=['gh','workflow','run','release-github-only.yml','--repo','turboism/Turboism','--ref','main',
-                 '-f','candidate_run_id='+args.run_id,'-f',f'candidate_run_attempt={args.attempt}',
-                 '-f','source_sha='+args.source,'-f','confirmation=publish-github-only:'+args.source]
+        command=promote_command(args.run_id,args.attempt,args.source,framework_publish=args.framework_publish)
     print(shlex.join(command))
     if not args.submit:
         print('Dry run: no build, build number, tag or release was created. Add --submit to dispatch.')

@@ -441,9 +441,9 @@ initial installation receipt in both the ZIP and EXE, and rechecks the final byt
 full-package path. The minimum updater version is the first compatible enabled release and must remain supported
 by earlier installed clients as subsequent targets advance.
 
-Promotion with `framework_publish=initialize` registers the first candidate of a channel; later releases use
-`admit`. The publisher uploads immutable objects, obtains a real GitHub OIDC identity, and verifies public
-reachability before completing the GitHub release. `framework_publish=none` publishes only the full packages.
+Promotion defaults to `framework_publish=admit`, which stages immutable objects, obtains a real GitHub OIDC identity,
+and verifies public reachability before completing the GitHub release. Use `framework_publish=initialize` for the first
+candidate of a channel, or `framework_publish=none` (`--framework-publish none`) to publish only the full packages.
 The setup and package contract are documented in
 [BOOTSTRAP_RECEIPT.md](../packaging/windows-installer/BOOTSTRAP_RECEIPT.md).
 
