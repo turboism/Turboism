@@ -14,6 +14,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Added
 
+- The New User Guide and update release notes cards include a link to support the author.
 - The About window links to the Turboism sponsor page.
 - The SDK lets plugins register custom temporary deformation tools.
 - Turboism bundles Warp Row/Column Deform to move entire rows or columns of Warp Deformer control points. Install it from the Plugin Market if your compatible installation lacks it.
@@ -24,6 +25,7 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Changed
 
+- Model opening runs faster through hybrid streaming XML deserialization, bounded archive prefetch and buffered ZIP reading, garbage-collection elision with MethodHandle reflection deserialization, inline PNG predecoding, parallel RGBA texture packing, and extended interpolation precompute optimization.
 - Project save and auto-backup (`.cmo3` and `.can3`), large-model opening, `8192×8192` OpenGL texture upload, PSD import and re-import, multi-page texture atlas rebuilds, animation timeline and Graph Editor redraws, and physics simulation run faster with lower memory allocation and no UI-thread stalls during atlas reuse checks.
 - Settings -> Performance unifies all Cubism optimization modules cleanly and updates the File I/O & Open acceleration description to cover project save and PSD import alongside model opening and export.
 - The New User Guide entry moves into Settings -> Maintenance, and update checks support channel-aware release-note range queries.
