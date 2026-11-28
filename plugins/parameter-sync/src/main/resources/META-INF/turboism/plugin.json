@@ -3,7 +3,7 @@
   "schemaVersion": 3,
   "id": "dev.turboism.plugin.parameter-sync",
   "name": "Parameter Sync Plugin",
-  "version": "0.68.3",
+  "version": "0.68.4",
   "description": "Synchronize parameter values in real time with normalized range mapping across checked parameters.",
   "entrypoints": [
     "dev.turboism.plugin.parametersync.ParameterSyncPlugin"

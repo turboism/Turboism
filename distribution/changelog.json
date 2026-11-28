@@ -80,6 +80,24 @@
         ],
         "changed": [
           {
+            "en": "Project save and auto-backup (`.cmo3` and `.can3`), large-model opening, `8192×8192` OpenGL texture upload, PSD import and re-import, multi-page texture atlas rebuilds, animation timeline and Graph Editor redraws, and physics simulation run faster with lower memory allocation and no UI-thread stalls during atlas reuse checks.",
+            "zh": "工程保存与自动备份（`.cmo3` 与 `.can3`）、大型模型打开、`8192×8192` OpenGL 纹理上传、PSD 导入与重导、多页纹理图集重建、动画时间线与曲线编辑器重绘以及物理模拟运行更快，显著降低内存分配，并消除图集缓存复用检查造成的界面线程停顿。",
+            "ja": "プロジェクト保存と自動バックアップ（`.cmo3`・`.can3`）、大規模モデル読み込み、`8192×8192` OpenGL テクスチャ転送、PSD 読み込み・再読み込み、複数ページのアトラス再構築、アニメーションタイムラインとグラフエディタの再描画、物理演算の内部処理を高速化し、メモリ割り当てとアトラス再利用確認による UI スレッド停止を解消しました。",
+            "ko": "프로젝트 저장 및 자동 백업(`.cmo3`·`.can3`), 대형 모델 열기, `8192×8192` OpenGL 텍스처 업로드, PSD 가져오기·다시 가져오기, 다중 페이지 아틀라스 재구성, 애니메이션 타임라인과 그래프 편집기 다시 그리기, 물리 연산 내부 루프 속도를 높이고 메모리 할당과 아틀라스 재사용 검사 중 UI 스레드 멈춤을 줄였습니다."
+          },
+          {
+            "en": "Settings -> Performance unifies all Cubism optimization modules cleanly and updates the File I/O & Open acceleration description to cover project save and PSD import alongside model opening and export.",
+            "zh": "设置 -> 性能 将全部 Cubism 性能优化模块统一收敛管理，并更新文件读取与保存加速说明，涵盖工程保存、PSD 导入、模型打开与导出。",
+            "ja": "設定 -> パフォーマンス 内のすべての Cubism 最適化モジュールを統一整理し、ファイル入出力・読み込み高速化の説明をモデル読み込み・書き出しに加えてプロジェクト保存と PSD 読み込みも案内するよう更新しました。",
+            "ko": "설정 -> 성능의 모든 Cubism 최적화 모듈을 하나로 통합하고, 파일 입출력·열기 가속 설명에 모델 열기 및 내보내기뿐 아니라 프로젝트 저장과 PSD 가져오기도 포함하도록 다듬었습니다."
+          },
+          {
+            "en": "The New User Guide entry moves into Settings -> Maintenance, and update checks support channel-aware release-note range queries.",
+            "zh": "新手引导入口迁入 设置 -> 维护，同时更新检查支持按通道与版本区间查询发布说明。",
+            "ja": "初めての方向けガイドの項目を 設定 -> メンテナンス に移動し、更新確認で更新チャンネル別のリリースノート範囲取得に対応しました。",
+            "ko": "처음 사용 안내 항목을 설정 -> 유지 관리로 옮기고, 업데이트 확인이 채널별 릴리스 노트 범위 조회를 지원하도록 개선했습니다."
+          },
+          {
             "en": "Modeling drag, Bezier warp evaluation, parts traversal, and parameter panel repaints run faster with zero-allocation indexed parts traversal, cached morph-target keys, O(1) untouched-mesh epoch skipping, primitive Cubism 5.3+ Bezier acceleration, compiled sorting accessors, and cached shader material parameter pairs.",
             "zh": "通过零分配索引部位遍历、变形目标键缓存、O(1) 未修改网格纪元跳过、Cubism 5.3+ 原生类型贝塞尔加速、编译期排序访问器及着色器材质参数对缓存，进一步提升建模拖动、贝塞尔曲面变形求值、部位遍历与参数面板重绘性能。",
             "ja": "ゼロアロケーションのインデックス付きパーツ走査、モーフターゲットキーキャッシュ、O(1) の未変更メッシュエポックスキップ、Cubism 5.3+ プリミティブベジェ高速化、コンパイル済みソートアクセサ、シェーダーマテリアルパラメータペアのキャッシュにより、モデリングドラッグ、ベジェワープ評価、パーツ走査、パラメーターパネル再描画をさらに高速化しました。",
@@ -189,6 +207,24 @@
           }
         ],
         "fixed": [
+          {
+            "en": "Multi-page texture atlas cache reuse commits all reused pages properly, and Texture Atlas overlay rendering prevents translucent stroke alpha accumulation.",
+            "zh": "修复多页纹理图集缓存复用时未正确提交所有复用页面的问题，并防止纹理图集叠加层渲染时半透明描边透明通道累积加深。",
+            "ja": "複数ページのアトラスキャッシュ再利用ですべての再利用ページを正しくコミットするよう修正し、テクスチャアトラスのオーバーレイ描画で半透明線のアルファ値が累積する問題を防止しました。",
+            "ko": "다중 페이지 텍스처 아틀라스 캐시 재사용 시 재사용된 모든 페이지를 정상 커밋하도록 수정하고, 아틀라스 오버레이 렌더링에서 반투명 선의 알파 값이 누적되는 문제를 방지했습니다."
+          },
+          {
+            "en": "Parameter Lock and Parameter Sync skip redundant parameter-row repainting, clear pending write-suppression echoes cleanly, bound background task execution, and recover gracefully from load failures.",
+            "zh": "Parameter Lock 与 Parameter Sync 避免参数行冗余重绘、清理已处理的程序写入抑制残留、为后台任务设置执行边界，并在读取失败时妥善恢复。",
+            "ja": "Parameter Lock と Parameter Sync で重複するパラメーター行再描画を抑え、書き込み抑制の残存状態を適切に解除し、バックグラウンド実行の上限設定と読み込み失敗時の回復処理を改善しました。",
+            "ko": "Parameter Lock과 Parameter Sync에서 불필요한 매개변수 행 다시 그리기를 줄이고, 대기 중인 쓰기 억제 상태를 깔끔하게 정리하며, 백그라운드 작업 경계와 로드 실패 복구 처리를 보완했습니다."
+          },
+          {
+            "en": "External harnesses such as DeepSeek attach reliably via explicit object-root MCP tool schemas, and Turbo Mesh and AutoMesh preserve generated texture coordinates and edge bleed beyond texture boundaries.",
+            "zh": "为 MCP 工具模式显式声明对象根类型，使 DeepSeek 等外部客户端可正常接入；同时修复 Turbo Mesh 与自动网格超出纹理边界时裁剪扩展色边及丢失生成纹理坐标的问题。",
+            "ja": "MCP ツールスキーマのルート型を明示して DeepSeek などの外部ハーネスが正しく接続できるようにし、Turbo Mesh と自動メッシュでテクスチャ端を越えた境界色拡張と生成済みテクスチャ座標が維持されるよう修正しました。",
+            "ko": "MCP 도구 스키마에 객체 루트 유형을 명시해 DeepSeek 등 외부 하네스가 정상 연결되도록 하고, Turbo Mesh와 자동 메시에서 텍스처 경계 밖 색 번짐과 생성된 텍스처 좌표를 유지하도록 수정했습니다."
+          },
           {
             "en": "Settings saves the custom GraalVM path before it validates the Cubism JVM selection.",
             "zh": "设置在验证 Cubism JVM 选项前先保存自定义 GraalVM 路径。",

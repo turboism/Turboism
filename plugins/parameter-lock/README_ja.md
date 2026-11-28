@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
-version: 0.68.3
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Cubism パラメータ値の誤編集を防ぎ、セッション間での永続�
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.68.3` |
+| バージョン | `0.68.4` |
 | プラグイン ID | `dev.turboism.plugin.parameter-lock` |
 | カテゴリ | `workflow` |
 | タグ | parameter, lock, palette, safety |
