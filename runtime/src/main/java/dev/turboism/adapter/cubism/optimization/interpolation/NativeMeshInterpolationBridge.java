@@ -2,15 +2,18 @@ package dev.turboism.adapter.cubism.optimization.interpolation;
 
 import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 /** Internal entrypoint for the pinned multi-version interpolation hook. No host dependency. */
 public final class NativeMeshInterpolationBridge {
@@ -41,6 +44,25 @@ public final class NativeMeshInterpolationBridge {
 
     static final String EXTENSION =
             "com.live2d.cubism.doc.model.interpolator.extendedInterpolation.CExtendedInterpolationExtension";
+    private static final String PROP_COEFFICIENTS = "turboism.meshInterpolation.coefficients";
+    private static final String PROP_LOCAL_REFRESH = "turboism.meshInterpolation.localRefresh";
+    private static final String PROP_CURVE_CACHE = "turboism.meshInterpolation.curveCache";
+    private static final String PROP_DIRECT_UPDATES = "turboism.meshInterpolation.directUpdates";
+    private static final String DEFAULT_ENABLED = "true";
+    private static final int MIN_SOURCE_KEYFORMS = 2;
+    private static final int COORDINATE_STRIDE = 2;
+    private static final int MIN_CURVE_CACHE_COORDINATES = 16;
+    private static final int NO_GEOMETRY = -1;
+    private static final int INITIAL_SLOT_CAPACITY = 16;
+    private static final int MAX_RETAINED_SLOTS = 256;
+    private static final int MAX_RETAINED_GEOMETRY_WORDS = 65_536;
+    private static final int DOUBLE_HIGH_WORD_SHIFT = 32;
+    private static final long GEOMETRY_HEADER_WORDS = 8L;
+    private static final long EXTRA_DESCRIPTOR_WORDS = 3L;
+    private static final long ENTRY_OVERHEAD_BYTES = 256L;
+    private static final long INT_BYTES = 4L;
+    private static final long RESULT_BYTES_NUMERATOR = 9L;
+    private static final long RESULT_BYTES_DENOMINATOR = 2L;
     private static volatile boolean enabled;
     private static final InterpolationCurveCache CURVES = new InterpolationCurveCache();
     private static final LocalInterpolationCache LOCAL = new LocalInterpolationCache();
@@ -49,6 +71,7 @@ public final class NativeMeshInterpolationBridge {
     private static final AtomicLong ACCEPTED = new AtomicLong();
     private static final AtomicLong REFUSED = new AtomicLong();
     private static final AtomicLong DIRECT_UPDATE_BINDINGS = new AtomicLong();
+    private static final ThreadLocal<UpdateScratch> UPDATE_SCRATCH = ThreadLocal.withInitial(UpdateScratch::new);
     private static final ClassValue<Optional<Access>> ACCESS = new ClassValue<>() {
         @Override
         protected Optional<Access> computeValue(Class<?> type) {
@@ -113,8 +136,7 @@ public final class NativeMeshInterpolationBridge {
     }
 
     static boolean coefficientsEnabled() {
-        return Boolean.parseBoolean(
-                System.getProperty("turboism.meshInterpolation.coefficients", Boolean.toString(coefficientDefault)));
+        return Boolean.parseBoolean(System.getProperty(PROP_COEFFICIENTS, Boolean.toString(coefficientDefault)));
     }
 
     static void coefficientDefault(boolean value) {
@@ -154,14 +176,130 @@ public final class NativeMeshInterpolationBridge {
         return combined;
     }
 
+    @FunctionalInterface
+    private interface VectorSetter {
+        void set(Object vector, float x, float y);
+    }
+
+    @FunctionalInterface
+    private interface FloatGetter {
+        float get(Object target);
+    }
+
+    /** Per-thread reusable scratch arrays for {@link Access#update}; never retains host references after return. */
+    private static final class UpdateScratch {
+        boolean[] extra = new boolean[INITIAL_SLOT_CAPACITY];
+        int[] intervals = new int[INITIAL_SLOT_CAPACITY];
+        int[] right = new int[INITIAL_SLOT_CAPACITY];
+        int[] extraIndices = new int[INITIAL_SLOT_CAPACITY];
+        float[] weights = new float[INITIAL_SLOT_CAPACITY];
+        float[] knotValues = new float[INITIAL_SLOT_CAPACITY];
+        float[][] dst = new float[INITIAL_SLOT_CAPACITY][];
+        float[][] src = new float[INITIAL_SLOT_CAPACITY][];
+        Object[] targetForms = new Object[INITIAL_SLOT_CAPACITY];
+        EllipseWeights[] coefficients = new EllipseWeights[INITIAL_SLOT_CAPACITY];
+        final IdentityHashMap<Object, Boolean> targetArrays = new IdentityHashMap<>(INITIAL_SLOT_CAPACITY);
+        int[] geometry = new int[0];
+
+        void ensureTargetCapacity(int count) {
+            if (extra.length < count) {
+                extra = new boolean[count];
+                intervals = new int[count];
+                right = new int[count];
+                extraIndices = new int[count];
+                weights = new float[count];
+                dst = new float[count][];
+                targetForms = new Object[count];
+                coefficients = new EllipseWeights[count];
+            }
+        }
+
+        void ensureSourceCapacity(int srcCount) {
+            if (src.length < srcCount) {
+                src = new float[srcCount][];
+                knotValues = new float[srcCount];
+            }
+        }
+
+        int[] acquireGeometryBuffer(int words) {
+            if (words > MAX_RETAINED_GEOMETRY_WORDS) {
+                return new int[words];
+            }
+            if (geometry.length < words) {
+                geometry = new int[words];
+            }
+            return geometry;
+        }
+
+        void clearReferences(int filledTargets, int filledSources, int filledCoefficients) {
+            if (filledTargets > 0) {
+                Arrays.fill(dst, 0, filledTargets, null);
+                Arrays.fill(targetForms, 0, filledTargets, null);
+            }
+            if (filledSources > 0) {
+                Arrays.fill(src, 0, filledSources, null);
+            }
+            if (filledCoefficients > 0) {
+                Arrays.fill(coefficients, 0, filledCoefficients, null);
+            }
+            targetArrays.clear();
+            // Release oversized buffers so a single large mesh does not pin memory on worker threads.
+            if (extra.length > MAX_RETAINED_SLOTS) {
+                extra = new boolean[INITIAL_SLOT_CAPACITY];
+                intervals = new int[INITIAL_SLOT_CAPACITY];
+                right = new int[INITIAL_SLOT_CAPACITY];
+                extraIndices = new int[INITIAL_SLOT_CAPACITY];
+                weights = new float[INITIAL_SLOT_CAPACITY];
+                dst = new float[INITIAL_SLOT_CAPACITY][];
+                targetForms = new Object[INITIAL_SLOT_CAPACITY];
+                coefficients = new EllipseWeights[INITIAL_SLOT_CAPACITY];
+            }
+            if (src.length > MAX_RETAINED_SLOTS) {
+                src = new float[INITIAL_SLOT_CAPACITY][];
+                knotValues = new float[INITIAL_SLOT_CAPACITY];
+            }
+        }
+    }
+
+    /** Record holder so HotSpot C2 treats MethodHandle fields as trusted final and avoids checkCustomized. */
+    private record AccessHandles(
+            MethodHandle inserted,
+            MethodHandle value,
+            MethodHandle interval,
+            MethodHandle fraction,
+            MethodHandle vector,
+            MethodHandle vectorSet,
+            MethodHandle vectorX,
+            MethodHandle vectorY,
+            MethodHandle calculator,
+            MethodHandle initialize,
+            MethodHandle evaluate,
+            MethodHandle radians,
+            MethodHandle morphSources,
+            MethodHandle morphExtended,
+            VectorSetter directVectorSet,
+            FloatGetter directVectorX,
+            FloatGetter directVectorY) {}
+
+    /** Record holder for per-form MethodHandles so C2 constant-folds fallback dispatch. */
+    private record FormHandles(
+            MethodHandle positions,
+            MethodHandle owner,
+            MethodHandle zero,
+            MethodHandle blend,
+            MethodHandle postBlend,
+            MethodHandle updated,
+            MethodHandle originX,
+            MethodHandle originY,
+            MethodHandle setOriginX,
+            MethodHandle setOriginY) {}
+
     private static final class Access {
         final long cacheDomain = CACHE_DOMAINS.incrementAndGet();
         final Class<?> keyClass;
         final FormAccess meshForm, warpForm, rotationForm;
         final Object ellipse, sns;
-        final MethodHandle inserted, value, interval, fraction;
-        final MethodHandle vector, vectorSet, vectorX, vectorY, calculator, initialize, evaluate;
-        final MethodHandle radians, morphSources, morphExtended;
+        final AccessHandles handles;
 
         Access(Class<?> extension)
                 throws ReflectiveOperationException, java.io.IOException, java.net.URISyntaxException {
@@ -182,11 +320,11 @@ public final class NativeMeshInterpolationBridge {
             rotationForm = new FormAccess(
                     host("com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformerForm", loader, artifact),
                     blendable);
-            morphSources = MethodHandles.publicLookup()
+            MethodHandle morphSources = MethodHandles.publicLookup()
                     .unreflect(
                             meshForm.type.getMethod("getSource").getReturnType().getMethod("getKeyformMorphTargets"))
                     .asType(MethodType.methodType(List.class, Object.class));
-            morphExtended = MethodHandles.publicLookup()
+            MethodHandle morphExtended = MethodHandles.publicLookup()
                     .unreflect(extension.getMethod("getMorphTargetExtendedKeyforms"))
                     .asType(MethodType.methodType(List.class, Object.class));
             keyClass = host(EXTENSION + "$b", loader, artifact);
@@ -198,17 +336,17 @@ public final class NativeMeshInterpolationBridge {
             Class<?> calculatorClass =
                     host("com.live2d.cubism.doc.model.interpolator.extendedInterpolation.a", loader, artifact);
             Class<?> constants = host("jp.noids.util.ap", loader, artifact);
-            radians = MethodHandles.publicLookup().findStaticGetter(constants, "c", double.class);
+            MethodHandle radians = MethodHandles.publicLookup().findStaticGetter(constants, "c", double.class);
             ellipse = typeClass.getField("ELLIPSE").get(null);
             sns = typeClass.getField("SNS_CURVE").get(null);
-            inserted = method(keyClass, "b", boolean.class, new Class<?>[0], Object.class);
-            value = method(keyClass, "a", float.class, new Class<?>[0], Object.class);
-            interval = method(keyClass, "c", int.class, new Class<?>[0], Object.class);
-            fraction = method(keyClass, "d", float.class, new Class<?>[0], Object.class);
-            vector = MethodHandles.publicLookup()
+            MethodHandle inserted = method(keyClass, "b", boolean.class, new Class<?>[0], Object.class);
+            MethodHandle value = method(keyClass, "a", float.class, new Class<?>[0], Object.class);
+            MethodHandle interval = method(keyClass, "c", int.class, new Class<?>[0], Object.class);
+            MethodHandle fraction = method(keyClass, "d", float.class, new Class<?>[0], Object.class);
+            MethodHandle vector = MethodHandles.publicLookup()
                     .findConstructor(vectorClass, MethodType.methodType(void.class))
                     .asType(MethodType.methodType(Object.class));
-            vectorSet = method(
+            MethodHandle vectorSet = method(
                     vectorClass,
                     "set",
                     void.class,
@@ -216,10 +354,10 @@ public final class NativeMeshInterpolationBridge {
                     Object.class,
                     float.class,
                     float.class);
-            vectorX = method(vectorClass, "getX", float.class, new Class<?>[0], Object.class);
-            vectorY = method(vectorClass, "getY", float.class, new Class<?>[0], Object.class);
-            calculator = method(typeClass, "b", Object.class, new Class<?>[0], Object.class);
-            initialize = method(
+            MethodHandle vectorX = method(vectorClass, "getX", float.class, new Class<?>[0], Object.class);
+            MethodHandle vectorY = method(vectorClass, "getY", float.class, new Class<?>[0], Object.class);
+            MethodHandle calculator = method(typeClass, "b", Object.class, new Class<?>[0], Object.class);
+            MethodHandle initialize = method(
                     calculatorClass,
                     "a",
                     void.class,
@@ -229,7 +367,7 @@ public final class NativeMeshInterpolationBridge {
                     boolean.class,
                     List.class,
                     List.class);
-            evaluate = method(
+            MethodHandle evaluate = method(
                     calculatorClass,
                     "a",
                     Object.class,
@@ -238,6 +376,24 @@ public final class NativeMeshInterpolationBridge {
                     int.class,
                     float.class,
                     Object.class);
+            handles = new AccessHandles(
+                    inserted,
+                    value,
+                    interval,
+                    fraction,
+                    vector,
+                    vectorSet,
+                    vectorX,
+                    vectorY,
+                    calculator,
+                    initialize,
+                    evaluate,
+                    radians,
+                    morphSources,
+                    morphExtended,
+                    bindVectorSetter(vectorClass),
+                    bindFloatGetter(vectorClass, "getX"),
+                    bindFloatGetter(vectorClass, "getY"));
         }
 
         /** Each admitted form keeps its native blend and per-point update semantics.
@@ -245,31 +401,32 @@ public final class NativeMeshInterpolationBridge {
          * then setUpdated once per point; no grid/source mutation is added. */
         private static final class FormAccess {
             final Class<?> type;
-            final MethodHandle positions, owner, zero, blend, postBlend, updated;
-            final MethodHandle originX, originY, setOriginX, setOriginY;
+            final FormHandles handles;
             final boolean rotation;
             final LocalFormState local;
-            final java.util.function.Consumer<Object> directUpdated;
+            final Consumer<Object> directUpdated;
 
             FormAccess(Class<?> type, Class<?> blendable) throws ReflectiveOperationException {
                 this.type = type;
                 local = LocalFormState.bind(type);
                 rotation = type.getName().endsWith(".CRotationDeformerForm");
-                positions =
+                MethodHandle positions =
                         rotation ? null : method(type, "getPositions", float[].class, new Class<?>[0], Object.class);
-                originX = rotation ? method(type, "getOriginX", float.class, new Class<?>[0], Object.class) : null;
-                originY = rotation ? method(type, "getOriginY", float.class, new Class<?>[0], Object.class) : null;
-                setOriginX = rotation
+                MethodHandle originX =
+                        rotation ? method(type, "getOriginX", float.class, new Class<?>[0], Object.class) : null;
+                MethodHandle originY =
+                        rotation ? method(type, "getOriginY", float.class, new Class<?>[0], Object.class) : null;
+                MethodHandle setOriginX = rotation
                         ? method(
                                 type, "setOriginX", void.class, new Class<?>[] {float.class}, Object.class, float.class)
                         : null;
-                setOriginY = rotation
+                MethodHandle setOriginY = rotation
                         ? method(
                                 type, "setOriginY", void.class, new Class<?>[] {float.class}, Object.class, float.class)
                         : null;
-                owner = method(type, "getSource", Object.class, new Class<?>[0], Object.class);
-                zero = method(type, "zero", void.class, new Class<?>[0], Object.class);
-                blend = method(
+                MethodHandle owner = method(type, "getSource", Object.class, new Class<?>[0], Object.class);
+                MethodHandle zero = method(type, "zero", void.class, new Class<?>[0], Object.class);
+                MethodHandle blend = method(
                         type,
                         "blend",
                         void.class,
@@ -277,42 +434,82 @@ public final class NativeMeshInterpolationBridge {
                         Object.class,
                         Object.class,
                         float.class);
-                postBlend = method(type, "postBlend", void.class, new Class<?>[0], Object.class);
-                updated = method(type, "setUpdated", void.class, new Class<?>[0], Object.class);
+                MethodHandle postBlend = method(type, "postBlend", void.class, new Class<?>[0], Object.class);
+                MethodHandle updated = method(type, "setUpdated", void.class, new Class<?>[0], Object.class);
+                handles = new FormHandles(
+                        positions, owner, zero, blend, postBlend, updated, originX, originY, setOriginX, setOriginY);
                 directUpdated = directUpdate(type);
             }
 
             float[] readPositions(Object form) throws Throwable {
                 return rotation
-                        ? new float[] {(float) originX.invokeExact(form), (float) originY.invokeExact(form)}
-                        : (float[]) positions.invokeExact(form);
+                        ? new float[] {
+                            (float) handles.originX().invokeExact(form),
+                            (float) handles.originY().invokeExact(form)
+                        }
+                        : (float[]) handles.positions().invokeExact(form);
             }
 
             void writeRotation(Object form, float x, float y) throws Throwable {
                 // Native RotationDeformerPointRef.moveToOnLocal: setters have no
                 // hidden side effects; setUpdated is invoked separately once.
-                setOriginX.invokeExact(form, (float) originX.invokeExact(form) * 0f + x * 1f);
-                setOriginY.invokeExact(form, (float) originY.invokeExact(form) * 0f + y * 1f);
+                handles.setOriginX().invokeExact(form, (float) handles.originX().invokeExact(form) * 0f + x * 1f);
+                handles.setOriginY().invokeExact(form, (float) handles.originY().invokeExact(form) * 0f + y * 1f);
             }
         }
 
         @SuppressWarnings("unchecked")
-        static java.util.function.Consumer<Object> directUpdate(Class<?> form) {
+        static Consumer<Object> directUpdate(Class<?> form) {
             try {
                 // The lambda retains the exact official per-point setter; only dispatch changes.
                 var lookup = MethodHandles.lookup();
                 var implementation = lookup.unreflect(form.getMethod("setUpdated"));
-                var site = java.lang.invoke.LambdaMetafactory.metafactory(
+                var site = LambdaMetafactory.metafactory(
                         lookup,
                         "accept",
-                        MethodType.methodType(java.util.function.Consumer.class),
+                        MethodType.methodType(Consumer.class),
                         MethodType.methodType(void.class, Object.class),
                         implementation,
                         MethodType.methodType(void.class, form));
-                java.util.function.Consumer<Object> bound =
-                        (java.util.function.Consumer<Object>) site.getTarget().invokeExact();
+                Consumer<Object> bound = (Consumer<Object>) site.getTarget().invokeExact();
                 DIRECT_UPDATE_BINDINGS.incrementAndGet();
                 return bound;
+            } catch (Throwable unsupported) {
+                FatalErrors.rethrowIfFatal(unsupported);
+                return null;
+            }
+        }
+
+        private static VectorSetter bindVectorSetter(Class<?> vectorClass) {
+            try {
+                var lookup = MethodHandles.lookup();
+                var implementation = lookup.unreflect(vectorClass.getMethod("set", float.class, float.class));
+                var site = LambdaMetafactory.metafactory(
+                        lookup,
+                        "set",
+                        MethodType.methodType(VectorSetter.class),
+                        MethodType.methodType(void.class, Object.class, float.class, float.class),
+                        implementation,
+                        MethodType.methodType(void.class, vectorClass, float.class, float.class));
+                return (VectorSetter) site.getTarget().invokeExact();
+            } catch (Throwable unsupported) {
+                FatalErrors.rethrowIfFatal(unsupported);
+                return null;
+            }
+        }
+
+        private static FloatGetter bindFloatGetter(Class<?> owner, String methodName) {
+            try {
+                var lookup = MethodHandles.lookup();
+                var implementation = lookup.unreflect(owner.getMethod(methodName));
+                var site = LambdaMetafactory.metafactory(
+                        lookup,
+                        "get",
+                        MethodType.methodType(FloatGetter.class),
+                        MethodType.methodType(float.class, Object.class),
+                        implementation,
+                        MethodType.methodType(float.class, owner));
+                return (FloatGetter) site.getTarget().invokeExact();
             } catch (Throwable unsupported) {
                 FatalErrors.rethrowIfFatal(unsupported);
                 return null;
@@ -347,31 +544,35 @@ public final class NativeMeshInterpolationBridge {
                     || source == null
                     || keys == null
                     || target.isEmpty()
-                    || source.size() < 2
+                    || source.size() < MIN_SOURCE_KEYFORMS
                     || keys.size() != target.size()
                     || !Float.isFinite(scale)) return false;
-            int count = target.size(), size = -1, anchors = 0;
-            boolean[] extra = new boolean[count];
-            int[] intervals = new int[count], right = new int[count];
-            float[] weights = new float[count];
-            var knots = new ArrayList<Float>(source.size());
+            int count = target.size(), srcCount = source.size(), size = -1, anchors = 0, extraCount = 0;
+            UpdateScratch scratch = UPDATE_SCRATCH.get();
+            scratch.ensureTargetCapacity(count);
+            scratch.ensureSourceCapacity(srcCount);
+            boolean[] extra = scratch.extra;
+            int[] intervals = scratch.intervals, right = scratch.right, extraIndices = scratch.extraIndices;
+            float[] weights = scratch.weights, knotValues = scratch.knotValues;
+            AccessHandles h = this.handles;
             for (int i = 0; i < count; i++) {
                 Object key = keys.get(i);
                 if (key == null || key.getClass() != keyClass) return false;
-                extra[i] = (boolean) inserted.invokeExact(key);
-                float knot = (float) value.invokeExact(key) * scale;
+                boolean isExtra = (boolean) h.inserted().invokeExact(key);
+                extra[i] = isExtra;
+                float knot = (float) h.value().invokeExact(key) * scale;
                 if (!Float.isFinite(knot)) return false;
-                if (!extra[i]) {
-                    knots.add(knot);
-                    anchors++;
+                if (!isExtra) {
+                    if (anchors >= srcCount) return false;
+                    knotValues[anchors++] = knot;
                 } else {
-                    intervals[i] = (int) interval.invokeExact(key);
-                    weights[i] = (float) fraction.invokeExact(key);
-                    if (intervals[i] < 0 || intervals[i] >= source.size() - 1 || !Float.isFinite(weights[i]))
-                        return false;
+                    intervals[i] = (int) h.interval().invokeExact(key);
+                    weights[i] = (float) h.fraction().invokeExact(key);
+                    if (intervals[i] < 0 || intervals[i] >= srcCount - 1 || !Float.isFinite(weights[i])) return false;
+                    extraIndices[extraCount++] = i;
                 }
             }
-            if (extra[0] || extra[count - 1] || anchors != source.size()) return false;
+            if (extra[0] || extra[count - 1] || anchors != srcCount) return false;
             Object first = target.get(0);
             if (first == null) return false;
             FormAccess formAccess = first.getClass() == meshForm.type
@@ -381,228 +582,319 @@ public final class NativeMeshInterpolationBridge {
                             : first.getClass() == rotationForm.type ? rotationForm : null;
             if (formAccess == null) return false;
             Class<?> formClass = formAccess.type;
-            MethodHandle owner = formAccess.owner,
-                    zero = formAccess.zero,
-                    blend = formAccess.blend,
-                    postBlend = formAccess.postBlend,
-                    updated = formAccess.updated;
-            var directUpdated = formAccess.directUpdated;
+            FormHandles fh = formAccess.handles;
+            MethodHandle owner = fh.owner(),
+                    zero = fh.zero(),
+                    blend = fh.blend(),
+                    postBlend = fh.postBlend(),
+                    updated = fh.updated();
+            Consumer<Object> directUpdated = formAccess.directUpdated;
             Object formOwner = owner.invokeExact(first);
             if (formOwner == null) return false;
-            float[][] dst = new float[count][], src = new float[source.size()][];
-            var targetArrays = new IdentityHashMap<Object, Boolean>();
-            for (int i = 0; i < count; i++) {
-                Object form = target.get(i);
-                if (form == null || form.getClass() != formClass || owner.invokeExact(form) != formOwner) return false;
-                dst[i] = formAccess.readPositions(form);
-                if (dst[i] == null) return false;
-                if (size < 0) size = dst[i].length;
-                if (dst[i].length != size || size == 0 || size % 2 != 0) return false;
-                // Non-finite prior targets can carry JVM-dependent NaN payloads through
-                // native zero/blend/setter arithmetic. Decline before any write.
-                for (float coordinate : dst[i]) if (!Float.isFinite(coordinate)) return false;
-                Boolean prior = targetArrays.putIfAbsent(formAccess.rotation ? form : dst[i], extra[i]);
-                if (prior != null && (extra[i] || prior)) return false;
-            }
-            for (int i = 0; i < src.length; i++) {
-                Object form = source.get(i);
-                if (form == null || form.getClass() != formClass || owner.invokeExact(form) != formOwner) return false;
-                src[i] = formAccess.readPositions(form);
-                if (src[i] == null || src[i].length != size) return false;
-                for (float coordinate : src[i]) if (!Float.isFinite(coordinate)) return false;
-                if (Boolean.TRUE.equals(targetArrays.get(formAccess.rotation ? form : src[i]))) return false;
-            }
-            int next = count - 1;
-            for (int i = count - 1; i >= 0; i--) {
-                if (!extra[i]) next = i;
-                right[i] = next;
-            }
-            boolean coefficientMode = type == ellipse && coefficientsEnabled();
-            double angleScale = type == ellipse ? (double) radians.invokeExact() : 0d;
-            boolean localEnabled =
-                    Boolean.parseBoolean(System.getProperty("turboism.meshInterpolation.localRefresh", "true"))
-                            && formAccess.local != null
-                            && ((List<?>) morphSources.invokeExact(formOwner)).isEmpty()
-                            && ((List<?>) morphExtended.invokeExact(extension)).isEmpty();
-            int[] geometry = geometryInput(
-                    type == sns,
-                    coefficientMode,
-                    angleScale,
-                    size,
-                    src,
-                    knots,
-                    extra,
-                    intervals,
-                    weights,
-                    localEnabled);
-            long curveBytes =
-                    geometry == null ? Long.MAX_VALUE : 256L + 4L * geometry.length + (long) count * size * 9 / 2;
-            InterpolationCurveCache.Key curveKey = geometry != null
-                            && size >= 16
-                            && curveBytes <= InterpolationCurveCache.MAX_ENTRY_BYTES
-                            && Boolean.parseBoolean(System.getProperty("turboism.meshInterpolation.curveCache", "true"))
-                    ? new InterpolationCurveCache.Key(cacheDomain, geometry)
-                    : null;
-            InterpolationCurveCache.Result cached = curveKey == null ? null : CURVES.get(curveKey);
-            // Source-only frequency gate is detached and separately bounded, so a large
-            // multi-axis sweep cannot evict its own admission history from the curve LRU.
-            boolean localAdmitted = localEnabled
-                    && geometry != null
-                    && !(formAccess.rotation && type == sns)
-                    && LOCAL.admit(
-                            curveKey != null ? curveKey : InterpolationCurveCache.Key.owned(cacheDomain, geometry));
-            LocalInterpolationState local = localAdmitted
-                    ? LocalInterpolationState.create(
-                            LOCAL, cacheDomain, geometry, formAccess.local, target, source, dst)
-                    : null;
+            float[][] dst = scratch.dst, src = scratch.src;
+            Object[] targetForms = scratch.targetForms;
+            EllipseWeights[] coefficients = scratch.coefficients;
+            IdentityHashMap<Object, Boolean> targetArrays = scratch.targetArrays;
+            int filledTargets = 0, filledSources = 0, filledCoefficients = 0;
             try {
-                boolean[] notifications = local == null ? null : LOCAL.get(local.key);
-                if (notifications != null) {
-                    // Native order and actual successful-write filtering, not a uniform version increment.
-                    for (int point = 0; point < size / 2; point++)
-                        for (int i = 0; i < count; i++)
-                            if (notifications[point * count + i]) updated.invokeExact(target.get(i));
-                    return true;
-                }
-                if (local != null) local.capture(LOCAL);
-                InterpolationCurveCache.Result capture = curveKey != null && cached == null && CURVES.admit(curveKey)
-                        ? new InterpolationCurveCache.Result(count * size)
-                        : null;
-                List<Object> vectors = new ArrayList<>(cached == null ? src.length : 0);
-                Object output = null;
-                EllipseWeights[] coefficients = null;
-                if (cached == null) {
-                    for (int i = 0; i < src.length; i++) vectors.add(vector.invokeExact());
-                    output = vector.invokeExact();
-                    if (coefficientMode) {
-                        float[] angles = new float[knots.size()];
-                        for (int i = 0; i < angles.length; i++) angles[i] = knots.get(i);
-                        coefficients = new EllipseWeights[count];
-                        for (int i = 0; i < count; i++)
-                            if (extra[i])
-                                coefficients[i] = EllipseWeights.prepare(angles, intervals[i], weights[i], angleScale);
-                    }
-                }
-                boolean directUpdates = coefficientMode
-                        && directUpdated != null
-                        && Boolean.getBoolean("turboism.meshInterpolation.directUpdates");
-                // Every refusal and handle binding finishes above this mutation boundary.
-                Object left = first;
-                for (int i = 1; i < count; i++) {
+                for (int i = 0; i < count; i++) {
                     Object form = target.get(i);
-                    if (!extra[i]) {
-                        left = form;
-                        continue;
-                    }
-                    zero.invokeExact(form);
-                    blend.invokeExact(form, left, 1f - weights[i]);
-                    blend.invokeExact(form, target.get(right[i]), weights[i]);
-                    postBlend.invokeExact(form);
+                    if (form == null || form.getClass() != formClass || owner.invokeExact(form) != formOwner)
+                        return false;
+                    targetForms[i] = form;
+                    float[] positions = formAccess.readPositions(form);
+                    dst[i] = positions;
+                    filledTargets = i + 1;
+                    if (positions == null) return false;
+                    if (size < 0) size = positions.length;
+                    if (positions.length != size || size == 0 || size % COORDINATE_STRIDE != 0) return false;
+                    // Non-finite prior targets can carry JVM-dependent NaN payloads through
+                    // native zero/blend/setter arithmetic. Decline before any write.
+                    for (float coordinate : positions) if (!Float.isFinite(coordinate)) return false;
+                    Boolean prior = targetArrays.putIfAbsent(formAccess.rotation ? form : positions, extra[i]);
+                    if (prior != null && (extra[i] || prior)) return false;
                 }
-                if (cached != null) {
-                    // Replay every actual point write in native order. Blending above and
-                    // old*0+new*1 below are retained, including signed-zero/NaN behavior.
-                    for (int offset = 0; offset < size; offset += 2)
-                        for (int i = 0; i < count; i++)
-                            if (extra[i] && cached.present(i * size + offset)) {
-                                float x = cached.get(i * size + offset), y = cached.get(i * size + offset + 1);
-                                if (formAccess.rotation) formAccess.writeRotation(target.get(i), x, y);
-                                else {
-                                    dst[i][offset] = dst[i][offset] * 0f + x * 1f;
-                                    dst[i][offset + 1] = dst[i][offset + 1] * 0f + y * 1f;
-                                }
-                                if (local != null) local.actualWrites[(offset / 2) * count + i] = true;
-                                if (directUpdates) directUpdated.accept(target.get(i));
-                                else updated.invokeExact(target.get(i));
-                            }
-                    if (local != null) local.completed(LOCAL, target, dst);
-                    return true;
+                for (int i = 0; i < srcCount; i++) {
+                    Object form = source.get(i);
+                    if (form == null || form.getClass() != formClass || owner.invokeExact(form) != formOwner)
+                        return false;
+                    float[] positions = formAccess.readPositions(form);
+                    src[i] = positions;
+                    filledSources = i + 1;
+                    if (positions == null || positions.length != size) return false;
+                    for (float coordinate : positions) if (!Float.isFinite(coordinate)) return false;
+                    if (Boolean.TRUE.equals(targetArrays.get(formAccess.rotation ? form : positions))) return false;
                 }
-                // A fresh SNS calculator is owned by this call and only initialized as
-                // open/no-corner. Native initialize replaces its point/spline banks;
-                // sharing with closed curves would retain native corner-index state.
-                Object snsCurve = type == sns ? calculator.invokeExact(type) : null;
-                for (int offset = 0; offset < size; offset += 2) {
-                    if (coefficients != null) {
-                        for (int i = 0; i < count; i++)
-                            if (extra[i]) {
-                                float x = coefficients[i].evaluate(src, offset),
-                                        y = coefficients[i].evaluate(src, offset + 1);
-                                if (capture != null) capture.set(i * size + offset, x, y);
-                                if (formAccess.rotation) formAccess.writeRotation(target.get(i), x, y);
-                                else {
-                                    dst[i][offset] = dst[i][offset] * 0f + x * 1f;
-                                    dst[i][offset + 1] = dst[i][offset + 1] * 0f + y * 1f;
+                int next = count - 1;
+                for (int i = count - 1; i >= 0; i--) {
+                    if (!extra[i]) next = i;
+                    right[i] = next;
+                }
+                boolean coefficientMode = type == ellipse && coefficientsEnabled();
+                double angleScale = type == ellipse ? (double) h.radians().invokeExact() : 0d;
+                boolean localEnabled = Boolean.parseBoolean(System.getProperty(PROP_LOCAL_REFRESH, DEFAULT_ENABLED))
+                        && formAccess.local != null
+                        && ((List<?>) h.morphSources().invokeExact(formOwner)).isEmpty()
+                        && ((List<?>) h.morphExtended().invokeExact(extension)).isEmpty();
+                boolean curveCacheEnabled = Boolean.parseBoolean(System.getProperty(PROP_CURVE_CACHE, DEFAULT_ENABLED));
+                int geometryLength = geometryWordCount(size, srcCount, count, anchors, localEnabled, curveCacheEnabled);
+                int[] geometry = geometryLength > 0
+                        ? fillGeometryInput(
+                                scratch.acquireGeometryBuffer(geometryLength),
+                                type == sns,
+                                coefficientMode,
+                                angleScale,
+                                size,
+                                src,
+                                srcCount,
+                                knotValues,
+                                anchors,
+                                extra,
+                                intervals,
+                                weights,
+                                count)
+                        : null;
+                InterpolationCurveCache.Key lookupKey = geometry != null
+                        ? InterpolationCurveCache.Key.view(cacheDomain, geometry, geometryLength)
+                        : null;
+                long curveBytes = geometry == null
+                        ? Long.MAX_VALUE
+                        : ENTRY_OVERHEAD_BYTES
+                                + INT_BYTES * geometryLength
+                                + (long) count * size * RESULT_BYTES_NUMERATOR / RESULT_BYTES_DENOMINATOR;
+                InterpolationCurveCache.Key curveKey = lookupKey != null
+                                && size >= MIN_CURVE_CACHE_COORDINATES
+                                && curveBytes <= InterpolationCurveCache.MAX_ENTRY_BYTES
+                                && curveCacheEnabled
+                        ? lookupKey
+                        : null;
+                InterpolationCurveCache.Result cached = curveKey == null ? null : CURVES.get(curveKey);
+                // Source-only frequency gate is detached and separately bounded, so a large
+                // multi-axis sweep cannot evict its own admission history from the curve LRU.
+                boolean localAdmitted = localEnabled
+                        && lookupKey != null
+                        && !(formAccess.rotation && type == sns)
+                        && LOCAL.admit(lookupKey);
+                LocalInterpolationState local = localAdmitted
+                        ? LocalInterpolationState.create(
+                                LOCAL, cacheDomain, geometry, geometryLength, formAccess.local, target, source, dst)
+                        : null;
+                boolean directUpdates = directUpdated != null
+                        && Boolean.parseBoolean(System.getProperty(PROP_DIRECT_UPDATES, DEFAULT_ENABLED));
+                try {
+                    boolean[] notifications = local == null ? null : LOCAL.get(local.key);
+                    if (notifications != null) {
+                        // Native order and actual successful-write filtering, not a uniform version increment.
+                        int points = size / COORDINATE_STRIDE;
+                        for (int point = 0; point < points; point++) {
+                            int rowBase = point * count;
+                            for (int i = 0; i < count; i++) {
+                                if (notifications[rowBase + i]) {
+                                    notifyUpdated(targetForms[i], directUpdates, directUpdated, updated);
                                 }
-                                if (local != null) local.actualWrites[(offset / 2) * count + i] = true;
-                                if (directUpdates) directUpdated.accept(target.get(i));
-                                else updated.invokeExact(target.get(i));
-                            }
-                        continue;
-                    }
-                    for (int i = 0; i < src.length; i++)
-                        vectorSet.invokeExact(vectors.get(i), src[i][offset], src[i][offset + 1]);
-                    Object curve = type == sns ? snsCurve : calculator.invokeExact(type);
-                    initialize.invokeExact(curve, (List<?>) vectors, true, (List<?>) null, (List<?>) knots);
-                    for (int i = 0; i < count; i++)
-                        if (extra[i]) {
-                            Object result = evaluate.invokeExact(curve, intervals[i], weights[i], output);
-                            if (result != null) {
-                                float x = (float) vectorX.invokeExact(result), y = (float) vectorY.invokeExact(result);
-                                if (capture != null) capture.set(i * size + offset, x, y);
-                                if (formAccess.rotation) formAccess.writeRotation(target.get(i), x, y);
-                                else {
-                                    dst[i][offset] = dst[i][offset] * 0f + x * 1f;
-                                    dst[i][offset + 1] = dst[i][offset + 1] * 0f + y * 1f;
-                                }
-                                if (local != null) local.actualWrites[(offset / 2) * count + i] = true;
-                                updated.invokeExact(target.get(i));
                             }
                         }
+                        return true;
+                    }
+                    if (local != null) local.capture(LOCAL);
+                    InterpolationCurveCache.Result capture =
+                            curveKey != null && cached == null && CURVES.admit(curveKey)
+                                    ? new InterpolationCurveCache.Result(count * size)
+                                    : null;
+                    List<Object> vectors = null;
+                    List<Float> knotsList = null;
+                    Object output = null;
+                    boolean useCoefficients = false;
+                    if (cached == null) {
+                        if (coefficientMode) {
+                            float[] angles = Arrays.copyOf(knotValues, anchors);
+                            for (int e = 0; e < extraCount; e++) {
+                                int i = extraIndices[e];
+                                coefficients[i] = EllipseWeights.prepare(angles, intervals[i], weights[i], angleScale);
+                            }
+                            filledCoefficients = count;
+                            useCoefficients = true;
+                        } else {
+                            vectors = new ArrayList<>(srcCount);
+                            for (int i = 0; i < srcCount; i++)
+                                vectors.add(h.vector().invokeExact());
+                            output = h.vector().invokeExact();
+                            knotsList = new ArrayList<>(anchors);
+                            for (int i = 0; i < anchors; i++) knotsList.add(knotValues[i]);
+                        }
+                    }
+                    // Every refusal and handle binding finishes above this mutation boundary.
+                    Object left = first;
+                    for (int i = 1; i < count; i++) {
+                        Object form = targetForms[i];
+                        if (!extra[i]) {
+                            left = form;
+                            continue;
+                        }
+                        zero.invokeExact(form);
+                        blend.invokeExact(form, left, 1f - weights[i]);
+                        blend.invokeExact(form, targetForms[right[i]], weights[i]);
+                        postBlend.invokeExact(form);
+                    }
+                    if (cached != null) {
+                        // Replay every actual point write in native order. Blending above and
+                        // old*0+new*1 below are retained, including signed-zero/NaN behavior.
+                        for (int offset = 0; offset < size; offset += COORDINATE_STRIDE) {
+                            int pointRow = (offset / COORDINATE_STRIDE) * count;
+                            for (int e = 0; e < extraCount; e++) {
+                                int i = extraIndices[e];
+                                int slot = i * size + offset;
+                                if (cached.present(slot)) {
+                                    float x = cached.get(slot), y = cached.get(slot + 1);
+                                    if (formAccess.rotation) formAccess.writeRotation(targetForms[i], x, y);
+                                    else {
+                                        float[] row = dst[i];
+                                        row[offset] = row[offset] * 0f + x * 1f;
+                                        row[offset + 1] = row[offset + 1] * 0f + y * 1f;
+                                    }
+                                    if (local != null) local.actualWrites[pointRow + i] = true;
+                                    notifyUpdated(targetForms[i], directUpdates, directUpdated, updated);
+                                }
+                            }
+                        }
+                        if (local != null) local.completed(LOCAL, target, dst);
+                        return true;
+                    }
+                    if (useCoefficients) {
+                        for (int offset = 0; offset < size; offset += COORDINATE_STRIDE) {
+                            int pointRow = (offset / COORDINATE_STRIDE) * count;
+                            for (int e = 0; e < extraCount; e++) {
+                                int i = extraIndices[e];
+                                EllipseWeights cw = coefficients[i];
+                                float x = cw.evaluate(src, offset), y = cw.evaluate(src, offset + 1);
+                                if (capture != null) capture.set(i * size + offset, x, y);
+                                if (formAccess.rotation) formAccess.writeRotation(targetForms[i], x, y);
+                                else {
+                                    float[] row = dst[i];
+                                    row[offset] = row[offset] * 0f + x * 1f;
+                                    row[offset + 1] = row[offset + 1] * 0f + y * 1f;
+                                }
+                                if (local != null) local.actualWrites[pointRow + i] = true;
+                                notifyUpdated(targetForms[i], directUpdates, directUpdated, updated);
+                            }
+                        }
+                    } else {
+                        // A fresh SNS calculator is owned by this call and only initialized as
+                        // open/no-corner. Native initialize replaces its point/spline banks;
+                        // sharing with closed curves would retain native corner-index state.
+                        Object snsCurve = type == sns ? h.calculator().invokeExact(type) : null;
+                        VectorSetter directVectorSet = h.directVectorSet();
+                        FloatGetter directVectorX = h.directVectorX();
+                        FloatGetter directVectorY = h.directVectorY();
+                        for (int offset = 0; offset < size; offset += COORDINATE_STRIDE) {
+                            int pointRow = (offset / COORDINATE_STRIDE) * count;
+                            for (int i = 0; i < srcCount; i++) {
+                                float sx = src[i][offset], sy = src[i][offset + 1];
+                                if (directVectorSet != null) directVectorSet.set(vectors.get(i), sx, sy);
+                                else h.vectorSet().invokeExact(vectors.get(i), sx, sy);
+                            }
+                            Object curve =
+                                    type == sns ? snsCurve : h.calculator().invokeExact(type);
+                            h.initialize()
+                                    .invokeExact(curve, (List<?>) vectors, true, (List<?>) null, (List<?>) knotsList);
+                            for (int e = 0; e < extraCount; e++) {
+                                int i = extraIndices[e];
+                                Object result = h.evaluate().invokeExact(curve, intervals[i], weights[i], output);
+                                if (result != null) {
+                                    float x = directVectorX != null
+                                            ? directVectorX.get(result)
+                                            : (float) h.vectorX().invokeExact(result);
+                                    float y = directVectorY != null
+                                            ? directVectorY.get(result)
+                                            : (float) h.vectorY().invokeExact(result);
+                                    if (capture != null) capture.set(i * size + offset, x, y);
+                                    if (formAccess.rotation) formAccess.writeRotation(targetForms[i], x, y);
+                                    else {
+                                        float[] row = dst[i];
+                                        row[offset] = row[offset] * 0f + x * 1f;
+                                        row[offset + 1] = row[offset + 1] * 0f + y * 1f;
+                                    }
+                                    if (local != null) local.actualWrites[pointRow + i] = true;
+                                    notifyUpdated(targetForms[i], directUpdates, directUpdated, updated);
+                                }
+                            }
+                        }
+                    }
+                    if (capture != null) CURVES.put(curveKey, capture);
+                    if (local != null) local.completed(LOCAL, target, dst);
+                    return true;
+                } finally {
+                    if (local != null) local.release(LOCAL);
                 }
-                if (capture != null) CURVES.put(curveKey, capture);
-                if (local != null) local.completed(LOCAL, target, dst);
-                return true;
             } finally {
-                if (local != null) local.release(LOCAL);
+                scratch.clearReferences(filledTargets, filledSources, filledCoefficients);
             }
         }
 
-        private int[] geometryInput(
+        private static void notifyUpdated(
+                Object form, boolean directUpdates, Consumer<Object> directUpdated, MethodHandle updated)
+                throws Throwable {
+            if (directUpdates) {
+                directUpdated.accept(form);
+            } else {
+                updated.invokeExact(form);
+            }
+        }
+
+        private static int geometryWordCount(
+                int size,
+                int srcCount,
+                int targetCount,
+                int anchorCount,
+                boolean localEnabled,
+                boolean curveCacheEnabled) {
+            if (!localEnabled && (size < MIN_CURVE_CACHE_COORDINATES || !curveCacheEnabled)) return NO_GEOMETRY;
+            long coordinates = (long) targetCount * size;
+            long words =
+                    GEOMETRY_HEADER_WORDS + (long) srcCount * size + anchorCount + EXTRA_DESCRIPTOR_WORDS * targetCount;
+            long retained = ENTRY_OVERHEAD_BYTES
+                    + INT_BYTES * words
+                    + INT_BYTES * coordinates
+                    + coordinates / COORDINATE_STRIDE;
+            if (retained > InterpolationCurveCache.MAX_ENTRY_BYTES && !localEnabled) return NO_GEOMETRY;
+            if (INT_BYTES * words + ENTRY_OVERHEAD_BYTES > LocalInterpolationCache.MAX_ENTRY_BYTES) return NO_GEOMETRY;
+            return (int) words;
+        }
+
+        private static int[] fillGeometryInput(
+                int[] signature,
                 boolean snsMode,
                 boolean coefficientMode,
                 double angleScale,
                 int size,
                 float[][] src,
-                List<Float> knots,
+                int srcCount,
+                float[] knotValues,
+                int anchorCount,
                 boolean[] extra,
                 int[] intervals,
                 float[] weights,
-                boolean localEnabled) {
-            if (!localEnabled
-                    && (size < 16
-                            || !Boolean.parseBoolean(
-                                    System.getProperty("turboism.meshInterpolation.curveCache", "true")))) return null;
-            long coordinates = (long) extra.length * size;
-            long words = 8L + (long) src.length * size + knots.size() + 3L * extra.length;
-            long retained = 256L + 4L * words + 4L * coordinates + coordinates / 2;
-            if (retained > InterpolationCurveCache.MAX_ENTRY_BYTES && !localEnabled) return null;
-            if (4L * words + 256L > LocalInterpolationCache.MAX_ENTRY_BYTES) return null;
-            int[] signature = new int[(int) words];
+                int targetCount) {
             int at = 0;
             signature[at++] = snsMode ? 1 : 0;
             signature[at++] = coefficientMode ? 1 : 0;
             long angleBits = Double.doubleToRawLongBits(angleScale);
-            signature[at++] = (int) (angleBits >>> 32);
+            signature[at++] = (int) (angleBits >>> DOUBLE_HIGH_WORD_SHIFT);
             signature[at++] = (int) angleBits;
             signature[at++] = size;
-            signature[at++] = src.length;
-            signature[at++] = extra.length;
-            signature[at++] = knots.size();
-            for (float[] coordinatesOfSource : src)
-                for (float coordinate : coordinatesOfSource) signature[at++] = Float.floatToRawIntBits(coordinate);
-            for (float knot : knots) signature[at++] = Float.floatToRawIntBits(knot);
-            for (int i = 0; i < extra.length; i++) {
+            signature[at++] = srcCount;
+            signature[at++] = targetCount;
+            signature[at++] = anchorCount;
+            for (int i = 0; i < srcCount; i++) {
+                float[] coordinatesOfSource = src[i];
+                for (float coordinate : coordinatesOfSource) {
+                    signature[at++] = Float.floatToRawIntBits(coordinate);
+                }
+            }
+            for (int i = 0; i < anchorCount; i++) {
+                signature[at++] = Float.floatToRawIntBits(knotValues[i]);
+            }
+            for (int i = 0; i < targetCount; i++) {
                 signature[at++] = extra[i] ? 1 : 0;
                 signature[at++] = intervals[i];
                 signature[at++] = Float.floatToRawIntBits(weights[i]);

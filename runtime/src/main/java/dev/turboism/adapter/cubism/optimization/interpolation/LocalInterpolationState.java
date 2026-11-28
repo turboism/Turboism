@@ -24,15 +24,16 @@ final class LocalInterpolationState {
             LocalInterpolationCache cache,
             long domain,
             int[] geometry,
+            int geometryLength,
             LocalFormState state,
             List<?> targets,
             List<?> sources,
             float[][] dst)
             throws Throwable {
-        if (state == null || geometry == null) return null;
+        if (state == null || geometry == null || geometryLength <= 0) return null;
         int count = targets.size(), size = dst[0].length;
         long writes = (long) count * size / 2;
-        long words = 4L + geometry.length + (long) sources.size() * state.width + (long) count * (size + state.width);
+        long words = 4L + geometryLength + (long) sources.size() * state.width + (long) count * (size + state.width);
         if (256L + 4L * words + writes > LocalInterpolationCache.MAX_ENTRY_BYTES
                 || !state.independentColors(targets, sources)) return null;
         int[] input = cache.borrowInput((int) words);
@@ -41,8 +42,8 @@ final class LocalInterpolationState {
         input[at++] = state.width;
         input[at++] = count;
         input[at++] = size;
-        System.arraycopy(geometry, 0, input, at, geometry.length);
-        at += geometry.length;
+        System.arraycopy(geometry, 0, input, at, geometryLength);
+        at += geometryLength;
         try {
             for (Object form : sources) at = state.append(form, input, at);
             int targetStart = at;
