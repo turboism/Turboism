@@ -192,10 +192,19 @@ public final class AtlasCacheReuseDelegate {
         }
         try {
             final HostAccess host = resolve(hostClass);
+            Object effectiveSignature = prepared.signature;
+            if (prepared.privatePath) {
+                // Re-hash inputs after Phase-2 worker edge fill so recorded signatures match post-edge-fill pixels.
+                final Object refreshed = signature(host, prepared.atlas, prepared.privatePath, null);
+                if (refreshed != null) {
+                    effectiveSignature = refreshed;
+                }
+            }
             final Object image = host.wiBuffered.invoke(bakedWritable);
             if (image instanceof BufferedImage produced) {
                 prepared.attachBaked(
                         bakedWritable,
+                        effectiveSignature,
                         pixelDigest(produced),
                         (long) produced.getWidth() * produced.getHeight() * BYTES_PER_PIXEL);
             }
@@ -359,7 +368,8 @@ public final class AtlasCacheReuseDelegate {
                 return null;
             }
             case SUPPLIED -> {
-                if (installSuppliedWritable(host, atlas, prepared.suppliedWritable)) {
+                final Object copy = prepared.takeSuppliedWritable();
+                if (installSuppliedWritable(host, atlas, copy)) {
                     RECORDS.put(atlas, new Record(host.cachedAtlasImage.get(atlas), prepared.signature));
                     return report(atlas, "reuse:supplied");
                 }
@@ -635,19 +645,25 @@ public final class AtlasCacheReuseDelegate {
      * the reference-implementation parity tests.
      */
     static String pixelDigest(final BufferedImage image) {
+        if (image == null) {
+            return null;
+        }
         final long pixels = (long) image.getWidth() * image.getHeight();
         if (pixels <= 0 || pixels > MAX_PIXELS) return null;
         final MessageDigest sha = Sha256.digest();
         final byte[] scratch = new byte[64 * 1024];
         int used = 0;
-        final DataBuffer buffer = image.getRaster().getDataBuffer();
-        if (buffer instanceof DataBufferInt ints && buffer.getSize() == image.getWidth() * image.getHeight()) {
-            used = updatePixels(sha, scratch, used, ints.getData());
-        } else {
-            final int[] row = new int[image.getWidth()];
-            for (int y = 0; y < image.getHeight(); y++) {
-                image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
-                used = updatePixels(sha, scratch, used, row);
+        // Guard against concurrent in-place worker DirectEdgeFillOp writes on shared source images.
+        synchronized (image) {
+            final DataBuffer buffer = image.getRaster().getDataBuffer();
+            if (buffer instanceof DataBufferInt ints && buffer.getSize() == image.getWidth() * image.getHeight()) {
+                used = updatePixels(sha, scratch, used, ints.getData());
+            } else {
+                final int[] row = new int[image.getWidth()];
+                for (int y = 0; y < image.getHeight(); y++) {
+                    image.getRGB(0, y, image.getWidth(), 1, row, 0, image.getWidth());
+                    used = updatePixels(sha, scratch, used, row);
+                }
             }
         }
         if (used != 0) sha.update(scratch, 0, used);
@@ -844,9 +860,9 @@ public final class AtlasCacheReuseDelegate {
         private final Object atlas;
         private final boolean privatePath;
         private final Kind kind;
-        private final Object signature;
+        private Object signature;
         private final Object expectedCache;
-        private final Object suppliedWritable;
+        private Object suppliedWritable;
         private boolean bakedAttached;
         private Object bakedWritable;
         private String bakedDigest;
@@ -907,13 +923,26 @@ public final class AtlasCacheReuseDelegate {
             return kind == Kind.HIT || kind == Kind.VERIFIED || kind == Kind.SUPPLIED;
         }
 
+        /**
+         * Returns and clears any unconsumed worker-cloned {@code CWritableImage}.
+         *
+         * @return cloned writable image, or {@code null} when already consumed or absent
+         */
+        public Object takeSuppliedWritable() {
+            final Object copy = this.suppliedWritable;
+            this.suppliedWritable = null;
+            return copy;
+        }
+
         private boolean matches(final Class<?> targetClass, final Object targetAtlas, final boolean targetPrivate) {
             return this.atlasClass == targetClass && this.atlas == targetAtlas && this.privatePath == targetPrivate;
         }
 
-        private void attachBaked(final Object writable, final String digest, final long bytes) {
+        private void attachBaked(
+                final Object writable, final Object refreshedSignature, final String digest, final long bytes) {
             this.bakedAttached = true;
             this.bakedWritable = writable;
+            this.signature = refreshedSignature;
             this.bakedDigest = digest;
             this.bakedBytes = bytes;
         }

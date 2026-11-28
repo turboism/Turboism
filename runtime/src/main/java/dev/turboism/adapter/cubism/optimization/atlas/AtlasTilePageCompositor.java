@@ -267,7 +267,7 @@ public final class AtlasTilePageCompositor {
         if (h == null || atlas == null) {
             return null;
         }
-        return resolveAndPrewarmPage(h, atlas, edgeFill, true);
+        return resolveAndPrewarmPage(h, atlas, edgeFill, false);
     }
 
     private static PrewarmedPage resolveAndPrewarmPage(

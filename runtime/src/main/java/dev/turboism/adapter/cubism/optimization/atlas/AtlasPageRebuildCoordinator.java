@@ -224,17 +224,7 @@ public final class AtlasPageRebuildCoordinator {
                     AtlasCacheReuseDelegate.beginPreparedCommit(prep);
                 }
                 try {
-                    if (reused) {
-                        if (targetProgress != null && page.confirmLambda != null) {
-                            h.invokeProgressSubTask(targetProgress, page.steps, h.noOpFunction());
-                        } else if (targetProgress != null) {
-                            h.stepProgress(targetProgress, PROGRESS_UNIT);
-                        }
-                        h.updateTexture(page.atlas, false, page.edgeFill, targetProgress);
-                        continue;
-                    }
-
-                    if (baked != null) {
+                    if (baked != null && !reused) {
                         AtlasTilePageCompositor.putPrebakedImage(page.atlas, baked);
                     }
                     try {
@@ -244,7 +234,9 @@ public final class AtlasPageRebuildCoordinator {
                             commitTexturePageWithProgress(h, page.atlas, page.edgeFill, targetProgress);
                         }
                     } finally {
-                        AtlasTilePageCompositor.consumePrebakedImage(page.atlas);
+                        if (baked != null) {
+                            AtlasTilePageCompositor.consumePrebakedImage(page.atlas);
+                        }
                     }
                 } finally {
                     if (prep != null) {
@@ -257,6 +249,14 @@ public final class AtlasPageRebuildCoordinator {
             for (final Object leftover : bakedBuffers) {
                 if (leftover != null) {
                     AtlasTilePageCompositor.flushWritableImage(atlasClass, leftover);
+                }
+            }
+            for (final AtlasCacheReuseDelegate.PreparedPageReuse leftoverReuse : preparedReuses) {
+                if (leftoverReuse != null) {
+                    final Object unusedCopy = leftoverReuse.takeSuppliedWritable();
+                    if (unusedCopy != null) {
+                        AtlasTilePageCompositor.flushWritableImage(atlasClass, unusedCopy);
+                    }
                 }
             }
             AtlasTilePageCompositor.clearPrebakedImages(atlasClass);
@@ -358,29 +358,23 @@ public final class AtlasPageRebuildCoordinator {
         private final ClassLoader loader;
         private final MethodHandle updateTexture;
         private final MethodHandle isCanceled;
-        private final MethodHandle stepProgress;
         private final MethodHandle subTaskProgress;
         private final Class<?> function1Class;
         private final Object unitInstance;
-        private final Object noOpFn;
 
         private HostCommitHandles(
                 final ClassLoader loader,
                 final MethodHandle updateTexture,
                 final MethodHandle isCanceled,
-                final MethodHandle stepProgress,
                 final MethodHandle subTaskProgress,
                 final Class<?> function1Class,
-                final Object unitInstance,
-                final Object noOpFn) {
+                final Object unitInstance) {
             this.loader = loader;
             this.updateTexture = updateTexture;
             this.isCanceled = isCanceled;
-            this.stepProgress = stepProgress;
             this.subTaskProgress = subTaskProgress;
             this.function1Class = function1Class;
             this.unitInstance = unitInstance;
-            this.noOpFn = noOpFn;
         }
 
         static HostCommitHandles resolve(final Class<?> callerClass) {
@@ -396,20 +390,15 @@ public final class AtlasPageRebuildCoordinator {
                 final Method updateTexM =
                         atlasClass.getMethod("updateTexture", boolean.class, boolean.class, progressClass);
                 final Method cancelM = progressClass.getMethod("c");
-                final Method stepM = progressClass.getMethod("b", int.class);
                 final Method subTaskM = progressClass.getMethod("a", int.class, function1Class);
-                final Object noOpFn = Proxy.newProxyInstance(
-                        loader, new Class<?>[] {function1Class}, (proxy, method, args) -> unitInstance);
 
                 return new HostCommitHandles(
                         loader,
                         lookup.unreflect(updateTexM),
                         lookup.unreflect(cancelM),
-                        lookup.unreflect(stepM),
                         lookup.unreflect(subTaskM),
                         function1Class,
-                        unitInstance,
-                        noOpFn);
+                        unitInstance);
             } catch (final ReflectiveOperationException | LinkageError failure) {
                 return null;
             }
@@ -427,20 +416,6 @@ public final class AtlasPageRebuildCoordinator {
             }
         }
 
-        void stepProgress(final Object progress, final int steps) {
-            if (progress == null) {
-                return;
-            }
-            try {
-                stepProgress.invoke(progress, steps);
-            } catch (final RuntimeException | Error e) {
-                throw e;
-            } catch (final Throwable ignored) {
-                FatalErrors.rethrowIfFatal(ignored);
-                // Non-fatal progress reporting guard.
-            }
-        }
-
         void invokeProgressSubTask(final Object progress, final int steps, final Object function1) {
             try {
                 subTaskProgress.invoke(progress, steps, function1);
@@ -450,10 +425,6 @@ public final class AtlasPageRebuildCoordinator {
                 FatalErrors.rethrowIfFatal(t);
                 throw new IllegalStateException("Failed progress subtask", t);
             }
-        }
-
-        Object noOpFunction() {
-            return noOpFn;
         }
 
         Object createUpdateSubTask(final Object atlas, final boolean edgeFill, final Object progress) {

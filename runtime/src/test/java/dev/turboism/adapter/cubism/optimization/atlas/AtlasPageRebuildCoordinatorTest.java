@@ -3,8 +3,11 @@ package dev.turboism.adapter.cubism.optimization.atlas;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.objectweb.asm.Opcodes.*;
 
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReuseDelegate;
+import dev.turboism.adapter.cubism.optimization.atlas.cache.AtlasCacheReusePatcher;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -88,6 +91,126 @@ final class AtlasPageRebuildCoordinatorTest {
     }
 
     /** Defines minimal bytecode classes mirroring the Cubism contracts scanned by the patchers. */
+    @Test
+    void cacheReuseSuppliedPagesCommitAllPagesAndSkipPhase1EdgeFill() throws Exception {
+        final SyntheticHostEnv env = SyntheticHostEnv.create(true);
+        AtlasCacheReuseDelegate.releaseRetainedOutputs();
+        final String prefix = "cr-" + System.nanoTime() + "-";
+        try {
+            final int[] colors = {0xFF204060, 0xFF804020, 0xFF107030, 0xFF602080};
+            final List<Object> pages = new ArrayList<>();
+            final List<BufferedImage> srcBuffers = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                final BufferedImage src = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+                for (int y = 0; y < 16; y++) {
+                    for (int x = 0; x < 8; x++) {
+                        src.setRGB(x, y, colors[i]);
+                    }
+                }
+                srcBuffers.add(src);
+                pages.add(env.newAtlas(prefix + i, 64, 64, src));
+            }
+
+            // Phase-1 prewarm must NOT run synchronous DirectEdgeFillOp on the owner thread.
+            assertEquals(0, srcBuffers.get(0).getRGB(8, 0));
+            AtlasTilePageCompositor.prewarmAtlasInputs(env.atlasClass, pages.get(0), true);
+            assertEquals(
+                    0,
+                    srcBuffers.get(0).getRGB(8, 0),
+                    "Phase-1 prewarm must defer DirectEdgeFillOp to Phase-2 workers");
+
+            final List<String> events = Collections.synchronizedList(new ArrayList<>());
+            final Set<Thread> workers = Collections.synchronizedSet(new java.util.HashSet<>());
+            final AtomicBoolean cancel = new AtomicBoolean(false);
+            env.configure(Thread.currentThread(), events, workers, cancel);
+
+            // Pass 1 (dirty bake, edgeFill=true): workers edge-fill srcBi, bake pages, and refresh signatures.
+            env.runTextureUpdateLoop(env.newTextureUpdateLoop(pages), env.newProgress(false));
+            assertEquals(4, env.cacheRegistrations());
+            assertTrue(workers.size() >= 1);
+            final List<Object> firstResources = new ArrayList<>();
+            final List<BufferedImage> firstImages = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                final int borderPixel = srcBuffers.get(i).getRGB(8, 0);
+                assertEquals(0, borderPixel >>> 24, "edge fill preserves transparent alpha");
+                assertEquals(
+                        colors[i] & 0x00FFFFFF,
+                        borderPixel & 0x00FFFFFF,
+                        "Phase-2 worker must edge-fill transparent border pixels");
+                final Object res = env.getCachedAtlasResource(pages.get(i));
+                assertNotNull(res, "Pass 1 page " + i + " must commit cachedAtlasImage");
+                firstResources.add(res);
+                firstImages.add(env.getAtlasCommittedImage(pages.get(i)));
+            }
+
+            // Pass 2 (same 4 pages): post-edge-fill signature matches -> Kind.HIT keeps exact resources.
+            env.resetCounters();
+            workers.clear();
+            env.runTextureUpdateLoop(env.newTextureUpdateLoop(pages), env.newProgress(false));
+            assertEquals(4, env.cacheRegistrations());
+            assertTrue(workers.isEmpty(), "Pass 2 cache hits must skip worker tile compositing");
+            for (int i = 0; i < 4; i++) {
+                assertTrue(
+                        firstResources.get(i) == env.getCachedAtlasResource(pages.get(i)),
+                        "Pass 2 must reuse installed cache after worker edge fill");
+            }
+
+            // Pass 3 (fresh empty-cache copies -> Kind.SUPPLIED): must invoke rebuild=true & commit all 4/4 pages!
+            final List<Object> confirmCopies = new ArrayList<>();
+            final List<Object> updateCopies = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                confirmCopies.add(env.newAtlas(prefix + i, 64, 64, srcBuffers.get(i)));
+                updateCopies.add(env.newAtlas(prefix + i, 64, 64, srcBuffers.get(i)));
+            }
+            env.resetCounters();
+            workers.clear();
+            env.runConfirmLoop(env.newConfirmLoop(confirmCopies, true), env.newProgress(false));
+            assertEquals(4, env.cacheRegistrations(), "Confirm loop Kind.SUPPLIED must register all 4/4 pages");
+            assertTrue(workers.isEmpty(), "Kind.SUPPLIED confirm batch must skip tile baking");
+            for (int i = 0; i < 4; i++) {
+                final Object copyRes = env.getCachedAtlasResource(confirmCopies.get(i));
+                assertNotNull(copyRes, "Confirm loop Kind.SUPPLIED page " + i + " cachedAtlasImage must be non-null");
+                assertTrue(firstResources.get(i) != copyRes, "Supplied resource must be an independent clone");
+                assertPixelsEqual(firstImages.get(i), env.getAtlasCommittedImage(confirmCopies.get(i)));
+            }
+
+            env.resetCounters();
+            workers.clear();
+            env.runTextureUpdateLoop(env.newTextureUpdateLoop(updateCopies), env.newProgress(false));
+            assertEquals(4, env.cacheRegistrations(), "TextureUpdateLoop Kind.SUPPLIED must register all 4/4 pages");
+            assertTrue(workers.isEmpty(), "Kind.SUPPLIED texture update must skip tile baking");
+            for (int i = 0; i < 4; i++) {
+                final Object copyRes = env.getCachedAtlasResource(updateCopies.get(i));
+                assertNotNull(
+                        copyRes, "TextureUpdateLoop Kind.SUPPLIED page " + i + " cachedAtlasImage must be non-null");
+                assertTrue(firstResources.get(i) != copyRes);
+                assertPixelsEqual(firstImages.get(i), env.getAtlasCommittedImage(updateCopies.get(i)));
+            }
+
+            // Verify unconsumed Kind.SUPPLIED copies can be cleanly released exactly once on abort.
+            final AtlasCacheReuseDelegate.PreparedPageReuse unconsumed = AtlasCacheReuseDelegate.prepareReuseOffEdt(
+                    env.atlasClass, env.newAtlas(prefix + "0", 64, 64, srcBuffers.get(0)), true, null);
+            assertNotNull(unconsumed);
+            assertTrue(unconsumed.isReuse());
+            assertNotNull(unconsumed.takeSuppliedWritable());
+            assertEquals(null, unconsumed.takeSuppliedWritable());
+        } finally {
+            AtlasCacheReuseDelegate.releaseRetainedOutputs();
+        }
+    }
+
+    private static void assertPixelsEqual(final BufferedImage expected, final BufferedImage actual) {
+        assertNotNull(expected);
+        assertNotNull(actual);
+        assertEquals(expected.getWidth(), actual.getWidth());
+        assertEquals(expected.getHeight(), actual.getHeight());
+        for (int y = 0; y < expected.getHeight(); y++) {
+            for (int x = 0; x < expected.getWidth(); x++) {
+                assertEquals(expected.getRGB(x, y), actual.getRGB(x, y));
+            }
+        }
+    }
+
     private static final class SyntheticHostEnv {
         private final PatchedSyntheticLoader loader;
         private final Class<?> trackerClass;
@@ -101,8 +224,9 @@ final class AtlasPageRebuildCoordinatorTest {
         private final Class<?> gClass;
         private final Class<?> taeModelClass;
         private final Class<?> confirmClass;
+        private final Class<?> guidClass;
 
-        private SyntheticHostEnv(final PatchedSyntheticLoader loader) throws Exception {
+        private SyntheticHostEnv(final PatchedSyntheticLoader loader, final boolean withCacheReuse) throws Exception {
             this.loader = loader;
             this.trackerClass = loader.loadClass("dev.synthetic.Tracker");
             this.atlasClass = loader.loadClass("com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas");
@@ -116,10 +240,21 @@ final class AtlasPageRebuildCoordinatorTest {
             this.gClass = loader.loadClass("com.live2d.cubism.doc.model.texture.G");
             this.taeModelClass = loader.loadClass("com.live2d.cubism.doc.modeling.ui.atlasEditor.impl.TAE_DataModel");
             this.confirmClass = loader.loadClass("com.live2d.cubism.doc.modeling.ui.atlasEditor.impl.c");
+            this.guidClass = withCacheReuse ? loader.loadClass("com.live2d.type.Guid") : null;
         }
 
         static SyntheticHostEnv create() throws Exception {
-            final Map<String, byte[]> classes = buildClasses();
+            return create(false);
+        }
+
+        static SyntheticHostEnv create(final boolean withCacheReuse) throws Exception {
+            final Map<String, byte[]> classes = buildClasses(withCacheReuse);
+            if (withCacheReuse) {
+                final byte[] atlasBytes = classes.get(AtlasDirectCompositingPatcher.TEXTURE_ATLAS);
+                if (atlasBytes != null) {
+                    classes.put(AtlasDirectCompositingPatcher.TEXTURE_ATLAS, AtlasCacheReusePatcher.patch(atlasBytes));
+                }
+            }
             classes.computeIfPresent(
                     AtlasDirectCompositingPatcher.TEXTURE_ATLAS, (k, v) -> AtlasDirectCompositingPatcher.patch(k, v));
             classes.computeIfPresent(
@@ -127,7 +262,7 @@ final class AtlasPageRebuildCoordinatorTest {
             classes.computeIfPresent(
                     AtlasDirectCompositingPatcher.TEXTURE_UPDATE_LOOP,
                     (k, v) -> AtlasDirectCompositingPatcher.patch(k, v));
-            return new SyntheticHostEnv(new PatchedSyntheticLoader(classes));
+            return new SyntheticHostEnv(new PatchedSyntheticLoader(classes), withCacheReuse);
         }
 
         void configure(
@@ -148,10 +283,6 @@ final class AtlasPageRebuildCoordinatorTest {
         }
 
         Object newAtlas(final String name, final int w, final int h, final int color) throws Exception {
-            final Object source = modelSourceClass.getConstructor().newInstance();
-            final Object mgr = texMgrClass.getConstructor().newInstance();
-            modelSourceClass.getField("textureManager").set(source, mgr);
-
             final BufferedImage srcBi = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
             final Graphics2D g = srcBi.createGraphics();
             try {
@@ -160,10 +291,29 @@ final class AtlasPageRebuildCoordinatorTest {
             } finally {
                 g.dispose();
             }
+            return newAtlas(name, w, h, srcBi);
+        }
+
+        Object newAtlas(final String name, final int w, final int h, final BufferedImage srcBi) throws Exception {
+            final Object source = modelSourceClass.getConstructor().newInstance();
+            final Object mgr = texMgrClass.getConstructor().newInstance();
+            modelSourceClass.getField("textureManager").set(source, mgr);
+
             final Object srcWi =
                     writableClass.getConstructor(BufferedImage.class).newInstance(srcBi);
             final Object mi =
                     modelImageClass.getConstructor(String.class, writableClass).newInstance(name + "-tile", srcWi);
+            if (guidClass != null) {
+                final Object guid = guidClass.getConstructor(String.class).newInstance(name + "-guid");
+                texMgrClass.getMethod("put", Object.class, modelImageClass).invoke(mgr, guid, mi);
+                final Object atlas = atlasClass
+                        .getConstructor(String.class, int.class, int.class, modelSourceClass)
+                        .newInstance(name, w, h, source);
+                final Object entry =
+                        entryClass.getConstructor(guidClass, modelImageClass).newInstance(guid, mi);
+                atlasClass.getMethod("addEntry", entryClass).invoke(atlas, entry);
+                return atlas;
+            }
             texMgrClass.getMethod("put", String.class, modelImageClass).invoke(mgr, name + "-guid", mi);
 
             final Object atlas = atlasClass
@@ -172,6 +322,10 @@ final class AtlasPageRebuildCoordinatorTest {
             final Object entry = entryClass.getConstructor(String.class).newInstance(name + "-guid");
             atlasClass.getMethod("addEntry", entryClass).invoke(atlas, entry);
             return atlas;
+        }
+
+        Object getCachedAtlasResource(final Object atlas) throws Exception {
+            return atlasClass.getField("cachedAtlasImage").get(atlas);
         }
 
         Object newTextureUpdateLoop(final List<Object> atlases) throws Exception {
@@ -235,26 +389,31 @@ final class AtlasPageRebuildCoordinatorTest {
                     .get();
         }
 
-        private static Map<String, byte[]> buildClasses() {
+        private static Map<String, byte[]> buildClasses(final boolean withCacheReuse) {
             final Map<String, byte[]> out = new HashMap<>();
             out.put("kotlin/Unit", emitKotlinUnit());
             out.put("kotlin/jvm/functions/Function1", emitFunction1());
             out.put("kotlin/jvm/internal/DefaultConstructorMarker", emitSimpleMarker());
             out.put("dev/synthetic/Tracker", emitTracker());
-            out.put("com/live2d/type/CAffine", emitCAffine());
+            out.put("com/live2d/type/CAffine", emitCAffine(withCacheReuse));
+            if (withCacheReuse) {
+                out.put("com/live2d/type/Guid", emitGuid());
+            }
             out.put("com/live2d/graphics/n", emitColorType());
             out.put("com/live2d/graphics/CImage", emitCImage());
             out.put("com/live2d/graphics/UiG", emitUiG());
-            out.put("com/live2d/graphics/CWritableImage", emitWritableImage());
-            out.put("com/live2d/graphics/CImageResource", emitImageResource());
+            out.put("com/live2d/graphics/CWritableImage", emitWritableImage(withCacheReuse));
+            out.put("com/live2d/graphics/CImageResource", emitImageResource(withCacheReuse));
             out.put("com/live2d/graphics/cachedImage/CCachedImageManager", emitCacheManager());
             out.put("com/live2d/util/a/a$Companion", emitProgressCompanion());
             out.put("com/live2d/util/a/a", emitProgress());
             out.put("com/live2d/util/D", emitEdgeHelper());
-            out.put("com/live2d/cubism/doc/model/texture/modelImage/CModelImage", emitModelImage());
-            out.put("com/live2d/cubism/doc/model/texture/CTextureManager", emitTextureManager());
+            out.put("com/live2d/cubism/doc/model/texture/modelImage/CModelImage", emitModelImage(withCacheReuse));
+            out.put("com/live2d/cubism/doc/model/texture/CTextureManager", emitTextureManager(withCacheReuse));
             out.put("com/live2d/cubism/doc/model/CModelSource", emitModelSource());
-            out.put("com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas$ModelImageEntry", emitEntry());
+            out.put(
+                    "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas$ModelImageEntry",
+                    emitEntry(withCacheReuse));
             out.put("com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas", emitAtlas());
             out.put("com/live2d/cubism/doc/model/texture/H", emitH());
             out.put("com/live2d/cubism/doc/model/texture/G", emitG());
@@ -408,10 +567,46 @@ final class AtlasPageRebuildCoordinatorTest {
             return cw.toByteArray();
         }
 
-        private static byte[] emitCAffine() {
+        private static byte[] emitCAffine(final boolean withCacheReuse) {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cw.visit(V17, ACC_PUBLIC, "com/live2d/type/CAffine", null, "java/awt/geom/AffineTransform", null);
             emitDefaultCtor(cw, "java/awt/geom/AffineTransform");
+            if (withCacheReuse) {
+                final MethodVisitor gm = cw.visitMethod(ACC_PUBLIC, "getMatrix", "()[F", null, null);
+                gm.visitIntInsn(BIPUSH, 6);
+                gm.visitIntInsn(NEWARRAY, T_FLOAT);
+                gm.visitInsn(DUP);
+                gm.visitInsn(ICONST_0);
+                gm.visitInsn(FCONST_1);
+                gm.visitInsn(FASTORE);
+                gm.visitInsn(DUP);
+                gm.visitInsn(ICONST_3);
+                gm.visitInsn(FCONST_1);
+                gm.visitInsn(FASTORE);
+                gm.visitInsn(ARETURN);
+                gm.visitMaxs(0, 0);
+                gm.visitEnd();
+            }
+            cw.visitEnd();
+            return cw.toByteArray();
+        }
+
+        private static byte[] emitGuid() {
+            final String internal = "com/live2d/type/Guid";
+            final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+            cw.visit(V17, ACC_PUBLIC, internal, null, "java/lang/Object", null);
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, "uuid", "Ljava/lang/String;", null, null)
+                    .visitEnd();
+            final MethodVisitor ctor = cw.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/lang/String;)V", null, null);
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+            ctor.visitVarInsn(ALOAD, 0);
+            ctor.visitVarInsn(ALOAD, 1);
+            ctor.visitFieldInsn(PUTFIELD, internal, "uuid", "Ljava/lang/String;");
+            ctor.visitInsn(RETURN);
+            ctor.visitMaxs(0, 0);
+            ctor.visitEnd();
+            emitGetter(cw, internal, "getUuidString", "uuid", "Ljava/lang/String;", ARETURN);
             cw.visitEnd();
             return cw.toByteArray();
         }
@@ -497,7 +692,7 @@ final class AtlasPageRebuildCoordinatorTest {
             return cw.toByteArray();
         }
 
-        private static byte[] emitWritableImage() {
+        private static byte[] emitWritableImage(final boolean withCacheReuse) {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cw.visit(V17, ACC_PUBLIC, "com/live2d/graphics/CWritableImage", null, "com/live2d/graphics/CImage", null);
             cw.visitField(ACC_PUBLIC | ACC_FINAL, "bi", "Ljava/awt/image/BufferedImage;", null, null)
@@ -551,6 +746,57 @@ final class AtlasPageRebuildCoordinatorTest {
             flush.visitMaxs(0, 0);
             flush.visitEnd();
 
+            if (withCacheReuse) {
+                final MethodVisitor copyAs = cw.visitMethod(
+                        ACC_PUBLIC,
+                        "copyAs",
+                        "(Lcom/live2d/graphics/n;Z)Lcom/live2d/graphics/CWritableImage;",
+                        null,
+                        null);
+                copyAs.visitTypeInsn(NEW, "java/awt/image/BufferedImage");
+                copyAs.visitInsn(DUP);
+                copyAs.visitVarInsn(ALOAD, 0);
+                copyAs.visitFieldInsn(
+                        GETFIELD, "com/live2d/graphics/CWritableImage", "bi", "Ljava/awt/image/BufferedImage;");
+                copyAs.visitMethodInsn(
+                        INVOKEVIRTUAL,
+                        "java/awt/image/BufferedImage",
+                        "getColorModel",
+                        "()Ljava/awt/image/ColorModel;",
+                        false);
+                copyAs.visitVarInsn(ALOAD, 0);
+                copyAs.visitFieldInsn(
+                        GETFIELD, "com/live2d/graphics/CWritableImage", "bi", "Ljava/awt/image/BufferedImage;");
+                copyAs.visitInsn(ACONST_NULL);
+                copyAs.visitMethodInsn(
+                        INVOKEVIRTUAL,
+                        "java/awt/image/BufferedImage",
+                        "copyData",
+                        "(Ljava/awt/image/WritableRaster;)Ljava/awt/image/WritableRaster;",
+                        false);
+                copyAs.visitInsn(ICONST_0);
+                copyAs.visitInsn(ACONST_NULL);
+                copyAs.visitMethodInsn(
+                        INVOKESPECIAL,
+                        "java/awt/image/BufferedImage",
+                        "<init>",
+                        "(Ljava/awt/image/ColorModel;Ljava/awt/image/WritableRaster;ZLjava/util/Hashtable;)V",
+                        false);
+                copyAs.visitVarInsn(ASTORE, 3);
+                copyAs.visitTypeInsn(NEW, "com/live2d/graphics/CWritableImage");
+                copyAs.visitInsn(DUP);
+                copyAs.visitVarInsn(ALOAD, 3);
+                copyAs.visitMethodInsn(
+                        INVOKESPECIAL,
+                        "com/live2d/graphics/CWritableImage",
+                        "<init>",
+                        "(Ljava/awt/image/BufferedImage;)V",
+                        false);
+                copyAs.visitInsn(ARETURN);
+                copyAs.visitMaxs(0, 0);
+                copyAs.visitEnd();
+            }
+
             final MethodVisitor gg =
                     cw.visitMethod(ACC_PUBLIC, "getGraphics", "()Lcom/live2d/graphics/UiG;", null, null);
             gg.visitTypeInsn(NEW, "com/live2d/graphics/UiG");
@@ -568,9 +814,28 @@ final class AtlasPageRebuildCoordinatorTest {
             return cw.toByteArray();
         }
 
-        private static byte[] emitImageResource() {
+        private static byte[] emitImageResource(final boolean withCacheReuse) {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cw.visit(V17, ACC_PUBLIC, "com/live2d/graphics/CImageResource", null, "java/lang/Object", null);
+            if (withCacheReuse) {
+                cw.visitField(
+                                ACC_PUBLIC | ACC_STATIC | ACC_FINAL,
+                                "DEFAULT_COLOR_TYPE",
+                                "Lcom/live2d/graphics/n;",
+                                null,
+                                null)
+                        .visitEnd();
+                final MethodVisitor cl = cw.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+                cl.visitFieldInsn(GETSTATIC, "com/live2d/graphics/n", "c", "Lcom/live2d/graphics/n;");
+                cl.visitFieldInsn(
+                        PUTSTATIC,
+                        "com/live2d/graphics/CImageResource",
+                        "DEFAULT_COLOR_TYPE",
+                        "Lcom/live2d/graphics/n;");
+                cl.visitInsn(RETURN);
+                cl.visitMaxs(0, 0);
+                cl.visitEnd();
+            }
             cw.visitField(ACC_PUBLIC | ACC_FINAL, "img", "Lcom/live2d/graphics/CWritableImage;", null, null)
                     .visitEnd();
 
@@ -602,6 +867,25 @@ final class AtlasPageRebuildCoordinatorTest {
             c2.visitInsn(RETURN);
             c2.visitMaxs(0, 0);
             c2.visitEnd();
+
+            if (withCacheReuse) {
+                final MethodVisitor c3 = cw.visitMethod(
+                        ACC_PUBLIC,
+                        "<init>",
+                        "(Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/n;Z)V",
+                        null,
+                        null);
+                c3.visitVarInsn(ALOAD, 0);
+                c3.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+                c3.visitVarInsn(ALOAD, 0);
+                c3.visitVarInsn(ALOAD, 1);
+                c3.visitFieldInsn(
+                        PUTFIELD, "com/live2d/graphics/CImageResource", "img", "Lcom/live2d/graphics/CWritableImage;");
+                c3.visitMethodInsn(INVOKESTATIC, "dev/synthetic/Tracker", "onResourceCreated", "()V", false);
+                c3.visitInsn(RETURN);
+                c3.visitMaxs(0, 0);
+                c3.visitEnd();
+            }
 
             final MethodVisitor get =
                     cw.visitMethod(ACC_PUBLIC, "getImage", "()Lcom/live2d/graphics/CWritableImage;", null, null);
@@ -764,7 +1048,7 @@ final class AtlasPageRebuildCoordinatorTest {
             return cw.toByteArray();
         }
 
-        private static byte[] emitModelImage() {
+        private static byte[] emitModelImage(final boolean withCacheReuse) {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cw.visit(
                     V17,
@@ -833,11 +1117,19 @@ final class AtlasPageRebuildCoordinatorTest {
             gf.visitMaxs(0, 0);
             gf.visitEnd();
 
+            if (withCacheReuse) {
+                final MethodVisitor gv = cw.visitMethod(ACC_PUBLIC, "getModelImageVersion", "()I", null, null);
+                gv.visitInsn(ICONST_0);
+                gv.visitInsn(IRETURN);
+                gv.visitMaxs(0, 0);
+                gv.visitEnd();
+            }
+
             cw.visitEnd();
             return cw.toByteArray();
         }
 
-        private static byte[] emitTextureManager() {
+        private static byte[] emitTextureManager(final boolean withCacheReuse) {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cw.visit(
                     V17,
@@ -862,12 +1154,10 @@ final class AtlasPageRebuildCoordinatorTest {
             ctor.visitMaxs(0, 0);
             ctor.visitEnd();
 
-            final MethodVisitor put = cw.visitMethod(
-                    ACC_PUBLIC,
-                    "put",
-                    "(Ljava/lang/String;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;)V",
-                    null,
-                    null);
+            final String putParamDesc = withCacheReuse
+                    ? "(Ljava/lang/Object;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;)V"
+                    : "(Ljava/lang/String;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;)V";
+            final MethodVisitor put = cw.visitMethod(ACC_PUBLIC, "put", putParamDesc, null, null);
             put.visitVarInsn(ALOAD, 0);
             put.visitFieldInsn(
                     GETFIELD, "com/live2d/cubism/doc/model/texture/CTextureManager", "map", "Ljava/util/Map;");
@@ -935,40 +1225,65 @@ final class AtlasPageRebuildCoordinatorTest {
             return cw.toByteArray();
         }
 
-        private static byte[] emitEntry() {
+        private static byte[] emitEntry(final boolean withCacheReuse) {
+            final String internal = "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas$ModelImageEntry";
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-            cw.visit(
-                    V17,
-                    ACC_PUBLIC,
-                    "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas$ModelImageEntry",
-                    null,
-                    "java/lang/Object",
-                    null);
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "guid", "Ljava/lang/String;", null, null)
+            cw.visit(V17, ACC_PUBLIC, internal, null, "java/lang/Object", null);
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, "guid", "Ljava/lang/Object;", null, null)
                     .visitEnd();
+            if (withCacheReuse) {
+                cw.visitField(
+                                ACC_PRIVATE | ACC_FINAL,
+                                "modelImage",
+                                "Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;",
+                                null,
+                                null)
+                        .visitEnd();
+                final MethodVisitor ctor = cw.visitMethod(
+                        ACC_PUBLIC,
+                        "<init>",
+                        "(Lcom/live2d/type/Guid;Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;)V",
+                        null,
+                        null);
+                ctor.visitVarInsn(ALOAD, 0);
+                ctor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+                ctor.visitVarInsn(ALOAD, 0);
+                ctor.visitVarInsn(ALOAD, 1);
+                ctor.visitFieldInsn(PUTFIELD, internal, "guid", "Ljava/lang/Object;");
+                ctor.visitVarInsn(ALOAD, 0);
+                ctor.visitVarInsn(ALOAD, 2);
+                ctor.visitFieldInsn(
+                        PUTFIELD,
+                        internal,
+                        "modelImage",
+                        "Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;");
+                ctor.visitInsn(RETURN);
+                ctor.visitMaxs(0, 0);
+                ctor.visitEnd();
 
-            final MethodVisitor ctor = cw.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/lang/String;)V", null, null);
-            ctor.visitVarInsn(ALOAD, 0);
-            ctor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
-            ctor.visitVarInsn(ALOAD, 0);
-            ctor.visitVarInsn(ALOAD, 1);
-            ctor.visitFieldInsn(
-                    PUTFIELD,
-                    "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas$ModelImageEntry",
-                    "guid",
-                    "Ljava/lang/String;");
-            ctor.visitInsn(RETURN);
-            ctor.visitMaxs(0, 0);
-            ctor.visitEnd();
+                emitGetter(
+                        cw,
+                        internal,
+                        "getModelImage",
+                        "modelImage",
+                        "Lcom/live2d/cubism/doc/model/texture/modelImage/CModelImage;",
+                        ARETURN);
+            } else {
+                final MethodVisitor ctor = cw.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/lang/String;)V", null, null);
+                ctor.visitVarInsn(ALOAD, 0);
+                ctor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+                ctor.visitVarInsn(ALOAD, 0);
+                ctor.visitVarInsn(ALOAD, 1);
+                ctor.visitFieldInsn(PUTFIELD, internal, "guid", "Ljava/lang/Object;");
+                ctor.visitInsn(RETURN);
+                ctor.visitMaxs(0, 0);
+                ctor.visitEnd();
+            }
 
             final MethodVisitor gg =
                     cw.visitMethod(ACC_PUBLIC, "getModelImageGuid", "()Ljava/lang/Object;", null, null);
             gg.visitVarInsn(ALOAD, 0);
-            gg.visitFieldInsn(
-                    GETFIELD,
-                    "com/live2d/cubism/doc/model/texture/textureAtlas/CTextureAtlas$ModelImageEntry",
-                    "guid",
-                    "Ljava/lang/String;");
+            gg.visitFieldInsn(GETFIELD, internal, "guid", "Ljava/lang/Object;");
             gg.visitInsn(ARETURN);
             gg.visitMaxs(0, 0);
             gg.visitEnd();
