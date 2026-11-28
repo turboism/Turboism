@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-lock
-version: 0.68.3
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Protects Cubism parameter values from accidental editing, with cross-session per
 
 | Detail | Value |
 |---|---|
-| Version | `0.68.3` |
+| Version | `0.68.4` |
 | Plugin ID | `dev.turboism.plugin.parameter-lock` |
 | Category | `workflow` |
 | Tags | parameter, lock, palette, safety |
@@ -131,6 +131,10 @@ No telemetry is sent by this plugin.
 | Locks not restored after reopening | Ensure the model was saved and that the `.cmo3` file's native GUID has not been manually altered. |
 
 ## Changelog
+
+### 0.68.4
+
+- Eliminate parameter row repaint thrashing, cache the active model GUID safely, bound background worker scheduling, and recover gracefully from load failures.
 
 ### 0.68.3
 

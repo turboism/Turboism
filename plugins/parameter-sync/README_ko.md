@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-sync
-version: 0.68.3
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 세부 정보 | 값 |
 |---|---|
-| 버전 | `0.68.3` |
+| 버전 | `0.68.4` |
 | 플러그인 ID | `dev.turboism.plugin.parameter-sync` |
 | 카테고리 | `modeling` |
 | 태그 | parameter, sync, link, workflow |

@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-sync
-version: 0.68.3
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ Live2D Cubism Editor でチェックしたパラメーター同士を正規化�
 
 | 詳細 | 値 |
 |---|---|
-| バージョン | `0.68.3` |
+| バージョン | `0.68.4` |
 | プラグイン ID | `dev.turboism.plugin.parameter-sync` |
 | カテゴリー | `modeling` |
 | タグ | parameter, sync, link, workflow |

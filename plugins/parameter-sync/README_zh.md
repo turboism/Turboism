@@ -1,7 +1,7 @@
 ---
 turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.parameter-sync
-version: 0.68.3
+version: 0.68.4
 kind: feature
 status: preview
 delivery: store-candidate
@@ -20,7 +20,7 @@ interface: swing
 
 | 详情 | 值 |
 |---|---|
-| 版本 | `0.68.3` |
+| 版本 | `0.68.4` |
 | 插件 ID | `dev.turboism.plugin.parameter-sync` |
 | 类别 | `modeling` |
 | 标签 | parameter, sync, link, workflow |

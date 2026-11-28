@@ -24,6 +24,9 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Changed
 
+- Project save and auto-backup (`.cmo3` and `.can3`), large-model opening, `8192×8192` OpenGL texture upload, PSD import and re-import, multi-page texture atlas rebuilds, animation timeline and Graph Editor redraws, and physics simulation run faster with lower memory allocation and no UI-thread stalls during atlas reuse checks.
+- Settings -> Performance unifies all Cubism optimization modules cleanly and updates the File I/O & Open acceleration description to cover project save and PSD import alongside model opening and export.
+- The New User Guide entry moves into Settings -> Maintenance, and update checks support channel-aware release-note range queries.
 - Modeling drag, Bezier warp evaluation, parts traversal, and parameter panel repaints run faster with zero-allocation indexed parts traversal, cached morph-target keys, O(1) untouched-mesh epoch skipping, primitive Cubism 5.3+ Bezier acceleration, compiled sorting accessors, and cached shader material parameter pairs.
 - Settings -> Performance is consolidated into five clearer sections with 11 bundled tri-state switches, a collapsed Legacy & Experimental section for off-by-default or conflicting options, and plain-language tooltips across all six locales; upgrading from 0.70.3 beta.3 (defaults version 1 to 2) automatically enables deferred end-of-frame GL error checks while preserving explicit opt-outs and OFF presets.
 - Rendering, deformer editing, and interactive mesh editing run faster with zero-allocation render matrix and material passes, reused morph buffers, elided inactive selection overlays, primitive bezier grid and keyform lookup fast paths, lock-free mesh setup tracking, and ConstantDynamic optimization slot dispatch.
@@ -45,6 +48,9 @@ Changes since the previous stable release, **0.70.2**.
 
 ### Fixed
 
+- Multi-page texture atlas cache reuse commits all reused pages properly, and Texture Atlas overlay rendering prevents translucent stroke alpha accumulation.
+- Parameter Lock and Parameter Sync skip redundant parameter-row repainting, clear pending write-suppression echoes cleanly, bound background task execution, and recover gracefully from load failures.
+- External harnesses such as DeepSeek attach reliably via explicit object-root MCP tool schemas, and Turbo Mesh and AutoMesh preserve generated texture coordinates and edge bleed beyond texture boundaries.
 - Settings saves the custom GraalVM path before it validates the Cubism JVM selection.
 - Mesh toolbar restores registered mesh tools and the radius slider by resolving the radius label during toolbar host verification.
 - Cubism OpenGL cleanup drains pending VBOs across shared contexts on canvas reinitialization and panel disposal without GL errors, ArtMesh Mirror persists per-mesh axis lock, angle, and pivot with centered handles, 3D model preset imports ask for confirmation before replacing a scene, and Geometric Mesh Layout connects concentric rings independently of center spokes.
