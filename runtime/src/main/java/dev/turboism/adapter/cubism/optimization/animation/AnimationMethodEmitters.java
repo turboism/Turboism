@@ -63,9 +63,6 @@ final class AnimationMethodEmitters {
     static final String RULER_TIMECODE_MH_DESC = "(IIZLjava/lang/String;)Ljava/lang/String;";
     static final String RULER_FRAME_MH_DESC = "(I)Ljava/lang/String;";
     static final String DECIMAL_MH_DESC = "(Ljava/text/DecimalFormat;D)Ljava/lang/String;";
-    static final String ACQUIRE_CTX_MH_DESC = "()Ljava/lang/Object;";
-    static final String ACQUIRE_TIME_MH_DESC = "(I)Ljava/lang/Object;";
-    static final String RELEASE_MH_DESC = "(Ljava/lang/Object;)V";
 
     private static final int DRAW_CURVE_ARRAY_LEN = 8;
     private static final int HANDLE_RADIUS_HALF = 3;
@@ -106,10 +103,6 @@ final class AnimationMethodEmitters {
     private static final String FIELD_SINGLETON_A = "a";
     private static final String LOG_INVOKE_METHOD = "c";
     private static final String LOG_INVOKE_DESC = "(Lkotlin/jvm/functions/Function0;)V";
-    private static final String FIELD_TRACK_INSTANCE = "trackInstance";
-    private static final String FIELD_LAST_TRACK_FRAME = "lastTrackUpdateFramePosForFormAnimation";
-    private static final String FIELD_LAST_PARAM_VER = "last_trackUpdateParamVersion";
-    private static final String FIELD_IS_TRACK_UPDATING = "isTrackUpdating";
     private static final String FIELD_COMPANION = "Companion";
     private static final String FIELD_DF = "df";
     private static final String FIELD_PAINT_COMP = "paintComp";
@@ -123,10 +116,6 @@ final class AnimationMethodEmitters {
     private static final String METHOD_GET_TIMELINE_INFO = "getTimelineInfo";
     private static final String METHOD_GET_DISPLAY_SEC = "getDisplayTimeSec";
     private static final String METHOD_GET_DISPLAY_FRAME = "getDisplayFrame";
-    private static final String METHOD_GET_MODEL_INSTANCE = "getModelInstance";
-    private static final String METHOD_GET_PARAMETER_SET = "getParameterSet";
-    private static final String METHOD_GET_UPDATE_VERSION = "getUpdateVersion";
-    private static final String METHOD_GET_ROOT_TRACK = "getRootTrack";
     private static final String METHOD_SETUP_TRANSFORM = "setupTransform__testImpl";
     private static final String METHOD_SIZE = "size";
     private static final String METHOD_GET = "get";
@@ -134,7 +123,6 @@ final class AnimationMethodEmitters {
     private static final String METHOD_GET_ENABLED = "getEnabled";
     private static final String METHOD_SET_ENABLED = "setEnabled";
     private static final String METHOD_TRACK_CTX_G = "g";
-    private static final String METHOD_VH_D = "d";
     private static final String METHOD_GET_POS = "getPos";
     private static final String METHOD_GET_TIMELINE_X = "getTimelineX";
     private static final String METHOD_GET_TIMELINE_Y = "getTimelineY";
@@ -357,182 +345,6 @@ final class AnimationMethodEmitters {
         mv.visitInsn(Opcodes.POP);
     }
 
-    /** Releases a borrowed handle object via {@code slotKey} if non-null and slot bound. */
-    static void emitReleaseIfBound(final MethodVisitor mv, final String slotKey, final int objLocal) {
-        final Label skip = new Label();
-        final Label popAndSkip = new Label();
-        mv.visitVarInsn(Opcodes.ALOAD, objLocal);
-        mv.visitJumpInsn(Opcodes.IFNULL, skip);
-        SlotBridgeEmitter.emitMethodHandleConsult(mv, slotKey, popAndSkip);
-        mv.visitVarInsn(Opcodes.ALOAD, objLocal);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT, RELEASE_MH_DESC, false);
-        mv.visitJumpInsn(Opcodes.GOTO, skip);
-        mv.visitLabel(popAndSkip);
-        mv.visitInsn(Opcodes.POP);
-        mv.visitLabel(skip);
-    }
-
-    /**
-     * Emits pooled context borrow/return around {@code FormAnimationSet.updateTrackInstance} evaluation.
-     *
-     * @param mv downstream method visitor
-     * @param target resolved animation target metadata
-     * @param fallback label positioned right before original {@code NEW trackContextOwner}
-     */
-    static void emitFormAnimationFastPath(
-            final MethodVisitor mv, final AnimationAccelerationTarget target, final Label fallback) {
-        final Label popTrack = new Label();
-        final Label popTimeReleaseTrack = new Label();
-        final Label tryStart = new Label();
-        final Label tryEnd = new Label();
-        final Label catchHandler = new Label();
-        final int locTrackCtx = 6;
-        final int locFrameTime = 7;
-        final int locEx = 8;
-
-        emitActiveGate(mv, fallback);
-        SlotBridgeEmitter.emitMethodHandleConsult(mv, AnimationAccelerationBridge.ACQUIRE_TRACK_CTX_PROPERTY, popTrack);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT, ACQUIRE_CTX_MH_DESC, false);
-        mv.visitTypeInsn(Opcodes.CHECKCAST, target.trackContextOwner());
-        mv.visitVarInsn(Opcodes.ASTORE, locTrackCtx);
-
-        SlotBridgeEmitter.emitMethodHandleConsult(
-                mv, AnimationAccelerationBridge.ACQUIRE_FRAME_TIME_PROPERTY, popTimeReleaseTrack);
-        mv.visitVarInsn(Opcodes.ILOAD, 1);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT, ACQUIRE_TIME_MH_DESC, false);
-        mv.visitTypeInsn(Opcodes.CHECKCAST, AnimationAccelerationTarget.FRAME_TIME_OWNER);
-        mv.visitVarInsn(Opcodes.ASTORE, locFrameTime);
-
-        mv.visitTryCatchBlock(tryStart, tryEnd, catchHandler, THROWABLE_OWNER);
-        mv.visitLabel(tryStart);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(
-                Opcodes.GETFIELD,
-                AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER,
-                "trackInstance",
-                "L" + AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER + ";");
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, INTRINSICS_OWNER, CHECK_NOT_NULL_METHOD, CHECK_NOT_NULL_OBJ_DESC, false);
-        mv.visitInsn(Opcodes.ACONST_NULL);
-        mv.visitVarInsn(Opcodes.ALOAD, locFrameTime);
-        mv.visitVarInsn(Opcodes.ALOAD, locTrackCtx);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER,
-                AnimationAccelerationTarget.updateTrackInstanceTestImplMethod(),
-                target.updateTrackInstanceTestImplDescriptor(),
-                false);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitVarInsn(Opcodes.ILOAD, 1);
-        mv.visitFieldInsn(
-                Opcodes.PUTFIELD,
-                AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER,
-                "lastTrackUpdateFramePosForFormAnimation",
-                "I");
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitFieldInsn(
-                Opcodes.GETFIELD,
-                AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER,
-                "trackInstance",
-                "L" + AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER + ";");
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC, INTRINSICS_OWNER, CHECK_NOT_NULL_METHOD, CHECK_NOT_NULL_OBJ_DESC, false);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER,
-                "getModelInstance",
-                "()L" + MODEL_OWNER + ";",
-                false);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, MODEL_OWNER, "getParameterSet", "()L" + PARAM_SET_OWNER + ";", false);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PARAM_SET_OWNER, "getUpdateVersion", "()I", false);
-        mv.visitFieldInsn(
-                Opcodes.PUTFIELD,
-                AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER,
-                "last_trackUpdateParamVersion",
-                "I");
-        mv.visitLabel(tryEnd);
-
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_FRAME_TIME_PROPERTY, locFrameTime);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_TRACK_CTX_PROPERTY, locTrackCtx);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_0);
-        mv.visitFieldInsn(
-                Opcodes.PUTFIELD, AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER, "isTrackUpdating", "Z");
-        mv.visitInsn(Opcodes.RETURN);
-
-        mv.visitLabel(catchHandler);
-        mv.visitVarInsn(Opcodes.ASTORE, locEx);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_FRAME_TIME_PROPERTY, locFrameTime);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_TRACK_CTX_PROPERTY, locTrackCtx);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_0);
-        mv.visitFieldInsn(
-                Opcodes.PUTFIELD, AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER, "isTrackUpdating", "Z");
-        mv.visitVarInsn(Opcodes.ALOAD, locEx);
-        mv.visitInsn(Opcodes.ATHROW);
-
-        mv.visitLabel(popTimeReleaseTrack);
-        mv.visitInsn(Opcodes.POP);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_TRACK_CTX_PROPERTY, locTrackCtx);
-        mv.visitJumpInsn(Opcodes.GOTO, fallback);
-
-        mv.visitLabel(popTrack);
-        mv.visitInsn(Opcodes.POP);
-    }
-
-    /** Emits pooled frame-time borrow/return for {@code CSceneInstance.updateAllParamCtrlReference}. */
-    static void emitSceneParamCtrlFastPath(
-            final MethodVisitor mv, final AnimationAccelerationTarget target, final Label fallback) {
-        final Label popTime = new Label();
-        final Label tryStart = new Label();
-        final Label tryEnd = new Label();
-        final Label catchHandler = new Label();
-        final int locTime = 5;
-        final int locEx = 6;
-
-        emitActiveGate(mv, fallback);
-        SlotBridgeEmitter.emitMethodHandleConsult(mv, AnimationAccelerationBridge.ACQUIRE_FRAME_TIME_PROPERTY, popTime);
-        mv.visitVarInsn(Opcodes.ILOAD, 1);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT, ACQUIRE_TIME_MH_DESC, false);
-        mv.visitTypeInsn(Opcodes.CHECKCAST, AnimationAccelerationTarget.FRAME_TIME_OWNER);
-        mv.visitVarInsn(Opcodes.ASTORE, locTime);
-
-        mv.visitTryCatchBlock(tryStart, tryEnd, catchHandler, THROWABLE_OWNER);
-        mv.visitLabel(tryStart);
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                AnimationAccelerationTarget.SCENE_INSTANCE_OWNER,
-                "getRootTrack",
-                "()L" + AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER + ";",
-                false);
-        mv.visitInsn(Opcodes.ACONST_NULL);
-        mv.visitVarInsn(Opcodes.ALOAD, locTime);
-        mv.visitVarInsn(Opcodes.ALOAD, 2);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER,
-                AnimationAccelerationTarget.updateTrackInstanceTestImplMethod(),
-                target.updateTrackInstanceTestImplDescriptor(),
-                false);
-        mv.visitLabel(tryEnd);
-
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_FRAME_TIME_PROPERTY, locTime);
-        mv.visitInsn(Opcodes.RETURN);
-
-        mv.visitLabel(catchHandler);
-        mv.visitVarInsn(Opcodes.ASTORE, locEx);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_FRAME_TIME_PROPERTY, locTime);
-        mv.visitVarInsn(Opcodes.ALOAD, locEx);
-        mv.visitInsn(Opcodes.ATHROW);
-
-        mv.visitLabel(popTime);
-        mv.visitInsn(Opcodes.POP);
-    }
-
     /** Emits indexed {@code CArrayList} loop replacing iterator allocation in {@code CMvTrack_Group_Instance}. */
     static void emitGroupIndexedLoop(
             final MethodVisitor mv,
@@ -675,67 +487,6 @@ final class AnimationMethodEmitters {
 
         mv.visitLabel(fallback);
         mv.visitVarInsn(Opcodes.ALOAD, locList);
-    }
-
-    /** Emits pooled frame-time borrow/return across {@code CVisualHandler.d(movie/core/a)}. */
-    static void emitVisualHandlerCall(final MethodVisitor mv, final int steppedVar, final int baseLocal) {
-        final int locHandler = baseLocal;
-        final int locTime = baseLocal + 1;
-        final int locResult = baseLocal + 2; // double occupies 2 slots
-        final int locEx = baseLocal + 4;
-        final Label fallback = new Label();
-        final Label popTime = new Label();
-        final Label tryStart = new Label();
-        final Label tryEnd = new Label();
-        final Label catchHandler = new Label();
-        final Label done = new Label();
-
-        mv.visitVarInsn(Opcodes.ASTORE, locHandler);
-        emitActiveGate(mv, fallback);
-        SlotBridgeEmitter.emitMethodHandleConsult(mv, AnimationAccelerationBridge.ACQUIRE_FRAME_TIME_PROPERTY, popTime);
-        mv.visitVarInsn(Opcodes.ILOAD, steppedVar);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, METHOD_HANDLE_OWNER, INVOKE_EXACT, ACQUIRE_TIME_MH_DESC, false);
-        mv.visitTypeInsn(Opcodes.CHECKCAST, AnimationAccelerationTarget.FRAME_TIME_OWNER);
-        mv.visitVarInsn(Opcodes.ASTORE, locTime);
-
-        mv.visitTryCatchBlock(tryStart, tryEnd, catchHandler, THROWABLE_OWNER);
-        mv.visitLabel(tryStart);
-        mv.visitVarInsn(Opcodes.ALOAD, locHandler);
-        mv.visitVarInsn(Opcodes.ALOAD, locTime);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                AnimationAccelerationTarget.VISUAL_HANDLER_OWNER,
-                "d",
-                "(L" + AnimationAccelerationTarget.FRAME_TIME_OWNER + ";)D",
-                false);
-        mv.visitVarInsn(Opcodes.DSTORE, locResult);
-        mv.visitLabel(tryEnd);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_FRAME_TIME_PROPERTY, locTime);
-        mv.visitVarInsn(Opcodes.DLOAD, locResult);
-        mv.visitJumpInsn(Opcodes.GOTO, done);
-
-        mv.visitLabel(catchHandler);
-        mv.visitVarInsn(Opcodes.ASTORE, locEx);
-        emitReleaseIfBound(mv, AnimationAccelerationBridge.RELEASE_FRAME_TIME_PROPERTY, locTime);
-        mv.visitVarInsn(Opcodes.ALOAD, locEx);
-        mv.visitInsn(Opcodes.ATHROW);
-
-        mv.visitLabel(popTime);
-        mv.visitInsn(Opcodes.POP);
-        mv.visitLabel(fallback);
-        mv.visitVarInsn(Opcodes.ALOAD, locHandler);
-        mv.visitTypeInsn(Opcodes.NEW, AnimationAccelerationTarget.FRAME_TIME_OWNER);
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitVarInsn(Opcodes.ILOAD, steppedVar);
-        mv.visitMethodInsn(
-                Opcodes.INVOKESPECIAL, AnimationAccelerationTarget.FRAME_TIME_OWNER, "<init>", "(I)V", false);
-        mv.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                AnimationAccelerationTarget.VISUAL_HANDLER_OWNER,
-                "d",
-                "(L" + AnimationAccelerationTarget.FRAME_TIME_OWNER + ";)D",
-                false);
-        mv.visitLabel(done);
     }
 
     /** Emits binary-searched horizontal viewport culling for {@code GraphEditor.drawCurve}. */

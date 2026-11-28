@@ -12,16 +12,15 @@ import java.util.Optional;
 /**
  * Defines reviewed host classes, members, and descriptors for timeline and Graph Editor acceleration.
  *
- * <p>Covers non-escaping animation evaluation context pooling, indexed child-track iteration, cached
- * timecode/decimal formatting, and binary-searched Graph Editor horizontal viewport culling while
- * preserving exact rendered output and evaluation state.</p>
+ * <p>Covers indexed child-track iteration, cached timecode/decimal formatting, and binary-searched
+ * Graph Editor horizontal viewport culling while preserving exact rendered output and evaluation
+ * state.</p>
  */
 public record AnimationAccelerationTarget(
         HostArtifactDigest digest,
         String version,
         String trackContextOwner,
         String timelineUtilsOwner,
-        boolean hasSceneParamCtrlReference,
         List<String> targetClasses) {
 
     /** Shared startup toggle property gating edit-mode acceleration hooks. */
@@ -33,29 +32,15 @@ public record AnimationAccelerationTarget(
     /** Target-class table base resource name. */
     public static final String TARGET_CLASSES_RESOURCE = "animation-acceleration";
 
-    /** Internal name of {@code FormAnimationSet}. */
-    public static final String FORM_ANIMATION_SET_OWNER =
-            "com/live2d/cubism/doc/animation/formAnimation/FormAnimationSet";
-
-    /** Internal name of {@code CSceneInstance}. */
-    public static final String SCENE_INSTANCE_OWNER = "com/live2d/cubism/doc/animation/CSceneInstance";
-
     /** Internal name of {@code CMvTrack_Group_Instance}. */
     public static final String TRACK_GROUP_INSTANCE_OWNER =
             "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Group_Instance";
-
-    /** Internal name of {@code CMvTrack_Live2DModel_Instance}. */
-    public static final String TRACK_MODEL_INSTANCE_OWNER =
-            "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Live2DModel_Instance";
 
     /** Internal name of the shared frame-time box {@code movie/core/a}. */
     public static final String FRAME_TIME_OWNER = "com/live2d/cubism/doc/animation/movie/core/a";
 
     /** Internal name of {@code CMvMovieInfo}. */
     public static final String MOVIE_INFO_OWNER = "com/live2d/cubism/doc/animation/movie/core/CMvMovieInfo";
-
-    /** Internal name of {@code CVisualHandler}. */
-    public static final String VISUAL_HANDLER_OWNER = "com/live2d/cubism/doc/animation/movie/effect/CVisualHandler";
 
     /** Internal name of {@code CMutableSequence}. */
     public static final String MUTABLE_SEQUENCE_OWNER =
@@ -117,15 +102,9 @@ public record AnimationAccelerationTarget(
     /** Internal name of current timeline palette utilities {@code v}. */
     public static final String TIMELINE_UTILS_V_OWNER = "com/live2d/cubism/view/palette/timeline/Utils/v";
 
-    /** Rewritten owner count when {@code CSceneInstance.updateAllParamCtrlReference} is absent. */
-    public static final int BASE_EXPECTED_OWNERS = 7;
+    /** Rewritten owner count across all reviewed host builds. */
+    public static final int EXPECTED_OWNERS = 5;
 
-    /** Rewritten owner count when {@code CSceneInstance.updateAllParamCtrlReference} is present. */
-    public static final int SCENE_EXPECTED_OWNERS = 8;
-
-    private static final String METHOD_UPDATE_TRACK_INSTANCE = "updateTrackInstance";
-    private static final String DESC_UPDATE_TRACK_INSTANCE = "(IZ)V";
-    private static final String METHOD_UPDATE_ALL_PARAM_CTRL_REF = "updateAllParamCtrlReference";
     private static final String METHOD_UPDATE_TEST_IMPL = "updateTrackInstance_testImpl";
     private static final String METHOD_UPDATE_TEST_IMPL_FOR_FA = "updateTrackInstance_testImpl_forFA";
     private static final String METHOD_GET_DISPLAY_SUBFRAME = "getDisplayTimeSubFrameString";
@@ -174,9 +153,7 @@ public record AnimationAccelerationTarget(
         if (ctxOwner == null || utilsOwner == null) {
             return Optional.empty();
         }
-        final boolean hasScene = classes.contains(SCENE_INSTANCE_OWNER);
-        return Optional.of(
-                new AnimationAccelerationTarget(digest, version.get(), ctxOwner, utilsOwner, hasScene, classes));
+        return Optional.of(new AnimationAccelerationTarget(digest, version.get(), ctxOwner, utilsOwner, classes));
     }
 
     /**
@@ -198,11 +175,6 @@ public record AnimationAccelerationTarget(
         return TARGET_TABLE;
     }
 
-    /** Returns the descriptor of {@code CSceneInstance.updateAllParamCtrlReference}. */
-    public String updateAllParamCtrlRefDescriptor() {
-        return "(IL" + trackContextOwner + ";)V";
-    }
-
     /** Returns the descriptor of {@code updateTrackInstance_testImpl}. */
     public String updateTrackInstanceTestImplDescriptor() {
         return "(Lcom/live2d/cubism/view/context/CEViewContext;L" + FRAME_TIME_OWNER + ";L" + trackContextOwner + ";)V";
@@ -219,44 +191,17 @@ public record AnimationAccelerationTarget(
 
     /** Returns the expected count of rewritten owner classes for this host build. */
     public int expectedOwners() {
-        return hasSceneParamCtrlReference ? SCENE_EXPECTED_OWNERS : BASE_EXPECTED_OWNERS;
+        return EXPECTED_OWNERS;
     }
 
     /** Returns the immutable ordered list of rewritten owner internal names for this host build. */
     public List<String> rewrittenOwners() {
-        return hasSceneParamCtrlReference
-                ? List.of(
-                        FORM_ANIMATION_SET_OWNER,
-                        SCENE_INSTANCE_OWNER,
-                        TRACK_GROUP_INSTANCE_OWNER,
-                        TRACK_MODEL_INSTANCE_OWNER,
-                        MOVIE_INFO_OWNER,
-                        timelineUtilsOwner,
-                        HEADER_PANEL_OWNER,
-                        GRAPH_EDITOR_OWNER)
-                : List.of(
-                        FORM_ANIMATION_SET_OWNER,
-                        TRACK_GROUP_INSTANCE_OWNER,
-                        TRACK_MODEL_INSTANCE_OWNER,
-                        MOVIE_INFO_OWNER,
-                        timelineUtilsOwner,
-                        HEADER_PANEL_OWNER,
-                        GRAPH_EDITOR_OWNER);
-    }
-
-    /** Method name of {@code FormAnimationSet.updateTrackInstance}. */
-    public static String updateTrackInstanceMethod() {
-        return METHOD_UPDATE_TRACK_INSTANCE;
-    }
-
-    /** Method descriptor of {@code FormAnimationSet.updateTrackInstance}. */
-    public static String updateTrackInstanceDescriptor() {
-        return DESC_UPDATE_TRACK_INSTANCE;
-    }
-
-    /** Method name of {@code CSceneInstance.updateAllParamCtrlReference}. */
-    public static String updateAllParamCtrlRefMethod() {
-        return METHOD_UPDATE_ALL_PARAM_CTRL_REF;
+        return List.of(
+                TRACK_GROUP_INSTANCE_OWNER,
+                MOVIE_INFO_OWNER,
+                timelineUtilsOwner,
+                HEADER_PANEL_OWNER,
+                GRAPH_EDITOR_OWNER);
     }
 
     /** Method name of {@code updateTrackInstance_testImpl}. */

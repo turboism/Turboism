@@ -1,21 +1,22 @@
 package dev.turboism.adapter.cubism.optimization.animation;
 
-import dev.turboism.core.reflect.HostHandles;
 import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.Field;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
 /**
- * Publishes active gates, pooled evaluation contexts, and formatting caches for animation hooks.
+ * Publishes active gates and formatting caches for animation hooks.
  *
  * <p>Rewritten host classes consult {@link System#getProperties()} slots via {@code ConstantDynamic}
  * and {@link MethodHandle} invocations so no woven bytecode depends directly on Turboism types.</p>
@@ -30,18 +31,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
 
     /** System property slot holding the active {@link Predicate} gate for animation weaves. */
     public static final String ACTIVE_PROPERTY = "turboism.animation-acceleration.active";
-
-    /** System property slot holding the {@link MethodHandle} acquiring a track context object. */
-    public static final String ACQUIRE_TRACK_CTX_PROPERTY = "turboism.animation-acceleration.acquireTrackCtx";
-
-    /** System property slot holding the {@link MethodHandle} releasing a track context object. */
-    public static final String RELEASE_TRACK_CTX_PROPERTY = "turboism.animation-acceleration.releaseTrackCtx";
-
-    /** System property slot holding the {@link MethodHandle} acquiring a frame-time wrapper. */
-    public static final String ACQUIRE_FRAME_TIME_PROPERTY = "turboism.animation-acceleration.acquireFrameTime";
-
-    /** System property slot holding the {@link MethodHandle} releasing a frame-time wrapper. */
-    public static final String RELEASE_FRAME_TIME_PROPERTY = "turboism.animation-acceleration.releaseFrameTime";
 
     /** System property slot holding the {@link MethodHandle} caching {@link DecimalFormat} strings. */
     public static final String DECIMAL_FORMAT_PROPERTY = "turboism.animation-acceleration.formatDecimal";
@@ -61,7 +50,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     /** System property slot holding the {@link MethodHandle} caching timeline ruler frame numbers. */
     public static final String RULER_FRAME_PROPERTY = "turboism.animation-acceleration.formatRulerFrame";
 
-    private static final int MAX_POOL_DEPTH = 32;
     private static final int DECIMAL_CACHE_CAPACITY = 1024;
     private static final int DECIMAL_CACHE_MASK = DECIMAL_CACHE_CAPACITY - 1;
     private static final int RULER_CACHE_CAPACITY = 512;
@@ -91,17 +79,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     private static final String RULER_NEG_ZERO_PREFIX = "-0:";
     private static final String COLON = ":";
 
-    private static final String FIELD_A = "a";
-    private static final String FIELD_B = "b";
-    private static final String FIELD_C = "c";
-    private static final String FIELD_D = "d";
-    private static final String FIELD_E = "e";
-    private static final String FIELD_F = "f";
-    private static final String FIELD_G = "g";
-    private static final String FIELD_H = "h";
-    private static final String FIELD_I = "i";
-    private static final String FIELD_J = "j";
-
     private static final String[] PAD2_TABLE = buildFormatTable(FMT_PAD2, 0, FPS_THREE_DIGIT_MIN);
     private static final String[] PAD3_TABLE = buildFormatTable(FMT_PAD3, 0, FPS_THREE_DIGIT_MAX);
     private static final String[] SUBFRAME_RAW_TABLE = buildRawTable(SUBFRAME_RAW_MIN, SUBFRAME_RAW_MAX);
@@ -110,29 +87,16 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     private static final String[] PAD5_TABLE = buildFormatTable(FMT_PAD5, FRAME_STATIC_MIN, FRAME_STATIC_MAX);
     private static final String[] PAD6_TABLE = buildFormatTable(FMT_PAD6, FRAME_STATIC_MIN, FRAME_STATIC_MAX);
 
+    private static final Set<AnimationAccelerationBridge> LIVE_BRIDGES =
+            Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
     private static volatile boolean configuredDefault = true;
+    private static volatile boolean resolvedEnabled = computeEnabled();
 
     private final AtomicBoolean active = new AtomicBoolean();
-    private final Predicate<Object> activeGate = ignored -> active.get() && isEnabled();
+    private volatile boolean operational;
+    private final Predicate<Object> activeGate = ignored -> operational;
     private final ThreadLocal<ThreadState> threadState = ThreadLocal.withInitial(ThreadState::new);
-    private final MethodHandle trackCtor;
-    private final MethodHandle setTrackA;
-    private final MethodHandle setTrackB;
-    private final MethodHandle setTrackC;
-    private final MethodHandle setTrackD;
-    private final MethodHandle setTrackE;
-    private final MethodHandle setTrackF;
-    private final MethodHandle setTrackG;
-    private final MethodHandle setTrackH;
-    private final MethodHandle setTrackI;
-    private final MethodHandle setTrackJ;
-    private final MethodHandle frameCtor;
-    private final MethodHandle setFrameA;
 
-    private final MethodHandle acquireTrackHandle;
-    private final MethodHandle releaseTrackHandle;
-    private final MethodHandle acquireFrameHandle;
-    private final MethodHandle releaseFrameHandle;
     private final MethodHandle decimalFormatHandle;
     private final MethodHandle subframeFormatHandle;
     private final MethodHandle timecodePrefixHandle;
@@ -142,10 +106,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
 
     private Properties installedProperties;
     private Object previousActiveSlot;
-    private Object previousAcquireTrackSlot;
-    private Object previousReleaseTrackSlot;
-    private Object previousAcquireFrameSlot;
-    private Object previousReleaseFrameSlot;
     private Object previousDecimalSlot;
     private Object previousSubframeSlot;
     private Object previousTimecodePrefixSlot;
@@ -153,45 +113,9 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     private Object previousRulerTimecodeSlot;
     private Object previousRulerFrameSlot;
 
-    /**
-     * Constructs an animation acceleration bridge bound to reviewed host context types.
-     *
-     * @param hostLoader class loader supplying Cubism animation classes
-     * @param target reviewed target metadata defining context class names
-     */
-    public AnimationAccelerationBridge(final ClassLoader hostLoader, final AnimationAccelerationTarget target) {
-        Objects.requireNonNull(hostLoader, "hostLoader");
-        Objects.requireNonNull(target, "target");
+    AnimationAccelerationBridge() {
         try {
             final MethodHandles.Lookup caller = MethodHandles.lookup();
-            final Class<?> trackType = HostHandles.load(hostLoader, target.trackContextOwner());
-            final MethodHandles.Lookup trackLookup = MethodHandles.privateLookupIn(trackType, caller);
-            trackCtor = trackLookup
-                    .findConstructor(trackType, MethodType.methodType(void.class, boolean.class))
-                    .asType(MethodType.methodType(Object.class, boolean.class));
-            setTrackA = bindSetter(trackLookup, trackType, FIELD_A, boolean.class);
-            setTrackB = bindSetter(trackLookup, trackType, FIELD_B, int.class);
-            setTrackC = bindSetter(trackLookup, trackType, FIELD_C, boolean.class);
-            setTrackD = bindSetter(trackLookup, trackType, FIELD_D, boolean.class);
-            setTrackE = bindSetter(trackLookup, trackType, FIELD_E, Double.class);
-            setTrackF = bindSetter(trackLookup, trackType, FIELD_F, boolean.class);
-            setTrackG = bindSetter(trackLookup, trackType, FIELD_G, boolean.class);
-            setTrackH = bindOptionalObjectSetter(trackLookup, trackType, FIELD_H);
-            setTrackI = bindOptionalBooleanSetter(trackLookup, trackType, FIELD_I);
-            setTrackJ = bindOptionalBooleanSetter(trackLookup, trackType, FIELD_J);
-
-            final Class<?> frameType = HostHandles.load(hostLoader, AnimationAccelerationTarget.FRAME_TIME_OWNER);
-            final MethodHandles.Lookup frameLookup = MethodHandles.privateLookupIn(frameType, caller);
-            frameCtor = frameLookup
-                    .findConstructor(frameType, MethodType.methodType(void.class, int.class))
-                    .asType(MethodType.methodType(Object.class, int.class));
-            setFrameA = bindSetter(frameLookup, frameType, FIELD_A, int.class);
-
-            acquireTrackHandle = caller.bind(this, "acquireTrackContext", MethodType.methodType(Object.class));
-            releaseTrackHandle =
-                    caller.bind(this, "releaseTrackContext", MethodType.methodType(void.class, Object.class));
-            acquireFrameHandle = caller.bind(this, "acquireFrameTime", MethodType.methodType(Object.class, int.class));
-            releaseFrameHandle = caller.bind(this, "releaseFrameTime", MethodType.methodType(void.class, Object.class));
             decimalFormatHandle = caller.bind(
                     this, "formatDecimal", MethodType.methodType(String.class, DecimalFormat.class, double.class));
             subframeFormatHandle = caller.bind(
@@ -213,41 +137,76 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     }
 
     /**
+     * Constructs an animation acceleration bridge bound to reviewed formatting handles.
+     *
+     * @param hostLoader class loader supplying Cubism animation classes
+     * @param target reviewed target metadata defining target descriptors
+     */
+    public AnimationAccelerationBridge(final ClassLoader hostLoader, final AnimationAccelerationTarget target) {
+        this();
+        Objects.requireNonNull(hostLoader, "hostLoader");
+        Objects.requireNonNull(target, "target");
+    }
+
+    /**
      * Records the policy-derived default activation state evaluated when system overrides are unset.
      *
      * @param enabled policy toggle state for the current launch
      */
     public static void setConfiguredDefault(final boolean enabled) {
         configuredDefault = enabled;
+        refreshEnabled();
     }
 
     /**
-     * Reports whether animation acceleration should run under current system properties.
+     * Re-evaluates system override properties against {@code configuredDefault} and refreshes live bridges.
+     *
+     * @return updated activation state visible to {@link #isEnabled()} and installed gates
+     */
+    public static boolean refreshEnabled() {
+        final boolean enabled = computeEnabled();
+        resolvedEnabled = enabled;
+        synchronized (LIVE_BRIDGES) {
+            for (final AnimationAccelerationBridge bridge : LIVE_BRIDGES) {
+                bridge.updateOperational();
+            }
+        }
+        return enabled;
+    }
+
+    /**
+     * Reports whether animation acceleration should run under the cached launch and override
+     * configuration.
      *
      * @return {@code true} when active override or policy default enables acceleration
      */
     public static boolean isEnabled() {
-        final String validation = System.getProperty(VALIDATION_PROPERTY);
-        if (validation != null) {
-            return Boolean.parseBoolean(validation);
+        return resolvedEnabled;
+    }
+
+    private static boolean computeEnabled() {
+        try {
+            final String validation = System.getProperty(VALIDATION_PROPERTY);
+            if (validation != null) {
+                return Boolean.parseBoolean(validation);
+            }
+            final String property = System.getProperty(ENABLE_PROPERTY);
+            return property == null ? configuredDefault : Boolean.parseBoolean(property);
+        } catch (final SecurityException denied) {
+            return false;
         }
-        final String property = System.getProperty(ENABLE_PROPERTY);
-        return property == null ? configuredDefault : Boolean.parseBoolean(property);
     }
 
     /**
-     * Publishes the active gate and formatting or pooling handles into {@link System#getProperties()}.
+     * Publishes the active gate and formatting handles into {@link System#getProperties()}.
      */
     public synchronized void install() {
         final Properties properties = System.getProperties();
         if (installedProperties != null) {
             return;
         }
+        refreshEnabled();
         previousActiveSlot = properties.get(ACTIVE_PROPERTY);
-        previousAcquireTrackSlot = properties.get(ACQUIRE_TRACK_CTX_PROPERTY);
-        previousReleaseTrackSlot = properties.get(RELEASE_TRACK_CTX_PROPERTY);
-        previousAcquireFrameSlot = properties.get(ACQUIRE_FRAME_TIME_PROPERTY);
-        previousReleaseFrameSlot = properties.get(RELEASE_FRAME_TIME_PROPERTY);
         previousDecimalSlot = properties.get(DECIMAL_FORMAT_PROPERTY);
         previousSubframeSlot = properties.get(SUBFRAME_FORMAT_PROPERTY);
         previousTimecodePrefixSlot = properties.get(TIMECODE_PREFIX_PROPERTY);
@@ -256,11 +215,9 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
         previousRulerFrameSlot = properties.get(RULER_FRAME_PROPERTY);
 
         active.set(true);
+        LIVE_BRIDGES.add(this);
+        updateOperational();
         properties.put(ACTIVE_PROPERTY, activeGate);
-        properties.put(ACQUIRE_TRACK_CTX_PROPERTY, acquireTrackHandle);
-        properties.put(RELEASE_TRACK_CTX_PROPERTY, releaseTrackHandle);
-        properties.put(ACQUIRE_FRAME_TIME_PROPERTY, acquireFrameHandle);
-        properties.put(RELEASE_FRAME_TIME_PROPERTY, releaseFrameHandle);
         properties.put(DECIMAL_FORMAT_PROPERTY, decimalFormatHandle);
         properties.put(SUBFRAME_FORMAT_PROPERTY, subframeFormatHandle);
         properties.put(TIMECODE_PREFIX_PROPERTY, timecodePrefixHandle);
@@ -273,6 +230,8 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     @Override
     public synchronized void close() {
         active.set(false);
+        operational = false;
+        LIVE_BRIDGES.remove(this);
         final Properties properties = installedProperties;
         if (properties == null) {
             return;
@@ -280,10 +239,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
         installedProperties = null;
         try {
             restoreSlot(properties, ACTIVE_PROPERTY, activeGate, previousActiveSlot);
-            restoreSlot(properties, ACQUIRE_TRACK_CTX_PROPERTY, acquireTrackHandle, previousAcquireTrackSlot);
-            restoreSlot(properties, RELEASE_TRACK_CTX_PROPERTY, releaseTrackHandle, previousReleaseTrackSlot);
-            restoreSlot(properties, ACQUIRE_FRAME_TIME_PROPERTY, acquireFrameHandle, previousAcquireFrameSlot);
-            restoreSlot(properties, RELEASE_FRAME_TIME_PROPERTY, releaseFrameHandle, previousReleaseFrameSlot);
             restoreSlot(properties, DECIMAL_FORMAT_PROPERTY, decimalFormatHandle, previousDecimalSlot);
             restoreSlot(properties, SUBFRAME_FORMAT_PROPERTY, subframeFormatHandle, previousSubframeSlot);
             restoreSlot(properties, TIMECODE_PREFIX_PROPERTY, timecodePrefixHandle, previousTimecodePrefixSlot);
@@ -294,10 +249,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
             FatalErrors.rethrowIfFatal(failure);
         } finally {
             previousActiveSlot = null;
-            previousAcquireTrackSlot = null;
-            previousReleaseTrackSlot = null;
-            previousAcquireFrameSlot = null;
-            previousReleaseFrameSlot = null;
             previousDecimalSlot = null;
             previousSubframeSlot = null;
             previousTimecodePrefixSlot = null;
@@ -307,113 +258,8 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
         }
     }
 
-    /**
-     * Borrows a clean track evaluation context object from the caller thread's pool.
-     *
-     * @return reusable context instance initialized to match {@code new Ctx(false)}
-     */
-    public Object acquireTrackContext() {
-        final ThreadState state = threadState.get();
-        try {
-            final int depth = state.trackDepth;
-            if (depth >= MAX_POOL_DEPTH) {
-                return (Object) trackCtor.invokeExact(false);
-            }
-            Object ctx = state.trackContexts[depth];
-            if (ctx == null) {
-                ctx = (Object) trackCtor.invokeExact(false);
-                state.trackContexts[depth] = ctx;
-            }
-            state.trackDepth = depth + 1;
-            return ctx;
-        } catch (final Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("failed to acquire track context", failure);
-        }
-    }
-
-    /**
-     * Resets and returns a borrowed track evaluation context back to the caller thread's pool.
-     *
-     * @param ctx context instance returned by {@link #acquireTrackContext()}
-     */
-    public void releaseTrackContext(final Object ctx) {
-        if (ctx == null) {
-            return;
-        }
-        final ThreadState state = threadState.get();
-        final int depth = state.trackDepth;
-        if (depth <= 0 || state.trackContexts[depth - 1] != ctx) {
-            return;
-        }
-        try {
-            // Reset every mutable field to constructor defaults so pooled re-use leaks no prior pass state.
-            setTrackA.invokeExact(ctx, false);
-            setTrackB.invokeExact(ctx, 0);
-            setTrackC.invokeExact(ctx, false);
-            setTrackD.invokeExact(ctx, false);
-            setTrackE.invokeExact(ctx, (Double) null);
-            setTrackF.invokeExact(ctx, true);
-            setTrackG.invokeExact(ctx, false);
-            if (setTrackH != null) {
-                setTrackH.invokeExact(ctx, (Object) null);
-            }
-            if (setTrackI != null) {
-                setTrackI.invokeExact(ctx, false);
-            }
-            if (setTrackJ != null) {
-                setTrackJ.invokeExact(ctx, true);
-            }
-            state.trackDepth = depth - 1;
-        } catch (final Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            state.trackContexts[depth - 1] = null;
-            state.trackDepth = depth - 1;
-        }
-    }
-
-    /**
-     * Borrows a frame-time wrapper configured with {@code frame} from the caller thread's pool.
-     *
-     * @param frame timeline frame index
-     * @return frame-time wrapper carrying {@code frame}
-     */
-    public Object acquireFrameTime(final int frame) {
-        final ThreadState state = threadState.get();
-        try {
-            final int depth = state.frameDepth;
-            if (depth >= MAX_POOL_DEPTH) {
-                return (Object) frameCtor.invokeExact(frame);
-            }
-            Object wrapper = state.frameTimes[depth];
-            if (wrapper == null) {
-                wrapper = (Object) frameCtor.invokeExact(frame);
-                state.frameTimes[depth] = wrapper;
-            } else {
-                setFrameA.invokeExact(wrapper, frame);
-            }
-            state.frameDepth = depth + 1;
-            return wrapper;
-        } catch (final Throwable failure) {
-            FatalErrors.rethrowIfFatal(failure);
-            throw new IllegalStateException("failed to acquire frame time wrapper", failure);
-        }
-    }
-
-    /**
-     * Returns a borrowed frame-time wrapper back to the caller thread's pool.
-     *
-     * @param wrapper wrapper instance returned by {@link #acquireFrameTime(int)}
-     */
-    public void releaseFrameTime(final Object wrapper) {
-        if (wrapper == null) {
-            return;
-        }
-        final ThreadState state = threadState.get();
-        final int depth = state.frameDepth;
-        if (depth > 0 && state.frameTimes[depth - 1] == wrapper) {
-            state.frameDepth = depth - 1;
-        }
+    private void updateOperational() {
+        operational = active.get() && resolvedEnabled;
     }
 
     /**
@@ -670,34 +516,6 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
         return table;
     }
 
-    private static MethodHandle bindSetter(
-            final MethodHandles.Lookup lookup, final Class<?> owner, final String name, final Class<?> fieldType)
-            throws ReflectiveOperationException {
-        return lookup.findSetter(owner, name, fieldType)
-                .asType(MethodType.methodType(void.class, Object.class, fieldType));
-    }
-
-    private static MethodHandle bindOptionalBooleanSetter(
-            final MethodHandles.Lookup lookup, final Class<?> owner, final String name) throws IllegalAccessException {
-        try {
-            return lookup.findSetter(owner, name, boolean.class)
-                    .asType(MethodType.methodType(void.class, Object.class, boolean.class));
-        } catch (final NoSuchFieldException absent) {
-            return null;
-        }
-    }
-
-    private static MethodHandle bindOptionalObjectSetter(
-            final MethodHandles.Lookup lookup, final Class<?> owner, final String name) throws IllegalAccessException {
-        try {
-            final Field field = owner.getDeclaredField(name);
-            return lookup.findSetter(owner, name, field.getType())
-                    .asType(MethodType.methodType(void.class, Object.class, Object.class));
-        } catch (final NoSuchFieldException absent) {
-            return null;
-        }
-    }
-
     private static void restoreSlot(
             final Properties properties, final String key, final Object expected, final Object previous) {
         if (properties.get(key) == expected) {
@@ -710,15 +528,11 @@ public final class AnimationAccelerationBridge implements AutoCloseable {
     }
 
     private static final class ThreadState {
-        final Object[] trackContexts = new Object[MAX_POOL_DEPTH];
-        final Object[] frameTimes = new Object[MAX_POOL_DEPTH];
         final DecimalCache decimalCache = new DecimalCache();
         final PaddedFrameCache paddedFrameCache = new PaddedFrameCache();
         final RulerTimecodeCache statusTimecodeCache = new RulerTimecodeCache();
         final RulerTimecodeCache rulerTimecodeCache = new RulerTimecodeCache();
         final RawFrameCache rawFrameCache = new RawFrameCache();
-        int trackDepth;
-        int frameDepth;
     }
 
     /** Per-thread bounded direct-mapped cache for {@link DecimalFormat#format(double)} outputs. */

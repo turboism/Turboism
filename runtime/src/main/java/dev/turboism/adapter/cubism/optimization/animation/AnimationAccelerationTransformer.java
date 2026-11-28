@@ -48,9 +48,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
     private static final String DESC_INT_TO_STR = "(I)Ljava/lang/String;";
     private static final String FIELD_TRACK_CHILDREN = "trackChildren";
     private static final String FIELD_BEZIER_HANDLE_COLOR = "color_BezierHandle";
-    private static final String METHOD_VH_D = "d";
-    private static final String METHOD_INIT = "<init>";
-    private static final String DESC_VOID_INT = "(I)V";
     private static final String FMT_PAD5 = "%05d";
     private static final String FMT_TIMECODE_NEG = "-%02d:%02d:";
     private static final String METHOD_TIMELINE_FRAME_B = "b";
@@ -63,16 +60,14 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
     private static final int DRAW_CURVE_FALLBACK_DF_OFFSET = 42;
     private static final int DRAW_CURVE_MAX_TEMP_NEEDED = 45;
     private static final int EXPECTED_FORMAT_NEG_SUBFRAME_CALLS = 4;
+    private static final int EXPECTED_TOTAL_SITES = 7;
 
     private final ClassLoader loader;
     private final Path artifact;
     private final AnimationAccelerationTarget target;
     private final Map<String, byte[]> references;
-    private final List<String> formAnimShape;
-    private final List<String> sceneParamShape;
     private final List<String> groupTestImplShape;
     private final List<String> groupForFaShape;
-    private final List<String> modelTrackShape;
     private final List<String> movieInfoSubframeShape;
     private final List<String> utilsTimecodeShapeBytes;
     private final List<String> headerPaintShape;
@@ -84,10 +79,7 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
     private final AnimationMethodEmitters.GraphDrawCurveShape graphDrawCurveShape;
 
     private volatile String failure;
-    private volatile int formAnimMatches;
-    private volatile int sceneMatches;
     private volatile int groupMatches;
-    private volatile int modelMatches;
     private volatile int movieInfoMatches;
     private volatile int utilsMatches;
     private volatile int headerMatches;
@@ -113,16 +105,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
         this.references = Map.copyOf(Objects.requireNonNull(references, "references"));
         this.target = Objects.requireNonNull(target, "target");
 
-        formAnimShape = requireShape(
-                AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER,
-                AnimationAccelerationTarget.updateTrackInstanceMethod(),
-                AnimationAccelerationTarget.updateTrackInstanceDescriptor());
-        sceneParamShape = target.hasSceneParamCtrlReference()
-                ? requireShape(
-                        AnimationAccelerationTarget.SCENE_INSTANCE_OWNER,
-                        AnimationAccelerationTarget.updateAllParamCtrlRefMethod(),
-                        target.updateAllParamCtrlRefDescriptor())
-                : null;
         groupTestImplShape = requireShape(
                 AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER,
                 AnimationAccelerationTarget.updateTrackInstanceTestImplMethod(),
@@ -131,10 +113,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
                 AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER,
                 AnimationAccelerationTarget.updateTrackInstanceForFaMethod(),
                 target.updateTrackInstanceForFaDescriptor());
-        modelTrackShape = requireShape(
-                AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER,
-                AnimationAccelerationTarget.updateTrackInstanceTestImplMethod(),
-                target.updateTrackInstanceTestImplDescriptor());
         movieInfoSubframeShape = requireShape(
                 AnimationAccelerationTarget.MOVIE_INFO_OWNER,
                 AnimationAccelerationTarget.getDisplaySubframeMethod(),
@@ -168,17 +146,8 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
 
     /** Returns rewritten match count ({@code 0} or {@code 1}) for one owner class internal name. */
     public int matchesFor(final String internalName) {
-        if (AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER.equals(internalName)) {
-            return formAnimMatches;
-        }
-        if (AnimationAccelerationTarget.SCENE_INSTANCE_OWNER.equals(internalName)) {
-            return sceneMatches;
-        }
         if (AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER.equals(internalName)) {
             return groupMatches;
-        }
-        if (AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER.equals(internalName)) {
-            return modelMatches;
         }
         if (AnimationAccelerationTarget.MOVIE_INFO_OWNER.equals(internalName)) {
             return movieInfoMatches;
@@ -197,9 +166,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
 
     /** Returns expected match count for one owner class internal name. */
     public int expectedMatchesFor(final String internalName) {
-        if (AnimationAccelerationTarget.SCENE_INSTANCE_OWNER.equals(internalName)) {
-            return target.hasSceneParamCtrlReference() ? 1 : 0;
-        }
         return target.rewrittenOwners().contains(internalName) ? 1 : 0;
     }
 
@@ -210,7 +176,7 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
 
     /** Returns total expected rewritten method sites for this admitted build. */
     public int expectedTotalSites() {
-        return target.hasSceneParamCtrlReference() ? 10 : 9;
+        return EXPECTED_TOTAL_SITES;
     }
 
     @Override
@@ -281,17 +247,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
             final MethodVisitor delegate,
             final byte[] ownerBytes,
             final int[] applied) {
-        if (AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER.equals(owner)
-                && AnimationAccelerationTarget.updateTrackInstanceMethod().equals(name)
-                && AnimationAccelerationTarget.updateTrackInstanceDescriptor().equals(descriptor)) {
-            return new FormAnimationSetMethodVisitor(delegate, target, applied);
-        }
-        if (AnimationAccelerationTarget.SCENE_INSTANCE_OWNER.equals(owner)
-                && target.hasSceneParamCtrlReference()
-                && AnimationAccelerationTarget.updateAllParamCtrlRefMethod().equals(name)
-                && target.updateAllParamCtrlRefDescriptor().equals(descriptor)) {
-            return new SceneParamCtrlMethodVisitor(delegate, target, applied);
-        }
         if (AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER.equals(owner)) {
             if (AnimationAccelerationTarget.updateTrackInstanceTestImplMethod().equals(name)
                     && target.updateTrackInstanceTestImplDescriptor().equals(descriptor)) {
@@ -303,13 +258,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
                 final int baseLocal = maxLocalIndex(ownerBytes, owner, name, descriptor) + DOUBLE_SLOT_PAD;
                 return new GroupTrackMethodVisitor(delegate, target, true, baseLocal, applied);
             }
-        }
-        if (AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER.equals(owner)
-                && AnimationAccelerationTarget.updateTrackInstanceTestImplMethod()
-                        .equals(name)
-                && target.updateTrackInstanceTestImplDescriptor().equals(descriptor)) {
-            final int baseLocal = maxLocalIndex(ownerBytes, owner, name, descriptor) + DOUBLE_SLOT_PAD;
-            return new Live2DModelTrackMethodVisitor(delegate, baseLocal, applied);
         }
         if (AnimationAccelerationTarget.MOVIE_INFO_OWNER.equals(owner)
                 && AnimationAccelerationTarget.getDisplaySubframeMethod().equals(name)
@@ -351,14 +299,8 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
     }
 
     private void recordMatch(final String owner) {
-        if (AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER.equals(owner)) {
-            formAnimMatches++;
-        } else if (AnimationAccelerationTarget.SCENE_INSTANCE_OWNER.equals(owner)) {
-            sceneMatches++;
-        } else if (AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER.equals(owner)) {
+        if (AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER.equals(owner)) {
             groupMatches++;
-        } else if (AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER.equals(owner)) {
-            modelMatches++;
         } else if (AnimationAccelerationTarget.MOVIE_INFO_OWNER.equals(owner)) {
             movieInfoMatches++;
         } else if (target.timelineUtilsOwner().equals(owner)) {
@@ -371,23 +313,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
     }
 
     private boolean matchesExpectedShapes(final String owner, final byte[] bytes) {
-        if (AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER.equals(owner)) {
-            return matchesShape(
-                    bytes,
-                    owner,
-                    AnimationAccelerationTarget.updateTrackInstanceMethod(),
-                    AnimationAccelerationTarget.updateTrackInstanceDescriptor(),
-                    formAnimShape);
-        }
-        if (AnimationAccelerationTarget.SCENE_INSTANCE_OWNER.equals(owner)) {
-            return !target.hasSceneParamCtrlReference()
-                    || matchesShape(
-                            bytes,
-                            owner,
-                            AnimationAccelerationTarget.updateAllParamCtrlRefMethod(),
-                            target.updateAllParamCtrlRefDescriptor(),
-                            sceneParamShape);
-        }
         if (AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER.equals(owner)) {
             return matchesShape(
                             bytes,
@@ -401,14 +326,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
                             AnimationAccelerationTarget.updateTrackInstanceForFaMethod(),
                             target.updateTrackInstanceForFaDescriptor(),
                             groupForFaShape);
-        }
-        if (AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER.equals(owner)) {
-            return matchesShape(
-                    bytes,
-                    owner,
-                    AnimationAccelerationTarget.updateTrackInstanceTestImplMethod(),
-                    target.updateTrackInstanceTestImplDescriptor(),
-                    modelTrackShape);
         }
         if (AnimationAccelerationTarget.MOVIE_INFO_OWNER.equals(owner)) {
             return matchesShape(
@@ -697,74 +614,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
         return max[0];
     }
 
-    private static final class FormAnimationSetMethodVisitor extends MethodVisitor {
-        private final AnimationAccelerationTarget target;
-        private final int[] applied;
-        private Label origTryStart;
-        private boolean injected;
-
-        FormAnimationSetMethodVisitor(
-                final MethodVisitor delegate, final AnimationAccelerationTarget target, final int[] applied) {
-            super(Opcodes.ASM9, delegate);
-            this.target = target;
-            this.applied = applied;
-        }
-
-        @Override
-        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
-            if (type == null && origTryStart == null) {
-                origTryStart = start;
-            }
-            super.visitTryCatchBlock(start, end, handler, type);
-        }
-
-        @Override
-        public void visitLabel(final Label label) {
-            if (!injected && label == origTryStart) {
-                injected = true;
-                final Label fallback = new Label();
-                AnimationMethodEmitters.emitFormAnimationFastPath(mv, target, fallback);
-                mv.visitLabel(fallback);
-                applied[0]++;
-            }
-            super.visitLabel(label);
-        }
-    }
-
-    private static final class SceneParamCtrlMethodVisitor extends MethodVisitor {
-        private final AnimationAccelerationTarget target;
-        private final int[] applied;
-        private boolean sawAthrow;
-        private boolean injected;
-
-        SceneParamCtrlMethodVisitor(
-                final MethodVisitor delegate, final AnimationAccelerationTarget target, final int[] applied) {
-            super(Opcodes.ASM9, delegate);
-            this.target = target;
-            this.applied = applied;
-        }
-
-        @Override
-        public void visitInsn(final int opcode) {
-            if (opcode == Opcodes.ATHROW) {
-                sawAthrow = true;
-            }
-            super.visitInsn(opcode);
-        }
-
-        @Override
-        public void visitVarInsn(final int opcode, final int varIndex) {
-            if (sawAthrow && !injected && opcode == Opcodes.ALOAD && varIndex == 0) {
-                injected = true;
-                final Label fallback = new Label();
-                AnimationMethodEmitters.emitSceneParamCtrlFastPath(mv, target, fallback);
-                mv.visitLabel(fallback);
-                applied[0]++;
-            }
-            super.visitVarInsn(opcode, varIndex);
-        }
-    }
-
     private static final class GroupTrackMethodVisitor extends MethodVisitor {
         private final AnimationAccelerationTarget target;
         private final boolean forFa;
@@ -828,160 +677,6 @@ public final class AnimationAccelerationTransformer implements ClassFileTransfor
                 mv.visitLabel(fastExitBridge);
                 applied[0]++;
             }
-        }
-    }
-
-    private static final class Live2DModelTrackMethodVisitor extends MethodVisitor {
-        private final int baseLocal;
-        private final int[] applied;
-        private int state;
-        private int steppedVar;
-
-        Live2DModelTrackMethodVisitor(final MethodVisitor delegate, final int baseLocal, final int[] applied) {
-            super(Opcodes.ASM9, delegate);
-            this.baseLocal = baseLocal;
-            this.applied = applied;
-        }
-
-        private void flush() {
-            if (state == 0) {
-                return;
-            }
-            super.visitTypeInsn(Opcodes.NEW, AnimationAccelerationTarget.FRAME_TIME_OWNER);
-            if (state >= 2) {
-                super.visitInsn(Opcodes.DUP);
-            }
-            if (state >= 3) {
-                super.visitVarInsn(Opcodes.ILOAD, steppedVar);
-            }
-            if (state >= 4) {
-                super.visitMethodInsn(
-                        Opcodes.INVOKESPECIAL,
-                        AnimationAccelerationTarget.FRAME_TIME_OWNER,
-                        METHOD_INIT,
-                        DESC_VOID_INT,
-                        false);
-            }
-            state = 0;
-        }
-
-        @Override
-        public void visitTypeInsn(final int opcode, final String type) {
-            if (state == 0 && opcode == Opcodes.NEW && AnimationAccelerationTarget.FRAME_TIME_OWNER.equals(type)) {
-                state = 1;
-                return;
-            }
-            flush();
-            super.visitTypeInsn(opcode, type);
-        }
-
-        @Override
-        public void visitInsn(final int opcode) {
-            if (state == 1 && opcode == Opcodes.DUP) {
-                state = 2;
-                return;
-            }
-            flush();
-            super.visitInsn(opcode);
-        }
-
-        @Override
-        public void visitVarInsn(final int opcode, final int varIndex) {
-            if (state == 2 && opcode == Opcodes.ILOAD) {
-                steppedVar = varIndex;
-                state = 3;
-                return;
-            }
-            flush();
-            super.visitVarInsn(opcode, varIndex);
-        }
-
-        @Override
-        public void visitMethodInsn(
-                final int opcode, final String owner, final String name, final String descriptor, final boolean itf) {
-            if (state == 3
-                    && opcode == Opcodes.INVOKESPECIAL
-                    && AnimationAccelerationTarget.FRAME_TIME_OWNER.equals(owner)
-                    && METHOD_INIT.equals(name)
-                    && DESC_VOID_INT.equals(descriptor)) {
-                state = 4;
-                return;
-            }
-            if (state == 4
-                    && opcode == Opcodes.INVOKEVIRTUAL
-                    && AnimationAccelerationTarget.VISUAL_HANDLER_OWNER.equals(owner)
-                    && METHOD_VH_D.equals(name)) {
-                state = 0;
-                AnimationMethodEmitters.emitVisualHandlerCall(mv, steppedVar, baseLocal);
-                applied[0]++;
-                return;
-            }
-            flush();
-            super.visitMethodInsn(opcode, owner, name, descriptor, itf);
-        }
-
-        @Override
-        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
-            flush();
-            super.visitFieldInsn(opcode, owner, name, descriptor);
-        }
-
-        @Override
-        public void visitJumpInsn(final int opcode, final Label label) {
-            flush();
-            super.visitJumpInsn(opcode, label);
-        }
-
-        @Override
-        public void visitLabel(final Label label) {
-            flush();
-            super.visitLabel(label);
-        }
-
-        @Override
-        public void visitIntInsn(final int opcode, final int operand) {
-            flush();
-            super.visitIntInsn(opcode, operand);
-        }
-
-        @Override
-        public void visitLdcInsn(final Object value) {
-            flush();
-            super.visitLdcInsn(value);
-        }
-
-        @Override
-        public void visitIincInsn(final int varIndex, final int increment) {
-            flush();
-            super.visitIincInsn(varIndex, increment);
-        }
-
-        @Override
-        public void visitInvokeDynamicInsn(
-                final String name,
-                final String descriptor,
-                final Handle bootstrapMethodHandle,
-                final Object... bootstrapMethodArguments) {
-            flush();
-            super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
-        }
-
-        @Override
-        public void visitMultiANewArrayInsn(final String descriptor, final int numDimensions) {
-            flush();
-            super.visitMultiANewArrayInsn(descriptor, numDimensions);
-        }
-
-        @Override
-        public void visitTableSwitchInsn(final int min, final int max, final Label dflt, final Label... labels) {
-            flush();
-            super.visitTableSwitchInsn(min, max, dflt, labels);
-        }
-
-        @Override
-        public void visitLookupSwitchInsn(final Label dflt, final int[] keys, final Label[] labels) {
-            flush();
-            super.visitLookupSwitchInsn(dflt, keys, labels);
         }
     }
 

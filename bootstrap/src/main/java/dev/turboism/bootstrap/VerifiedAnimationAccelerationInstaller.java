@@ -108,31 +108,10 @@ final class VerifiedAnimationAccelerationInstaller implements AutoCloseable {
         source.load(AnimationAccelerationTarget.FRAME_TIME_OWNER);
         HostMemberVerifier.requireMethod(source.load(target.trackContextOwner()), "g", "()Z");
 
-        final Class<?> formAnimClass = source.load(AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER);
-        HostMemberVerifier.requireField(
-                formAnimClass, "trackInstance", "L" + AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER + ";");
-        HostMemberVerifier.requireField(formAnimClass, "isTrackUpdating", "Z");
-        HostMemberVerifier.requireField(formAnimClass, "lastTrackUpdateFramePosForFormAnimation", "I");
-        HostMemberVerifier.requireField(formAnimClass, "last_trackUpdateParamVersion", "I");
-
-        if (target.hasSceneParamCtrlReference()) {
-            HostMemberVerifier.requireMethod(
-                    source.load(AnimationAccelerationTarget.SCENE_INSTANCE_OWNER),
-                    "getRootTrack",
-                    "()L" + AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER + ";");
-        }
         HostMemberVerifier.requireField(
                 source.load(AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER),
                 "trackChildren",
                 "L" + AnimationAccelerationTarget.ARRAY_LIST_OWNER + ";");
-        HostMemberVerifier.requireMethod(
-                source.load(AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER),
-                "getModelInstance",
-                "()L" + AnimationAccelerationTarget.MODEL_OWNER + ";");
-        HostMemberVerifier.requireMethod(
-                source.load(AnimationAccelerationTarget.VISUAL_HANDLER_OWNER),
-                "d",
-                "(L" + AnimationAccelerationTarget.FRAME_TIME_OWNER + ";)D");
 
         final Class<?> movieInfoClass = source.load(AnimationAccelerationTarget.MOVIE_INFO_OWNER);
         HostMemberVerifier.requireMethod(movieInfoClass, "getDisplayTimeSubFrame", "(I)I");

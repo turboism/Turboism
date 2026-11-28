@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.physics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -136,6 +137,55 @@ class PhysicsAccelerationArtifactTest {
     }
 
     @Test
+    void activeGateCachesEnablementAndRefreshesOnConfigOrValidationChange() {
+        final String prevValidation = System.getProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY);
+        final String prevEnable = System.getProperty(PhysicsAccelerationBridge.ENABLE_PROPERTY);
+        try (PhysicsAccelerationBridge bridge = new PhysicsAccelerationBridge()) {
+            System.clearProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY);
+            System.clearProperty(PhysicsAccelerationBridge.ENABLE_PROPERTY);
+            PhysicsAccelerationBridge.setConfiguredDefault(true);
+            bridge.install();
+
+            @SuppressWarnings("unchecked")
+            final java.util.function.Predicate<Object> gate = (java.util.function.Predicate<Object>)
+                    System.getProperties().get(PhysicsAccelerationBridge.ACTIVE_PROPERTY);
+            assertNotNull(gate);
+            assertTrue(PhysicsAccelerationBridge.isEnabled());
+            assertTrue(gate.test(null));
+
+            // Steady-state reads stay cached without polling system properties per physics step.
+            System.setProperty(PhysicsAccelerationBridge.ENABLE_PROPERTY, Boolean.FALSE.toString());
+            assertTrue(PhysicsAccelerationBridge.isEnabled());
+            assertTrue(gate.test(null));
+
+            assertFalse(PhysicsAccelerationBridge.refreshEnabled());
+            assertFalse(gate.test(null));
+
+            System.clearProperty(PhysicsAccelerationBridge.ENABLE_PROPERTY);
+            PhysicsAccelerationBridge.setConfiguredDefault(false);
+            assertFalse(PhysicsAccelerationBridge.isEnabled());
+            assertFalse(gate.test(null));
+
+            System.setProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY, Boolean.TRUE.toString());
+            assertTrue(PhysicsAccelerationBridge.refreshEnabled());
+            assertTrue(gate.test(null));
+        } finally {
+            PhysicsAccelerationBridge.setConfiguredDefault(true);
+            restoreProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY, prevValidation);
+            restoreProperty(PhysicsAccelerationBridge.ENABLE_PROPERTY, prevEnable);
+            PhysicsAccelerationBridge.refreshEnabled();
+        }
+    }
+
+    private static void restoreProperty(final String key, final String previous) {
+        if (previous == null) {
+            System.clearProperty(key);
+        } else {
+            System.setProperty(key, previous);
+        }
+    }
+
+    @Test
     void physicsSimulationMatchesBitExactAcrossModernAndLegacyEvaluators() throws Throwable {
         final Path root = referenceRoot();
         final Path modernArtifact =
@@ -175,6 +225,7 @@ class PhysicsAccelerationArtifactTest {
             bridge.install();
             final String prevValidation = System.getProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY);
             System.setProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY, Boolean.TRUE.toString());
+            PhysicsAccelerationBridge.refreshEnabled();
             try {
                 runBitExactParitySuite(originalLoader, rewrittenLoader, evaluatorOwner, bridge, target.version());
             } finally {
@@ -183,6 +234,7 @@ class PhysicsAccelerationArtifactTest {
                 } else {
                     System.setProperty(PhysicsAccelerationBridge.VALIDATION_PROPERTY, prevValidation);
                 }
+                PhysicsAccelerationBridge.refreshEnabled();
             }
         }
     }

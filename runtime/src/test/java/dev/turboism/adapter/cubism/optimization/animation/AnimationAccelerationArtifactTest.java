@@ -2,12 +2,10 @@ package dev.turboism.adapter.cubism.optimization.animation;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -31,7 +29,6 @@ import java.lang.invoke.MethodType;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -100,15 +97,12 @@ class AnimationAccelerationArtifactTest {
     private static final int CURVE_POINTS = 1500;
     private static final int CANVAS_WIDTH = 280;
     private static final int CANVAS_HEIGHT = 220;
-    private static final int POOL_OVERFLOW_DEPTH = 40;
     private static final int PARITY_FRAME_POS = 99_999;
 
     private static final String SCENE_SOURCE_OWNER = "com/live2d/cubism/doc/animation/CSceneSource";
     private static final String ANIMATION_OWNER = "com/live2d/cubism/doc/animation/CAnimation";
     private static final String TRACK_GROUP_SOURCE_OWNER =
             "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Group_Source";
-    private static final String TRACK_MODEL_SOURCE_OWNER =
-            "com/live2d/cubism/doc/animation/movie/track/CMvTrack_Live2DModel_Source";
     private static final String ATTR_F_OWNER = "com/live2d/cubism/doc/animation/movie/effect/attr/CMvAttrF";
     private static final String ATTR_ID_OWNER = "com/live2d/cubism/doc/model/id/CAttrId";
     private static final String TRACK_SOURCE_INTERFACE = "com/live2d/cubism/doc/animation/movie/track/ICMvTrack_Source";
@@ -221,23 +215,24 @@ class AnimationAccelerationArtifactTest {
                 AnimationAccelerationBridge bridge = new AnimationAccelerationBridge(rewrittenLoader, target);
                 SwingGlobalStateGuard swingGuard = SwingGlobalStateGuard.capture()) {
             installTransformedOwners(originalLoader, rewrittenLoader, artifact, domain, refs, target);
-            bridge.install();
             final String prevValidation = System.getProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY);
             System.setProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY, Boolean.TRUE.toString());
+            bridge.install();
             try {
                 assertBridgeHelperContracts(bridge);
                 assertMovieInfoSubFrameParity(originalLoader, rewrittenLoader, target.version(), true);
-                assertTrackEvaluationAndPoolingParity(originalLoader, rewrittenLoader, bridge, target);
+                assertTrackEvaluationParity(originalLoader, rewrittenLoader, bridge, target, target.version());
                 bridge.close();
                 assertMovieInfoSubFrameParity(originalLoader, rewrittenLoader, target.version() + " rollback", false);
-                assertTrackEvaluationRollbackParity(
-                        originalLoader, rewrittenLoader, target, target.version() + " rollback");
+                assertTrackEvaluationParity(
+                        originalLoader, rewrittenLoader, null, target, target.version() + " rollback");
             } finally {
                 if (prevValidation == null) {
                     System.clearProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY);
                 } else {
                     System.setProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY, prevValidation);
                 }
+                AnimationAccelerationBridge.refreshEnabled();
             }
         }
     }
@@ -355,54 +350,46 @@ class AnimationAccelerationArtifactTest {
         }
     }
 
-    private static void assertTrackEvaluationAndPoolingParity(
-            final ClassLoader originalLoader,
-            final ClassLoader rewrittenLoader,
-            final AnimationAccelerationBridge bridge,
-            final AnimationAccelerationTarget target)
-            throws Exception {
-        final String version = target.version();
-        // Pool uses a LIFO per-thread stack, capping retained depth cleanly.
-        final Object ctx1 = bridge.acquireTrackContext();
-        final Object ctx2 = bridge.acquireTrackContext();
-        assertNotSame(ctx1, ctx2);
-        bridge.releaseTrackContext(ctx2);
-        final Object ctx2Again = bridge.acquireTrackContext();
-        assertSame(ctx2, ctx2Again, version + " track context LIFO pool reuse (top)");
-        bridge.releaseTrackContext(ctx2Again);
-        bridge.releaseTrackContext(ctx1);
-        final Object ctx1Again = bridge.acquireTrackContext();
-        assertSame(ctx1, ctx1Again, version + " track context LIFO pool reuse (base)");
-        bridge.releaseTrackContext(ctx1Again);
+    @Test
+    void activeGateCachesEnablementAndRefreshesOnConfigOrValidationChange() {
+        final String prevValidation = System.getProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY);
+        final String prevEnable = System.getProperty(AnimationAccelerationBridge.ENABLE_PROPERTY);
+        try (AnimationAccelerationBridge bridge = new AnimationAccelerationBridge()) {
+            System.clearProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY);
+            System.clearProperty(AnimationAccelerationBridge.ENABLE_PROPERTY);
+            AnimationAccelerationBridge.setConfiguredDefault(true);
+            bridge.install();
 
-        final List<Object> overflow = new ArrayList<>();
-        for (int i = 0; i < POOL_OVERFLOW_DEPTH; i++) {
-            overflow.add(bridge.acquireTrackContext());
+            @SuppressWarnings("unchecked")
+            final java.util.function.Predicate<Object> gate = (java.util.function.Predicate<Object>)
+                    System.getProperties().get(AnimationAccelerationBridge.ACTIVE_PROPERTY);
+            assertNotNull(gate);
+            assertTrue(AnimationAccelerationBridge.isEnabled());
+            assertTrue(gate.test(null));
+
+            // Steady-state reads stay cached without polling system properties per frame.
+            System.setProperty(AnimationAccelerationBridge.ENABLE_PROPERTY, Boolean.FALSE.toString());
+            assertTrue(AnimationAccelerationBridge.isEnabled());
+            assertTrue(gate.test(null));
+
+            assertFalse(AnimationAccelerationBridge.refreshEnabled());
+            assertFalse(gate.test(null));
+
+            System.clearProperty(AnimationAccelerationBridge.ENABLE_PROPERTY);
+            AnimationAccelerationBridge.setConfiguredDefault(false);
+            assertFalse(AnimationAccelerationBridge.isEnabled());
+            assertFalse(gate.test(null));
+
+            System.setProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY, Boolean.TRUE.toString());
+            assertTrue(AnimationAccelerationBridge.refreshEnabled());
+            assertTrue(gate.test(null));
+        } finally {
+            AnimationAccelerationBridge.setConfiguredDefault(true);
+            SwingGlobalStateGuard.restoreSystemProperty(
+                    AnimationAccelerationBridge.VALIDATION_PROPERTY, prevValidation);
+            SwingGlobalStateGuard.restoreSystemProperty(AnimationAccelerationBridge.ENABLE_PROPERTY, prevEnable);
+            AnimationAccelerationBridge.refreshEnabled();
         }
-        for (int i = overflow.size() - 1; i >= 0; i--) {
-            bridge.releaseTrackContext(overflow.get(i));
-        }
-
-        final Object ft1 = bridge.acquireFrameTime(12);
-        final Field fieldA = ft1.getClass().getDeclaredField("a");
-        fieldA.setAccessible(true);
-        assertEquals(12, fieldA.getInt(ft1));
-        bridge.releaseFrameTime(ft1);
-        final Object ft2 = bridge.acquireFrameTime(99);
-        assertSame(ft1, ft2, version + " frame time pool reuse");
-        assertEquals(99, fieldA.getInt(ft2));
-        bridge.releaseFrameTime(ft2);
-
-        assertTrackEvaluationParity(originalLoader, rewrittenLoader, bridge, target, version);
-    }
-
-    private static void assertTrackEvaluationRollbackParity(
-            final ClassLoader originalLoader,
-            final ClassLoader rewrittenLoader,
-            final AnimationAccelerationTarget target,
-            final String label)
-            throws Exception {
-        assertTrackEvaluationParity(originalLoader, rewrittenLoader, null, target, label);
     }
 
     private static void assertTrackEvaluationParity(
@@ -412,157 +399,8 @@ class AnimationAccelerationArtifactTest {
             final AnimationAccelerationTarget target,
             final String label)
             throws Exception {
-        final Class<?> origFaCls = load(originalLoader, AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER);
-        final Class<?> rewrFaCls = load(rewrittenLoader, AnimationAccelerationTarget.FORM_ANIMATION_SET_OWNER);
-        final Object origFa = newWiredFormAnimationSet(originalLoader, origFaCls);
-        final Object rewrFa = newWiredFormAnimationSet(rewrittenLoader, rewrFaCls);
-        final Method origUpdateFa = origFaCls.getMethod("updateTrackInstance", int.class, boolean.class);
-        final Method rewrUpdateFa = rewrFaCls.getMethod("updateTrackInstance", int.class, boolean.class);
-
-        final Object expectedTopCtx = bridge == null ? null : bridge.acquireTrackContext();
-        final Object expectedFrameTime = bridge == null ? null : bridge.acquireFrameTime(0);
-        if (bridge != null) {
-            bridge.releaseTrackContext(expectedTopCtx);
-            bridge.releaseFrameTime(expectedFrameTime);
-        }
-
-        // Verify cache-hit skip path on wired FormAnimationSet preserves identical state without error.
-        seedCachedFrameState(origFaCls, origFa);
-        seedCachedFrameState(rewrFaCls, rewrFa);
-        origUpdateFa.invoke(origFa, PARITY_FRAME_POS, false);
-        rewrUpdateFa.invoke(rewrFa, PARITY_FRAME_POS, false);
-        assertFormAnimationStateEqual(origFaCls, origFa, rewrFaCls, rewrFa, label + " cache-hit eval");
-
-        // Fast path enters trackInstance.updateTrackInstance_testImpl; without workbench UI singleton both
-        // throw identical UninitializedPropertyAccessException, and catch handler returns pooled handles.
-        final InvocationTargetException origFastEx = assertThrows(
-                InvocationTargetException.class, () -> origUpdateFa.invoke(origFa, PARITY_FRAME_POS + 1, false));
-        final InvocationTargetException rewrFastEx = assertThrows(
-                InvocationTargetException.class, () -> rewrUpdateFa.invoke(rewrFa, PARITY_FRAME_POS + 1, false));
-        assertEquals(
-                origFastEx.getCause().getClass().getName(),
-                rewrFastEx.getCause().getClass().getName(),
-                label + " fast-path cause");
-        assertFormAnimationStateEqual(origFaCls, origFa, rewrFaCls, rewrFa, label + " fast-path exception");
-        assertPooledHandlesReturned(bridge, expectedTopCtx, expectedFrameTime, label + " after fast-path exception");
-
-        // Verify null trackInstance throws identically and catch block still cleans up flags and pooled handles.
-        final Object origUnwired = origFaCls.getConstructor().newInstance();
-        final Object rewrUnwired = rewrFaCls.getConstructor().newInstance();
-        final InvocationTargetException origNpe =
-                assertThrows(InvocationTargetException.class, () -> origUpdateFa.invoke(origUnwired, 17, false));
-        final InvocationTargetException rewrNpe =
-                assertThrows(InvocationTargetException.class, () -> rewrUpdateFa.invoke(rewrUnwired, 17, false));
-        assertTrue(origNpe.getCause() instanceof NullPointerException, label);
-        assertTrue(rewrNpe.getCause() instanceof NullPointerException, label);
-        assertFormAnimationStateEqual(origFaCls, origUnwired, rewrFaCls, rewrUnwired, label + " exception rollback");
-        assertPooledHandlesReturned(bridge, expectedTopCtx, expectedFrameTime, label + " after NPE exception");
-
-        if (target.hasSceneParamCtrlReference()) {
-            verifySceneParamCtrlTraversal(originalLoader, rewrittenLoader, target, label);
-            assertPooledHandlesReturned(bridge, expectedTopCtx, expectedFrameTime, label + " after scene update");
-        }
-
         // Verify CMvTrack_Group_Instance indexed traversal & child state match unmodified host.
         verifyGroupTraversal(originalLoader, rewrittenLoader, label);
-    }
-
-    private static void seedCachedFrameState(final Class<?> faCls, final Object fa) throws Exception {
-        final Field frameField = faCls.getDeclaredField("lastTrackUpdateFramePosForFormAnimation");
-        frameField.setAccessible(true);
-        frameField.setInt(fa, PARITY_FRAME_POS);
-        final Field paramField = faCls.getDeclaredField("last_trackUpdateParamVersion");
-        paramField.setAccessible(true);
-        paramField.setInt(fa, 0);
-    }
-
-    private static void assertPooledHandlesReturned(
-            final AnimationAccelerationBridge bridge,
-            final Object expectedTopCtx,
-            final Object expectedFrameTime,
-            final String label) {
-        if (bridge == null) {
-            return;
-        }
-        final Object reacquiredCtx = bridge.acquireTrackContext();
-        final Object reacquiredTime = bridge.acquireFrameTime(0);
-        assertSame(expectedTopCtx, reacquiredCtx, label + " track context");
-        assertSame(expectedFrameTime, reacquiredTime, label + " frame time");
-        bridge.releaseTrackContext(reacquiredCtx);
-        bridge.releaseFrameTime(reacquiredTime);
-    }
-
-    private static void verifySceneParamCtrlTraversal(
-            final ClassLoader origLoader,
-            final ClassLoader rewrLoader,
-            final AnimationAccelerationTarget target,
-            final String label)
-            throws Exception {
-        invokeSceneParamCtrlUpdate(origLoader, target, 5);
-        invokeSceneParamCtrlUpdate(rewrLoader, target, 5);
-        assertNotEquals(origLoader, rewrLoader, label);
-    }
-
-    private static void invokeSceneParamCtrlUpdate(
-            final ClassLoader loader, final AnimationAccelerationTarget target, final int frame) throws Exception {
-        final Class<?> sceneCls = load(loader, AnimationAccelerationTarget.SCENE_INSTANCE_OWNER);
-        final Class<?> groupCls = load(loader, AnimationAccelerationTarget.TRACK_GROUP_INSTANCE_OWNER);
-        final Class<?> ctxCls = load(loader, target.trackContextOwner());
-        final Object scene = sceneCls.getConstructor().newInstance();
-        final Object rootGroup = buildNestedGroup(loader);
-        final Method setRootTrack = sceneCls.getDeclaredMethod("set_rootTrack", groupCls);
-        setRootTrack.setAccessible(true);
-        setRootTrack.invoke(scene, rootGroup);
-        final Object ctx = ctxCls.getConstructor(boolean.class).newInstance(false);
-        sceneCls.getMethod("updateAllParamCtrlReference", int.class, ctxCls).invoke(scene, frame, ctx);
-    }
-
-    private static Object newWiredFormAnimationSet(final ClassLoader loader, final Class<?> faCls) throws Exception {
-        final Object fa = faCls.getConstructor().newInstance();
-        final Object model = load(loader, AnimationAccelerationTarget.MODEL_OWNER)
-                .getConstructor()
-                .newInstance();
-        final Object trackSrc =
-                load(loader, TRACK_MODEL_SOURCE_OWNER).getConstructor().newInstance();
-        final Class<?> trackInstCls = load(loader, AnimationAccelerationTarget.TRACK_MODEL_INSTANCE_OWNER);
-        final Object trackInst = trackInstCls.getConstructor().newInstance();
-        final Field modelField = trackInstCls.getDeclaredField("_modelInstance");
-        modelField.setAccessible(true);
-        modelField.set(trackInst, model);
-        final Field sourceField = trackInstCls.getDeclaredField("_source");
-        sourceField.setAccessible(true);
-        sourceField.set(trackInst, trackSrc);
-        final Field trackField = faCls.getDeclaredField("trackInstance");
-        trackField.setAccessible(true);
-        trackField.set(fa, trackInst);
-        return fa;
-    }
-
-    private static void assertFormAnimationStateEqual(
-            final Class<?> origFaCls,
-            final Object origFa,
-            final Class<?> rewrFaCls,
-            final Object rewrFa,
-            final String label)
-            throws Exception {
-        assertEquals(
-                origFaCls
-                        .getMethod("getLastTrackUpdateFramePosForFormAnimation")
-                        .invoke(origFa),
-                rewrFaCls
-                        .getMethod("getLastTrackUpdateFramePosForFormAnimation")
-                        .invoke(rewrFa),
-                label + " FormAnimationSet frame pos");
-        final Field origParamVer = origFaCls.getDeclaredField("last_trackUpdateParamVersion");
-        final Field rewrParamVer = rewrFaCls.getDeclaredField("last_trackUpdateParamVersion");
-        origParamVer.setAccessible(true);
-        rewrParamVer.setAccessible(true);
-        assertEquals(origParamVer.getInt(origFa), rewrParamVer.getInt(rewrFa), label + " paramVersion");
-        final Field origUpdating = origFaCls.getDeclaredField("isTrackUpdating");
-        final Field rewrUpdating = rewrFaCls.getDeclaredField("isTrackUpdating");
-        origUpdating.setAccessible(true);
-        rewrUpdating.setAccessible(true);
-        assertEquals(origUpdating.getBoolean(origFa), rewrUpdating.getBoolean(rewrFa), label + " isTrackUpdating");
     }
 
     private static void verifyGroupTraversal(
@@ -627,9 +465,9 @@ class AnimationAccelerationArtifactTest {
                 AnimationAccelerationBridge bridge = new AnimationAccelerationBridge(rewrittenLoader, target);
                 SwingGlobalStateGuard swingGuard = SwingGlobalStateGuard.capture()) {
             installTransformedOwners(originalLoader, rewrittenLoader, artifact, domain, refs, target);
-            bridge.install();
             final String prevValidation = System.getProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY);
             System.setProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY, Boolean.TRUE.toString());
+            bridge.install();
             try {
                 final CurveScene origScene = setupGraphEditorScene(originalLoader);
                 final CurveScene rewrScene = setupGraphEditorScene(rewrittenLoader);
@@ -648,6 +486,7 @@ class AnimationAccelerationArtifactTest {
                 } else {
                     System.setProperty(AnimationAccelerationBridge.VALIDATION_PROPERTY, prevValidation);
                 }
+                AnimationAccelerationBridge.refreshEnabled();
             }
         }
     }

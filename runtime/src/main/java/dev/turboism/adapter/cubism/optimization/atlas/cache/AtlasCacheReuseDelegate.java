@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Content-signature guard for {@code CTextureAtlas.updateTexture(boolean, boolean, a.a)}.
@@ -90,6 +91,10 @@ public final class AtlasCacheReuseDelegate {
 
     private static volatile HostAccess access;
 
+    private static final long BYTES_PER_PIXEL = 4L;
+    private static final String UNCOMPUTABLE_DIGEST = "";
+    private static final ThreadLocal<PreparedPageReuse> ACTIVE_PREPARED = new ThreadLocal<>();
+
     /**
      * Optional file mirror for verdicts; set once via
      * {@code -Dturboism.atlasCacheReuse.evidenceFile=<path>}. Validation runs only.
@@ -97,6 +102,122 @@ public final class AtlasCacheReuseDelegate {
     private static final String evidenceFile = System.getProperty("turboism.atlasCacheReuse.evidenceFile");
 
     private AtlasCacheReuseDelegate() {}
+
+    /**
+     * Creates a thread-safe per-batch pixel-digest memoization cache for parallel Phase-2 workers.
+     *
+     * @return fresh batch digest cache
+     */
+    public static BatchDigestCache newBatchDigestCache() {
+        return new BatchDigestCache();
+    }
+
+    /**
+     * Evaluates atlas reuse eligibility and copies retained outputs off the owner thread during
+     * Phase 2.
+     *
+     * @param hostClass patched {@code CTextureAtlas} class
+     * @param atlas target atlas page instance
+     * @param privatePath edge-fill flag controlling composite path
+     * @param batchCache optional shared per-batch pixel-digest cache
+     * @return prepared decision carrying pre-computed signature and any off-EDT copy, or {@code null}
+     */
+    public static PreparedPageReuse prepareReuseOffEdt(
+            final Class<?> hostClass,
+            final Object atlas,
+            final boolean privatePath,
+            final BatchDigestCache batchCache) {
+        try {
+            final HostAccess host = resolve(hostClass);
+            final Object current = signature(host, atlas, privatePath, batchCache);
+            if (current == null) {
+                return PreparedPageReuse.miss(hostClass, atlas, privatePath, PreparedPageReuse.Kind.UNREADABLE, null);
+            }
+            final Object cache = host.cachedAtlasImage.get(atlas);
+            final Record stored = RECORDS.get(atlas);
+            if (cache == null) {
+                final Output output = output(current);
+                if (output != null && output.image != null) {
+                    final Object copy = copyWritableImage(host, output.image);
+                    if (copy != null) {
+                        return PreparedPageReuse.supplied(hostClass, atlas, privatePath, copy, current);
+                    }
+                }
+                return PreparedPageReuse.miss(hostClass, atlas, privatePath, PreparedPageReuse.Kind.MISS, current);
+            }
+            if (stored != null) {
+                if (stored.cache == cache && current.equals(stored.signature)) {
+                    return PreparedPageReuse.verifiedHit(
+                            hostClass, atlas, privatePath, PreparedPageReuse.Kind.HIT, cache, current);
+                }
+                return PreparedPageReuse.miss(hostClass, atlas, privatePath, PreparedPageReuse.Kind.MISS, current);
+            }
+            final Output output = output(current);
+            if (output == null) {
+                return PreparedPageReuse.miss(hostClass, atlas, privatePath, PreparedPageReuse.Kind.MISS, current);
+            }
+            if (output.digest != null) {
+                final BufferedImage installed = bufferedImage(host, cache);
+                final String installedDigest = installed == null ? null : pixelDigest(installed);
+                if (output.digest.equals(installedDigest)) {
+                    return PreparedPageReuse.verifiedHit(
+                            hostClass, atlas, privatePath, PreparedPageReuse.Kind.VERIFIED, cache, current);
+                }
+            }
+            if (output.image != null) {
+                final Object copy = copyWritableImage(host, output.image);
+                if (copy != null) {
+                    return PreparedPageReuse.supplied(hostClass, atlas, privatePath, copy, current);
+                }
+            }
+            return PreparedPageReuse.miss(hostClass, atlas, privatePath, PreparedPageReuse.Kind.MISS, current);
+        } catch (final Throwable unreadable) {
+            FatalErrors.rethrowIfFatal(unreadable);
+            return null;
+        }
+    }
+
+    /**
+     * Computes the produced output page SHA-256 digest on a Phase-2 worker thread so Phase-3
+     * owner commit records the build without hashing on the EDT.
+     *
+     * @param hostClass patched {@code CTextureAtlas} class
+     * @param prepared prepared decision from {@link #prepareReuseOffEdt}
+     * @param bakedWritable worker-composited {@code CWritableImage}
+     */
+    public static void prepareBakedOutputOffEdt(
+            final Class<?> hostClass, final PreparedPageReuse prepared, final Object bakedWritable) {
+        if (prepared == null || prepared.signature == null || bakedWritable == null) {
+            return;
+        }
+        try {
+            final HostAccess host = resolve(hostClass);
+            final Object image = host.wiBuffered.invoke(bakedWritable);
+            if (image instanceof BufferedImage produced) {
+                prepared.attachBaked(
+                        bakedWritable,
+                        pixelDigest(produced),
+                        (long) produced.getWidth() * produced.getHeight() * BYTES_PER_PIXEL);
+            }
+        } catch (final Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+        }
+    }
+
+    /**
+     * Binds a Phase-2 prepared reuse decision onto the current thread before Phase-3
+     * {@code updateTexture} commit.
+     *
+     * @param prepared prepared page decision from {@link #prepareReuseOffEdt}
+     */
+    public static void beginPreparedCommit(final PreparedPageReuse prepared) {
+        ACTIVE_PREPARED.set(prepared);
+    }
+
+    /** Clears the current thread's bound Phase-2 prepared reuse decision after Phase-3 commit. */
+    public static void endPreparedCommit() {
+        ACTIVE_PREPARED.remove();
+    }
 
     /**
      * Proves every host handle resolves through the loader that defined the patched class.
@@ -129,7 +250,14 @@ public final class AtlasCacheReuseDelegate {
     public static boolean tryReuse(final Class<?> hostClass, final Object atlas, final boolean privatePath) {
         try {
             final HostAccess host = resolve(hostClass);
-            final Object current = signature(host, atlas, privatePath);
+            final PreparedPageReuse prepared = ACTIVE_PREPARED.get();
+            if (prepared != null && prepared.matches(hostClass, atlas, privatePath)) {
+                final Boolean fastResult = tryPreparedReuse(host, atlas, prepared);
+                if (fastResult != null) {
+                    return fastResult;
+                }
+            }
+            final Object current = signature(host, atlas, privatePath, null);
             if (current == null) return report(atlas, "miss:unreadable-signature");
             final Object cache = host.cachedAtlasImage.get(atlas);
             final Record stored = RECORDS.get(atlas);
@@ -189,7 +317,12 @@ public final class AtlasCacheReuseDelegate {
             final HostAccess host = resolve(hostClass);
             final Object cache = host.cachedAtlasImage.get(atlas);
             if (cache == null) return;
-            final Object signature = signature(host, atlas, privatePath);
+            final PreparedPageReuse prepared = ACTIVE_PREPARED.get();
+            if (prepared != null && prepared.matches(hostClass, atlas, privatePath)) {
+                rebuiltPrepared(host, atlas, cache, prepared);
+                return;
+            }
+            final Object signature = signature(host, atlas, privatePath, null);
             if (signature != null) {
                 RECORDS.put(atlas, new Record(cache, signature));
                 final BufferedImage produced = bufferedImage(host, cache);
@@ -198,12 +331,71 @@ public final class AtlasCacheReuseDelegate {
                             signature,
                             pixelDigest(produced),
                             host.resImage.invoke(cache),
-                            (long) produced.getWidth() * produced.getHeight() * 4L);
+                            (long) produced.getWidth() * produced.getHeight() * BYTES_PER_PIXEL);
                 }
             }
         } catch (Throwable unrecordable) {
             FatalErrors.rethrowIfFatal(unrecordable);
             // Losing the record only loses reuse; the host rebuild stays correct.
+        }
+    }
+
+    private static Boolean tryPreparedReuse(final HostAccess host, final Object atlas, final PreparedPageReuse prepared)
+            throws Throwable {
+        switch (prepared.kind) {
+            case HIT -> {
+                if (host.cachedAtlasImage.get(atlas) == prepared.expectedCache) {
+                    host.setDirty.invoke(atlas, false);
+                    return report(atlas, "reuse");
+                }
+                return null;
+            }
+            case VERIFIED -> {
+                if (host.cachedAtlasImage.get(atlas) == prepared.expectedCache) {
+                    RECORDS.put(atlas, new Record(prepared.expectedCache, prepared.signature));
+                    host.setDirty.invoke(atlas, false);
+                    return report(atlas, "reuse:content");
+                }
+                return null;
+            }
+            case SUPPLIED -> {
+                if (installSuppliedWritable(host, atlas, prepared.suppliedWritable)) {
+                    RECORDS.put(atlas, new Record(host.cachedAtlasImage.get(atlas), prepared.signature));
+                    return report(atlas, "reuse:supplied");
+                }
+                return null;
+            }
+            case MISS -> {
+                return report(atlas, "miss:prepared");
+            }
+            case UNREADABLE -> {
+                return report(atlas, "miss:unreadable-signature");
+            }
+        }
+        return null;
+    }
+
+    private static void rebuiltPrepared(
+            final HostAccess host, final Object atlas, final Object cache, final PreparedPageReuse prepared)
+            throws Throwable {
+        final Object signature = prepared.signature;
+        if (signature == null) {
+            RECORDS.remove(atlas);
+            return;
+        }
+        RECORDS.put(atlas, new Record(cache, signature));
+        final Object resWritable = host.resImage.invoke(cache);
+        if (prepared.bakedAttached && resWritable == prepared.bakedWritable) {
+            recordOutput(signature, prepared.bakedDigest, resWritable, prepared.bakedBytes);
+            return;
+        }
+        final BufferedImage produced = bufferedImage(host, cache);
+        if (produced != null) {
+            recordOutput(
+                    signature,
+                    pixelDigest(produced),
+                    resWritable,
+                    (long) produced.getWidth() * produced.getHeight() * BYTES_PER_PIXEL);
         }
     }
 
@@ -287,10 +479,20 @@ public final class AtlasCacheReuseDelegate {
      *
      * @return {@code true} when the supplied resource is installed
      */
-    private static boolean supply(final HostAccess host, final Object atlas, final Object image) {
+    private static Object copyWritableImage(final HostAccess host, final Object image) {
         try {
-            final Object copy = host.wiCopyAs.invoke(image, null, true);
-            if (copy == null) return false;
+            return host.wiCopyAs.invoke(image, null, true);
+        } catch (Throwable uncopied) {
+            FatalErrors.rethrowIfFatal(uncopied);
+            return null;
+        }
+    }
+
+    private static boolean installSuppliedWritable(final HostAccess host, final Object atlas, final Object copy) {
+        if (copy == null) {
+            return false;
+        }
+        try {
             final Object resource = host.resCtor.newInstance(copy, host.defaultColorType, false);
             host.setCachedAtlasImage.invoke(atlas, resource);
             if (host.cachedAtlasImage.get(atlas) != resource) return false;
@@ -302,6 +504,10 @@ public final class AtlasCacheReuseDelegate {
             FatalErrors.rethrowIfFatal(unsupplied);
             return false;
         }
+    }
+
+    private static boolean supply(final HostAccess host, final Object atlas, final Object image) {
+        return installSuppliedWritable(host, atlas, copyWritableImage(host, image));
     }
 
     /**
@@ -352,7 +558,8 @@ public final class AtlasCacheReuseDelegate {
      * degenerate into a comparable placeholder: two unknown contents are not equal
      * contents, so any uncomputable component discards the whole signature.
      */
-    private static Object signature(final HostAccess host, final Object atlas, final boolean privatePath)
+    private static Object signature(
+            final HostAccess host, final Object atlas, final boolean privatePath, final BatchDigestCache batchCache)
             throws Exception {
         final List<Object> sig = new ArrayList<>();
         sig.add(host.width.getInt(atlas));
@@ -373,7 +580,7 @@ public final class AtlasCacheReuseDelegate {
             if (modelImage == null) {
                 term.add("mi:null");
             } else {
-                final Object imageTerm = modelImageTerm(host, modelImage);
+                final Object imageTerm = modelImageTerm(host, modelImage, batchCache);
                 if (imageTerm == null) return null;
                 term.add(imageTerm);
             }
@@ -387,12 +594,13 @@ public final class AtlasCacheReuseDelegate {
      * pixels cannot be read or hashed within budget — the signature then cannot prove
      * what would be drawn and must be discarded.
      */
-    private static Object modelImageTerm(final HostAccess host, final Object modelImage) throws Exception {
+    private static Object modelImageTerm(
+            final HostAccess host, final Object modelImage, final BatchDigestCache batchCache) throws Exception {
         final Object resource = host.miFiltered.invoke(modelImage);
         if (resource == null) return null;
         final BufferedImage pixels = bufferedImage(host, resource);
         if (pixels == null) return null;
-        final String digest = pixelDigest(pixels);
+        final String digest = batchCache == null ? pixelDigest(pixels) : batchCache.digestOf(pixels);
         if (digest == null) return null;
         final List<Object> term = new ArrayList<>(4);
         term.add(host.miVersion.invoke(modelImage));
@@ -576,6 +784,138 @@ public final class AtlasCacheReuseDelegate {
             this.digest = digest;
             this.image = image;
             this.bytes = bytes;
+        }
+    }
+
+    /** Per-batch thread-safe memoization table avoiding duplicate pixel SHA-256 passes. */
+    public static final class BatchDigestCache {
+        private final ConcurrentHashMap<BufferedImageKey, String> digests = new ConcurrentHashMap<>();
+
+        private BatchDigestCache() {}
+
+        private String digestOf(final BufferedImage image) {
+            final BufferedImageKey key = new BufferedImageKey(image);
+            final String cached = digests.get(key);
+            if (cached != null) {
+                return UNCOMPUTABLE_DIGEST.equals(cached) ? null : cached;
+            }
+            final String computed = pixelDigest(image);
+            final String stored = computed == null ? UNCOMPUTABLE_DIGEST : computed;
+            final String prior = digests.putIfAbsent(key, stored);
+            final String chosen = prior != null ? prior : stored;
+            return UNCOMPUTABLE_DIGEST.equals(chosen) ? null : chosen;
+        }
+    }
+
+    private static final class BufferedImageKey {
+        private final BufferedImage image;
+        private final int hash;
+
+        private BufferedImageKey(final BufferedImage image) {
+            this.image = image;
+            this.hash = System.identityHashCode(image);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof BufferedImageKey that && this.image == that.image;
+        }
+    }
+
+    /**
+     * Off-EDT Phase-2 reuse screening result and optional worker-baked output digest carried into
+     * Phase-3 sequential commit.
+     */
+    public static final class PreparedPageReuse {
+        enum Kind {
+            HIT,
+            VERIFIED,
+            SUPPLIED,
+            MISS,
+            UNREADABLE
+        }
+
+        private final Class<?> atlasClass;
+        private final Object atlas;
+        private final boolean privatePath;
+        private final Kind kind;
+        private final Object signature;
+        private final Object expectedCache;
+        private final Object suppliedWritable;
+        private boolean bakedAttached;
+        private Object bakedWritable;
+        private String bakedDigest;
+        private long bakedBytes;
+
+        private PreparedPageReuse(
+                final Class<?> atlasClass,
+                final Object atlas,
+                final boolean privatePath,
+                final Kind kind,
+                final Object signature,
+                final Object expectedCache,
+                final Object suppliedWritable) {
+            this.atlasClass = atlasClass;
+            this.atlas = atlas;
+            this.privatePath = privatePath;
+            this.kind = kind;
+            this.signature = signature;
+            this.expectedCache = expectedCache;
+            this.suppliedWritable = suppliedWritable;
+        }
+
+        private static PreparedPageReuse verifiedHit(
+                final Class<?> atlasClass,
+                final Object atlas,
+                final boolean privatePath,
+                final Kind kind,
+                final Object expectedCache,
+                final Object signature) {
+            return new PreparedPageReuse(atlasClass, atlas, privatePath, kind, signature, expectedCache, null);
+        }
+
+        private static PreparedPageReuse supplied(
+                final Class<?> atlasClass,
+                final Object atlas,
+                final boolean privatePath,
+                final Object suppliedWritable,
+                final Object signature) {
+            return new PreparedPageReuse(
+                    atlasClass, atlas, privatePath, Kind.SUPPLIED, signature, null, suppliedWritable);
+        }
+
+        private static PreparedPageReuse miss(
+                final Class<?> atlasClass,
+                final Object atlas,
+                final boolean privatePath,
+                final Kind kind,
+                final Object signature) {
+            return new PreparedPageReuse(atlasClass, atlas, privatePath, kind, signature, null, null);
+        }
+
+        /**
+         * Reports whether this prepared page satisfies reuse without re-compositing tiles.
+         *
+         * @return {@code true} for hit, verified, or worker-copied reuse outcomes
+         */
+        public boolean isReuse() {
+            return kind == Kind.HIT || kind == Kind.VERIFIED || kind == Kind.SUPPLIED;
+        }
+
+        private boolean matches(final Class<?> targetClass, final Object targetAtlas, final boolean targetPrivate) {
+            return this.atlasClass == targetClass && this.atlas == targetAtlas && this.privatePath == targetPrivate;
+        }
+
+        private void attachBaked(final Object writable, final String digest, final long bytes) {
+            this.bakedAttached = true;
+            this.bakedWritable = writable;
+            this.bakedDigest = digest;
+            this.bakedBytes = bytes;
         }
     }
 

@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.optimization.atlas.cache;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -544,5 +545,61 @@ final class AtlasCacheReuseDelegateTest {
         assertNull(
                 AtlasCacheReuseDelegate.pixelDigest(overBudget),
                 "over-budget digests must remain uncomputable, never a comparable key");
+    }
+
+    @Test
+    void offEdtPreparedPlanExecutesHashingAndSuppliedCopyBeforeOwnerCommit() throws Exception {
+        final AtlasCacheReuseDelegate.BatchDigestCache batchCache = AtlasCacheReuseDelegate.newBatchDigestCache();
+        final AtlasCacheReuseDelegate.PreparedPageReuse missPlan = java.util.concurrent.CompletableFuture.supplyAsync(
+                        () -> AtlasCacheReuseDelegate.prepareReuseOffEdt(CTextureAtlas.class, atlas, true, batchCache))
+                .get();
+        assertNotNull(missPlan);
+        assertFalse(missPlan.isReuse());
+
+        atlas.setupCacheImage$cubism(true, null);
+        final Object bakedWritable = atlas.getCachedAtlasImage().getImage();
+        java.util.concurrent.CompletableFuture.runAsync(() ->
+                        AtlasCacheReuseDelegate.prepareBakedOutputOffEdt(CTextureAtlas.class, missPlan, bakedWritable))
+                .get();
+
+        AtlasCacheReuseDelegate.beginPreparedCommit(missPlan);
+        try {
+            assertFalse(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, atlas, true));
+            AtlasCacheReuseDelegate.rebuilt(CTextureAtlas.class, atlas, true);
+        } finally {
+            AtlasCacheReuseDelegate.endPreparedCommit();
+        }
+        assertEquals(1, AtlasCacheReuseDelegate.recordCount());
+        assertEquals(1, AtlasCacheReuseDelegate.outputCount());
+
+        final AtlasCacheReuseDelegate.PreparedPageReuse hitPlan = java.util.concurrent.CompletableFuture.supplyAsync(
+                        () -> AtlasCacheReuseDelegate.prepareReuseOffEdt(CTextureAtlas.class, atlas, true, batchCache))
+                .get();
+        assertTrue(hitPlan.isReuse());
+        atlas.setDirty_cachedAtlasImage(true);
+        AtlasCacheReuseDelegate.beginPreparedCommit(hitPlan);
+        try {
+            assertTrue(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, atlas, true));
+        } finally {
+            AtlasCacheReuseDelegate.endPreparedCommit();
+        }
+        assertFalse(atlas.isDirty_cachedAtlasImage());
+
+        final CTextureAtlas copy = new CTextureAtlas(source, 64, 64);
+        copy.addEntry(image.getGuid(), new CAffine(AffineTransform.getTranslateInstance(4, 4)));
+        final AtlasCacheReuseDelegate.PreparedPageReuse suppliedPlan =
+                java.util.concurrent.CompletableFuture.supplyAsync(() ->
+                                AtlasCacheReuseDelegate.prepareReuseOffEdt(CTextureAtlas.class, copy, true, batchCache))
+                        .get();
+        assertTrue(suppliedPlan.isReuse());
+        AtlasCacheReuseDelegate.beginPreparedCommit(suppliedPlan);
+        try {
+            assertTrue(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, copy, true));
+        } finally {
+            AtlasCacheReuseDelegate.endPreparedCommit();
+        }
+        assertEquals(
+                pixelHash(atlas.getCachedAtlasImage().getImage().getJBufferedImage()),
+                pixelHash(copy.getCachedAtlasImage().getImage().getJBufferedImage()));
     }
 }

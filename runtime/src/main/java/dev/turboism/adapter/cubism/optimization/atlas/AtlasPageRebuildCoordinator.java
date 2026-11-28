@@ -158,47 +158,56 @@ public final class AtlasPageRebuildCoordinator {
             return true;
         }
 
-        // Phase 1: Owner-thread prewarm and cache-reuse screening.
-        final boolean[] reused = new boolean[pages.size()];
+        // Phase 1: Lightweight owner-thread input prewarm without SHA-256 hashing or pixel blits.
         final Object[] prewarmedPages = new Object[pages.size()];
-        final List<Integer> dirtyIndices = new ArrayList<>(pages.size());
         for (int i = 0; i < pages.size(); i++) {
             final PageWork page = pages.get(i);
-            if (AtlasCacheReusePatcher.isPatched()
-                    && AtlasCacheReuseDelegate.tryReuse(atlasClass, page.atlas, page.edgeFill)) {
-                reused[i] = true;
-                continue;
-            }
             prewarmedPages[i] = AtlasTilePageCompositor.prewarmAtlasInputs(atlasClass, page.atlas, page.edgeFill);
-            dirtyIndices.add(i);
         }
 
+        final boolean cacheReuseActive = AtlasCacheReusePatcher.isPatched();
+        final AtlasCacheReuseDelegate.BatchDigestCache digestCache =
+                cacheReuseActive ? AtlasCacheReuseDelegate.newBatchDigestCache() : null;
+        final AtlasCacheReuseDelegate.PreparedPageReuse[] preparedReuses =
+                new AtlasCacheReuseDelegate.PreparedPageReuse[pages.size()];
         final Object[] bakedBuffers = new Object[pages.size()];
         try {
-            // Phase 2: Bounded parallel CPU tile compositing touching no CImageResource or GL state.
-            if (!dirtyIndices.isEmpty()) {
-                final List<Runnable> workerTasks = new ArrayList<>(dirtyIndices.size());
-                for (final int idx : dirtyIndices) {
-                    final PageWork page = pages.get(idx);
-                    final Object prewarmed = prewarmedPages[idx];
-                    workerTasks.add(() -> {
-                        if (h.isCanceled(outerProgress)) {
+            // Phase 2: Bounded parallel CPU reuse checks, image copies, tile compositing, and output digests.
+            final List<Runnable> workerTasks = new ArrayList<>(pages.size());
+            for (int i = 0; i < pages.size(); i++) {
+                final int idx = i;
+                final PageWork page = pages.get(idx);
+                final Object prewarmed = prewarmedPages[idx];
+                workerTasks.add(() -> {
+                    if (h.isCanceled(outerProgress)) {
+                        return;
+                    }
+                    AtlasCacheReuseDelegate.PreparedPageReuse decision = null;
+                    if (cacheReuseActive) {
+                        decision = AtlasCacheReuseDelegate.prepareReuseOffEdt(
+                                atlasClass, page.atlas, page.edgeFill, digestCache);
+                        preparedReuses[idx] = decision;
+                        if (decision != null && decision.isReuse()) {
                             return;
                         }
-                        AtlasTilePageCompositor.enterMultiPageWorker();
-                        try {
-                            bakedBuffers[idx] = prewarmed != null
-                                    ? AtlasTilePageCompositor.bakePrewarmedWritableImage(atlasClass, prewarmed, false)
-                                    : AtlasTilePageCompositor.bakeAtlasWritableImage(
-                                            atlasClass, page.atlas, page.edgeFill, null, false);
-                        } finally {
-                            AtlasTilePageCompositor.exitMultiPageWorker();
+                    }
+                    AtlasTilePageCompositor.enterMultiPageWorker();
+                    try {
+                        final Object baked = prewarmed != null
+                                ? AtlasTilePageCompositor.bakePrewarmedWritableImage(atlasClass, prewarmed, false)
+                                : AtlasTilePageCompositor.bakeAtlasWritableImage(
+                                        atlasClass, page.atlas, page.edgeFill, null, false);
+                        bakedBuffers[idx] = baked;
+                        if (cacheReuseActive && decision != null && baked != null) {
+                            AtlasCacheReuseDelegate.prepareBakedOutputOffEdt(atlasClass, decision, baked);
                         }
-                    });
-                }
-                AtlasPageScheduler.forPolicy(AtlasPageScheduler.Policy.PARALLEL_UNIFORM)
-                        .runPages(workerTasks);
+                    } finally {
+                        AtlasTilePageCompositor.exitMultiPageWorker();
+                    }
+                });
             }
+            AtlasPageScheduler.forPolicy(AtlasPageScheduler.Policy.PARALLEL_UNIFORM)
+                    .runPages(workerTasks);
 
             // Phase 3: Sequential owner-thread commit of resources, cache manager, and Swing progress.
             for (int i = 0; i < pages.size(); i++) {
@@ -207,29 +216,40 @@ public final class AtlasPageRebuildCoordinator {
                 }
                 final PageWork page = pages.get(i);
                 final Object targetProgress = page.progress != null ? page.progress : outerProgress;
-                if (reused[i]) {
-                    if (targetProgress != null && page.confirmLambda != null) {
-                        h.invokeProgressSubTask(targetProgress, page.steps, h.noOpFunction());
-                    } else if (targetProgress != null) {
-                        h.stepProgress(targetProgress, PROGRESS_UNIT);
-                    }
-                    h.updateCacheManagerOnly(page.atlas, targetProgress);
-                    continue;
-                }
-
+                final AtlasCacheReuseDelegate.PreparedPageReuse prep = preparedReuses[i];
+                final boolean reused = prep != null && prep.isReuse();
                 final Object baked = bakedBuffers[i];
                 bakedBuffers[i] = null;
-                if (baked != null) {
-                    AtlasTilePageCompositor.putPrebakedImage(page.atlas, baked);
+                if (prep != null) {
+                    AtlasCacheReuseDelegate.beginPreparedCommit(prep);
                 }
                 try {
-                    if (page.confirmLambda != null && targetProgress != null) {
-                        h.invokeProgressSubTask(targetProgress, page.steps, page.confirmLambda);
-                    } else {
-                        commitTexturePageWithProgress(h, page.atlas, page.edgeFill, targetProgress);
+                    if (reused) {
+                        if (targetProgress != null && page.confirmLambda != null) {
+                            h.invokeProgressSubTask(targetProgress, page.steps, h.noOpFunction());
+                        } else if (targetProgress != null) {
+                            h.stepProgress(targetProgress, PROGRESS_UNIT);
+                        }
+                        h.updateTexture(page.atlas, false, page.edgeFill, targetProgress);
+                        continue;
+                    }
+
+                    if (baked != null) {
+                        AtlasTilePageCompositor.putPrebakedImage(page.atlas, baked);
+                    }
+                    try {
+                        if (page.confirmLambda != null && targetProgress != null) {
+                            h.invokeProgressSubTask(targetProgress, page.steps, page.confirmLambda);
+                        } else {
+                            commitTexturePageWithProgress(h, page.atlas, page.edgeFill, targetProgress);
+                        }
+                    } finally {
+                        AtlasTilePageCompositor.consumePrebakedImage(page.atlas);
                     }
                 } finally {
-                    AtlasTilePageCompositor.consumePrebakedImage(page.atlas);
+                    if (prep != null) {
+                        AtlasCacheReuseDelegate.endPreparedCommit();
+                    }
                 }
             }
             return true;
@@ -441,10 +461,6 @@ public final class AtlasPageRebuildCoordinator {
                 updateTexture(atlas, true, edgeFill, progress);
                 return unitInstance;
             });
-        }
-
-        void updateCacheManagerOnly(final Object atlas, final Object progress) {
-            updateTexture(atlas, false, true, progress);
         }
 
         void updateTexture(final Object atlas, final boolean rebuild, final boolean edgeFill, final Object progress) {
