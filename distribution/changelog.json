@@ -36,6 +36,12 @@
       "sections": {
         "added": [
           {
+            "en": "The New User Guide and update release notes cards include a link to support the author.",
+            "zh": "新手引导与更新说明卡片新增支持作者入口。",
+            "ja": "初めての方向けガイドと更新リリースノートカードに作者支援リンクを追加しました。",
+            "ko": "처음 사용 안내 및 업데이트 릴리스 노트 카드에 제작자 후원 링크를 추가했습니다."
+          },
+          {
             "en": "The About window links to the Turboism sponsor page.",
             "zh": "「关于」窗口新增 Turboism 赞助页面链接。",
             "ja": "「バージョン情報」ウィンドウに Turboism のスポンサー支援ページへのリンクを追加しました。",
@@ -79,6 +85,12 @@
           }
         ],
         "changed": [
+          {
+            "en": "Model opening runs faster through hybrid streaming XML deserialization, bounded archive prefetch and buffered ZIP reading, garbage-collection elision with MethodHandle reflection deserialization, inline PNG predecoding, parallel RGBA texture packing, and extended interpolation precompute optimization.",
+            "zh": "模型打开进一步提速：引入混合流式 XML 反序列化、有界归档预取与缓冲 ZIP 读取、GC 省略与 MethodHandle 反射反序列化加速、内联 PNG 预解码、并行 RGBA 纹理打包以及扩展插值并行预计算优化。",
+            "ja": "ハイブリッドストリーミング XML デシリアライズ、有界アーカイブ先読みとバッファ付き ZIP 読み込み、GC 省略と MethodHandle リフレクション高速化、インライン PNG 事前デコード、並列 RGBA テクスチャパッキング、拡張補間の並列事前計算最適化により、モデル読み込みをさらに高速化しました。",
+            "ko": "하이브리드 스트리밍 XML 역직렬화, 제한된 아카이브 프리페치 및 버퍼링된 ZIP 읽기, GC 생략 및 MethodHandle 리플렉션 역직렬화 가속, 인라인 PNG 사전 디코딩, 병렬 RGBA 텍스처 패킹, 확장 보간 병렬 사전 계산 최적화를 통해 모델 열기 속도를 더욱 높였습니다."
+          },
           {
             "en": "Project save and auto-backup (`.cmo3` and `.can3`), large-model opening, `8192×8192` OpenGL texture upload, PSD import and re-import, multi-page texture atlas rebuilds, animation timeline and Graph Editor redraws, and physics simulation run faster with lower memory allocation and no UI-thread stalls during atlas reuse checks.",
             "zh": "工程保存与自动备份（`.cmo3` 与 `.can3`）、大型模型打开、`8192×8192` OpenGL 纹理上传、PSD 导入与重导、多页纹理图集重建、动画时间线与曲线编辑器重绘以及物理模拟运行更快，显著降低内存分配，并消除图集缓存复用检查造成的界面线程停顿。",
