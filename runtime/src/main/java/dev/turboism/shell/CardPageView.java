@@ -228,7 +228,8 @@ final class CardPageView extends JPanel {
             html.append(CLOSING_SECTION_BODY.formatted(ShellHtml.escape(section.body())));
             if (HttpLinks.isAllowed(section.link().url())) {
                 html.append(CLOSING_SECTION_LINK.formatted(
-                        ShellHtml.escape(section.link().url()), ShellHtml.escape(section.link().label())));
+                        ShellHtml.escape(section.link().url()),
+                        ShellHtml.escape(section.link().label())));
             }
         }
         return html.append(PAGE_END).toString();
