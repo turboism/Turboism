@@ -90,4 +90,22 @@ final class InterpolationCurveCacheTest {
         cache.put(first, new InterpolationCurveCache.Result(300_000));
         assertEquals(before, cache.statistics().bytes());
     }
+
+    @Test
+    void viewKeysMatchFullKeysAndDetachBeforeRetention() {
+        var cache = new InterpolationCurveCache();
+        cache.enabled(true);
+        int[] scratch = {7, 11, 999, 888};
+        var view = InterpolationCurveCache.Key.view(5, scratch, 2);
+        assertFalse(cache.admit(view));
+        assertSame(view.detached(), view.detached());
+        var result = new InterpolationCurveCache.Result(2);
+        result.set(0, 1.5f, -2.5f);
+        assertTrue(cache.admit(view));
+        cache.put(view, result);
+        scratch[0] = 42;
+        scratch[1] = 43;
+        assertSame(result, cache.get(new InterpolationCurveCache.Key(5, new int[] {7, 11})));
+        assertNull(cache.get(InterpolationCurveCache.Key.view(5, scratch, 2)));
+    }
 }

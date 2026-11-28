@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
@@ -67,6 +68,27 @@ final class FloatArrayDeserializerParityTest {
                     Float.floatToRawIntBits(actual),
                     "Bit mismatch for token: [" + token + "]");
         }
+
+        final String joined = String.join(" ", edgeCases);
+        final float[] arrayActual = FloatArrayDeserializerBridge.parseFloatArray(edgeCases.size(), joined, true);
+        final byte[] paddedUtf8 = ("prefix:" + joined + ":suffix").getBytes(StandardCharsets.UTF_8);
+        final int utf8Start = "prefix:".length();
+        final int utf8End = paddedUtf8.length - ":suffix".length();
+        final float[] utf8Actual = FloatArrayDeserializerBridge.parseFloatArrayFromUtf8(
+                edgeCases.size(), paddedUtf8, utf8Start, utf8End, true);
+        assertEquals(edgeCases.size(), arrayActual.length);
+        assertEquals(edgeCases.size(), utf8Actual.length);
+        for (int i = 0; i < edgeCases.size(); i++) {
+            final int expectedBits = Float.floatToRawIntBits(Float.parseFloat(edgeCases.get(i)));
+            assertEquals(
+                    expectedBits,
+                    Float.floatToRawIntBits(arrayActual[i]),
+                    "Array bit mismatch for token: [" + edgeCases.get(i) + "]");
+            assertEquals(
+                    expectedBits,
+                    Float.floatToRawIntBits(utf8Actual[i]),
+                    "UTF-8 bit mismatch for token: [" + edgeCases.get(i) + "]");
+        }
     }
 
     @Test
@@ -104,13 +126,17 @@ final class FloatArrayDeserializerParityTest {
             joined.append(text);
         }
 
-        final float[] actual = FloatArrayDeserializerBridge.parseFloatArray(expected.length, joined.toString(), true);
+        final String joinedText = joined.toString();
+        final float[] actual = FloatArrayDeserializerBridge.parseFloatArray(expected.length, joinedText, true);
+        final byte[] utf8 = joinedText.getBytes(StandardCharsets.UTF_8);
+        final float[] utf8Actual =
+                FloatArrayDeserializerBridge.parseFloatArrayFromUtf8(expected.length, utf8, 0, utf8.length, true);
         assertEquals(expected.length, actual.length);
+        assertEquals(expected.length, utf8Actual.length);
         for (int i = 0; i < expected.length; i++) {
-            assertEquals(
-                    Float.floatToRawIntBits(expected[i]),
-                    Float.floatToRawIntBits(actual[i]),
-                    "Bit mismatch at index " + i);
+            final int expectedBits = Float.floatToRawIntBits(expected[i]);
+            assertEquals(expectedBits, Float.floatToRawIntBits(actual[i]), "Bit mismatch at index " + i);
+            assertEquals(expectedBits, Float.floatToRawIntBits(utf8Actual[i]), "UTF-8 bit mismatch at index " + i);
         }
     }
 
@@ -131,5 +157,23 @@ final class FloatArrayDeserializerParityTest {
         }
         assertThrows(
                 IndexOutOfBoundsException.class, () -> FloatArrayDeserializerBridge.parseFloatArray(2, "1.0", false));
+        assertThrows(NumberFormatException.class, () -> FloatArrayDeserializerBridge.parseFloatArray(2, "1.0 ", false));
+        assertThrows(
+                NumberFormatException.class, () -> FloatArrayDeserializerBridge.parseFloatArray(3, "1.0  2.0", false));
+        assertThrows(NumberFormatException.class, () -> FloatArrayDeserializerBridge.parseFloatArray(1, " 1.0", false));
+        assertThrows(
+                NumberFormatException.class, () -> FloatArrayDeserializerBridge.parseFloatArray(2, "1.0 1.5e-", false));
+
+        final byte[] oneTokenUtf8 = "1.0".getBytes(StandardCharsets.UTF_8);
+        assertArrayEquals(
+                new float[0], FloatArrayDeserializerBridge.parseFloatArrayFromUtf8(0, new byte[0], 0, 0, true));
+        assertThrows(
+                AssertionError.class,
+                () -> FloatArrayDeserializerBridge.parseFloatArrayFromUtf8(
+                        2, oneTokenUtf8, 0, oneTokenUtf8.length, true));
+        assertThrows(
+                IndexOutOfBoundsException.class,
+                () -> FloatArrayDeserializerBridge.parseFloatArrayFromUtf8(
+                        2, oneTokenUtf8, 0, oneTokenUtf8.length, false));
     }
 }

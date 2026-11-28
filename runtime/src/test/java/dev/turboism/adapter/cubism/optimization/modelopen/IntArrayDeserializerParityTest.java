@@ -49,6 +49,13 @@ final class IntArrayDeserializerParityTest {
             final int actual = IntArrayDeserializerBridge.parseIntToken(token, 0, token.length());
             assertEquals(expected, actual, "Mismatch for token: [" + token + "]");
         }
+
+        final String joined = String.join(" ", edgeCases);
+        final int[] arrayActual = IntArrayDeserializerBridge.parseIntArray(edgeCases.size(), joined, true);
+        assertEquals(edgeCases.size(), arrayActual.length);
+        for (int i = 0; i < edgeCases.size(); i++) {
+            assertEquals(Integer.parseInt(edgeCases.get(i)), arrayActual[i], "Array mismatch at index " + i);
+        }
     }
 
     @Test
@@ -93,6 +100,12 @@ final class IntArrayDeserializerParityTest {
                     "Expected NumberFormatException for [" + bad + "]");
         }
         assertThrows(IndexOutOfBoundsException.class, () -> IntArrayDeserializerBridge.parseIntArray(2, "1", false));
+        assertThrows(NumberFormatException.class, () -> IntArrayDeserializerBridge.parseIntArray(2, "1 ", false));
+        assertThrows(NumberFormatException.class, () -> IntArrayDeserializerBridge.parseIntArray(3, "1  2", false));
+        assertThrows(NumberFormatException.class, () -> IntArrayDeserializerBridge.parseIntArray(1, " 1", false));
+        assertThrows(
+                NumberFormatException.class, () -> IntArrayDeserializerBridge.parseIntArray(2, "1 2147483648", false));
+        assertThrows(NumberFormatException.class, () -> IntArrayDeserializerBridge.parseIntArray(2, "1 12a", false));
     }
 
     @Test

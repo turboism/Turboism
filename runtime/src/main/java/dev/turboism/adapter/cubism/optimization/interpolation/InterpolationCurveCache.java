@@ -14,31 +14,65 @@ final class InterpolationCurveCache {
     record Statistics(long hits, long misses, long evictions, int entries, long bytes, long byteBudget) {}
 
     static final class Key {
+        private static final int HASH_MULTIPLIER = 31;
+        private static final long KEY_OVERHEAD_BYTES = 32L;
+        private static final long INT_BYTES = 4L;
+
         private final long domain;
         private final int[] input;
+        private final int length;
         private final int hash;
+        private final boolean immutable;
+        private final boolean cacheDetached;
+        private Key detachedCache;
 
         Key(long domain, int[] input) {
-            this(domain, input, true);
+            this(domain, input.clone(), input.length, computeHash(domain, input, input.length), true, false);
         }
 
-        /** Caller transfers a freshly constructed, never-mutated signature. */
+        /** Caller transfers a freshly constructed, never-mutated signature or a pooled scratch array. */
         static Key owned(long domain, int[] input) {
-            return new Key(domain, input, false);
+            return new Key(domain, input, input.length, computeHash(domain, input, input.length), false, false);
         }
 
-        private Key(long domain, int[] input, boolean copy) {
+        /** Transient lookup view over a caller-owned scratch prefix; detaches before cache retention. */
+        static Key view(long domain, int[] input, int length) {
+            return new Key(domain, input, length, computeHash(domain, input, length), false, true);
+        }
+
+        private Key(long domain, int[] input, int length, int hash, boolean immutable, boolean cacheDetached) {
             this.domain = domain;
-            this.input = copy ? input.clone() : input;
-            this.hash = 31 * Long.hashCode(domain) + Arrays.hashCode(this.input);
+            this.input = input;
+            this.length = length;
+            this.hash = hash;
+            this.immutable = immutable;
+            this.cacheDetached = cacheDetached;
+        }
+
+        private static int computeHash(long domain, int[] input, int length) {
+            int arrayHash = 1;
+            for (int i = 0; i < length; i++) {
+                arrayHash = HASH_MULTIPLIER * arrayHash + input[i];
+            }
+            return HASH_MULTIPLIER * Long.hashCode(domain) + arrayHash;
         }
 
         Key detached() {
-            return new Key(domain, input);
+            if (immutable) {
+                return this;
+            }
+            if (cacheDetached && detachedCache != null) {
+                return detachedCache;
+            }
+            Key copy = new Key(domain, Arrays.copyOf(input, length), length, hash, true, false);
+            if (cacheDetached) {
+                detachedCache = copy;
+            }
+            return copy;
         }
 
         long bytes() {
-            return 32L + 4L * input.length;
+            return KEY_OVERHEAD_BYTES + INT_BYTES * length;
         }
 
         @Override
@@ -48,7 +82,11 @@ final class InterpolationCurveCache {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof Key key && domain == key.domain && Arrays.equals(input, key.input);
+            return other instanceof Key key
+                    && domain == key.domain
+                    && hash == key.hash
+                    && length == key.length
+                    && Arrays.equals(input, 0, length, key.input, 0, key.length);
         }
     }
 
@@ -122,11 +160,12 @@ final class InterpolationCurveCache {
     }
 
     private void store(Key key, Result result) {
-        long size = size(key, result);
+        Key storedKey = key.detached();
+        long size = size(storedKey, result);
         if (size > MAX_ENTRY_BYTES) return;
-        boolean replacing = entries.containsKey(key);
-        Result previous = entries.remove(key);
-        if (replacing) bytes -= size(key, previous);
+        boolean replacing = entries.containsKey(storedKey);
+        Result previous = entries.remove(storedKey);
+        if (replacing) bytes -= size(storedKey, previous);
         while (!entries.isEmpty() && (entries.size() >= MAX_ENTRIES || bytes + size > MAX_BYTES)) {
             Iterator<Map.Entry<Key, Result>> iterator = entries.entrySet().iterator();
             Map.Entry<Key, Result> oldest = iterator.next();
@@ -134,7 +173,7 @@ final class InterpolationCurveCache {
             iterator.remove();
             evictions++;
         }
-        entries.put(key, result);
+        entries.put(storedKey, result);
         bytes += size;
     }
 

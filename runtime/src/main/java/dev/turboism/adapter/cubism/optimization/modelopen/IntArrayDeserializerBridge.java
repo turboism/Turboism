@@ -9,6 +9,10 @@ package dev.turboism.adapter.cubism.optimization.modelopen;
 public final class IntArrayDeserializerBridge {
 
     private static final char SPACE_SEPARATOR = ' ';
+    private static final char MINUS_SIGN = '-';
+    private static final char PLUS_SIGN = '+';
+    private static final char DIGIT_ZERO = '0';
+    private static final char DIGIT_NINE = '9';
     private static final int RADIX_TEN = 10;
     private static final int MAX_SAFE_FAST_DIGITS = 9;
     private static final int[] EMPTY_INTS = new int[0];
@@ -17,8 +21,8 @@ public final class IntArrayDeserializerBridge {
     private IntArrayDeserializerBridge() {}
 
     /**
-     * Parses {@code count} space-separated integers from {@code text} without allocating token
-     * lists or per-element substrings.
+     * Parses {@code count} space-separated integers from {@code text} in a single forward pass
+     * without allocating token lists or per-element substrings.
      *
      * @param count declared element count attribute value
      * @param text raw XML element text
@@ -39,10 +43,45 @@ public final class IntArrayDeserializerBridge {
             if (cursor > len) {
                 throw new IndexOutOfBoundsException(index);
             }
-            final int sep = text.indexOf(SPACE_SEPARATOR, cursor);
-            final int tokenEnd = sep >= 0 ? sep : len;
-            result[index] = parseIntToken(text, cursor, tokenEnd);
-            cursor = sep >= 0 ? sep + 1 : len + 1;
+            final int tokenStart = cursor;
+            boolean negative = false;
+            if (cursor < len) {
+                final char firstChar = text.charAt(cursor);
+                if (firstChar == MINUS_SIGN) {
+                    negative = true;
+                    cursor++;
+                } else if (firstChar == PLUS_SIGN) {
+                    cursor++;
+                }
+            }
+            final int digitStart = cursor;
+            int accum = 0;
+            boolean fallback = false;
+            while (cursor < len) {
+                final char ch = text.charAt(cursor);
+                if (ch >= DIGIT_ZERO && ch <= DIGIT_NINE) {
+                    if (cursor - digitStart >= MAX_SAFE_FAST_DIGITS) {
+                        fallback = true;
+                        break;
+                    }
+                    accum = accum * RADIX_TEN + (ch - DIGIT_ZERO);
+                    cursor++;
+                } else if (ch == SPACE_SEPARATOR) {
+                    break;
+                } else {
+                    fallback = true;
+                    break;
+                }
+            }
+            if (!fallback && cursor > digitStart) {
+                result[index] = negative ? -accum : accum;
+                cursor = cursor < len ? cursor + 1 : len + 1;
+            } else {
+                final int sep = text.indexOf(SPACE_SEPARATOR, cursor);
+                final int tokenEnd = sep >= 0 ? sep : len;
+                result[index] = parseIntToken(text, tokenStart, tokenEnd);
+                cursor = sep >= 0 ? sep + 1 : len + 1;
+            }
         }
         return result;
     }
@@ -63,10 +102,10 @@ public final class IntArrayDeserializerBridge {
         int idx = start;
         boolean negative = false;
         final char firstChar = text.charAt(idx);
-        if (firstChar == '-') {
+        if (firstChar == MINUS_SIGN) {
             negative = true;
             idx++;
-        } else if (firstChar == '+') {
+        } else if (firstChar == PLUS_SIGN) {
             idx++;
         }
         final int digitCount = end - idx;
@@ -76,10 +115,10 @@ public final class IntArrayDeserializerBridge {
         int accum = 0;
         while (idx < end) {
             final char ch = text.charAt(idx++);
-            if (ch < '0' || ch > '9') {
+            if (ch < DIGIT_ZERO || ch > DIGIT_NINE) {
                 return Integer.parseInt(text.substring(start, end));
             }
-            accum = accum * RADIX_TEN + (ch - '0');
+            accum = accum * RADIX_TEN + (ch - DIGIT_ZERO);
         }
         return negative ? -accum : accum;
     }

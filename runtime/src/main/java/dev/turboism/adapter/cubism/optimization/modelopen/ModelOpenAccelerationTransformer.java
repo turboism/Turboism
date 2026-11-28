@@ -8,9 +8,11 @@ import java.security.ProtectionDomain;
 /**
  * Coordinates JVMTI classfile transformations that accelerate Cubism model open and texture loading.
  *
- * <p>Registered during agent initialization to patch GL texture uploads, memory-stream PNG decode,
- * bounded parallel pre-decoding, redundant setup elision, float array deserialization, and
- * zero-copy archive reads across Cubism {@code 5.0.00} through {@code 5.3.05}.
+ * <p>Registered during agent initialization to patch GL texture uploads, parallel RGBA texture
+ * packing, memory-stream PNG decode, zero-copy bounded parallel pre-decoding, redundant setup
+ * elision, explicit GC elision, MethodHandle-backed XML deserialization, primitive array
+ * deserialization, buffered archive reading, and zero-copy archive reads across Cubism
+ * {@code 5.0.00} through {@code 5.3.05}.
  */
 public final class ModelOpenAccelerationTransformer implements ClassFileTransformer {
 
@@ -50,6 +52,27 @@ public final class ModelOpenAccelerationTransformer implements ClassFileTransfor
                     || ArchiveReadPatcher.GRAPHICS_READ_LAMBDA.equals(className)
                     || ArchiveReadPatcher.SERIALIZE_READ_LAMBDA.equals(className)) {
                 return ArchiveReadPatcher.tryPatch(className, loader, classfileBuffer);
+            }
+            if (BufferedRandomAccessReadPatcher.TARGET.equals(className)) {
+                return BufferedRandomAccessReadPatcher.tryPatch(className, loader, classfileBuffer);
+            }
+            if (DeserializeGcElisionPatcher.TARGET_INTERNAL_NAME.equals(className)) {
+                byte[] current = classfileBuffer;
+                boolean modified = false;
+                final byte[] gcPatched = DeserializeGcElisionPatcher.tryPatch(className, loader, current);
+                if (gcPatched != null) {
+                    current = gcPatched;
+                    modified = true;
+                }
+                final byte[] streamPatched = StreamingXmlDeserializePatcher.tryPatch(className, loader, current);
+                if (streamPatched != null) {
+                    current = streamPatched;
+                    modified = true;
+                }
+                return modified ? current : null;
+            }
+            if (DeserializeReflectFastPatcher.isSupportedTarget(className)) {
+                return DeserializeReflectFastPatcher.tryPatch(className, loader, classfileBuffer);
             }
             if (ExtendedInterpolationParallelPatcher.isSupportedTarget(className)) {
                 final byte[] extPatched =

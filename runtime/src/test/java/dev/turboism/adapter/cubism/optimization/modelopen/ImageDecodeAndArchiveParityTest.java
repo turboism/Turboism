@@ -11,8 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -96,5 +100,71 @@ final class ImageDecodeAndArchiveParityTest {
         assertEquals(2, ImageDecodeBridge.computeWorkerCount(3));
         assertEquals(6, ImageDecodeBridge.computeWorkerCount(7));
         assertEquals(6, ImageDecodeBridge.computeWorkerCount(32));
+
+        assertEquals(33_554_432L, ImageDecodeBridge.computeMaxInFlightPixels(0L));
+        assertEquals(33_554_432L, ImageDecodeBridge.computeMaxInFlightPixels(512L << 20));
+        assertEquals(33_554_432L, ImageDecodeBridge.computeMaxInFlightPixels(1L << 30));
+        assertEquals(67_108_864L, ImageDecodeBridge.computeMaxInFlightPixels(2L << 30));
+        assertEquals(134_217_728L, ImageDecodeBridge.computeMaxInFlightPixels(4L << 30));
+        assertEquals(201_326_592L, ImageDecodeBridge.computeMaxInFlightPixels(6L << 30));
+        assertEquals(201_326_592L, ImageDecodeBridge.computeMaxInFlightPixels(Long.MAX_VALUE));
+    }
+
+    @Test
+    void immutableImageStreamClaimsBackingArrayZeroCopyAndPreservesProgressWrapper() throws Exception {
+        final BufferedImage expected = new BufferedImage(23, 19, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < expected.getHeight(); y++) {
+            for (int x = 0; x < expected.getWidth(); x++) {
+                expected.setRGB(x, y, ((x * 9 + y * 3) & 0xFF) << 24 | (x * 11) << 16 | (y * 7) << 8 | 0x5A);
+            }
+        }
+        final ByteArrayOutputStream pngOut = new ByteArrayOutputStream();
+        assertTrue(ImageIO.write(expected, "png", pngOut));
+        final byte[] pngBytes = pngOut.toByteArray();
+        final byte[] snapshot = pngBytes.clone();
+
+        final ByteArrayInputStream directStream = ImageDecodeBridge.wrapImmutableImageBytes(pngBytes);
+        assertSame(pngBytes, ImageDecodeBridge.extractRawBytes(directStream));
+        assertEquals(-1, directStream.read());
+
+        final ByteArrayInputStream partialStream = ImageDecodeBridge.wrapImmutableImageBytes(pngBytes);
+        assertEquals(pngBytes[0] & 0xFF, partialStream.read());
+        assertArrayEquals(
+                Arrays.copyOfRange(pngBytes, 1, pngBytes.length), ImageDecodeBridge.extractRawBytes(partialStream));
+
+        final ByteArrayInputStream decodeStream = ImageDecodeBridge.wrapImmutableImageBytes(pngBytes);
+        final BufferedImage directDecoded =
+                ImageDecodeBridge.readBufferedImage(decodeStream, decodeStream, BufferedImage.TYPE_INT_ARGB);
+        assertNotNull(directDecoded);
+        assertEquals(BufferedImage.TYPE_INT_ARGB, directDecoded.getType());
+        assertArrayEquals(expected.getRGB(0, 0, 23, 19, null, 0, 23), directDecoded.getRGB(0, 0, 23, 19, null, 0, 23));
+        assertArrayEquals(snapshot, pngBytes);
+
+        final AtomicInteger bytesThroughWrapper = new AtomicInteger();
+        final ByteArrayInputStream originalStream = ImageDecodeBridge.wrapImmutableImageBytes(pngBytes);
+        final InputStream progressWrapped = new FilterInputStream(originalStream) {
+            @Override
+            public int read() throws IOException {
+                final int b = super.read();
+                if (b >= 0) {
+                    bytesThroughWrapper.incrementAndGet();
+                }
+                return b;
+            }
+
+            @Override
+            public int read(final byte[] b, final int off, final int len) throws IOException {
+                final int n = super.read(b, off, len);
+                if (n > 0) {
+                    bytesThroughWrapper.addAndGet(n);
+                }
+                return n;
+            }
+        };
+        final BufferedImage wrappedDecoded =
+                ImageDecodeBridge.readBufferedImage(progressWrapped, originalStream, BufferedImage.TYPE_INT_ARGB);
+        assertNotNull(wrappedDecoded);
+        assertEquals(pngBytes.length, bytesThroughWrapper.get());
+        assertArrayEquals(expected.getRGB(0, 0, 23, 19, null, 0, 23), wrappedDecoded.getRGB(0, 0, 23, 19, null, 0, 23));
     }
 }
