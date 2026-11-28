@@ -24,11 +24,11 @@ on:
         required: true
         type: string
       framework_publish:
-        description: Framework self-update feed admission; `none` keeps the release GitHub-only
+        description: Framework self-update feed admission; defaults to `admit`, use `none` for GitHub-only
         required: false
-        default: none
+        default: admit
         type: choice
-        options: [none, initialize, admit]
+        options: [admit, initialize, none]
       framework_reactivate:
         description: Re-admit an explicitly withdrawn candidate (never automatic)
         required: false

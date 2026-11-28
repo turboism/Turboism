@@ -943,7 +943,7 @@ class WorkflowContractTest(unittest.TestCase):
             document[True]["workflow_dispatch"]["inputs"]["framework_publish"][
                 "default"
             ],
-            "none",
+            "admit",
         )
         # Only the staging step may see the R2 credentials.
         token_steps = [
