@@ -177,12 +177,12 @@ public final class NativeMeshInterpolationBridge {
     }
 
     @FunctionalInterface
-    private interface VectorSetter {
+    interface VectorSetter {
         void set(Object vector, float x, float y);
     }
 
     @FunctionalInterface
-    private interface FloatGetter {
+    interface FloatGetter {
         float get(Object target);
     }
 
@@ -294,7 +294,7 @@ public final class NativeMeshInterpolationBridge {
             MethodHandle setOriginX,
             MethodHandle setOriginY) {}
 
-    private static final class Access {
+    static final class Access {
         final long cacheDomain = CACHE_DOMAINS.incrementAndGet();
         final Class<?> keyClass;
         final FormAccess meshForm, warpForm, rotationForm;
@@ -460,6 +460,9 @@ public final class NativeMeshInterpolationBridge {
 
         @SuppressWarnings("unchecked")
         static Consumer<Object> directUpdate(Class<?> form) {
+            if (!isHostTypeVisibleToBridge(form)) {
+                return null;
+            }
             try {
                 // The lambda retains the exact official per-point setter; only dispatch changes.
                 var lookup = MethodHandles.lookup();
@@ -480,7 +483,10 @@ public final class NativeMeshInterpolationBridge {
             }
         }
 
-        private static VectorSetter bindVectorSetter(Class<?> vectorClass) {
+        static VectorSetter bindVectorSetter(Class<?> vectorClass) {
+            if (!isHostTypeVisibleToBridge(vectorClass)) {
+                return null;
+            }
             try {
                 var lookup = MethodHandles.lookup();
                 var implementation = lookup.unreflect(vectorClass.getMethod("set", float.class, float.class));
@@ -498,7 +504,10 @@ public final class NativeMeshInterpolationBridge {
             }
         }
 
-        private static FloatGetter bindFloatGetter(Class<?> owner, String methodName) {
+        static FloatGetter bindFloatGetter(Class<?> owner, String methodName) {
+            if (!isHostTypeVisibleToBridge(owner)) {
+                return null;
+            }
             try {
                 var lookup = MethodHandles.lookup();
                 var implementation = lookup.unreflect(owner.getMethod(methodName));
@@ -513,6 +522,20 @@ public final class NativeMeshInterpolationBridge {
             } catch (Throwable unsupported) {
                 FatalErrors.rethrowIfFatal(unsupported);
                 return null;
+            }
+        }
+
+        /**
+         * Verifies that the bridge classloader can resolve {@code hostType} directly.
+         * LambdaMetafactory defines hidden classes in this bridge's classloader; binding a host class
+         * loaded in a child classloader would throw {@link NoClassDefFoundError} on first invocation.
+         */
+        private static boolean isHostTypeVisibleToBridge(Class<?> hostType) {
+            try {
+                return Class.forName(hostType.getName(), false, NativeMeshInterpolationBridge.class.getClassLoader())
+                        == hostType;
+            } catch (ClassNotFoundException | LinkageError unavailable) {
+                return false;
             }
         }
 
