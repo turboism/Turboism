@@ -62,7 +62,7 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite<
 
     private static final String CURRENT_EDIT_MODE = "cubism.editor-model.modeling-document.current-edit-mode";
 
-    /** Components of the row-major 2x3 affine the canvas conversion consumes. */
+    private static final String SET_SOURCE_UVS = "cubism.editor-model.art-mesh-source.set-uvs";
 
     /** Index of the pack among the bridge's token-and-receiver-prefixed arguments. */
     private static final int PACK_ARGUMENT = 2;
@@ -169,9 +169,14 @@ public final class EditorAutoMeshEditableWrite implements AutoMeshEditableWrite<
         switch (target.funnel()) {
             case MESH_EDITOR_MODE ->
                 NativeAutoMeshWrite.replaceGeometry(editableMesh, geometry.pointsXY(), geometry.edgePairs());
-            case MODELING_MODE ->
+            case MODELING_MODE -> {
                 NativeAutoMeshWrite.applyToSource(
                         target.source(), editableMesh, geometry.pointsXY(), geometry.edgePairs());
+                resolver.invoke(
+                        SET_SOURCE_UVS,
+                        target.source(),
+                        geometry.textureUvsFor(NativeAutoMeshWrite.sourcePositions(target.source())));
+            }
         }
         verifyAfterReplace(target.source());
         NativeAutoMeshWrite.publishSourceChange(target.source(), target.completePack());

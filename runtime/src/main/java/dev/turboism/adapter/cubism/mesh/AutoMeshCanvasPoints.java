@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.automesh.AutoMeshWriteLayout;
 import dev.turboism.sdk.cubism.model.Point2;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -22,10 +23,12 @@ final class AutoMeshCanvasPoints {
     private static final int TRIANGLE_VERTICES = 3;
 
     private final float[] pointsXY;
+    private final float[] textureUvs;
     private final int[] edgePairs;
 
-    private AutoMeshCanvasPoints(final float[] pointsXY, final int[] edgePairs) {
+    private AutoMeshCanvasPoints(final float[] pointsXY, final float[] textureUvs, final int[] edgePairs) {
         this.pointsXY = pointsXY;
+        this.textureUvs = textureUvs;
         this.edgePairs = edgePairs;
     }
 
@@ -48,20 +51,33 @@ final class AutoMeshCanvasPoints {
                 AutoMeshUvMapping.of(points(sourceUvs), points(sourcePositions), boxed(sourceIndices));
         final List<Point2> uvs = layout.geometry().uvs();
         final float[] points = new float[uvs.size() * 2];
+        final float[] textureUvs = new float[points.length];
         for (int index = 0; index < uvs.size(); index++) {
-            final Point2 mapped = mapping.map(uvs.get(index).x(), uvs.get(index).y());
+            final Point2 uv = uvs.get(index);
+            final Point2 mapped = mapping.map(uv.x(), uv.y());
             if (!Float.isFinite(mapped.x()) || !Float.isFinite(mapped.y())) {
                 throw new IllegalArgumentException("the layout resolves to a non-finite mesh point");
             }
             points[index * 2] = mapped.x();
             points[index * 2 + 1] = mapped.y();
+            textureUvs[index * 2] = uv.x();
+            textureUvs[index * 2 + 1] = uv.y();
         }
-        return new AutoMeshCanvasPoints(points, uniqueEdges(layout.geometry().triangleIndices(), uvs.size()));
+        return new AutoMeshCanvasPoints(
+                points, textureUvs, uniqueEdges(layout.geometry().triangleIndices(), uvs.size()));
     }
 
     /** @return the canvas points as {@code x0, y0, x1, y1, ...} */
     float[] pointsXY() {
         return pointsXY.clone();
+    }
+
+    /** Preserves each plugin UV when the native source uses the same vertex order. */
+    float[] textureUvsFor(final float[] writtenPositions) {
+        if (!Arrays.equals(pointsXY, writtenPositions)) {
+            throw new IllegalStateException("The native writer changed the generated vertex order or positions.");
+        }
+        return textureUvs.clone();
     }
 
     /** @return the undirected triangle edges as {@code first0, second0, first1, second1, ...} */

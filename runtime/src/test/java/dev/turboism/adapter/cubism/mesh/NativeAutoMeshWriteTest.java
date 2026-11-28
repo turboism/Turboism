@@ -118,20 +118,25 @@ class NativeAutoMeshWriteTest {
         // ArtMesh base space, so a centre uv lands at the centre of the mesh rectangle.
         final AutoMeshWriteLayout layout = AutoMeshWriteLayout.of(new ArtMeshGeometry(
                 List.of(new Point2(0.0f, 0.0f), new Point2(0.0f, 0.0f), new Point2(0.0f, 0.0f)),
-                List.of(new Point2(0.25f, 0.25f), new Point2(0.5f, 0.5f), new Point2(0.75f, 0.25f)),
+                List.of(new Point2(-0.25f, 0.25f), new Point2(0.5f, 0.5f), new Point2(0.75f, 0.25f)),
                 List.of(0, 1, 2)));
 
         final AutoMeshCanvasPoints mesh = AutoMeshCanvasPoints.of(layout, SOURCE_UVS, SOURCE_POSITIONS, SOURCE_INDICES);
 
         assertArrayEquals(
                 new float[] {
-                    MESH_LEFT + MESH_WIDTH * 0.25f, MESH_TOP + MESH_HEIGHT * 0.25f,
-                    MESH_LEFT + MESH_WIDTH * 0.5f, MESH_TOP + MESH_HEIGHT * 0.5f,
-                    MESH_LEFT + MESH_WIDTH * 0.75f, MESH_TOP + MESH_HEIGHT * 0.25f
+                    MESH_LEFT - MESH_WIDTH * 0.25f,
+                    MESH_TOP + MESH_HEIGHT * 0.25f,
+                    MESH_LEFT + MESH_WIDTH * 0.5f,
+                    MESH_TOP + MESH_HEIGHT * 0.5f,
+                    MESH_LEFT + MESH_WIDTH * 0.75f,
+                    MESH_TOP + MESH_HEIGHT * 0.25f
                 },
                 mesh.pointsXY(),
                 MESH_TOLERANCE,
                 "every layout uv maps through the ArtMesh uv-to-base-position correspondence");
+        assertArrayEquals(new float[] {-0.25f, 0.25f, 0.5f, 0.5f, 0.75f, 0.25f}, mesh.textureUvsFor(mesh.pointsXY()));
+        assertThrows(IllegalStateException.class, () -> mesh.textureUvsFor(SOURCE_POSITIONS));
         assertArrayEquals(new int[] {0, 1, 1, 2, 2, 0}, mesh.edgePairs(), "each triangle side appears once");
     }
 
